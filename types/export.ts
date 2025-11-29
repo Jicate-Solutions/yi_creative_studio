@@ -1,0 +1,338 @@
+/**
+ * Export Types - CMYK/RGB Export System
+ * YiCreatives Studio
+ *
+ * Provides types for exporting creatives with color mode conversion.
+ */
+
+// ============================================================
+// COLOR MODES
+// ============================================================
+
+/**
+ * Available color modes for export
+ * - rgb: Standard sRGB for web/screen display
+ * - cmyk-fogra39: FOGRA39 profile for Europe/India printing
+ * - cmyk-swop: SWOP profile for US printing
+ * - cmyk-japan: Japan Color profile for Japan printing
+ */
+export type ColorMode = 'rgb' | 'cmyk-fogra39' | 'cmyk-swop' | 'cmyk-japan';
+
+/**
+ * CMYK ICC profile types
+ */
+export type CMYKProfile = 'fogra39' | 'swop' | 'japan';
+
+/**
+ * Color mode display information
+ */
+export interface ColorModeInfo {
+  id: ColorMode;
+  name: string;
+  description: string;
+  iccProfile: string | null;
+  bestFor: string;
+}
+
+/**
+ * All available color modes with metadata
+ */
+export const COLOR_MODES: ColorModeInfo[] = [
+  {
+    id: 'rgb',
+    name: 'RGB (sRGB)',
+    description: 'Standard RGB color space',
+    iccProfile: 'sRGB.icc',
+    bestFor: 'Web, social media, digital displays',
+  },
+  {
+    id: 'cmyk-fogra39',
+    name: 'CMYK (FOGRA39)',
+    description: 'Europe/India coated print standard',
+    iccProfile: 'FOGRA39.icc',
+    bestFor: 'Professional printing in Europe, India',
+  },
+  {
+    id: 'cmyk-swop',
+    name: 'CMYK (SWOP)',
+    description: 'US web offset printing standard',
+    iccProfile: 'SWOP.icc',
+    bestFor: 'Professional printing in North America',
+  },
+  {
+    id: 'cmyk-japan',
+    name: 'CMYK (Japan Color)',
+    description: 'Japan print standard',
+    iccProfile: 'JapanColor.icc',
+    bestFor: 'Professional printing in Japan, Asia',
+  },
+];
+
+// ============================================================
+// EXPORT FORMATS
+// ============================================================
+
+/**
+ * Available export file formats
+ */
+export type ExportFormat = 'png' | 'jpg' | 'pdf' | 'tiff';
+
+/**
+ * Export format display information
+ */
+export interface ExportFormatInfo {
+  id: ExportFormat;
+  name: string;
+  extension: string;
+  mimeType: string;
+  supportsCMYK: boolean;
+  supportsTransparency: boolean;
+  description: string;
+}
+
+/**
+ * All available export formats with metadata
+ */
+export const EXPORT_FORMATS: ExportFormatInfo[] = [
+  {
+    id: 'png',
+    name: 'PNG',
+    extension: '.png',
+    mimeType: 'image/png',
+    supportsCMYK: false,
+    supportsTransparency: true,
+    description: 'Best for web with transparency support',
+  },
+  {
+    id: 'jpg',
+    name: 'JPEG',
+    extension: '.jpg',
+    mimeType: 'image/jpeg',
+    supportsCMYK: true,
+    supportsTransparency: false,
+    description: 'Compressed format for photos',
+  },
+  {
+    id: 'pdf',
+    name: 'PDF',
+    extension: '.pdf',
+    mimeType: 'application/pdf',
+    supportsCMYK: true,
+    supportsTransparency: true,
+    description: 'Print-ready vector format',
+  },
+  {
+    id: 'tiff',
+    name: 'TIFF',
+    extension: '.tiff',
+    mimeType: 'image/tiff',
+    supportsCMYK: true,
+    supportsTransparency: true,
+    description: 'Lossless format for print',
+  },
+];
+
+// ============================================================
+// RESOLUTION
+// ============================================================
+
+/**
+ * Available resolution options (DPI)
+ */
+export type ExportResolution = 72 | 150 | 300 | 600;
+
+/**
+ * Resolution display information
+ */
+export interface ResolutionInfo {
+  dpi: ExportResolution;
+  name: string;
+  description: string;
+  bestFor: string;
+}
+
+/**
+ * All available resolutions with metadata
+ */
+export const EXPORT_RESOLUTIONS: ResolutionInfo[] = [
+  {
+    dpi: 72,
+    name: '72 DPI',
+    description: 'Screen resolution',
+    bestFor: 'Web, social media',
+  },
+  {
+    dpi: 150,
+    name: '150 DPI',
+    description: 'Medium resolution',
+    bestFor: 'Office printing, drafts',
+  },
+  {
+    dpi: 300,
+    name: '300 DPI',
+    description: 'Print quality',
+    bestFor: 'Professional printing',
+  },
+  {
+    dpi: 600,
+    name: '600 DPI',
+    description: 'High resolution',
+    bestFor: 'Large format, high detail',
+  },
+];
+
+// ============================================================
+// EXPORT REQUEST/RESPONSE
+// ============================================================
+
+/**
+ * Export request parameters
+ */
+export interface ExportParams {
+  creativeId: string;
+  format: ExportFormat;
+  colorMode: ColorMode;
+  resolution: ExportResolution;
+  quality?: number; // 1-100 for JPEG
+  embedProfile?: boolean; // Whether to embed ICC profile
+}
+
+/**
+ * Export request for API
+ */
+export interface ExportRequest {
+  creativeId: string;
+  format: ExportFormat;
+  colorMode: ColorMode;
+  resolution: ExportResolution;
+  quality?: number;
+}
+
+/**
+ * Export response from API
+ */
+export interface ExportResponse {
+  success: boolean;
+  downloadUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  colorMode: ColorMode;
+  format: ExportFormat;
+  resolution: ExportResolution;
+  error?: string;
+}
+
+/**
+ * Export job status (for async exports)
+ */
+export type ExportStatus = 'pending' | 'processing' | 'complete' | 'error';
+
+/**
+ * Export job tracking
+ */
+export interface ExportJob {
+  id: string;
+  creativeId: string;
+  status: ExportStatus;
+  params: ExportParams;
+  progress: number; // 0-100
+  downloadUrl?: string;
+  error?: string;
+  createdAt: Date;
+  completedAt?: Date;
+}
+
+// ============================================================
+// EXPORT HISTORY
+// ============================================================
+
+/**
+ * Export history entry (stored in creative.export_history)
+ */
+export interface ExportHistoryEntry {
+  id: string;
+  exportedAt: string;
+  format: ExportFormat;
+  colorMode: ColorMode;
+  resolution: ExportResolution;
+  fileSize: number;
+  downloadedBy: string;
+}
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+/**
+ * Check if a format supports CMYK export
+ */
+export function formatSupportsCMYK(format: ExportFormat): boolean {
+  const formatInfo = EXPORT_FORMATS.find((f) => f.id === format);
+  return formatInfo?.supportsCMYK ?? false;
+}
+
+/**
+ * Check if a color mode is CMYK
+ */
+export function isCMYKMode(colorMode: ColorMode): boolean {
+  return colorMode.startsWith('cmyk-');
+}
+
+/**
+ * Get ICC profile filename for a color mode
+ */
+export function getICCProfileForMode(colorMode: ColorMode): string | null {
+  const modeInfo = COLOR_MODES.find((m) => m.id === colorMode);
+  return modeInfo?.iccProfile ?? null;
+}
+
+/**
+ * Get CMYK profile name from color mode
+ */
+export function getCMYKProfile(colorMode: ColorMode): CMYKProfile | null {
+  if (!isCMYKMode(colorMode)) return null;
+  const profile = colorMode.replace('cmyk-', '') as CMYKProfile;
+  return profile;
+}
+
+/**
+ * Generate export filename
+ */
+export function generateExportFilename(
+  creativeName: string,
+  format: ExportFormat,
+  colorMode: ColorMode,
+  resolution: ExportResolution
+): string {
+  const timestamp = new Date().toISOString().slice(0, 10);
+  const colorSuffix = isCMYKMode(colorMode) ? '_CMYK' : '_RGB';
+  const formatInfo = EXPORT_FORMATS.find((f) => f.id === format);
+  const extension = formatInfo?.extension ?? '.png';
+
+  // Sanitize creative name
+  const safeName = creativeName
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 50);
+
+  return `${safeName}${colorSuffix}_${resolution}dpi_${timestamp}${extension}`;
+}
+
+/**
+ * Validate export parameters
+ */
+export function validateExportParams(params: ExportParams): string | null {
+  // Check if CMYK is requested with unsupported format
+  if (isCMYKMode(params.colorMode) && !formatSupportsCMYK(params.format)) {
+    return `${params.format.toUpperCase()} format does not support CMYK. Please use JPEG, PDF, or TIFF.`;
+  }
+
+  // Validate quality for JPEG
+  if (params.format === 'jpg' && params.quality) {
+    if (params.quality < 1 || params.quality > 100) {
+      return 'JPEG quality must be between 1 and 100';
+    }
+  }
+
+  return null;
+}

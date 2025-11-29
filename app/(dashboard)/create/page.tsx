@@ -40,6 +40,7 @@ import {
   AITriggerButton,
 } from '@/components/create/ai-suggestion-field'
 import { TemplateSelector } from '@/components/create/template-selector'
+import { ExportModal } from '@/components/export'
 import { ROUTES } from '@/lib/config/constants'
 
 export default function CreatePage() {
@@ -67,6 +68,8 @@ export default function CreatePage() {
   } = useCreativeStore()
 
   const [step, setStep] = useState(1)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [creativeId, setCreativeId] = useState<string | null>(null)
 
   // AI Suggestions hook
   const {
@@ -184,7 +187,15 @@ export default function CreatePage() {
         title: (formData.formData as { title?: string }).title || `${selectedVertical.name} Creative`,
         logo_config: formData.logosPlacements as unknown as Json,
       }
-      await supabase.from('creatives').insert(creativeInsert)
+      const { data: creativeData } = await supabase
+        .from('creatives')
+        .insert(creativeInsert)
+        .select('id')
+        .single()
+
+      if (creativeData?.id) {
+        setCreativeId(creativeData.id)
+      }
 
       toast.success('Creative generated successfully!')
       setStep(5)
@@ -200,6 +211,8 @@ export default function CreatePage() {
   function handleStartOver() {
     resetForm()
     setStep(1)
+    setCreativeId(null)
+    setExportModalOpen(false)
   }
 
   return (
@@ -547,11 +560,12 @@ export default function CreatePage() {
 
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 {generatedImage && (
-                  <Button asChild size="lg">
-                    <a href={generatedImage} download="creative.png">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </a>
+                  <Button
+                    size="lg"
+                    onClick={() => setExportModalOpen(true)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
                   </Button>
                 )}
                 <Button
@@ -571,6 +585,21 @@ export default function CreatePage() {
           </Card>
         )}
       </div>
+
+      {/* Export Modal */}
+      {creativeId && generatedImage && (
+        <ExportModal
+          open={exportModalOpen}
+          onOpenChange={setExportModalOpen}
+          creativeId={creativeId}
+          creativeName={
+            (formData.formData as { title?: string }).title ||
+            selectedVertical?.name ||
+            'Creative'
+          }
+          previewUrl={generatedImage}
+        />
+      )}
     </div>
   )
 }

@@ -6,9 +6,9 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Organization, UserProfile, OrganizationMember } from '@/types/database.types'
 
-// Maximum time to wait for auth initialization before showing UI
-// Increased to 15 seconds to handle slow connections and cold starts
-const AUTH_TIMEOUT_MS = 15000
+// Timeout constants for auth operations
+const AUTH_INIT_TIMEOUT_MS = 10000 // 10 seconds for initial auth
+const USER_DATA_TIMEOUT_MS = 5000 // 5 seconds for user data queries
 
 interface AuthContextType {
   user: User | null
@@ -46,21 +46,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = useCallback(async (userId: string) => {
     try {
-      // Run both queries in PARALLEL instead of sequential for better performance
-      const [profileResult, membershipsResult] = await Promise.all([
-        supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', userId)
-          .single(),
-        supabase
-          .from('organization_members')
-          .select(`
-            *,
-            organizations (*)
-          `)
-          .eq('user_id', userId)
+      // Create timeout promise - client-side Supabase queries can hang
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), USER_DATA_TIMEOUT_MS)
+      })
+
+      // Race between queries and timeout
+      const result = await Promise.race([
+        Promise.all([
+          supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .single(),
+          supabase
+            .from('organization_members')
+            .select(`
+              *,
+              organizations (*)
+            `)
+            .eq('user_id', userId)
+        ]),
+        timeoutPromise
       ])
+
+      // If timeout, try fetching via API route instead
+      if (result === null) {
+        console.warn('Client-side Supabase queries timed out, trying API route...')
+        try {
+          const response = await fetch('/api/auth/user-data')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.profile) setProfile(data.profile)
+            if (data.membership) setMembership(data.membership)
+            if (data.organization) setCurrentOrganization(data.organization)
+            if (data.organizations) setOrganizations(data.organizations)
+          }
+        } catch (apiError) {
+          console.error('API fallback also failed:', apiError)
+        }
+        return
+      }
+
+      const [profileResult, membershipsResult] = result
 
       const { data: profileData } = profileResult
       const { data: memberships } = membershipsResult
@@ -117,16 +145,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       setLoading(true)
 
+      // Create a timeout promise to prevent indefinite waiting
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), AUTH_INIT_TIMEOUT_MS)
+      })
+
       try {
-        // Simple approach: just try to get the session without aggressive timeout
-        // Supabase client has its own timeout handling
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession()
+        // Race between session fetch and timeout
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise.then(() => ({ data: { session: null }, error: new Error('Auth timeout') }))
+        ])
 
         if (!isMounted) return
 
+        const { data: { session: initialSession }, error } = sessionResult
+
         if (error) {
           console.error('Auth session error:', error)
-          // Still continue - user may not be logged in
+          // Still continue - user may not be logged in or timed out
         }
 
         if (initialSession) {
@@ -154,12 +191,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log('Auth state changed:', event, !!newSession)
         if (!isMounted) return
 
-        if (event === 'SIGNED_IN' && newSession) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && newSession) {
+          console.log('Setting session and fetching user data for:', newSession.user.id)
           setSession(newSession)
           setUser(newSession.user)
           await fetchUserData(newSession.user.id)
+          console.log('User data fetched')
         } else if (event === 'SIGNED_OUT') {
           reset()
         } else if (event === 'TOKEN_REFRESHED' && newSession) {

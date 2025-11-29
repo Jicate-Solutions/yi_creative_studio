@@ -18,16 +18,53 @@ export default async function DashboardRootLayout({
     redirect(ROUTES.login)
   }
 
-  // Check if user has an organization
+  // Fetch full membership data with organization details
   const { data: memberships } = await supabase
     .from('organization_members')
-    .select('organization_id')
+    .select(`
+      *,
+      organizations (*)
+    `)
     .eq('user_id', user.id)
-    .limit(1)
 
   if (!memberships || memberships.length === 0) {
     redirect('/onboarding')
   }
 
-  return <DashboardLayout>{children}</DashboardLayout>
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  // Prepare initial auth data for client hydration
+  const organizations = memberships
+    .map((m) => m.organizations)
+    .filter(Boolean)
+
+  const currentOrganization = organizations[0] || null
+  const membership = currentOrganization
+    ? memberships.find((m) => m.organizations?.id === currentOrganization.id)
+    : null
+
+  const initialAuthData = {
+    profile,
+    membership: membership ? {
+      id: membership.id,
+      user_id: membership.user_id,
+      organization_id: membership.organization_id,
+      role: membership.role,
+      created_at: membership.created_at,
+      updated_at: membership.updated_at,
+    } : null,
+    currentOrganization,
+    organizations,
+  }
+
+  return (
+    <DashboardLayout initialAuthData={initialAuthData}>
+      {children}
+    </DashboardLayout>
+  )
 }
