@@ -30,15 +30,30 @@ export async function GET() {
     const profile = profileResult.data
     const memberships = membershipsResult.data || []
 
+    // Define type for membership with nested organization
+    type MembershipWithOrg = {
+      id: string
+      user_id: string
+      organization_id: string
+      role: string
+      invited_by: string | null
+      joined_at: string
+      organizations: {
+        id: string
+        name: string
+        [key: string]: unknown
+      } | null
+    }
+
     // Get organizations from memberships
-    const organizations = memberships
-      .map((m: { organizations: unknown }) => m.organizations)
+    const organizations = (memberships as MembershipWithOrg[])
+      .map((m) => m.organizations)
       .filter(Boolean)
 
     // Get first organization and its membership
     const organization = organizations[0] || null
     const membership = organization
-      ? memberships.find((m: { organizations: { id: string } | null }) =>
+      ? (memberships as MembershipWithOrg[]).find((m) =>
           m.organizations?.id === organization.id
         )
       : null
