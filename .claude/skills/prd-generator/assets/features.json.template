@@ -1,0 +1,109 @@
+{
+  "project_name": "[Application Name]",
+  "version": "1.0.0",
+  "generated_date": "[YYYY-MM-DD]",
+  "tech_stack": {
+    "frontend": "[e.g., Next.js 16, React, Vue]",
+    "backend": "[e.g., Next.js API, Express, FastAPI]",
+    "database": "[e.g., PostgreSQL, MongoDB, Supabase]",
+    "auth": "[e.g., Supabase Auth, NextAuth, Clerk]",
+    "hosting": "[e.g., Vercel, AWS, Railway]"
+  },
+  "features": [
+    {
+      "id": "F001",
+      "name": "User Authentication",
+      "category": "auth",
+      "priority": "P0",
+      "status": "existing",
+      "description": "Email/password authentication with session management",
+      "acceptance_criteria": [
+        "User can sign up with email and password",
+        "User can log in with existing credentials",
+        "User can reset forgotten password",
+        "Session persists across browser refreshes"
+      ],
+      "dependencies": [],
+      "estimated_complexity": "medium",
+      "files": [
+        "app/(auth)/login/page.tsx",
+        "app/(auth)/signup/page.tsx",
+        "lib/supabase/client.ts"
+      ],
+      "notes": "Uses Supabase Auth for authentication"
+    },
+    {
+      "id": "F002",
+      "name": "Feature Name",
+      "category": "core|admin|billing|analytics",
+      "priority": "P0|P1|P2",
+      "status": "existing|pending|in_progress|blocked",
+      "description": "Brief description of what this feature does",
+      "acceptance_criteria": [
+        "Criterion 1 - specific, testable",
+        "Criterion 2 - specific, testable"
+      ],
+      "dependencies": ["F001"],
+      "estimated_complexity": "low|medium|high",
+      "files": [
+        "path/to/related/file.tsx"
+      ],
+      "notes": "Any additional context"
+    }
+  ],
+  "user_roles": [
+    {
+      "role": "admin",
+      "description": "Full access to all features",
+      "permissions": ["create", "read", "update", "delete", "manage_team", "billing"]
+    },
+    {
+      "role": "editor",
+      "description": "Can create and edit content",
+      "permissions": ["create", "read", "update"]
+    },
+    {
+      "role": "viewer",
+      "description": "Read-only access",
+      "permissions": ["read"]
+    }
+  ],
+  "api_endpoints": [
+    {
+      "method": "GET|POST|PUT|DELETE",
+      "path": "/api/endpoint",
+      "description": "What this endpoint does",
+      "auth_required": true,
+      "roles_allowed": ["admin", "editor"]
+    }
+  ],
+  "database_tables": [
+    {
+      "name": "table_name",
+      "description": "What this table stores",
+      "key_fields": ["id", "created_at", "organization_id"],
+      "rls_enabled": true
+    }
+  ],
+  "third_party_integrations": [
+    {
+      "service": "Service Name",
+      "purpose": "What it's used for",
+      "api_key_env": "SERVICE_API_KEY"
+    }
+  ],
+  "environment_variables": [
+    {
+      "name": "NEXT_PUBLIC_SUPABASE_URL",
+      "description": "Supabase project URL",
+      "required": true,
+      "public": true
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Supabase service role key for server-side operations",
+      "required": true,
+      "public": false
+    }
+  ]
+}
