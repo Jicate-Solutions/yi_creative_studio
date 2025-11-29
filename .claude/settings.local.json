@@ -119,7 +119,12 @@
       "WebFetch(domain:ui.shadcn.com)",
       "Bash(mkdir:*)",
       "mcp__chrome-devtools__close_page",
-      "Skill(rbac-guardian)"
+      "Skill(rbac-guardian)",
+      "Bash(del /f \".next\\dev\\lock\")",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__plugin_compounding-engineering_playwright__browser_navigate",
+      "mcp__plugin_compounding-engineering_playwright__browser_take_screenshot",
+      "mcp__plugin_compounding-engineering_playwright__browser_close"
     ],
     "deny": [],
     "ask": [],

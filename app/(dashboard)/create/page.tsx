@@ -48,7 +48,7 @@ export default function CreatePage() {
   const supabase = createClient()
   const { currentOrganization } = useAuthStore()
 
-  const { verticals, selectedVertical, selectVertical } = useVerticals()
+  const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
   const { logos, fetchLogos } = useLogos()
   const { balance, canAfford, deductCredits } = useCredits()
@@ -269,25 +269,48 @@ export default function CreatePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {verticals.map((vertical) => (
-                  <button
-                    key={vertical.id}
-                    onClick={() => selectVertical(vertical.id)}
-                    className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary ${
-                      selectedVertical?.id === vertical.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div className="text-2xl mb-2">{vertical.icon}</div>
-                    <div className="font-medium">{vertical.name}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-2">
-                      {vertical.description}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {isVerticalsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading verticals...</span>
+                </div>
+              ) : verticalsError ? (
+                <div className="text-center py-12">
+                  <p className="text-destructive mb-4">Failed to load verticals: {verticalsError}</p>
+                  <Button variant="outline" onClick={() => fetchVerticals()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : verticals.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>No verticals available.</p>
+                  <Button variant="outline" className="mt-4" onClick={() => fetchVerticals()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {verticals.map((vertical) => (
+                    <button
+                      key={vertical.id}
+                      onClick={() => selectVertical(vertical.id)}
+                      className={`p-4 rounded-lg border-2 text-left transition-all hover:border-primary ${
+                        selectedVertical?.id === vertical.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="text-2xl mb-2">{vertical.icon}</div>
+                      <div className="font-medium">{vertical.name}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">
+                        {vertical.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="flex justify-end mt-6">
                 <Button

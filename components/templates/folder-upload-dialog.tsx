@@ -332,14 +332,14 @@ export function FolderUploadDialog({
                           </Badge>
                         )}
                         <Select
-                          value={file.selectedVerticalId || ''}
-                          onValueChange={(value) => updateFileVertical(index, value || null)}
+                          value={file.selectedVerticalId || '__none__'}
+                          onValueChange={(value) => updateFileVertical(index, value === '__none__' ? null : value)}
                         >
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="Select vertical" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">No vertical</SelectItem>
+                            <SelectItem value="__none__">No vertical</SelectItem>
                             {verticals.map((vertical) => (
                               <SelectItem key={vertical.id} value={vertical.id}>
                                 {vertical.icon} {vertical.name}

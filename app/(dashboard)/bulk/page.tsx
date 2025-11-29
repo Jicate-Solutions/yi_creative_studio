@@ -301,12 +301,15 @@ export default function BulkGenerationPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Template (Optional)</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <Select
+                value={selectedTemplate || '__none__'}
+                onValueChange={(value) => setSelectedTemplate(value === '__none__' ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No template</SelectItem>
+                  <SelectItem value="__none__">No template</SelectItem>
                   {templates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name}

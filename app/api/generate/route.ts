@@ -134,8 +134,9 @@ Important guidelines:
 
 Generate a professional marketing poster that looks like it was designed with the same template as the reference image.`
 
+  // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
     {
       method: 'POST',
       headers: {
@@ -167,7 +168,7 @@ Generate a professional marketing poster that looks like it was designed with th
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Gemini Vision API error:', errorText)
+    console.error('Gemini Vision API error:', response.status, errorText)
     // Fallback to regular Gemini generation if template adaptation fails
     console.log('Falling back to regular Gemini generation')
     return generateWithGemini(prompt)
@@ -197,8 +198,9 @@ async function generateWithGemini(prompt: string): Promise<string> {
     throw new Error('Gemini API key not configured')
   }
 
+  // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
     {
       method: 'POST',
       headers: {
@@ -228,7 +230,7 @@ async function generateWithGemini(prompt: string): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Gemini API error:', errorText)
+    console.error('Gemini API error:', response.status, errorText)
     throw new Error('Failed to generate image with Gemini')
   }
 

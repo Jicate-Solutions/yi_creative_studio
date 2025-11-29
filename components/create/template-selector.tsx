@@ -51,19 +51,25 @@ export function TemplateSelector({
   const { templateImages, isLoading, getTemplatesByVertical } = useTemplateImages()
   const [previewTemplate, setPreviewTemplate] = useState<TemplateImage | null>(null)
 
-  // Get templates for this vertical
+  // Get templates for this vertical (prioritized)
   const verticalTemplates = useMemo(() => {
     return getTemplatesByVertical(verticalId)
   }, [verticalId, getTemplatesByVertical])
 
-  // Also get templates without a vertical (general templates)
-  const generalTemplates = useMemo(() => {
-    return templateImages.filter(t => !t.vertical_id)
-  }, [templateImages])
+  // Get all other templates (from other verticals or general)
+  const otherTemplates = useMemo(() => {
+    return templateImages.filter(t => t.vertical_id !== verticalId)
+  }, [templateImages, verticalId])
 
+  // Combine: vertical-specific first, then all others
   const allAvailableTemplates = useMemo(() => {
-    return [...verticalTemplates, ...generalTemplates]
-  }, [verticalTemplates, generalTemplates])
+    return [...verticalTemplates, ...otherTemplates]
+  }, [verticalTemplates, otherTemplates])
+
+  // Check if a template matches current vertical
+  const isVerticalMatch = (template: TemplateImage) => {
+    return template.vertical_id === verticalId
+  }
 
   const handleSelectTemplate = (template: TemplateImage) => {
     if (selectedTemplate?.id === template.id) {
@@ -189,12 +195,26 @@ export function TemplateSelector({
                         )}
 
                         {/* Vertical badge */}
-                        {!template.vertical_id && (
+                        {isVerticalMatch(template) ? (
+                          <Badge
+                            variant="default"
+                            className="absolute bottom-2 left-2 text-xs bg-primary"
+                          >
+                            Recommended
+                          </Badge>
+                        ) : !template.vertical_id ? (
                           <Badge
                             variant="secondary"
                             className="absolute bottom-2 left-2 text-xs"
                           >
                             General
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="absolute bottom-2 left-2 text-xs bg-background/80"
+                          >
+                            Other vertical
                           </Badge>
                         )}
                       </div>
