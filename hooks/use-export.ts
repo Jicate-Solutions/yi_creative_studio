@@ -155,6 +155,8 @@ export function useExport() {
         // Simulate progress updates
         setState((prev) => ({ ...prev, progress: 20 }));
 
+        console.log('[Export] Starting export with:', { creativeId, options });
+
         const response = await fetch("/api/export", {
           method: "POST",
           headers: {
@@ -171,8 +173,11 @@ export function useExport() {
 
         setState((prev) => ({ ...prev, progress: 80 }));
 
+        console.log('[Export] Response status:', response.status);
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
+          console.error('[Export] Error response:', errorData);
           throw new Error(errorData.error || "Export failed");
         }
 
@@ -188,14 +193,27 @@ export function useExport() {
           );
 
         // Trigger download
+        console.log('[Export] Starting download, blob size:', blob.size, 'filename:', filename);
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = filename;
+        a.style.display = 'none';
         document.body.appendChild(a);
-        a.click();
+
+        try {
+          a.click();
+          console.log('[Export] Download triggered successfully');
+        } catch (err) {
+          console.error('[Export] Click failed, using fallback:', err);
+          // Fallback: open in new tab
+          window.open(url, '_blank');
+        }
+
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Delay revoking URL to ensure download starts
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         setState((prev) => ({
           ...prev,

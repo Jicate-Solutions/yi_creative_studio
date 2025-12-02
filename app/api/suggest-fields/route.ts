@@ -212,10 +212,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Provide more detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Detailed error:', errorMessage)
+
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to generate suggestions',
+        error: `Failed to generate suggestions: ${errorMessage}`,
         code: 'AI_ERROR',
       } as SuggestFieldsError,
       { status: 500 }

@@ -7,8 +7,9 @@ import type { User, Session } from '@supabase/supabase-js'
 import type { Organization, UserProfile, OrganizationMember } from '@/types/database.types'
 
 // Timeout constants for auth operations
-const AUTH_INIT_TIMEOUT_MS = 10000 // 10 seconds for initial auth
-const USER_DATA_TIMEOUT_MS = 5000 // 5 seconds for user data queries
+// Increased timeout to handle cold starts and slow connections
+const AUTH_INIT_TIMEOUT_MS = 15000 // 15 seconds for initial auth (increased from 10)
+const USER_DATA_TIMEOUT_MS = 8000 // 8 seconds for user data queries (increased from 5)
 
 interface AuthContextType {
   user: User | null
@@ -141,41 +142,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
+    let timeoutId: NodeJS.Timeout | null = null
 
     const initializeAuth = async () => {
       setLoading(true)
 
-      // Create a timeout promise to prevent indefinite waiting
-      const timeoutPromise = new Promise<null>((resolve) => {
-        setTimeout(() => resolve(null), AUTH_INIT_TIMEOUT_MS)
-      })
-
       try {
+        // Create a timeout that resolves to a special timeout indicator
+        const timeoutPromise = new Promise<{ timedOut: true }>((resolve) => {
+          timeoutId = setTimeout(() => resolve({ timedOut: true }), AUTH_INIT_TIMEOUT_MS)
+        })
+
         // Race between session fetch and timeout
-        const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
-          timeoutPromise.then(() => ({ data: { session: null }, error: new Error('Auth timeout') }))
+        const result = await Promise.race([
+          supabase.auth.getSession().then(res => ({ ...res, timedOut: false as const })),
+          timeoutPromise
         ])
+
+        // Clear timeout if session fetch won the race
+        if (timeoutId) clearTimeout(timeoutId)
 
         if (!isMounted) return
 
-        const { data: { session: initialSession }, error } = sessionResult
+        // Handle timeout case - don't treat as error, just log warning
+        if ('timedOut' in result && result.timedOut) {
+          console.warn('[Auth] Session fetch timed out - continuing without session. Auth state change will recover if user is logged in.')
+          // Don't set error - the onAuthStateChange listener will handle recovery
+          return
+        }
+
+        // Handle normal session result
+        const { data: { session: initialSession }, error } = result
 
         if (error) {
-          console.error('Auth session error:', error)
-          // Still continue - user may not be logged in or timed out
+          // Only log as warning, not error - this is expected for unauthenticated users
+          console.warn('[Auth] getSession returned error:', error.message)
         }
 
         if (initialSession) {
           setSession(initialSession)
           setUser(initialSession.user)
           // Non-blocking: fetch user data in background - don't await
-          fetchUserData(initialSession.user.id).catch(console.error)
+          fetchUserData(initialSession.user.id).catch(err =>
+            console.warn('[Auth] Background user data fetch failed:', err)
+          )
         }
       } catch (error) {
         // Log error but still mark as initialized to show UI
         if (isMounted) {
-          console.error('Auth initialization error:', error)
+          console.warn('[Auth] Initialization error (non-fatal):', error)
         }
         // Auth state changes will handle recovery if needed
       } finally {
@@ -210,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       isMounted = false
+      if (timeoutId) clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [supabase, setLoading, setSession, setUser, fetchUserData, reset])

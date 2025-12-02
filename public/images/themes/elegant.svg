@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="elegGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2c2c2c"/>
+      <stop offset="100%" style="stop-color:#1a1a1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#elegGrad)"/>
+  <line x1="50" y1="80" x2="350" y2="80" stroke="#c9a961" stroke-width="1" opacity="0.4"/>
+  <line x1="50" y1="220" x2="350" y2="220" stroke="#c9a961" stroke-width="1" opacity="0.4"/>
+  <rect x="100" y="120" width="200" height="10" rx="5" fill="#f5f5f5"/>
+  <rect x="130" y="145" width="140" height="6" rx="3" fill="#c9a961" opacity="0.8"/>
+  <circle cx="200" cy="100" r="8" fill="none" stroke="#c9a961" stroke-width="1"/>
+  <path d="M185,200 L200,185 L215,200 L200,215 Z" fill="#c9a961" opacity="0.6"/>
+</svg>

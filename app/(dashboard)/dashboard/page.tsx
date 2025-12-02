@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import {
-  Sparkles,
   Images,
   Coins,
   ArrowRight,
@@ -14,6 +13,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
+import { CreateButton } from '@/components/dashboard/create-button'
 
 export const metadata = {
   title: 'Dashboard',
@@ -141,13 +141,7 @@ async function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
-              <Button asChild size="lg" className="h-auto py-6 gradient-yi">
-                <Link href={ROUTES.create} className="flex flex-col items-center gap-2">
-                  <Sparkles className="h-8 w-8" />
-                  <span className="font-semibold">Create New Creative</span>
-                  <span className="text-xs opacity-80">Generate with AI</span>
-                </Link>
-              </Button>
+              <CreateButton variant="large" />
               <Button asChild variant="outline" size="lg" className="h-auto py-6">
                 <Link href={ROUTES.gallery} className="flex flex-col items-center gap-2">
                   <Images className="h-8 w-8" />

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="corpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="50%" style="stop-color:#2d5a87"/>
+      <stop offset="100%" style="stop-color:#6b8fad"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#corpGrad)"/>
+  <rect x="40" y="80" width="140" height="8" rx="4" fill="#f5f7fa" opacity="0.9"/>
+  <rect x="40" y="100" width="200" height="6" rx="3" fill="#f5f7fa" opacity="0.6"/>
+  <rect x="40" y="116" width="160" height="6" rx="3" fill="#f5f7fa" opacity="0.4"/>
+  <circle cx="320" cy="100" r="50" fill="#f5f7fa" opacity="0.15"/>
+  <rect x="40" y="200" width="100" height="40" rx="6" fill="#f5f7fa" opacity="0.2"/>
+  <rect x="160" y="200" width="100" height="40" rx="6" fill="#f5f7fa" opacity="0.15"/>
+</svg>

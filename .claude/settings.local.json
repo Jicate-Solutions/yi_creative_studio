@@ -124,11 +124,31 @@
       "mcp__chrome-devtools__list_pages",
       "mcp__plugin_compounding-engineering_playwright__browser_navigate",
       "mcp__plugin_compounding-engineering_playwright__browser_take_screenshot",
-      "mcp__plugin_compounding-engineering_playwright__browser_close"
+      "mcp__plugin_compounding-engineering_playwright__browser_close",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__fill_form",
+      "mcp__chrome-devtools__click",
+      "mcp__plugin_compounding-engineering_playwright__browser_fill_form",
+      "mcp__plugin_compounding-engineering_playwright__browser_snapshot",
+      "mcp__plugin_compounding-engineering_playwright__browser_click",
+      "mcp__shadcn__get_item_examples_from_registries",
+      "mcp__shadcn__list_items_in_registries",
+      "mcp__shadcn__view_items_in_registries",
+      "WebFetch(domain:www.canva.com)",
+      "WebFetch(domain:www.canva.dev)",
+      "Bash(cmd /c \"taskkill /F /PID 36596\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe\")",
+      "Bash(rm:*)",
+      "mcp__plugin_compounding-engineering_playwright__browser_evaluate",
+      "WebFetch(domain:blog.google)",
+      "mcp__chrome-devtools__get_network_request",
+      "mcp__plugin_compounding-engineering_playwright__browser_wait_for",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c \"taskkill /F /PID 49924\")"
     ],
     "deny": [],
     "ask": [],
-    "defaultMode": "dontAsk"
+    "defaultMode": "plan"
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

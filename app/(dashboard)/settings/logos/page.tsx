@@ -47,8 +47,10 @@ import {
   Star,
   Plus,
   CheckCircle2,
+  FolderOpen,
 } from 'lucide-react'
 import { LOGO_CATEGORIES, type LogoCategory } from '@/lib/config/constants'
+import { LogoFolderUploadDialog } from '@/components/logos/logo-folder-upload-dialog'
 
 export default function LogoManagementPage() {
   const {
@@ -64,6 +66,7 @@ export default function LogoManagementPage() {
   const isAdmin = canManage()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [folderUploadOpen, setFolderUploadOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [logoName, setLogoName] = useState('')
   const [logoCategory, setLogoCategory] = useState<LogoCategory>('primary')
@@ -123,13 +126,18 @@ export default function LogoManagementPage() {
           </p>
         </div>
         {isAdmin && (
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Upload Logo
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setFolderUploadOpen(true)}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Upload Folder
+            </Button>
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Upload Logo
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Upload Logo</DialogTitle>
@@ -225,6 +233,13 @@ export default function LogoManagementPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Folder Upload Dialog */}
+          <LogoFolderUploadDialog
+            open={folderUploadOpen}
+            onOpenChange={setFolderUploadOpen}
+          />
+          </div>
         )}
       </div>
 

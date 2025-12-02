@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { processImageWithLogos, type LogoPosition } from '@/lib/sharp/logo-overlay'
+import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
+import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
+import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
+import { ASPECT_RATIOS, DIMENSION_QUALITY } from '@/lib/config/design-constants'
+import {
+  generatePrompt,
+  isGeminiPrompt,
+  isIdeogramPrompt,
+  toIdeogramApiFormat,
+  type GeneratePromptParams,
+  type CreativeContent,
+  type DesignContext,
+} from '@/lib/prompts'
+import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
+import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
+import {
+  generateDesignContextSafe,
+  type DesignBrief,
+} from '@/lib/prompts/services/design-intelligence'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +40,28 @@ export async function POST(request: NextRequest) {
       organizationId,
       templateId,
       templateUrl,
-    } = body
+      creationMode,
+      designData,
+      formatId,
+      customDimensions,
+    } = body as {
+      prompt: string
+      model: string
+      provider: string
+      verticalSlug: string
+      logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string } }>
+      organizationId: string
+      templateId: string | null
+      templateUrl: string | null
+      creationMode?: 'template' | 'scratch'
+      designData?: DesignData | null
+      formatId?: CreativeFormatId
+      customDimensions?: { width: number; height: number } | null
+    }
+
+    // Get format if specified
+    const selectedFormat = formatId ? getFormatById(formatId) : null
+    const formatDimensions = customDimensions || (selectedFormat ? { width: selectedFormat.width, height: selectedFormat.height } : null)
 
     // Verify user belongs to the organization
     const { data: membership } = await supabase
@@ -49,8 +88,118 @@ export async function POST(request: NextRequest) {
 
     let imageUrl: string
 
-    // Generate based on provider and template
-    if (templateUrl) {
+    // Determine if user has their own speaker photo to overlay
+    // If yes, we don't want AI to generate placeholder speaker in the design
+    const speakerPhoto = designData?.customization?.speakerPhoto
+    const userHasSpeakerPhoto = speakerPhoto?.enabled && speakerPhoto?.photoUrl
+
+    // Enhance prompt with format context if a format is selected
+    let enhancedPrompt = prompt
+    if (selectedFormat) {
+      enhancedPrompt = buildFormatPrompt(selectedFormat, prompt, {
+        includeGuidelines: true,
+        includeCompositionRules: true,
+        includeDimensions: true,
+      })
+    }
+
+    // Generate based on creation mode, provider and template
+    if (creationMode === 'scratch' && designData) {
+      // Scratch mode - build enhanced prompt from design data using new prompt system
+      const providerType = provider === 'google' ? 'google' : 'ideogram'
+
+      // Create a modified designData for prompt building
+      // If user has their own photo, disable speaker photo in prompt to avoid AI generating placeholder
+      const promptDesignData = userHasSpeakerPhoto
+        ? {
+            ...designData,
+            customization: {
+              ...designData.customization,
+              speakerPhoto: {
+                ...designData.customization.speakerPhoto,
+                enabled: false, // Don't tell AI about speaker photo if user will overlay their own
+              },
+            },
+          }
+        : designData
+
+      // ========================================================
+      // STAGE 1: Design Intelligence (AI-Powered Context Generation)
+      // ========================================================
+      // This is the game-changer - use AI to analyze the brief and generate
+      // contextual design guidance including:
+      // - Core purpose & emotional job
+      // - Relevant visual elements that BELONG in this design
+      // - Contextual background setting
+      // - Design strategy
+      console.log('[Design Intelligence] Stage 1: Generating design context...')
+
+      // Parse content for the brief
+      const parsedContent = parseEventContent(prompt)
+
+      // Clean instruction text from the prompt before passing to design intelligence
+      // This prevents instruction text like "Create a striking..." from being analyzed
+      const cleanedPrompt = cleanPromptInstructions(prompt)
+
+      const designBrief: DesignBrief = {
+        eventType: parsedContent.eventType,
+        eventName: parsedContent.eventName,
+        organizationName: 'Yi Creatives',
+        details: cleanedPrompt, // Use cleaned prompt, not raw template
+        theme: designData.theme,
+        style: designData.style,
+        guestName: parsedContent.guestName,
+        venue: parsedContent.venue,
+        additionalContext: parsedContent.additionalText,
+      }
+
+      // Generate AI-powered design context
+      const designContext = await generateDesignContextSafe(designBrief)
+
+      // Check if fallback was used (generic fallback starts with "Create an engaging")
+      const usedFallback = designContext.corePurpose.startsWith('Create an engaging')
+
+      console.log('[Generate] === DESIGN CONTEXT RESULT ===')
+      console.log('[Generate] Used Fallback:', usedFallback ? 'YES (AI failed)' : 'NO (AI succeeded)')
+      console.log('[Generate] Core Purpose:', designContext.corePurpose)
+      console.log('[Generate] Visual Elements:', designContext.visualElements.join(', '))
+      console.log('[Generate] Background Setting:', designContext.backgroundSetting)
+      console.log('[Generate] Iconic Imagery:', designContext.iconicImagery.join(', '))
+
+      if (usedFallback) {
+        console.warn('[Generate] WARNING: Using generic fallback context - results may be less contextual!')
+      }
+
+      // ========================================================
+      // STAGE 2: Build enhanced prompt with AI-generated context
+      // ========================================================
+      const promptData = buildDesignPromptWithFormat(
+        enhancedPrompt,
+        promptDesignData,
+        providerType,
+        'Yi Creatives',
+        selectedFormat,
+        designContext // Pass AI-generated design context
+      )
+
+      if (provider === 'google') {
+        imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat)
+      } else if (provider === 'ideogram') {
+        imageUrl = await generateWithIdeogram(
+          promptData.prompt,
+          promptDesignData,
+          promptData.styleType,
+          promptData.magicPrompt,
+          promptData.negativePrompt,
+          selectedFormat
+        )
+      } else {
+        return NextResponse.json(
+          { error: 'Invalid AI provider' },
+          { status: 400 }
+        )
+      }
+    } else if (templateUrl) {
       // Template-based generation using Gemini Vision
       imageUrl = await generateFromTemplate(prompt, templateUrl, verticalSlug)
 
@@ -59,9 +208,9 @@ export async function POST(request: NextRequest) {
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
     } else if (provider === 'google') {
-      imageUrl = await generateWithGemini(prompt)
+      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat)
     } else if (provider === 'ideogram') {
-      imageUrl = await generateWithIdeogram(prompt)
+      imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
     } else {
       return NextResponse.json(
         { error: 'Invalid AI provider' },
@@ -69,9 +218,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Resize to exact format dimensions if format is selected
+    // This ensures the output matches the user's selected format exactly
+    if (formatDimensions) {
+      console.log(`Resizing to exact format dimensions: ${formatDimensions.width}x${formatDimensions.height}`)
+      imageUrl = await resizeImageToExactDimensions(
+        imageUrl,
+        formatDimensions.width,
+        formatDimensions.height
+      )
+    }
+
     // If logos need to be overlaid, process with Sharp
     if (logosPlacements && logosPlacements.length > 0) {
+      console.log(`Processing ${logosPlacements.length} logo placements`)
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase)
+    }
+
+    // If speaker photo is enabled and user has uploaded a photo, overlay it
+    // Note: speakerPhoto is already defined above (line 88)
+    if (userHasSpeakerPhoto && speakerPhoto) {
+      console.log('Processing speaker photo overlay')
+      imageUrl = await processImageWithSpeakerPhoto(imageUrl, speakerPhoto)
     }
 
     return NextResponse.json({
@@ -85,6 +253,289 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Parse event content from the prompt text
+function parseEventContent(prompt: string): CreativeContent {
+  // Try to extract structured content from prompt
+  // This handles both:
+  // 1. Standard format: "Event: Name\nDate: ...\n"
+  // 2. Template format: '...poster for "Event Name"...on March 16...'
+  const content: CreativeContent = {}
+
+  // ===== EVENT NAME EXTRACTION =====
+  // First try standard format: "Event: Name" or "Title: Name"
+  let titleMatch = prompt.match(/(?:Event|Title|Name):\s*(.+?)(?:\n|$)/i)
+
+  // If not found, try template format: 'poster for "Event Name"' or 'called "Event Name"'
+  if (!titleMatch) {
+    titleMatch = prompt.match(/(?:poster|event|program|session|camp|seminar|workshop|conference)\s+(?:for|called|titled|named)\s*"([^"]+)"/i)
+  }
+
+  // Fallback: extract any quoted string that looks like an event name
+  if (!titleMatch) {
+    titleMatch = prompt.match(/"([^"]{5,80})"/i) // Quoted string between 5-80 chars
+  }
+
+  if (titleMatch) {
+    content.eventName = titleMatch[1].trim()
+    content.title = titleMatch[1].trim()
+  }
+
+  // ===== GUEST/SPEAKER EXTRACTION =====
+  const guestMatch = prompt.match(/(?:Guest|Speaker|Chief Guest|Keynote):\s*(.+?)(?:\n|$)/i)
+  if (guestMatch) {
+    const guestText = guestMatch[1].trim()
+    // Try to separate name from designation
+    const commaIndex = guestText.lastIndexOf(',')
+    if (commaIndex > 0) {
+      content.guestName = guestText.substring(0, commaIndex).trim()
+      content.guestDesignation = guestText.substring(commaIndex + 1).trim()
+    } else {
+      content.guestName = guestText
+    }
+  }
+
+  // ===== DATE EXTRACTION =====
+  // First try standard format: "Date: March 16, 2024"
+  let dateMatch = prompt.match(/(?:Date):\s*(.+?)(?:\n|$)/i)
+
+  // If not found, try template format: "on March 16, 2024" or "is on March 16"
+  if (!dateMatch) {
+    dateMatch = prompt.match(/(?:is\s+)?on\s+(\w+\s+\d{1,2},?\s*\d{4})/i)
+  }
+
+  // Try date formats like "16/03/2024" or "2024-03-16"
+  if (!dateMatch) {
+    dateMatch = prompt.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
+  }
+
+  if (dateMatch) {
+    content.date = dateMatch[1].trim()
+  }
+
+  // ===== TIME EXTRACTION =====
+  // First try standard format: "Time: 10:00 AM"
+  let timeMatch = prompt.match(/(?:Time):\s*(.+?)(?:\n|$)/i)
+
+  // If not found, try template format: "at 10:00 AM" (but not "at venue")
+  if (!timeMatch) {
+    timeMatch = prompt.match(/at\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[-–to]+\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/i)
+  }
+
+  if (timeMatch) {
+    content.time = timeMatch[1].trim()
+  }
+
+  // ===== VENUE EXTRACTION =====
+  // First try standard format: "Venue: Community Center"
+  let venueMatch = prompt.match(/(?:Venue|Location|Place):\s*(.+?)(?:\n|$)/i)
+
+  // If not found, try template format: "at {{venueName}}" → "at Community Center, Salem"
+  // But skip if it looks like a time (starts with digit)
+  if (!venueMatch) {
+    venueMatch = prompt.match(/at\s+([A-Z][^.!?\n]+?(?:,\s*[A-Z][^.!?\n]+)?)\s*[.!?\n]/i)
+    // Validate it's not a time
+    if (venueMatch && venueMatch[1].match(/^\d/)) {
+      venueMatch = null
+    }
+  }
+
+  if (venueMatch) {
+    content.venue = venueMatch[1].trim()
+  }
+
+  // ===== EVENT TYPE DETECTION =====
+  const eventTypeKeywords: Record<string, string[]> = {
+    seminar: ['seminar'],
+    workshop: ['workshop'],
+    conference: ['conference'],
+    webinar: ['webinar'],
+    hackathon: ['hackathon'],
+    competition: ['competition', 'contest'],
+    festival: ['fest', 'festival'],
+    inauguration: ['inauguration', 'opening'],
+    convocation: ['convocation', 'graduation'],
+    awareness: ['awareness', 'safety', 'campaign'],
+    camp: ['camp', 'donation'],
+  }
+
+  const lowerPrompt = prompt.toLowerCase()
+  for (const [type, keywords] of Object.entries(eventTypeKeywords)) {
+    if (keywords.some(kw => lowerPrompt.includes(kw))) {
+      content.eventType = type
+      break
+    }
+  }
+
+  return content
+}
+
+// Clean instruction text from prompt templates
+// The database templates contain instruction text like "Create a striking...", "IMPORTANT:..."
+// that should NOT be rendered in the final image
+function cleanPromptInstructions(prompt: string): string {
+  // Remove common instruction patterns that shouldn't be rendered
+  const instructionPatterns = [
+    // Opening instructions like "Create a professional/striking/vibrant poster for..."
+    /Create\s+(?:a|an)\s+(?:striking|professional|vibrant|elegant|beautiful|modern|inspiring|bright|playful|warm)[^"]*(?:poster|design|flyer)\s+for\s*/gi,
+    // Color/style instructions like "Use bold yellow (#FFC107)..."
+    /Use\s+(?:bold|vibrant|elegant|warm|nature-inspired|energetic)[^.]*(?:colors?|tones?|palette)[^.]*\./gi,
+    // Visual element instructions
+    /Include\s+(?:visual\s+elements?|imagery)[^.]*\./gi,
+    // Style instructions like "Style: high-contrast..."
+    /Style:\s*[^.]+\./gi,
+    // Important instructions like "IMPORTANT: Leave 150px..."
+    /IMPORTANT:\s*[^.]+\./gi,
+    // Space/zone instructions
+    /Leave\s+\d+px\s+(?:clear\s+)?space[^.]+\./gi,
+  ]
+
+  let cleaned = prompt
+  for (const pattern of instructionPatterns) {
+    cleaned = cleaned.replace(pattern, '')
+  }
+
+  // Clean up multiple spaces and trim
+  return cleaned.replace(/\s+/g, ' ').trim()
+}
+
+// Convert Yi CreativeStudio customization to prompt system format
+function convertCustomization(customization: CustomizationData): import('@/lib/prompts').DesignCustomization {
+  return {
+    title: {
+      position: customization.title.position,
+      alignment: customization.title.alignment,
+      fontSize: customization.title.fontSize,
+      fontWeight: customization.title.fontWeight,
+      color: customization.title.color,
+      shadow: customization.title.shadow,
+    },
+    background: {
+      type: customization.background.type,
+      primaryColor: customization.background.primaryColor,
+      secondaryColor: customization.background.secondaryColor,
+      overlay: customization.background.overlay,
+      overlayOpacity: customization.background.overlayOpacity,
+      blur: customization.background.blur,
+      blurAmount: customization.background.blurAmount,
+    },
+    speakerPhoto: {
+      enabled: customization.speakerPhoto.enabled,
+      shape: customization.speakerPhoto.shape,
+      size: customization.speakerPhoto.size,
+      position: customization.speakerPhoto.position,
+      verticalPosition: customization.speakerPhoto.verticalPosition || 'lower',
+      border: customization.speakerPhoto.border,
+      shadow: customization.speakerPhoto.shadow,
+    },
+    footer: customization.footer,
+    layout: customization.layout || {
+      edgeToEdge: true,
+      headerHeight: 0,
+      footerHeight: 0,
+    },
+  }
+}
+
+// Build prompt using the new multi-model prompt system with format support
+// Now accepts AI-generated design context for purpose-driven designs
+function buildDesignPromptWithFormat(
+  basePrompt: string,
+  designData: DesignData,
+  provider: 'google' | 'ideogram',
+  organizationName: string = 'Organization',
+  format?: import('@/lib/config/creative-formats').CreativeFormat | null,
+  designContext?: DesignContext // AI-generated design intelligence
+): { prompt: string; systemPrompt?: string; styleType?: string; magicPrompt?: string; negativePrompt?: string } {
+  // Parse event content from the base prompt
+  const content = parseEventContent(basePrompt)
+
+  // Get dimensions - prefer format dimensions if available
+  let dimensions: { width: number; height: number }
+  let aspectRatio: string
+
+  if (format) {
+    dimensions = { width: format.width, height: format.height }
+    aspectRatio = format.aspectRatio
+  } else {
+    const aspectRatioKey = designData.aspectRatio as keyof typeof DIMENSION_QUALITY
+    const resolutionKey = designData.resolution as keyof typeof DIMENSION_QUALITY[typeof aspectRatioKey]
+    dimensions = DIMENSION_QUALITY[aspectRatioKey]?.[resolutionKey] || { width: 1024, height: 1280 }
+    aspectRatio = designData.aspectRatio
+  }
+
+  // Build generation params with AI-generated design context
+  const params: GeneratePromptParams = {
+    provider,
+    type: 'event_poster',
+    content,
+    brand: {
+      primary_color: designData.customization.background.primaryColor || '#1B998B',
+      secondary_color: designData.customization.background.secondaryColor || '#FF6B35',
+      accent_color: designData.customization.title.color || '#3366FF',
+      background_color: '#FFFFFF',
+      headline_font: 'Inter',
+      body_font: 'Inter',
+      header_height: 100,
+      footer_height: 80,
+    },
+    theme: designData.theme,
+    style: designData.style,
+    colorScheme: 'brand_default',
+    // Pass colorConfig from UI (brand toggle, palette selection, custom colors)
+    colorConfig: designData.colorConfig,
+    language: 'en',
+    aspectRatio: aspectRatio,
+    resolution: designData.resolution as '1K' | '2K' | '4K',
+    dimensions,
+    organizationName,
+    customization: convertCustomization(designData.customization),
+    // Pass AI-generated design context for purpose-driven prompts
+    designContext,
+  }
+
+  // Generate the prompt (now includes design intelligence if available)
+  const promptOutput = generatePrompt(params)
+
+  if (isGeminiPrompt(promptOutput)) {
+    return {
+      prompt: promptOutput.userPrompt,
+      systemPrompt: promptOutput.systemPrompt,
+    }
+  } else if (isIdeogramPrompt(promptOutput)) {
+    const apiFormat = toIdeogramApiFormat(promptOutput)
+    return {
+      prompt: apiFormat.prompt,
+      styleType: apiFormat.styleType,
+      magicPrompt: apiFormat.magicPrompt,
+      negativePrompt: apiFormat.negativePrompt,
+    }
+  }
+
+  // Fallback
+  return { prompt: basePrompt }
+}
+
+// Get aspect ratio string for APIs
+function getAspectRatioString(designData?: DesignData | null): string {
+  if (!designData) return 'ASPECT_4_5'
+
+  // Map to Ideogram aspect ratio format
+  const ratioMap: Record<string, string> = {
+    '1:1': 'ASPECT_1_1',
+    '2:3': 'ASPECT_2_3',
+    '3:2': 'ASPECT_3_2',
+    '3:4': 'ASPECT_3_4',
+    '4:3': 'ASPECT_4_3',
+    '4:5': 'ASPECT_4_5',
+    '5:4': 'ASPECT_5_4',
+    '9:16': 'ASPECT_9_16',
+    '16:9': 'ASPECT_16_9',
+    '21:9': 'ASPECT_21_9',
+  }
+
+  return ratioMap[designData.aspectRatio] || 'ASPECT_4_5'
 }
 
 async function generateFromTemplate(
@@ -192,11 +643,53 @@ Generate a professional marketing poster that looks like it was designed with th
   return `data:${mimeType};base64,${imageData}`
 }
 
-async function generateWithGemini(prompt: string): Promise<string> {
+async function generateWithGemini(
+  prompt: string,
+  designData?: DesignData | null,
+  systemPrompt?: string,
+  format?: import('@/lib/config/creative-formats').CreativeFormat | null
+): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     throw new Error('Gemini API key not configured')
   }
+
+  // Get aspect ratio for the prompt - prefer format if available
+  let aspectRatioText = 'Portrait orientation (4:5 aspect ratio)'
+  if (format) {
+    aspectRatioText = `${format.label} format (${format.aspectRatio} aspect ratio, ${format.width}x${format.height}px)`
+  } else if (designData) {
+    const ratio = ASPECT_RATIOS[designData.aspectRatio as keyof typeof ASPECT_RATIOS]
+    if (ratio) {
+      aspectRatioText = `${ratio.label} (${designData.aspectRatio} aspect ratio)`
+    }
+  }
+
+  // Build the prompt - use system prompt if provided (from new prompt system)
+  let finalPrompt: string
+  if (designData && systemPrompt) {
+    // New prompt system with system context
+    finalPrompt = `${systemPrompt}\n\n---\n\n${prompt}`
+  } else if (designData) {
+    // Already enhanced with design data
+    finalPrompt = prompt
+  } else {
+    // Fallback for template mode
+    finalPrompt = `Create a professional marketing poster image. ${prompt}.
+    Style: Clean, modern, professional.
+    Format: ${aspectRatioText}.
+    Include realistic photo elements where appropriate.
+    Make text clearly readable and well-designed.`
+  }
+
+  // Log the final prompt for debugging
+  console.log('[Generate] === FINAL PROMPT TO GEMINI ===')
+  console.log('[Generate] Prompt Length:', finalPrompt.length, 'chars')
+  console.log('[Generate] Estimated Tokens:', Math.ceil(finalPrompt.length / 4))
+  console.log('[Generate] Has System Prompt:', !!systemPrompt)
+  console.log('[Generate] Prompt Preview (first 800 chars):')
+  console.log(finalPrompt.substring(0, 800))
+  console.log('[Generate] ... (truncated)')
 
   // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
@@ -212,11 +705,7 @@ async function generateWithGemini(prompt: string): Promise<string> {
           {
             parts: [
               {
-                text: `Create a professional marketing poster image. ${prompt}.
-                Style: Clean, modern, professional.
-                Format: Portrait orientation (4:5 aspect ratio).
-                Include realistic photo elements where appropriate.
-                Make text clearly readable and well-designed.`,
+                text: finalPrompt,
               },
             ],
           },
@@ -252,10 +741,45 @@ async function generateWithGemini(prompt: string): Promise<string> {
   return `data:${mimeType};base64,${imageData}`
 }
 
-async function generateWithIdeogram(prompt: string): Promise<string> {
+async function generateWithIdeogram(
+  prompt: string,
+  designData?: DesignData | null,
+  styleType?: string,
+  magicPrompt?: string,
+  negativePrompt?: string,
+  format?: import('@/lib/config/creative-formats').CreativeFormat | null
+): Promise<string> {
   const apiKey = process.env.IDEOGRAM_API_KEY
   if (!apiKey) {
     throw new Error('Ideogram API key not configured')
+  }
+
+  // Get aspect ratio for Ideogram API - prefer format if available
+  let aspectRatio: string
+  if (format) {
+    aspectRatio = getStandardAspectRatio(format).replace(':', '_').replace(/^/, 'ASPECT_')
+  } else {
+    aspectRatio = getAspectRatioString(designData)
+  }
+
+  // Build image request with new prompt system parameters
+  const imageRequest: Record<string, unknown> = {
+    prompt: designData
+      ? prompt // Already enhanced with design data
+      : `Professional marketing poster. ${prompt}. Clean modern design with excellent typography.`,
+    aspect_ratio: aspectRatio,
+    model: 'V_2',
+    magic_prompt_option: magicPrompt || 'AUTO',
+  }
+
+  // Add style type if provided
+  if (styleType) {
+    imageRequest.style_type = styleType
+  }
+
+  // Add negative prompt if provided
+  if (negativePrompt) {
+    imageRequest.negative_prompt = negativePrompt
   }
 
   const response = await fetch('https://api.ideogram.ai/generate', {
@@ -265,12 +789,7 @@ async function generateWithIdeogram(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      image_request: {
-        prompt: `Professional marketing poster. ${prompt}. Clean modern design with excellent typography.`,
-        aspect_ratio: 'ASPECT_4_5',
-        model: 'V_2',
-        magic_prompt_option: 'AUTO',
-      },
+      image_request: imageRequest,
     }),
   })
 
@@ -295,34 +814,62 @@ async function overlayLogos(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<string> {
   try {
-    // Fetch logo URLs from database
+    console.log(`[overlayLogos] Received ${logosPlacements.length} logo placements`)
+    console.log('[overlayLogos] Placements:', JSON.stringify(logosPlacements.map(p => ({
+      logoId: p.logoId,
+      position: p.position,
+      hasLogo: !!p.logo,
+      hasFileUrl: !!p.logo?.file_url
+    }))))
+
+    // Fetch logo URLs from database for all logos
     const logoIds = logosPlacements.map((p) => p.logoId)
+    console.log(`[overlayLogos] Fetching logos for IDs: ${logoIds.join(', ')}`)
+
     const { data: logos, error } = await supabase
       .from('organization_logos')
       .select('id, file_url')
       .in('id', logoIds)
 
-    if (error || !logos || logos.length === 0) {
-      console.log('No logos found or error fetching logos:', error)
-      return imageUrl
+    if (error) {
+      console.error('[overlayLogos] Database error:', error)
     }
 
-    // Create a map of logo IDs to logo data
-    const logoMap = new Map(logos.map((l) => [l.id, l]))
+    console.log(`[overlayLogos] Found ${logos?.length || 0} logos in database`)
 
-    // Build placements with logo data
-    const placementsWithLogos = logosPlacements.map((p) => ({
-      logoId: p.logoId,
-      position: p.position as LogoPosition,
-      logo: logoMap.get(p.logoId) || p.logo,
-    }))
+    // Create a map of logo IDs to logo data
+    const logoMap = new Map((logos || []).map((l) => [l.id, l]))
+
+    // Build placements with logo data - prioritize database logos, fall back to passed logos
+    const placementsWithLogos = logosPlacements
+      .map((p) => {
+        const dbLogo = logoMap.get(p.logoId)
+        const passedLogo = p.logo
+        const logo = dbLogo || passedLogo
+
+        console.log(`[overlayLogos] Logo ${p.logoId}: dbLogo=${!!dbLogo}, passedLogo=${!!passedLogo}, final=${!!logo}, fileUrl=${logo?.file_url?.substring(0, 50)}...`)
+
+        return {
+          logoId: p.logoId,
+          position: p.position as LogoPosition,
+          logo: logo,
+        }
+      })
+      .filter(p => p.logo?.file_url) // Only include logos with file URLs
+
+    console.log(`[overlayLogos] Valid placements after filtering: ${placementsWithLogos.length}`)
+
+    if (placementsWithLogos.length === 0) {
+      console.log('[overlayLogos] No valid logo placements, returning original image')
+      return imageUrl
+    }
 
     // Process image with logo overlays using Sharp
     const processedImageUrl = await processImageWithLogos(imageUrl, placementsWithLogos)
 
     return processedImageUrl
   } catch (error) {
-    console.error('Error overlaying logos:', error)
+    console.error('[overlayLogos] Error:', error)
     // Return original image if logo overlay fails
     return imageUrl
   }

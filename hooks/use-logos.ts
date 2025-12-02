@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useCreativeStore } from '@/stores/creative-store'
 import type { OrganizationLogo } from '@/types/database.types'
-import type { LogoCategory } from '@/lib/config/constants'
+import { LOGO_CATEGORIES, type LogoCategory } from '@/lib/config/constants'
 import { toast } from 'sonner'
 
 export function useLogos() {
@@ -13,6 +13,11 @@ export function useLogos() {
   const { currentOrganization } = useAuthStore()
   const { logos, setLogos } = useCreativeStore()
   const [isLoading, setIsLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number
+    total: number
+    fileName: string
+  } | null>(null)
 
   const fetchLogos = useCallback(async () => {
     if (!currentOrganization?.id) return
@@ -165,6 +170,100 @@ export function useLogos() {
     return logos.find(l => l.is_default) || logos[0]
   }, [logos])
 
+  // Detect category from folder path
+  const detectCategoryFromPath = useCallback((path: string): LogoCategory | null => {
+    const pathParts = path.toLowerCase().split('/')
+    const folderName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : ''
+
+    const categoryMap: Record<string, LogoCategory> = {
+      'primary': 'primary',
+      'secondary': 'secondary',
+      'sponsor': 'sponsor',
+      'sponsors': 'sponsor',
+      'partner': 'partner',
+      'partners': 'partner',
+      'department': 'department',
+      'departments': 'department',
+    }
+
+    return categoryMap[folderName] || null
+  }, [])
+
+  // Batch upload logos from folder or multiple files
+  const uploadLogosFolder = useCallback(async (
+    files: Array<{ file: File; category: LogoCategory; name: string }>
+  ): Promise<{ success: number; failed: number }> => {
+    if (!currentOrganization?.id) {
+      toast.error('No organization selected')
+      return { success: 0, failed: files.length }
+    }
+
+    let success = 0
+    let failed = 0
+
+    setIsLoading(true)
+
+    for (let i = 0; i < files.length; i++) {
+      const { file, category, name } = files[i]
+
+      setUploadProgress({
+        current: i + 1,
+        total: files.length,
+        fileName: file.name
+      })
+
+      try {
+        // Upload file to Supabase Storage
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${currentOrganization.id}/${Date.now()}-${i}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('logos')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (uploadError) throw uploadError
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('logos')
+          .getPublicUrl(fileName)
+
+        // Create logo record
+        const { error: dbError } = await supabase
+          .from('organization_logos')
+          .insert({
+            organization_id: currentOrganization.id,
+            name,
+            category,
+            file_url: urlData.publicUrl,
+            file_size_bytes: file.size,
+          })
+
+        if (dbError) throw dbError
+        success++
+      } catch (error) {
+        console.error(`Error uploading ${file.name}:`, error)
+        failed++
+      }
+    }
+
+    setUploadProgress(null)
+    setIsLoading(false)
+    await fetchLogos()
+
+    if (success > 0) {
+      toast.success(`Uploaded ${success} logo${success !== 1 ? 's' : ''} successfully`)
+    }
+    if (failed > 0) {
+      toast.error(`Failed to upload ${failed} logo${failed !== 1 ? 's' : ''}`)
+    }
+
+    return { success, failed }
+  }, [currentOrganization?.id, supabase, fetchLogos])
+
   // Fetch logos on mount
   useEffect(() => {
     fetchLogos()
@@ -173,11 +272,14 @@ export function useLogos() {
   return {
     logos,
     isLoading,
+    uploadProgress,
     fetchLogos,
     uploadLogo,
+    uploadLogosFolder,
     deleteLogo,
     setDefaultLogo,
     getLogosByCategory,
     getDefaultLogo,
+    detectCategoryFromPath,
   }
 }

@@ -114,6 +114,16 @@ export function useEventSuggestions({
               signal: abortControllerRef.current.signal,
             })
 
+            // Check content type to avoid parsing HTML as JSON
+            const contentType = response.headers.get('content-type')
+            if (!contentType || !contentType.includes('application/json')) {
+              // If not authenticated, redirect to login
+              if (response.status === 401 || response.status === 403) {
+                throw new Error('Session expired. Please log in again.')
+              }
+              throw new Error('Server returned an invalid response. Please try again.')
+            }
+
             const data: SuggestFieldsResponse | SuggestFieldsError = await response.json()
 
             if (!data.success) {

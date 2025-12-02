@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="modGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0a"/>
+      <stop offset="100%" style="stop-color:#1a1a1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#modGrad)"/>
+  <line x1="0" y1="150" x2="400" y2="150" stroke="#00a8e8" stroke-width="2" opacity="0.3"/>
+  <circle cx="200" cy="150" r="80" fill="none" stroke="#00a8e8" stroke-width="1" opacity="0.5"/>
+  <circle cx="200" cy="150" r="60" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+  <rect x="170" y="120" width="60" height="60" fill="none" stroke="#00a8e8" stroke-width="1" opacity="0.6" transform="rotate(45 200 150)"/>
+  <rect x="60" y="60" width="120" height="6" rx="3" fill="#ffffff" opacity="0.9"/>
+  <rect x="60" y="76" width="80" height="4" rx="2" fill="#ffffff" opacity="0.4"/>
+</svg>

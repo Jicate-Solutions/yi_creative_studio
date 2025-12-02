@@ -1,13 +1,13 @@
 import sharp from 'sharp'
 
-// Logo position grid (9 positions)
+// Logo position grid (9 positions) - matches lib/config/constants.ts
 export type LogoPosition =
   | 'top-left'
   | 'top-center'
   | 'top-right'
-  | 'middle-left'
-  | 'middle-center'
-  | 'middle-right'
+  | 'mid-left'
+  | 'center'
+  | 'mid-right'
   | 'bottom-left'
   | 'bottom-center'
   | 'bottom-right'
@@ -41,12 +41,12 @@ function calculatePosition(
     'top-left': { x: padding, y: padding },
     'top-center': { x: Math.floor((imageWidth - logoSize) / 2), y: padding },
     'top-right': { x: imageWidth - logoSize - padding, y: padding },
-    'middle-left': { x: padding, y: Math.floor((imageHeight - logoSize) / 2) },
-    'middle-center': {
+    'mid-left': { x: padding, y: Math.floor((imageHeight - logoSize) / 2) },
+    'center': {
       x: Math.floor((imageWidth - logoSize) / 2),
       y: Math.floor((imageHeight - logoSize) / 2),
     },
-    'middle-right': {
+    'mid-right': {
       x: imageWidth - logoSize - padding,
       y: Math.floor((imageHeight - logoSize) / 2),
     },
@@ -91,8 +91,14 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
   // Prepare composite operations
   const compositeOperations: sharp.OverlayOptions[] = []
 
+  console.log(`Processing ${logosPlacements.length} logo placements`)
+
   for (const placement of logosPlacements) {
-    if (!placement.logo?.file_url) continue
+    if (!placement.logo?.file_url) {
+      console.log(`Skipping logo ${placement.logoId}: no file_url`)
+      continue
+    }
+    console.log(`Processing logo ${placement.logoId} at position ${placement.position}`)
 
     try {
       // Download logo image
@@ -128,11 +134,13 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
   }
 
   // Apply all logo overlays
+  console.log(`Total composite operations: ${compositeOperations.length}`)
   if (compositeOperations.length > 0) {
     return await baseImage.composite(compositeOperations).png().toBuffer()
   }
 
   // Return original image if no logos to overlay
+  console.log('No logos to overlay, returning original image')
   return await baseImage.png().toBuffer()
 }
 
@@ -164,4 +172,44 @@ export async function processImageWithLogos(
 
   // Return as data URL
   return `data:image/png;base64,${resultBuffer.toString('base64')}`
+}
+
+/**
+ * Resize an image to exact dimensions
+ * Uses 'cover' fit to maintain aspect ratio and crop to fill
+ */
+export async function resizeImageToExactDimensions(
+  imageDataUrl: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<string> {
+  // Extract buffer from data URL or fetch from URL
+  let imageBuffer: Buffer
+
+  if (imageDataUrl.startsWith('data:')) {
+    const base64Data = imageDataUrl.split(',')[1]
+    imageBuffer = Buffer.from(base64Data, 'base64')
+  } else if (imageDataUrl.startsWith('http')) {
+    imageBuffer = await downloadImage(imageDataUrl)
+  } else {
+    throw new Error('Invalid image format')
+  }
+
+  // Get current dimensions
+  const metadata = await sharp(imageBuffer).metadata()
+  const currentWidth = metadata.width || targetWidth
+  const currentHeight = metadata.height || targetHeight
+
+  console.log(`Resizing image from ${currentWidth}x${currentHeight} to ${targetWidth}x${targetHeight}`)
+
+  // Resize to exact dimensions using 'cover' (fills and crops)
+  const resizedBuffer = await sharp(imageBuffer)
+    .resize(targetWidth, targetHeight, {
+      fit: 'cover',
+      position: 'center',
+    })
+    .png()
+    .toBuffer()
+
+  return `data:image/png;base64,${resizedBuffer.toString('base64')}`
 }

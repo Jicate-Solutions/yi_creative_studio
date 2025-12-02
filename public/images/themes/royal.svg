@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="royalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#4b0082"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#royalGrad)"/>
+  <polygon points="200,40 215,70 250,75 225,100 230,135 200,120 170,135 175,100 150,75 185,70" fill="#ffd700" opacity="0.9"/>
+  <rect x="80" y="160" width="240" height="10" rx="5" fill="#f5f5f5"/>
+  <rect x="110" y="185" width="180" height="6" rx="3" fill="#ffd700" opacity="0.7"/>
+  <line x1="50" y1="240" x2="350" y2="240" stroke="#ffd700" stroke-width="2" opacity="0.5"/>
+  <circle cx="60" cy="240" r="5" fill="#ffd700" opacity="0.8"/>
+  <circle cx="340" cy="240" r="5" fill="#ffd700" opacity="0.8"/>
+</svg>

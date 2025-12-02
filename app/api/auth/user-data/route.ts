@@ -7,7 +7,12 @@ export async function GET() {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (userError) {
+      console.error('Auth error in user-data:', userError)
+      return NextResponse.json({ error: 'Authentication error', details: userError.message }, { status: 401 })
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
@@ -66,6 +71,10 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Error fetching user data:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: errorMessage
+    }, { status: 500 })
   }
 }
