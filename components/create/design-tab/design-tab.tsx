@@ -6,6 +6,7 @@ import { Palette, Wand2, Droplets } from 'lucide-react'
 import { ThemeTab } from './theme-tab'
 import { StyleTab } from './style-tab'
 import { ColorTab } from './color-tab'
+import { useAIDesignSuggestions } from '@/hooks/use-ai-design-suggestions'
 import type { DesignData, CustomColors } from '@/lib/config/design-constants'
 
 interface BrandColors {
@@ -23,6 +24,7 @@ interface DesignTabProps {
   onCustomColorChange: (colors: CustomColors) => void
   brandColors?: BrandColors
   eventType?: string
+  eventName?: string
 }
 
 export function DesignTab({
@@ -34,7 +36,11 @@ export function DesignTab({
   onCustomColorChange,
   brandColors,
   eventType,
+  eventName,
 }: DesignTabProps) {
+  // AI Design Suggestions hook (now per-tab) - pass eventType and eventName for context
+  const aiSuggestions = useAIDesignSuggestions(eventType, eventName)
+
   return (
     <Card>
       <CardHeader>
@@ -43,7 +49,8 @@ export function DesignTab({
           Customize the look and feel of your poster
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        {/* Tabs with per-tab AI toggles */}
         <Tabs defaultValue="theme" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="theme" className="flex items-center gap-2">
@@ -65,6 +72,16 @@ export function DesignTab({
               selectedTheme={designData.theme}
               onThemeChange={onThemeChange}
               eventType={eventType}
+              eventName={eventName}
+              // AI props
+              enableAI={aiSuggestions.theme.enableAI}
+              isGenerating={aiSuggestions.theme.isGenerating}
+              aiSuggestions={aiSuggestions.theme.suggestions}
+              aiError={aiSuggestions.theme.error}
+              onToggleAI={aiSuggestions.theme.toggleAI}
+              onRefreshAI={aiSuggestions.theme.refresh}
+              visualElements={aiSuggestions.theme.visualElements}
+              creativeTips={aiSuggestions.theme.creativeTips}
             />
           </TabsContent>
 
@@ -72,6 +89,15 @@ export function DesignTab({
             <StyleTab
               selectedStyle={designData.style}
               onStyleChange={onStyleChange}
+              eventName={eventName}
+              // AI props
+              enableAI={aiSuggestions.style.enableAI}
+              isGenerating={aiSuggestions.style.isGenerating}
+              aiSuggestions={aiSuggestions.style.suggestions}
+              aiError={aiSuggestions.style.error}
+              onToggleAI={aiSuggestions.style.toggleAI}
+              onRefreshAI={aiSuggestions.style.refresh}
+              creativeTips={aiSuggestions.style.creativeTips}
             />
           </TabsContent>
 
@@ -82,6 +108,15 @@ export function DesignTab({
               onToggleBrandColors={onToggleBrandColors}
               onSelectPalette={onSelectPalette}
               onCustomColorChange={onCustomColorChange}
+              eventName={eventName}
+              // AI props
+              enableAI={aiSuggestions.color.enableAI}
+              isGenerating={aiSuggestions.color.isGenerating}
+              colorMood={aiSuggestions.color.colorMood}
+              aiError={aiSuggestions.color.error}
+              onToggleAI={aiSuggestions.color.toggleAI}
+              onRefreshAI={aiSuggestions.color.refresh}
+              creativeTips={aiSuggestions.color.creativeTips}
             />
           </TabsContent>
         </Tabs>

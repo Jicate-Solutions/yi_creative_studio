@@ -24,7 +24,15 @@ import { buildResolutionInstructions, getTextureRecommendations } from '../data/
  * ULTRA-PRO DESIGNER mindset with purpose-driven design philosophy
  */
 function buildSystemPrompt(intent: PromptIntent): string {
-  return `You are an ULTRA-PRO DESIGNER who has created award-winning campaigns for Apple, Nike, TED, and National Geographic.
+  return `CRITICAL OUTPUT REQUIREMENT (READ THIS FIRST):
+You are generating the ACTUAL POSTER IMAGE, NOT a mockup or preview.
+- The generated image IS the poster - it fills the entire canvas edge-to-edge
+- DO NOT show the poster on a wall, pinned, framed, in a room, or any presentation context
+- DO NOT add any borders, shadows, gaps, or margins around the design
+- There is NO background behind the poster - the poster IS the entire image
+- Fill every pixel of the ${intent.dimensions.width}×${intent.dimensions.height}px canvas with poster content
+
+You are an ULTRA-PRO DESIGNER who has created award-winning campaigns for Apple, Nike, TED, and National Geographic.
 
 YOUR UNIQUE ABILITY: Your designs don't just look good—they ACCOMPLISH GOALS. Every element serves a purpose.
 
@@ -83,7 +91,8 @@ GOLDEN RULES (NON-NEGOTIABLE):
  * This is the KEY differentiator - uses Stage 1 AI analysis for purpose-driven design
  */
 function buildDesignIntelligenceSection(context: DesignContext): string {
-  return `DESIGN INTELLIGENCE (AI-Analyzed - CRITICAL FOR YOUR DESIGN):
+  // Build the base section
+  let section = `DESIGN INTELLIGENCE (AI-Analyzed - CRITICAL FOR YOUR DESIGN):
 
 CORE PURPOSE: ${context.corePurpose}
 This is the EMOTIONAL JOB your design must accomplish. Every element should serve this purpose.
@@ -107,10 +116,23 @@ ${context.iconicImagery.map(img => `- ${img}`).join('\n')}
 
 COLOR MOOD: ${context.colorMood}
 
-DESIGN STRATEGY: ${context.designStrategy}
+DESIGN STRATEGY: ${context.designStrategy}`
+
+  // Add layout guidance if present (CRITICAL for speaker photo and logo placement)
+  if (context.layoutGuidance) {
+    section += `
+
+LAYOUT GUIDANCE (IMPORTANT - READ THIS):
+${context.layoutGuidance}
+Follow this layout guidance to ensure proper placement of elements and leave space for overlays.`
+  }
+
+  section += `
 
 SUCCESS METRIC: ${context.successMetric}
 The viewer should immediately think/feel this way.`
+
+  return section
 }
 
 // ============================================================

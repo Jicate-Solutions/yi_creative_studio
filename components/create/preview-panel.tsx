@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useCreativeStore } from '@/stores/creative-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -63,10 +64,12 @@ export function PreviewPanel({ className, isGenerating, generatedImage }: Previe
               </div>
             </div>
           ) : selectedTemplate ? (
-            <img
+            <Image
               src={selectedTemplate.image_url}
               alt="Template preview"
-              className="w-full h-full object-cover opacity-80"
+              fill
+              sizes="(max-width: 768px) 100vw, 400px"
+              className="object-cover opacity-80"
             />
           ) : (
             <div className="text-center text-muted-foreground p-6">

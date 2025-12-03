@@ -29,7 +29,9 @@ import {
   Image as ImageIcon,
   X,
   Loader2,
+  AlertCircle,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface LogoFolderUploadDialogProps {
   open: boolean
@@ -59,10 +61,30 @@ export function LogoFolderUploadDialog({
   const [defaultCategory, setDefaultCategory] = useState<LogoCategory>('primary')
 
   const validTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']
+  // PRD Edge Case E14: Maximum file size 5MB per logo
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB in bytes
 
   const processFiles = useCallback((fileList: FileList | File[]) => {
     const fileArray = Array.from(fileList)
-    const imageFiles = fileArray.filter(file => validTypes.includes(file.type))
+
+    // PRD Edge Case E14: Filter out oversized files with user notification
+    const oversizedFiles = fileArray.filter(file =>
+      validTypes.includes(file.type) && file.size > MAX_FILE_SIZE
+    )
+    if (oversizedFiles.length > 0) {
+      toast.error(
+        `${oversizedFiles.length} file(s) exceed 5MB limit and were skipped`,
+        {
+          description: oversizedFiles.slice(0, 3).map(f => f.name).join(', ') +
+            (oversizedFiles.length > 3 ? ` and ${oversizedFiles.length - 3} more...` : ''),
+          duration: 5000,
+        }
+      )
+    }
+
+    const imageFiles = fileArray.filter(file =>
+      validTypes.includes(file.type) && file.size <= MAX_FILE_SIZE
+    )
 
     const newFiles: FilePreview[] = imageFiles.map(file => {
       const path = (file as any).webkitRelativePath || file.name

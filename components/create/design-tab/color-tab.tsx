@@ -4,8 +4,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Check, Palette, Pipette } from 'lucide-react'
+import { Check, Palette, Pipette, Sparkles, RefreshCw, AlertCircle, Lightbulb } from 'lucide-react'
 import {
   Collapsible,
   CollapsibleContent,
@@ -30,6 +31,15 @@ interface ColorTabProps {
   onToggleBrandColors: (enabled: boolean) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
+  eventName?: string
+  // AI props
+  enableAI?: boolean
+  isGenerating?: boolean
+  colorMood?: string
+  aiError?: string | null
+  onToggleAI?: (enabled: boolean) => void
+  onRefreshAI?: () => void
+  creativeTips?: string[]
 }
 
 // Color swatch preview component
@@ -210,6 +220,15 @@ export function ColorTab({
   onToggleBrandColors,
   onSelectPalette,
   onCustomColorChange,
+  eventName,
+  // AI props
+  enableAI = false,
+  isGenerating = false,
+  colorMood = '',
+  aiError = null,
+  onToggleAI,
+  onRefreshAI,
+  creativeTips = [],
 }: ColorTabProps) {
   const palettes = Object.values(COLOR_PALETTES)
 
@@ -232,6 +251,90 @@ export function ColorTab({
 
   return (
     <div className="space-y-6">
+      {/* AI Toggle for Color Tab */}
+      <div className="p-4 rounded-xl border bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+              <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <Label htmlFor="ai-color-toggle" className="text-sm font-medium cursor-pointer">
+                AI Color Suggestions
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Get AI-powered color mood guidance
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {enableAI && onRefreshAI && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefreshAI}
+                disabled={isGenerating}
+                className="h-8 w-8"
+              >
+                <RefreshCw className={cn('h-4 w-4', isGenerating && 'animate-spin')} />
+              </Button>
+            )}
+            <Switch
+              id="ai-color-toggle"
+              checked={enableAI}
+              onCheckedChange={(checked) => onToggleAI?.(checked)}
+            />
+          </div>
+        </div>
+
+        {/* AI Suggestions Panel */}
+        {enableAI && (
+          <div className="mt-4 space-y-3">
+            {/* Loading State */}
+            {isGenerating && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Generating color suggestions...</span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {aiError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                <span>{aiError}</span>
+              </div>
+            )}
+
+            {/* Color Mood Guidance */}
+            {!isGenerating && colorMood && (
+              <div className="p-3 rounded-lg bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-800/30">
+                <div className="flex items-start gap-2">
+                  <Palette className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                  <div className="text-sm text-emerald-800 dark:text-emerald-200">
+                    <span className="font-medium">Color Mood: </span>
+                    {colorMood}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Creative Tips */}
+            {!isGenerating && creativeTips.length > 2 && (
+              <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="text-xs text-amber-800 dark:text-amber-200">
+                    <span className="font-medium">Color Tip: </span>
+                    {creativeTips[2] || creativeTips[0]}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Brand Colors Toggle */}
       <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
         <div className="space-y-0.5">

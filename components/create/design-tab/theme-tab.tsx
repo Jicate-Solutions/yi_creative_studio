@@ -23,7 +23,14 @@ import {
   Star,
   Check,
   Sparkles,
+  RefreshCw,
+  AlertCircle,
+  Lightbulb,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import type { AIDesignSuggestion } from '@/stores/creative-store'
 import {
   THEME_CATEGORIES,
   getSuggestedThemes,
@@ -50,6 +57,16 @@ interface ThemeTabProps {
   selectedTheme: string
   onThemeChange: (theme: string) => void
   eventType?: string
+  eventName?: string
+  // AI props
+  enableAI?: boolean
+  isGenerating?: boolean
+  aiSuggestions?: AIDesignSuggestion[]
+  aiError?: string | null
+  onToggleAI?: (enabled: boolean) => void
+  onRefreshAI?: () => void
+  visualElements?: string[]
+  creativeTips?: string[]
 }
 
 // Theme Card Component with thumbnail preview
@@ -57,11 +74,13 @@ function ThemeCard({
   theme,
   isSelected,
   isSuggested,
+  isAISuggested,
   onClick,
 }: {
   theme: ThemeWithCategory
   isSelected: boolean
   isSuggested: boolean
+  isAISuggested?: boolean
   onClick: () => void
 }) {
   return (
@@ -104,8 +123,15 @@ function ThemeCard({
               <span className="text-xs text-white/80 drop-shadow">{theme.mood}</span>
             </div>
 
-            {/* Suggested Star */}
-            {isSuggested && (
+            {/* AI Suggested Badge */}
+            {isAISuggested && (
+              <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-blue-500/90 backdrop-blur-sm flex items-center gap-0.5">
+                <Sparkles className="h-3 w-3 text-white" />
+                <span className="text-[10px] font-medium text-white">AI</span>
+              </div>
+            )}
+            {/* Suggested Star (event-type based) */}
+            {isSuggested && !isAISuggested && (
               <div className="absolute top-2 right-2 p-1 rounded-full bg-black/30 backdrop-blur-sm">
                 <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
               </div>
@@ -117,7 +143,13 @@ function ThemeCard({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <h4 className="font-semibold">{theme.label}</h4>
-            {isSuggested && (
+            {isAISuggested && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-100 dark:bg-blue-900/50">
+                <Sparkles className="h-2.5 w-2.5 mr-0.5 text-blue-500" />
+                AI Pick
+              </Badge>
+            )}
+            {isSuggested && !isAISuggested && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 <Star className="h-2.5 w-2.5 mr-0.5 text-yellow-500 fill-yellow-500" />
                 Recommended
@@ -139,9 +171,26 @@ function ThemeCard({
   )
 }
 
-export function ThemeTab({ selectedTheme, onThemeChange, eventType }: ThemeTabProps) {
+export function ThemeTab({
+  selectedTheme,
+  onThemeChange,
+  eventType,
+  eventName,
+  // AI props
+  enableAI = false,
+  isGenerating = false,
+  aiSuggestions = [],
+  aiError = null,
+  onToggleAI,
+  onRefreshAI,
+  visualElements = [],
+  creativeTips = [],
+}: ThemeTabProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
+
+  // Get AI-suggested theme IDs
+  const aiSuggestedThemeIds = aiSuggestions.map((s) => s.id)
 
   const suggestedThemes = useMemo(
     () => (eventType ? getSuggestedThemes(eventType) : []),
@@ -194,6 +243,120 @@ export function ThemeTab({ selectedTheme, onThemeChange, eventType }: ThemeTabPr
 
   return (
     <div className="space-y-4">
+      {/* AI Toggle for Theme Tab */}
+      <div className="p-4 rounded-xl border bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/50">
+              <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <Label htmlFor="ai-theme-toggle" className="text-sm font-medium cursor-pointer">
+                AI Theme Suggestions
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Get AI-powered theme recommendations for your event
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {enableAI && onRefreshAI && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefreshAI}
+                disabled={isGenerating}
+                className="h-8 w-8"
+              >
+                <RefreshCw className={cn('h-4 w-4', isGenerating && 'animate-spin')} />
+              </Button>
+            )}
+            <Switch
+              id="ai-theme-toggle"
+              checked={enableAI}
+              onCheckedChange={(checked) => onToggleAI?.(checked)}
+            />
+          </div>
+        </div>
+
+        {/* AI Suggestions Panel */}
+        {enableAI && (
+          <div className="mt-4 space-y-3">
+            {/* Loading State */}
+            {isGenerating && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Generating theme suggestions...</span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {aiError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                <span>{aiError}</span>
+              </div>
+            )}
+
+            {/* AI Suggested Themes */}
+            {!isGenerating && aiSuggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  AI Recommends
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {aiSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => onThemeChange(suggestion.id)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+                        selectedTheme === suggestion.id
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50'
+                      )}
+                      title={suggestion.reason}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {suggestion.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Visual Elements */}
+            {!isGenerating && visualElements.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Visual Elements
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {visualElements.map((element, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {element}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Creative Tips */}
+            {!isGenerating && creativeTips.length > 0 && (
+              <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="text-xs text-amber-800 dark:text-amber-200">
+                    <span className="font-medium">Tip: </span>
+                    {creativeTips[0]}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -300,6 +463,7 @@ export function ThemeTab({ selectedTheme, onThemeChange, eventType }: ThemeTabPr
             theme={theme}
             isSelected={selectedTheme === theme.value}
             isSuggested={suggestedThemes.includes(theme.value)}
+            isAISuggested={enableAI && aiSuggestedThemeIds.includes(theme.value)}
             onClick={() => onThemeChange(theme.value)}
           />
         ))}

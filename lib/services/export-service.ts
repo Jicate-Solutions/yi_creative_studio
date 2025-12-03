@@ -1,18 +1,25 @@
 /**
- * Export Service - CMYK/RGB Export System
+ * Export Service - TRUE CMYK/RGB Export System
  * YiCreatives Studio
  *
- * Handles image export with color mode conversion and ICC profile embedding.
- * Uses Sharp.js for image processing.
+ * Handles image export with TRUE CMYK color mode conversion using ImageMagick.
+ * Uses gm (GraphicsMagick/ImageMagick wrapper) for proper CMYK conversion
+ * and Sharp.js for RGB processing and fallback.
+ *
+ * CMYK Profiles Supported:
+ * - FOGRA39 (European print standard)
+ * - SWOP (US Web Coated standard)
+ * - JapanColor (Japan Color 2001 Coated)
  */
 
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
+import gm from 'gm';
+import { promisify } from 'util';
 import type {
   ExportParams,
   ExportFormat,
-  ColorMode,
   CMYKProfile,
   ExportResolution,
 } from '@/types/export';
@@ -22,6 +29,14 @@ import {
   generateExportFilename,
   validateExportParams,
 } from '@/types/export';
+import {
+  convertToCMYKWithCloudinary,
+  isCloudinaryConfigured,
+  getCloudinaryCMYKCapabilities,
+} from './cloudinary-cmyk';
+
+// Use ImageMagick subclass for better CMYK support
+const im = gm.subClass({ imageMagick: true });
 
 // ICC Profile paths (relative to project root)
 const ICC_PROFILES_DIR = path.join(process.cwd(), 'public', 'icc-profiles');
@@ -33,6 +48,32 @@ const PROFILE_FILES: Record<string, string> = {
   swop: 'SWOP.icc',
   japan: 'JapanColor.icc',
 };
+
+// ImageMagick availability flag
+let imageMagickAvailable: boolean | null = null;
+
+/**
+ * Check if ImageMagick is installed and available
+ */
+async function checkImageMagick(): Promise<boolean> {
+  if (imageMagickAvailable !== null) {
+    return imageMagickAvailable;
+  }
+
+  return new Promise((resolve) => {
+    im(1, 1, '#ffffff')
+      .identify((err) => {
+        imageMagickAvailable = !err;
+        if (err) {
+          console.warn('[Export] ImageMagick not available, falling back to Sharp for CMYK');
+          console.warn('[Export] Install ImageMagick for TRUE CMYK output: https://imagemagick.org/');
+        } else {
+          console.log('[Export] ImageMagick detected - TRUE CMYK conversion enabled');
+        }
+        resolve(imageMagickAvailable);
+      });
+  });
+}
 
 /**
  * Export service for handling image conversions
@@ -59,14 +100,44 @@ export const exportService = {
     let processedBuffer: Buffer;
 
     if (isCMYKMode(params.colorMode)) {
-      // CMYK conversion
-      processedBuffer = await this.convertToCMYK(
-        imageBuffer,
-        getCMYKProfile(params.colorMode)!,
-        params.format,
-        params.resolution,
-        params.quality
-      );
+      // Get CMYK profile
+      const cmykProfile = getCMYKProfile(params.colorMode)!;
+
+      // Priority 1: Native ImageMagick (local dev - fastest & best quality)
+      const hasImageMagick = await checkImageMagick();
+      if (hasImageMagick) {
+        console.log('[Export] Using ImageMagick for TRUE CMYK conversion');
+        processedBuffer = await this.convertToCMYKWithImageMagick(
+          imageBuffer,
+          cmykProfile,
+          params.format,
+          params.resolution,
+          params.quality
+        );
+      }
+      // Priority 2: Cloudinary API (Vercel production - TRUE CMYK)
+      else if (isCloudinaryConfigured()) {
+        console.log('[Export] Using Cloudinary API for TRUE CMYK conversion');
+        processedBuffer = await convertToCMYKWithCloudinary(
+          imageBuffer,
+          cmykProfile,
+          params.format,
+          params.resolution,
+          params.quality || 100
+        );
+      }
+      // Priority 3: Sharp fallback (limited CMYK support - TIFF only reliable)
+      else {
+        console.warn('[Export] ⚠️ Using Sharp fallback - CMYK support is LIMITED');
+        console.warn('[Export] For TRUE CMYK, install ImageMagick locally or configure Cloudinary');
+        processedBuffer = await this.convertToCMYKWithSharp(
+          imageBuffer,
+          cmykProfile,
+          params.format,
+          params.resolution,
+          params.quality
+        );
+      }
     } else {
       // RGB processing
       processedBuffer = await this.processRGB(
@@ -113,7 +184,7 @@ export const exportService = {
   },
 
   /**
-   * Process image for RGB export
+   * Process image for RGB export using Sharp
    */
   async processRGB(
     imageBuffer: Buffer,
@@ -149,21 +220,79 @@ export const exportService = {
     }
 
     // Convert to output format
-    return this.convertToFormat(pipeline, format, quality, resolution);
+    return this.convertToFormatWithSharp(pipeline, format, quality, resolution);
   },
 
   /**
-   * Convert image to CMYK color space
-   * Note: Sharp doesn't natively support CMYK output, so we use a simulation
-   * For production, you'd want to use a proper color management library
+   * Convert image to TRUE CMYK color space using ImageMagick
+   * This produces REAL CMYK files that print shops will accept
    */
-  async convertToCMYK(
+  async convertToCMYKWithImageMagick(
     imageBuffer: Buffer,
     profile: CMYKProfile,
     format: ExportFormat,
     resolution: ExportResolution,
     quality?: number
   ): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const iccProfilePath = this.getICCProfilePath(profile);
+
+      if (!iccProfilePath) {
+        return reject(new Error(`ICC profile not found: ${profile}`));
+      }
+
+      // Get format-specific settings
+      const gmFormat = this.getGMFormat(format);
+      const outputQuality = quality || 100;
+      const dpi = resolution || 300;
+
+      // Create ImageMagick pipeline
+      let pipeline = im(imageBuffer)
+        // Set density/DPI
+        .density(dpi, dpi)
+        // Convert to CMYK colorspace first
+        .colorspace('CMYK')
+        // Apply the ICC profile for accurate color conversion
+        .profile(iccProfilePath)
+        // Set quality
+        .quality(outputQuality);
+
+      // Format-specific settings
+      if (format === 'jpg') {
+        pipeline = pipeline
+          .compress('JPEG')
+          .samplingFactor(1, 1); // Preserve CMYK channels
+      } else if (format === 'tiff') {
+        pipeline = pipeline
+          .compress('LZW');
+      }
+
+      // Convert to buffer
+      pipeline.toBuffer(gmFormat, (err: Error | null, buffer: Buffer) => {
+        if (err) {
+          console.error('[Export] ImageMagick CMYK conversion failed:', err);
+          reject(new Error(`CMYK conversion failed: ${err.message}`));
+        } else {
+          console.log(`[Export] TRUE CMYK export completed: ${format.toUpperCase()}, ${profile}, ${dpi}dpi`);
+          resolve(buffer);
+        }
+      });
+    });
+  },
+
+  /**
+   * Fallback CMYK conversion using Sharp
+   * Note: Sharp's CMYK support is limited, especially for JPEG output
+   */
+  async convertToCMYKWithSharp(
+    imageBuffer: Buffer,
+    profile: CMYKProfile,
+    format: ExportFormat,
+    resolution: ExportResolution,
+    quality?: number
+  ): Promise<Buffer> {
+    console.warn('[Export] Using Sharp fallback - CMYK support may be limited');
+
     let pipeline = sharp(imageBuffer);
 
     // Get metadata
@@ -183,28 +312,26 @@ export const exportService = {
     const iccProfilePath = this.getICCProfilePath(profile);
 
     // Apply color conversion
-    // Note: Sharp's ICC profile support converts the image to the target color space
     if (iccProfilePath) {
       try {
-        pipeline = pipeline.toColorspace('cmyk').withIccProfile(iccProfilePath);
+        // Convert to CMYK colorspace and embed ICC profile
+        pipeline = pipeline.toColourspace('cmyk').withIccProfile(iccProfilePath);
       } catch {
-        // Fallback: simple colorspace conversion without profile
-        console.warn(`Failed to apply CMYK profile: ${profile}`);
-        pipeline = pipeline.toColorspace('cmyk');
+        console.warn(`[Export] Failed to apply CMYK profile: ${profile}`);
+        pipeline = pipeline.toColourspace('cmyk');
       }
     } else {
-      // Fallback: simple colorspace conversion without profile
-      pipeline = pipeline.toColorspace('cmyk');
+      pipeline = pipeline.toColourspace('cmyk');
     }
 
     // Convert to output format
-    return this.convertToFormat(pipeline, format, quality, resolution);
+    return this.convertToFormatWithSharp(pipeline, format, quality, resolution);
   },
 
   /**
    * Convert Sharp pipeline to the specified output format
    */
-  async convertToFormat(
+  async convertToFormatWithSharp(
     pipeline: sharp.Sharp,
     format: ExportFormat,
     quality?: number,
@@ -242,8 +369,7 @@ export const exportService = {
       case 'pdf':
         // Sharp doesn't directly support PDF output
         // For PDF, we'll convert to high-quality TIFF first
-        // In production, you'd use a library like PDFKit or pdf-lib
-        console.warn('PDF export falling back to TIFF format');
+        console.warn('[Export] PDF export falling back to TIFF format');
         return pipeline
           .tiff({
             compression: 'lzw',
@@ -255,6 +381,19 @@ export const exportService = {
       default:
         throw new Error(`Unsupported format: ${format}`);
     }
+  },
+
+  /**
+   * Get GraphicsMagick format string
+   */
+  getGMFormat(format: ExportFormat): string {
+    const formatMap: Record<ExportFormat, string> = {
+      png: 'PNG',
+      jpg: 'JPEG',
+      tiff: 'TIFF',
+      pdf: 'PDF',
+    };
+    return formatMap[format] || 'JPEG';
   },
 
   /**
@@ -356,5 +495,59 @@ export const exportService = {
     }
 
     return results;
+  },
+
+  /**
+   * Check if ImageMagick is available for TRUE CMYK support
+   */
+  async checkImageMagickAvailability(): Promise<boolean> {
+    return checkImageMagick();
+  },
+
+  /**
+   * Get export system capabilities
+   */
+  async getCapabilities(): Promise<{
+    imageMagick: boolean;
+    cloudinary: boolean;
+    iccProfiles: Record<string, boolean>;
+    trueCMYKSupport: boolean;
+    cmykMethod: 'imagemagick' | 'cloudinary' | 'sharp' | 'none';
+  }> {
+    const [imageMagick, iccProfiles] = await Promise.all([
+      checkImageMagick(),
+      this.checkICCProfiles(),
+    ]);
+
+    const cloudinary = isCloudinaryConfigured();
+    const hasCMYKProfile = iccProfiles.fogra39 || iccProfiles.swop || iccProfiles.japan;
+
+    // TRUE CMYK: ImageMagick (best) > Cloudinary (good) > Sharp (limited)
+    const trueCMYKSupport = (imageMagick && hasCMYKProfile) || cloudinary;
+
+    // Determine which method will be used
+    let cmykMethod: 'imagemagick' | 'cloudinary' | 'sharp' | 'none' = 'none';
+    if (imageMagick && hasCMYKProfile) {
+      cmykMethod = 'imagemagick';
+    } else if (cloudinary) {
+      cmykMethod = 'cloudinary';
+    } else if (hasCMYKProfile) {
+      cmykMethod = 'sharp'; // Limited support
+    }
+
+    return {
+      imageMagick,
+      cloudinary,
+      iccProfiles,
+      trueCMYKSupport,
+      cmykMethod,
+    };
+  },
+
+  /**
+   * Get Cloudinary-specific CMYK capabilities
+   */
+  getCloudinaryCapabilities() {
+    return getCloudinaryCMYKCapabilities();
   },
 };

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useCreativeStore } from '@/stores/creative-store'
-import { useVerticals, useAIModels, useLogos, useCredits } from '@/hooks'
+import { useVerticals, useAIModels, useLogos, useCredits, useOnlineStatus } from '@/hooks'
 import { useEventSuggestions } from '@/hooks/use-event-suggestions'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
@@ -63,22 +64,105 @@ import {
   LayoutGrid,
   User,
   LayoutTemplate,
+  WifiOff,
+  Globe,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
 import { Stepper, type Step } from '@/components/ui/stepper'
-import { PreviewPanel } from '@/components/create/preview-panel'
-import { LogoPositionGrid } from '@/components/create/logo-position-grid'
 import {
   AISuggestionField,
   AISuggestionActions,
   AITriggerButton,
 } from '@/components/create/ai-suggestion-field'
-import { TemplateSelector } from '@/components/create/template-selector'
-import { ModeSelector } from '@/components/create/mode-selector'
-import { DesignTab } from '@/components/create/design-tab'
-import { SpeakerPhotoUpload } from '@/components/create/speaker-photo-upload'
-import { ExportModal } from '@/components/export'
+import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
+
+// Dynamic imports for heavy components - improves initial load time
+const PreviewPanel = dynamic(
+  () => import('@/components/create/preview-panel').then(mod => ({ default: mod.PreviewPanel })),
+  { ssr: false, loading: () => <ComponentLoadingSkeleton type="preview" /> }
+)
+
+const LogoPositionGrid = dynamic(
+  () => import('@/components/create/logo-position-grid').then(mod => ({ default: mod.LogoPositionGrid })),
+  { loading: () => <ComponentLoadingSkeleton type="grid" /> }
+)
+
+const TemplateSelector = dynamic(
+  () => import('@/components/create/template-selector').then(mod => ({ default: mod.TemplateSelector })),
+  { loading: () => <ComponentLoadingSkeleton type="template" /> }
+)
+
+const ModeSelector = dynamic(
+  () => import('@/components/create/mode-selector').then(mod => ({ default: mod.ModeSelector })),
+  { loading: () => <ComponentLoadingSkeleton type="mode" /> }
+)
+
+const DesignTab = dynamic(
+  () => import('@/components/create/design-tab').then(mod => ({ default: mod.DesignTab })),
+  { loading: () => <ComponentLoadingSkeleton type="design" /> }
+)
+
+const SpeakerPhotoUpload = dynamic(
+  () => import('@/components/create/speaker-photo-upload').then(mod => ({ default: mod.SpeakerPhotoUpload })),
+  { loading: () => <ComponentLoadingSkeleton type="upload" /> }
+)
+
+const ExportModal = dynamic(
+  () => import('@/components/export').then(mod => ({ default: mod.ExportModal })),
+  { ssr: false }
+)
+
+// Loading skeleton for dynamically imported components
+function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'template' | 'mode' | 'design' | 'upload' }) {
+  const skeletonClasses = "animate-pulse bg-muted rounded-lg"
+
+  switch (type) {
+    case 'preview':
+      return (
+        <div className="space-y-4">
+          <div className={`${skeletonClasses} aspect-[3/4] w-full`} />
+          <div className={`${skeletonClasses} h-10 w-full`} />
+        </div>
+      )
+    case 'template':
+      return (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className={`${skeletonClasses} aspect-[3/4]`} />
+          ))}
+        </div>
+      )
+    case 'mode':
+      return (
+        <div className="grid grid-cols-2 gap-4">
+          <div className={`${skeletonClasses} h-40`} />
+          <div className={`${skeletonClasses} h-40`} />
+        </div>
+      )
+    case 'design':
+      return (
+        <div className="space-y-4">
+          <div className={`${skeletonClasses} h-12 w-full`} />
+          <div className={`${skeletonClasses} h-64 w-full`} />
+        </div>
+      )
+    case 'grid':
+      return (
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className={`${skeletonClasses} aspect-square`} />
+          ))}
+        </div>
+      )
+    case 'upload':
+      return <div className={`${skeletonClasses} h-32 w-full`} />
+    default:
+      return <div className={`${skeletonClasses} h-24 w-full`} />
+  }
+}
+
 import { ROUTES } from '@/lib/config/constants'
+import { isPastDate } from '@/lib/utils/date-utils'
 import type { CreationMode } from '@/types/design.types'
 import type { SpeakerPhotoCustomization, CustomColors } from '@/lib/config/design-constants'
 import { cn } from '@/lib/utils'
@@ -114,6 +198,7 @@ export default function CreatePage() {
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
   const { logos, fetchLogos } = useLogos()
   const { balance, canAfford, deductCredits } = useCredits()
+  const { isOnline } = useOnlineStatus()
 
   const {
     formData,
@@ -149,6 +234,7 @@ export default function CreatePage() {
   const [step, setStep] = useState(0)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
+  const [showPastDateWarning, setShowPastDateWarning] = useState(false)
 
   // Handle format selection - auto advance to step 1
   const handleSelectFormat = useCallback((format: CreativeFormat) => {
@@ -203,7 +289,7 @@ export default function CreatePage() {
   }, [fetchLogos])
 
   const creditCost = getModelCost()
-  const canGenerate = selectedVertical && selectedModel && canAfford(creditCost)
+  const canGenerate = selectedVertical && selectedModel && canAfford(creditCost) && isOnline
 
   async function handleGenerate() {
     if (!canGenerate || !currentOrganization) {
@@ -281,6 +367,8 @@ export default function CreatePage() {
           // Include format info for proper dimensions
           formatId: formData.formatId || null,
           customDimensions: formData.customDimensions || null,
+          // Language selection (PRD Section 10.2)
+          language: formData.formData?.language || 'en',
         }),
       })
 
@@ -317,7 +405,7 @@ export default function CreatePage() {
       }
 
       toast.success('Creative generated successfully!')
-      setStep(5)
+      // Stay on step 6 to show download options (don't change step)
     } catch (error) {
       console.error('Generation error:', error)
       setGenerationError(error instanceof Error ? error.message : 'Generation failed')
@@ -332,6 +420,16 @@ export default function CreatePage() {
     setStep(1)
     setCreativeId(null)
     setExportModalOpen(false)
+  }
+
+  // Check for past date before generating (Edge Case E07)
+  function handleGenerateWithDateCheck() {
+    const eventDate = (formData.formData as { date?: string }).date
+    if (eventDate && isPastDate(eventDate)) {
+      setShowPastDateWarning(true)
+    } else {
+      handleGenerate()
+    }
   }
 
   // Navigation handlers
@@ -584,6 +682,7 @@ export default function CreatePage() {
                         }
                       })()}
                       eventType={selectedVertical.slug}
+                      eventName={(formData.formData as { title?: string }).title}
                     />
                   </div>
                 )
@@ -612,6 +711,7 @@ export default function CreatePage() {
                           value={(formData.formData as { title?: string }).title || ''}
                           onChange={(e) => updateFormData({ title: e.target.value })}
                           className="flex-1"
+                          maxLength={100}
                         />
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -628,9 +728,22 @@ export default function CreatePage() {
                           </TooltipContent>
                         </Tooltip>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Enter a descriptive title, then click the magic wand to get AI suggestions
-                      </p>
+                      {/* Character counter (PRD Edge Case E08) */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Enter a descriptive title, then click the magic wand to get AI suggestions
+                        </p>
+                        <span className={cn(
+                          'text-xs',
+                          ((formData.formData as { title?: string }).title || '').length >= 100
+                            ? 'text-destructive font-medium'
+                            : ((formData.formData as { title?: string }).title || '').length >= 80
+                              ? 'text-amber-600'
+                              : 'text-muted-foreground'
+                        )}>
+                          {((formData.formData as { title?: string }).title || '').length} / 100
+                        </span>
+                      </div>
                     </div>
 
                     {/* AI Suggestions Error */}
@@ -711,6 +824,30 @@ export default function CreatePage() {
                       placeholder="Any additional information to include"
                       multiline
                     />
+
+                    {/* Language Selection (PRD Section 10.2) */}
+                    <div className="space-y-2">
+                      <Label htmlFor="language" className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        Language
+                      </Label>
+                      <Select
+                        value={(formData.formData?.language as string) || 'en'}
+                        onValueChange={(value) => updateFormData({ language: value })}
+                      >
+                        <SelectTrigger id="language">
+                          <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                          <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Choose the primary language for text in your creative
+                      </p>
+                    </div>
 
                     {/* Optional Settings: Speaker Photo & Footer */}
                     <Separator className="my-6" />
@@ -1013,7 +1150,7 @@ export default function CreatePage() {
 
                 {step === 6 ? (
                   <Button
-                    onClick={handleGenerate}
+                    onClick={handleGenerateWithDateCheck}
                     disabled={!canGenerate || isGenerating}
                     className="gap-2 gradient-yi"
                   >
@@ -1021,6 +1158,11 @@ export default function CreatePage() {
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="hidden sm:inline">Generating...</span>
+                      </>
+                    ) : !isOnline ? (
+                      <>
+                        <WifiOff className="h-4 w-4" />
+                        <span className="hidden sm:inline">Offline</span>
                       </>
                     ) : (
                       <>
@@ -1061,6 +1203,14 @@ export default function CreatePage() {
             previewUrl={generatedImage}
           />
         )}
+
+        {/* Past Date Warning Dialog (Edge Case E07) */}
+        <PastDateWarningDialog
+          open={showPastDateWarning}
+          onOpenChange={setShowPastDateWarning}
+          onContinue={handleGenerate}
+          date={(formData.formData as { date?: string }).date || ''}
+        />
       </div>
     </TooltipProvider>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Image from 'next/image'
 import { useTemplateImages } from '@/hooks/use-template-images'
 import type { TemplateImage } from '@/types/database.types'
 import type { CreativeFormat } from '@/lib/config/creative-formats'
@@ -188,10 +189,13 @@ export function TemplateSelector({
                     >
                       {/* Template image */}
                       <div className="aspect-[4/5] relative bg-gradient-to-br from-muted to-muted/50">
-                        <img
+                        <Image
                           src={template.image_url}
                           alt={template.name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          fill
+                          sizes="(max-width: 768px) 50vw, 33vw"
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
                         />
 
                         {/* Gradient overlay on hover */}
@@ -284,10 +288,12 @@ export function TemplateSelector({
                     sideOffset={10}
                   >
                     <div className="relative aspect-[4/5] bg-muted">
-                      <img
+                      <Image
                         src={template.image_url}
                         alt={template.name}
-                        className="w-full h-full object-contain"
+                        fill
+                        sizes="320px"
+                        className="object-contain"
                       />
                     </div>
                     <div className="p-4 space-y-2">

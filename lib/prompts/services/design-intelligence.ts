@@ -9,6 +9,7 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 
 // ============================================================
 // TYPES
@@ -40,6 +41,8 @@ export interface DesignContext {
   designStrategy: string
   /** How to know the design worked */
   successMetric: string
+  /** Specific layout guidance based on speaker photo position and logo requirements */
+  layoutGuidance?: string
 }
 
 /**
@@ -60,10 +63,32 @@ export interface DesignBrief {
   style?: string
   /** Guest/speaker name if applicable */
   guestName?: string
+  /** Guest/speaker designation (e.g., 'Chief Guest', 'Keynote Speaker') */
+  guestDesignation?: string
   /** Venue information */
   venue?: string
   /** Any additional context */
   additionalContext?: string
+
+  // === VISUAL LAYOUT CONTEXT ===
+  /** Whether speaker photo overlay is enabled */
+  hasSpeakerPhoto?: boolean
+  /** Speaker photo position: 'left', 'center', 'right' */
+  speakerPhotoPosition?: string
+  /** Speaker photo shape: 'circle', 'rounded', 'square' */
+  speakerPhotoShape?: string
+  /** Speaker photo size in pixels */
+  speakerPhotoSize?: number
+  /** Whether header logo zone is enabled */
+  hasHeaderLogo?: boolean
+  /** Header zone height in pixels */
+  headerHeight?: number
+  /** Whether footer zone is enabled */
+  hasFooterLogo?: boolean
+  /** Footer zone height in pixels */
+  footerHeight?: number
+  /** Additional layout preferences */
+  layoutPreferences?: string
 }
 
 // ============================================================
@@ -96,12 +121,26 @@ Think deeply about:
 7. What COLOR MOOD supports the emotional goal?
 8. What DESIGN STRATEGY should the image AI follow?
 9. How will we know the design worked? (success metric)
+10. What LAYOUT GUIDANCE is needed based on speaker photo and logo positions?
 
 CRITICAL RULES:
 - Be SPECIFIC with visual elements - name exact objects (e.g., "microphone at podium", "blood donation bag with tubing", "graduation cap flying in air")
 - Background settings should be CONTEXTUAL to the event type (e.g., "modern convention center with stage lighting" for conferences)
 - Avoid generic descriptions - be precise and purposeful
 - Think about what a viewer seeing this design would immediately understand
+- IMPORTANT: The design should be a FULL-BLEED poster that fills the entire canvas edge-to-edge
+- NEVER describe the poster as "displayed on a wall", "framed", "mockup", or any presentation context
+- The backgroundSetting should describe what's IN the poster design, not a wall/room the poster hangs on
+
+VISUAL LAYOUT RULES (CRITICAL - READ CAREFULLY):
+- If a SPEAKER PHOTO is mentioned in the brief, describe a composition that leaves appropriate space for the photo overlay
+- If speaker photo position is LEFT: Main content (title, details) should flow to the RIGHT side of the design
+- If speaker photo position is RIGHT: Main content should flow to the LEFT side of the design
+- If speaker photo position is CENTER: Design should frame around the center with content above/below
+- NEVER suggest generating an illustrated face or person if a speaker photo will be overlaid - leave that space clear/neutral for the actual photo
+- If HEADER LOGO zone is mentioned: Keep the top portion of the design suitable for logo placement (avoid complex backgrounds there)
+- If FOOTER LOGO zone is mentioned: Keep the bottom portion clean and suitable for contact info/branding
+- Consider the visual weight distribution: speaker photo areas should have neutral/complementary backgrounds
 
 Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON object):
 {
@@ -109,11 +148,12 @@ Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON o
   "desiredAction": "Specific action viewers should take (e.g., 'Register immediately', 'Donate blood today', 'Attend this wedding')",
   "emotionalJob": "How viewers should feel (e.g., 'Excited and professionally inspired', 'Compassionate and heroic', 'Joyful and celebratory')",
   "visualElements": ["specific element 1", "specific element 2", "specific element 3", "specific element 4", "specific element 5"],
-  "backgroundSetting": "Detailed, contextually appropriate background description",
+  "backgroundSetting": "Detailed, contextually appropriate background description - consider speaker photo and logo zones",
   "iconicImagery": ["iconic image 1", "iconic image 2", "iconic image 3"],
   "colorMood": "Color psychology guidance specific to this design's emotional goal",
   "designStrategy": "Strategic approach for the visual execution",
-  "successMetric": "How to measure if the design worked (viewer's immediate thought)"
+  "successMetric": "How to measure if the design worked (viewer's immediate thought)",
+  "layoutGuidance": "Specific guidance on element placement based on speaker photo position (left/right/center) and logo zone requirements"
 }`
 
 // ============================================================
@@ -129,7 +169,7 @@ Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON o
  */
 export async function generateDesignContext(
   brief: DesignBrief,
-  provider: LLMProvider = 'gemini'
+  provider: LLMProvider = 'claude'
 ): Promise<DesignContext> {
   console.log('[Design Intelligence] === STAGE 1: GENERATING DESIGN CONTEXT ===')
   console.log('[Design Intelligence] Event Type:', brief.eventType || 'unknown')
@@ -174,6 +214,7 @@ export async function generateDesignContext(
 
 /**
  * Build formatted brief text from structured input
+ * Now includes visual layout context for better AI understanding
  */
 function buildBriefText(brief: DesignBrief): string {
   const parts: string[] = []
@@ -190,8 +231,12 @@ function buildBriefText(brief: DesignBrief): string {
     parts.push(`Organization: ${brief.organizationName}`)
   }
 
+  // Guest info with designation
   if (brief.guestName) {
-    parts.push(`Guest/Speaker: ${brief.guestName}`)
+    const guestInfo = brief.guestDesignation
+      ? `${brief.guestName} (${brief.guestDesignation})`
+      : brief.guestName
+    parts.push(`Guest/Speaker: ${guestInfo}`)
   }
 
   if (brief.venue) {
@@ -212,6 +257,57 @@ function buildBriefText(brief: DesignBrief): string {
 
   if (brief.additionalContext) {
     parts.push(`Additional Context: ${brief.additionalContext}`)
+  }
+
+  // === VISUAL LAYOUT CONTEXT (CRITICAL FOR IMAGE GENERATION) ===
+  parts.push('')  // Empty line for separation
+  parts.push('=== VISUAL LAYOUT REQUIREMENTS ===')
+
+  // Speaker photo context
+  if (brief.hasSpeakerPhoto) {
+    const position = brief.speakerPhotoPosition || 'center'
+    const shape = brief.speakerPhotoShape || 'circle'
+    const size = brief.speakerPhotoSize || 150
+
+    parts.push(`SPEAKER PHOTO: ENABLED`)
+    parts.push(`- Position: ${position.toUpperCase()} side of the poster`)
+    parts.push(`- Shape: ${shape} (approximately ${size}px)`)
+    parts.push(`- IMPORTANT: Leave appropriate space on the ${position.toUpperCase()} side for the speaker photo overlay`)
+    parts.push(`- DO NOT generate an illustrated face/person in that area - the actual speaker photo will be overlaid`)
+
+    // Position-specific guidance
+    if (position === 'left') {
+      parts.push(`- Main content (title, event details) should be positioned on the RIGHT side`)
+      parts.push(`- The LEFT portion should have a complementary but neutral background suitable for photo overlay`)
+    } else if (position === 'right') {
+      parts.push(`- Main content (title, event details) should be positioned on the LEFT side`)
+      parts.push(`- The RIGHT portion should have a complementary but neutral background suitable for photo overlay`)
+    } else if (position === 'center') {
+      parts.push(`- Design should frame around the CENTER`)
+      parts.push(`- Title and key info above the center, details below`)
+      parts.push(`- The CENTER area should be neutral/subtle for photo overlay`)
+    }
+  } else {
+    parts.push(`SPEAKER PHOTO: Not enabled (no photo overlay expected)`)
+  }
+
+  // Header logo zone
+  if (brief.hasHeaderLogo && brief.headerHeight && brief.headerHeight > 0) {
+    parts.push(`HEADER LOGO ZONE: Reserve top ${brief.headerHeight}px for organization logo(s)`)
+    parts.push(`- Keep top area clean and suitable for logo placement`)
+    parts.push(`- Avoid complex imagery or important text in the header zone`)
+  }
+
+  // Footer logo zone
+  if (brief.hasFooterLogo && brief.footerHeight && brief.footerHeight > 0) {
+    parts.push(`FOOTER ZONE: Reserve bottom ${brief.footerHeight}px for contact info and branding`)
+    parts.push(`- Keep bottom area suitable for text overlays (website, contact, sponsors)`)
+    parts.push(`- Use a slightly darker or lighter tone that ensures text readability`)
+  }
+
+  // Additional layout preferences
+  if (brief.layoutPreferences) {
+    parts.push(`Layout Preferences: ${brief.layoutPreferences}`)
   }
 
   return parts.join('\n')
@@ -272,6 +368,11 @@ function parseDesignContext(response: string): DesignContext {
       parsed.iconicImagery = [parsed.iconicImagery].filter(Boolean)
     }
 
+    // layoutGuidance is optional but should be a string if present
+    if (parsed.layoutGuidance && typeof parsed.layoutGuidance !== 'string') {
+      parsed.layoutGuidance = String(parsed.layoutGuidance)
+    }
+
     return parsed as DesignContext
   } catch (error) {
     console.error('JSON parse error:', error, 'Response:', jsonStr)
@@ -324,12 +425,45 @@ async function callGemini(prompt: string): Promise<string> {
 
 /**
  * Call Claude for design intelligence
- * @placeholder - To be implemented when needed
+ * Using Claude 3.5 Haiku - fast, cost-effective, and excellent reasoning
  */
 async function callClaude(prompt: string): Promise<string> {
-  // Future implementation for Claude API
-  // Would use @anthropic-ai/sdk
-  throw new Error('Claude provider not yet implemented. Use gemini for now.')
+  const apiKey = process.env.ANTHROPIC_API_KEY
+
+  console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
+
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY is not configured')
+  }
+
+  const client = new Anthropic({ apiKey })
+
+  console.log('[Design Intelligence] Calling Claude 3.5 Haiku...')
+  const startTime = Date.now()
+
+  const response = await client.messages.create({
+    model: 'claude-3-5-haiku-latest',
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ]
+  })
+
+  const duration = Date.now() - startTime
+  console.log(`[Design Intelligence] Response received in ${duration}ms`)
+
+  // Extract text from response
+  const textBlock = response.content.find(block => block.type === 'text')
+  if (!textBlock || textBlock.type !== 'text') {
+    throw new Error('No text response from Claude')
+  }
+
+  console.log('[Design Intelligence] Response length:', textBlock.text.length, 'chars')
+
+  return textBlock.text
 }
 
 /**
@@ -476,7 +610,7 @@ export function generateFallbackContext(brief: DesignBrief): DesignContext {
  */
 export async function generateDesignContextSafe(
   brief: DesignBrief,
-  provider: LLMProvider = 'gemini'
+  provider: LLMProvider = 'claude'
 ): Promise<DesignContext> {
   try {
     return await generateDesignContext(brief, provider)

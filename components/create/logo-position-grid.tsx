@@ -26,8 +26,9 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter } from 'lucide-react'
+import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
+import { isPositionLocked, getLockedPosition, getLogoLockConfig } from '@/lib/config/logo-locks'
 
 const POSITION_LABELS: Record<LogoPosition, string> = {
   'top-left': 'Top Left',
@@ -110,7 +111,7 @@ export function LogoPositionGrid() {
           <Grid3X3 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Position Grid</span>
           <Badge variant="secondary" className="ml-auto text-xs">
-            {formData.logosPlacements.length} / 9
+            {formData.logosPlacements.length} / 4
           </Badge>
         </div>
 
@@ -213,7 +214,7 @@ export function LogoPositionGrid() {
                     <HoverCardTrigger asChild>
                       <button
                         onClick={() => !isPlaced && handleAddLogo(logo.id)}
-                        disabled={isPlaced || placedPositions.length >= 9}
+                        disabled={isPlaced || placedPositions.length >= 4}
                         className={cn(
                           'relative aspect-square rounded-lg border-2 p-2 transition-all group',
                           isPlaced
@@ -253,8 +254,8 @@ export function LogoPositionGrid() {
                         )}
                         {isPlaced ? (
                           <p className="text-xs text-muted-foreground">Already placed</p>
-                        ) : placedPositions.length >= 9 ? (
-                          <p className="text-xs text-destructive">Grid full (max 9)</p>
+                        ) : placedPositions.length >= 4 ? (
+                          <p className="text-xs text-destructive">Maximum 4 logos allowed</p>
                         ) : (
                           <p className="text-xs text-muted-foreground">Click to add</p>
                         )}
@@ -305,6 +306,10 @@ export function LogoPositionGrid() {
               const logo = placement.logo || logos.find((l) => l.id === placement.logoId)
               if (!logo) return null
 
+              // Check if this logo has a locked position (Yi/CII)
+              const logoIsLocked = isPositionLocked(logo.name)
+              const lockConfig = getLogoLockConfig(logo.name)
+
               return (
                 <div
                   key={placement.logoId}
@@ -318,33 +323,57 @@ export function LogoPositionGrid() {
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <span className="text-sm font-medium truncate max-w-[120px]">{logo.name}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium truncate max-w-[120px]">{logo.name}</span>
+                      {logoIsLocked && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                          <Lock className="h-2.5 w-2.5" />
+                          Position locked
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select
-                      value={placement.position}
-                      onValueChange={(pos) =>
-                        updateLogoPosition(placement.logoId, pos as LogoPosition)
-                      }
-                    >
-                      <SelectTrigger className="w-[130px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {LOGO_POSITIONS.map((pos) => (
-                          <SelectItem
-                            key={pos}
-                            value={pos}
-                            disabled={
-                              placedPositions.includes(pos) &&
-                              pos !== placement.position
-                            }
-                          >
-                            {POSITION_LABELS[pos]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {logoIsLocked ? (
+                      // Show locked position indicator instead of dropdown
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                            <Lock className="h-3 w-3" />
+                            {POSITION_LABELS[placement.position]}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>{lockConfig?.description || 'This logo position is locked per brand guidelines'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      // Show position dropdown for non-locked logos
+                      <Select
+                        value={placement.position}
+                        onValueChange={(pos) =>
+                          updateLogoPosition(placement.logoId, pos as LogoPosition)
+                        }
+                      >
+                        <SelectTrigger className="w-[130px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOGO_POSITIONS.map((pos) => (
+                            <SelectItem
+                              key={pos}
+                              value={pos}
+                              disabled={
+                                placedPositions.includes(pos) &&
+                                pos !== placement.position
+                              }
+                            >
+                              {POSITION_LABELS[pos]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

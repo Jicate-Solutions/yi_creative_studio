@@ -19,6 +19,7 @@ import {
   generateDesignContextSafe,
   type DesignBrief,
 } from '@/lib/prompts/services/design-intelligence'
+import { validateLogoPositions } from '@/lib/config/logo-locks'
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,12 +45,13 @@ export async function POST(request: NextRequest) {
       designData,
       formatId,
       customDimensions,
+      language,
     } = body as {
       prompt: string
       model: string
       provider: string
       verticalSlug: string
-      logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string } }>
+      logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string; name?: string } }>
       organizationId: string
       templateId: string | null
       templateUrl: string | null
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       designData?: DesignData | null
       formatId?: CreativeFormatId
       customDimensions?: { width: number; height: number } | null
+      language?: 'en' | 'ta' | 'hi'
     }
 
     // Get format if specified
@@ -84,6 +87,35 @@ export async function POST(request: NextRequest) {
         { error: 'Viewers cannot generate creatives' },
         { status: 403 }
       )
+    }
+
+    // Validate logo positions (PRD Section 8.4 - Brand Rules)
+    // Yi logo MUST be top-left, CII logo MUST be top-right
+    if (logosPlacements && logosPlacements.length > 0) {
+      // Get logo names from database to validate positions
+      const logoIds = logosPlacements.map((p) => p.logoId)
+      const { data: logos } = await supabase
+        .from('organization_logos')
+        .select('id, name')
+        .in('id', logoIds)
+
+      if (logos && logos.length > 0) {
+        const placementsToValidate = logosPlacements.map((p) => {
+          const logo = logos.find((l) => l.id === p.logoId)
+          return {
+            logoName: logo?.name || p.logo?.name || '',
+            position: p.position as import('@/lib/config/constants').LogoPosition,
+          }
+        })
+
+        const validationErrors = validateLogoPositions(placementsToValidate)
+        if (validationErrors.length > 0) {
+          return NextResponse.json(
+            { error: `Logo position error: ${validationErrors[0]}` },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     let imageUrl: string
@@ -141,7 +173,12 @@ export async function POST(request: NextRequest) {
       // This prevents instruction text like "Create a striking..." from being analyzed
       const cleanedPrompt = cleanPromptInstructions(prompt)
 
+      // Extract visual layout context from customization
+      const speakerPhotoConfig = designData.customization?.speakerPhoto
+      const layoutConfig = designData.customization?.layout
+
       const designBrief: DesignBrief = {
+        // Event content
         eventType: parsedContent.eventType,
         eventName: parsedContent.eventName,
         organizationName: 'Yi Creatives',
@@ -149,8 +186,21 @@ export async function POST(request: NextRequest) {
         theme: designData.theme,
         style: designData.style,
         guestName: parsedContent.guestName,
+        guestDesignation: parsedContent.guestDesignation, // NEW: Pass guest designation
         venue: parsedContent.venue,
         additionalContext: parsedContent.additionalText,
+
+        // === VISUAL LAYOUT CONTEXT (CRITICAL FOR BETTER IMAGE GENERATION) ===
+        // Speaker photo configuration
+        hasSpeakerPhoto: speakerPhotoConfig?.enabled ?? false,
+        speakerPhotoPosition: speakerPhotoConfig?.position,
+        speakerPhotoShape: speakerPhotoConfig?.shape,
+        speakerPhotoSize: speakerPhotoConfig?.size,
+        // Logo zone configuration
+        hasHeaderLogo: (layoutConfig?.headerHeight ?? 0) > 0,
+        headerHeight: layoutConfig?.headerHeight,
+        hasFooterLogo: (layoutConfig?.footerHeight ?? 0) > 0,
+        footerHeight: layoutConfig?.footerHeight,
       }
 
       // Generate AI-powered design context
@@ -179,7 +229,8 @@ export async function POST(request: NextRequest) {
         providerType,
         'Yi Creatives',
         selectedFormat,
-        designContext // Pass AI-generated design context
+        designContext, // Pass AI-generated design context
+        language || 'en' // Pass language from request (PRD Section 10.2)
       )
 
       if (provider === 'google') {
@@ -446,7 +497,8 @@ function buildDesignPromptWithFormat(
   provider: 'google' | 'ideogram',
   organizationName: string = 'Organization',
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
-  designContext?: DesignContext // AI-generated design intelligence
+  designContext?: DesignContext, // AI-generated design intelligence
+  language: 'en' | 'ta' | 'hi' = 'en' // Language for text content (PRD Section 10.2)
 ): { prompt: string; systemPrompt?: string; styleType?: string; magicPrompt?: string; negativePrompt?: string } {
   // Parse event content from the base prompt
   const content = parseEventContent(basePrompt)
@@ -485,7 +537,7 @@ function buildDesignPromptWithFormat(
     colorScheme: 'brand_default',
     // Pass colorConfig from UI (brand toggle, palette selection, custom colors)
     colorConfig: designData.colorConfig,
-    language: 'en',
+    language: language, // Pass language from request (PRD Section 10.2)
     aspectRatio: aspectRatio,
     resolution: designData.resolution as '1K' | '2K' | '4K',
     dimensions,

@@ -8,6 +8,7 @@ import { MobileNav } from './mobile-nav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
+import { OfflineBanner } from '@/components/ui/offline-banner'
 import { useAuthStore } from '@/stores/auth-store'
 import type { UserProfile, Organization, OrganizationMember } from '@/types/database.types'
 
@@ -59,6 +60,9 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
           <div className="flex flex-1 flex-col">
             {/* Role Simulation Banner */}
             <SimulationBanner />
+
+            {/* Offline Detection Banner (E04) */}
+            <OfflineBanner />
 
             {/* Top Navigation */}
             <TopNav />

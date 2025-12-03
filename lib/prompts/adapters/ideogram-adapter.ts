@@ -63,6 +63,20 @@ const BASE_NEGATIVE_PROMPTS = [
   'poster hanging',
   'wall background',
   'presentation context',
+  // Additional anti-mockup prompts
+  'room interior',
+  'office setting',
+  'poster displayed',
+  'exhibition',
+  'gallery wall',
+  'photo of poster',
+  'poster photograph',
+  'mockup scene',
+  'interior background',
+  'hanging on wall',
+  'pinboard',
+  'cork board',
+  'bulletin board',
 ]
 
 /**

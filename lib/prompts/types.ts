@@ -136,6 +136,8 @@ export interface DesignContext {
   designStrategy: string
   /** How to know the design worked */
   successMetric: string
+  /** Specific layout guidance based on speaker photo position and logo requirements */
+  layoutGuidance?: string
 }
 
 // ============================================================

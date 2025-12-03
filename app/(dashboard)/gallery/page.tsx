@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import {
@@ -270,10 +271,13 @@ export default function GalleryPage() {
               onClick={() => setSelectedCreative(creative)}
             >
               <div className="relative aspect-[4/5]">
-                <img
+                <Image
                   src={creative.thumbnail_url || creative.image_url}
                   alt={creative.title || 'Creative'}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="object-cover"
+                  loading="lazy"
                 />
 
                 {/* Overlay */}
@@ -325,10 +329,13 @@ export default function GalleryPage() {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Image */}
               <div className="relative aspect-[4/5] rounded-lg overflow-hidden border">
-                <img
+                <Image
                   src={selectedCreative.image_url}
                   alt={selectedCreative.title || 'Creative'}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover"
+                  priority
                 />
               </div>
 

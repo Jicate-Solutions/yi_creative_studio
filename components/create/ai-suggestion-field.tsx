@@ -21,6 +21,10 @@ interface AISuggestionFieldProps {
   placeholder?: string
   multiline?: boolean
   className?: string
+  /** Maximum character length (PRD Edge Case E08) */
+  maxLength?: number
+  /** Show character counter when approaching limit */
+  showCharCount?: boolean
 }
 
 export const AISuggestionField = forwardRef<
@@ -40,9 +44,14 @@ export const AISuggestionField = forwardRef<
       placeholder,
       multiline = false,
       className,
+      maxLength,
+      showCharCount = false,
     },
     ref
   ) => {
+    // Character limit tracking (PRD Edge Case E08)
+    const isNearLimit = maxLength && value.length >= maxLength * 0.8
+    const isOverLimit = maxLength && value.length > maxLength
     const [showSuggestion, setShowSuggestion] = useState(false)
 
     // Show suggestion when it arrives and field is empty
@@ -135,6 +144,19 @@ export const AISuggestionField = forwardRef<
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-200/50 to-transparent animate-shimmer" />
           )}
         </div>
+
+        {/* Character counter (PRD Edge Case E08) */}
+        {maxLength && (showCharCount || isNearLimit) && (
+          <div className={cn(
+            'flex items-center justify-end text-xs',
+            isOverLimit ? 'text-destructive font-medium' : isNearLimit ? 'text-amber-600' : 'text-muted-foreground'
+          )}>
+            <span>
+              {value.length} / {maxLength}
+              {isOverLimit && ' - Text may be truncated'}
+            </span>
+          </div>
+        )}
 
         {/* Accept/Dismiss buttons */}
         {showSuggestion && suggestion && !value && (
