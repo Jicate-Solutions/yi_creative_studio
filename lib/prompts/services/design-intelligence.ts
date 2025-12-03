@@ -70,6 +70,16 @@ export interface DesignBrief {
   /** Any additional context */
   additionalContext?: string
 
+  // === FORMAT AWARENESS (CRITICAL for correct design type) ===
+  /** Format ID (e.g., 'certificate', 'youtube_thumbnail', 'business_card') */
+  formatId?: string
+  /** Format category/base pattern (e.g., 'print_landscape', 'thumbnail_click') */
+  formatCategory?: string
+  /** Human-readable format name (e.g., 'Certificate', 'YouTube Thumbnail') */
+  formatName?: string
+  /** Format-specific design guidance from knowledge base */
+  formatGuidance?: string
+
   // === VISUAL LAYOUT CONTEXT ===
   /** Whether speaker photo overlay is enabled */
   hasSpeakerPhoto?: boolean
@@ -108,6 +118,21 @@ const DESIGN_INTELLIGENCE_PROMPT = `You are an ULTRA-PRO DESIGNER who has create
 
 Your unique ability: You understand that designs don't just look good—they ACCOMPLISH GOALS. Every element in a design must serve the core purpose.
 
+=== CRITICAL FORMAT RULES (READ FIRST!) ===
+The OUTPUT FORMAT defines what the design LOOKS LIKE. The event details are CONTENT to fill the format.
+
+FORMAT vs EVENT TYPE (MUST UNDERSTAND):
+- FORMAT = What the design IS (certificate = formal document, youtube_thumbnail = click-worthy image, business_card = networking tool)
+- EVENT TYPE = What CONTENT goes on it (blood donation = achievement details, seminar = topic info)
+
+Examples of CORRECT interpretation:
+- FORMAT: "certificate" + EVENT: "Blood Donation Camp" → Formal certificate document with decorative borders that honors participation in blood donation
+- FORMAT: "youtube_thumbnail" + EVENT: "Tech Conference" → Click-worthy thumbnail style with face focus, NOT a conference poster
+- FORMAT: "business_card" + EVENT: "Medical Practice" → Compact professional card, NOT a medical poster
+- FORMAT: "event_poster" + EVENT: "Blood Donation Camp" → Full promotional poster with blood donation imagery
+
+If no format is specified, default to "event_poster" behavior.
+
 ANALYZE THE FOLLOWING CREATIVE BRIEF:
 {brief}
 
@@ -133,14 +158,19 @@ CRITICAL RULES:
 - The backgroundSetting should describe what's IN the poster design, not a wall/room the poster hangs on
 
 VISUAL LAYOUT RULES (CRITICAL - READ CAREFULLY):
-- If a SPEAKER PHOTO is mentioned in the brief, describe a composition that leaves appropriate space for the photo overlay
+- If a SPEAKER PHOTO is mentioned in the brief, describe a composition that leaves appropriate space for the photo
 - If speaker photo position is LEFT: Main content (title, details) should flow to the RIGHT side of the design
 - If speaker photo position is RIGHT: Main content should flow to the LEFT side of the design
 - If speaker photo position is CENTER: Design should frame around the center with content above/below
-- NEVER suggest generating an illustrated face or person if a speaker photo will be overlaid - leave that space clear/neutral for the actual photo
-- If HEADER LOGO zone is mentioned: Keep the top portion of the design suitable for logo placement (avoid complex backgrounds there)
-- If FOOTER LOGO zone is mentioned: Keep the bottom portion clean and suitable for contact info/branding
-- Consider the visual weight distribution: speaker photo areas should have neutral/complementary backgrounds
+- NEVER suggest generating an illustrated face or person if a speaker photo will be added - leave that space clear/neutral
+- If HEADER area is needed: Keep the top portion clean and airy for branding elements
+- If FOOTER area is needed: Keep the bottom portion clean with breathing room
+- Consider the visual weight distribution: photo areas should have neutral/complementary backgrounds
+
+IMPORTANT FOR layoutGuidance OUTPUT:
+- Use VISUAL/COMPOSITIONAL language only: "content flows left", "balanced top section", "breathing room at bottom"
+- NEVER use technical terms in layoutGuidance: NO "px", "reserve", "zone", "overlay", "placement", "logo zone"
+- Describe composition in natural design language that won't be confused with text to render
 
 Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON object):
 {
@@ -153,7 +183,7 @@ Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON o
   "colorMood": "Color psychology guidance specific to this design's emotional goal",
   "designStrategy": "Strategic approach for the visual execution",
   "successMetric": "How to measure if the design worked (viewer's immediate thought)",
-  "layoutGuidance": "Specific guidance on element placement based on speaker photo position (left/right/center) and logo zone requirements"
+  "layoutGuidance": "Natural visual composition guidance using only design language (content flows left, balanced sections, breathing room) - NO technical terms like px, reserve, zone, overlay"
 }`
 
 // ============================================================
@@ -172,6 +202,9 @@ export async function generateDesignContext(
   provider: LLMProvider = 'claude'
 ): Promise<DesignContext> {
   console.log('[Design Intelligence] === STAGE 1: GENERATING DESIGN CONTEXT ===')
+  console.log('[Design Intelligence] FORMAT:', brief.formatId || 'event_poster (default)')
+  console.log('[Design Intelligence] Format Name:', brief.formatName || 'not specified')
+  console.log('[Design Intelligence] Format Category:', brief.formatCategory || 'not specified')
   console.log('[Design Intelligence] Event Type:', brief.eventType || 'unknown')
   console.log('[Design Intelligence] Event Name:', brief.eventName || 'not provided')
   console.log('[Design Intelligence] Theme:', brief.theme || 'default')
@@ -214,17 +247,40 @@ export async function generateDesignContext(
 
 /**
  * Build formatted brief text from structured input
- * Now includes visual layout context for better AI understanding
+ * FORMAT takes PRIORITY over event type for design direction
  */
 function buildBriefText(brief: DesignBrief): string {
   const parts: string[] = []
 
+  // === FORMAT TAKES PRIORITY (defines design TYPE) ===
+  if (brief.formatId) {
+    parts.push('=== OUTPUT FORMAT (DEFINES DESIGN TYPE) ===')
+    parts.push(`FORMAT: ${brief.formatName?.toUpperCase() || brief.formatId.toUpperCase().replace(/_/g, ' ')}`)
+    parts.push(`This is a ${brief.formatName || brief.formatId.replace(/_/g, ' ')} design.`)
+
+    if (brief.formatCategory) {
+      parts.push(`Category: ${brief.formatCategory.replace(/_/g, ' ')}`)
+    }
+
+    if (brief.formatGuidance) {
+      parts.push(`Format Requirements: ${brief.formatGuidance}`)
+    }
+
+    parts.push('')  // Empty line for separation
+    parts.push('The above FORMAT defines what the design LOOKS LIKE.')
+    parts.push('The below event/content details are what goes ON the design.')
+    parts.push('')  // Empty line for separation
+  }
+
+  // === EVENT CONTENT (fills the format) ===
+  parts.push('=== CONTENT TO DISPLAY ===')
+
   if (brief.eventType) {
-    parts.push(`Event Type: ${brief.eventType.replace(/_/g, ' ')}`)
+    parts.push(`Content Theme: ${brief.eventType.replace(/_/g, ' ')}`)
   }
 
   if (brief.eventName) {
-    parts.push(`Event Name: ${brief.eventName}`)
+    parts.push(`Event/Title: ${brief.eventName}`)
   }
 
   if (brief.organizationName) {
@@ -554,15 +610,191 @@ const EVENT_TYPE_FALLBACKS: Record<string, Partial<DesignContext>> = {
 }
 
 /**
+ * FORMAT-specific design contexts
+ * When a FORMAT is specified, these take PRIORITY over event type fallbacks
+ * The FORMAT defines what the design LOOKS LIKE, not the content
+ */
+const FORMAT_DESIGN_CONTEXTS: Record<string, Partial<DesignContext>> = {
+  // === DOCUMENT FORMATS ===
+  certificate: {
+    corePurpose: 'Create a formal, prestigious document that honors achievement and conveys official recognition',
+    visualElements: ['elegant decorative border', 'gold or silver accents', 'laurel wreaths', 'ribbon corners', 'seal placeholder', 'formal typography hierarchy'],
+    backgroundSetting: 'Cream or ivory textured paper background with subtle watermark pattern, formal document style',
+    iconicImagery: ['official seal', 'laurel wreath', 'decorative flourishes', 'ribbon elements'],
+    colorMood: 'Prestigious gold, cream/ivory, deep navy or burgundy accents - formal and distinguished',
+    designStrategy: 'Formal, symmetrical layout with recipient name as hero element, decorative borders framing the content',
+    desiredAction: 'Display proudly and feel honored',
+    emotionalJob: 'Valued, accomplished, and officially recognized',
+    successMetric: 'Viewer sees a formal certificate worthy of framing, not a poster or promotional material',
+  },
+
+  // === THUMBNAIL FORMATS ===
+  youtube_thumbnail: {
+    corePurpose: 'Create a click-worthy thumbnail that demands attention in 1-2 seconds and drives video views',
+    visualElements: ['expressive human face taking 50%+ of frame', 'bold outlined text with stroke', 'high contrast elements', 'dramatic lighting on face'],
+    backgroundSetting: 'Bold solid color or dramatic gradient background that makes the subject pop instantly',
+    iconicImagery: ['reaction face with emotion', 'action moment captured', 'dramatic lighting effects'],
+    colorMood: 'Bright, saturated, high contrast colors optimized for YouTube algorithm - yellows, reds, bright blues',
+    designStrategy: 'Face-focused composition with minimal but impactful text, designed for thumb-stopping power at small sizes',
+    desiredAction: 'Click to watch the video immediately',
+    emotionalJob: 'Curious, intrigued, and compelled to click',
+    successMetric: 'Viewer instantly understands the video topic and feels compelled to click - NOT a poster',
+  },
+  tiktok_cover: {
+    corePurpose: 'Create a vertical-first cover that stops scrolling and represents the video content',
+    visualElements: ['vertical human figure or face', 'bold text overlay', 'mobile-optimized elements', 'high contrast'],
+    backgroundSetting: 'Bold, clean background optimized for mobile vertical viewing',
+    iconicImagery: ['expressive face', 'trending visual style', 'mobile-native elements'],
+    colorMood: 'Vibrant, trendy colors that pop on mobile screens',
+    designStrategy: 'Vertical-first design with elements positioned for mobile feed viewing',
+    desiredAction: 'Stop scrolling and watch the video',
+    emotionalJob: 'Entertained, curious, engaged',
+    successMetric: 'Viewer stops scrolling to watch - designed for vertical mobile feed',
+  },
+
+  // === PROFESSIONAL FORMATS ===
+  business_card: {
+    corePurpose: 'Create a memorable, professional networking tool that fits in a wallet',
+    visualElements: ['clean name hierarchy', 'contact information layout', 'brand logo space', 'professional typography'],
+    backgroundSetting: 'Clean, minimal background with brand colors, business card dimensions',
+    iconicImagery: ['professional patterns', 'subtle brand elements', 'clean geometric accents'],
+    colorMood: 'Professional, memorable brand colors with clean contrast',
+    designStrategy: 'Compact, scannable layout with clear information hierarchy, all text must be readable at card size',
+    desiredAction: 'Save this contact and remember this professional',
+    emotionalJob: 'Impressed and confident in this professional',
+    successMetric: 'Viewer sees a professional business card, NOT a poster or promotional flyer',
+  },
+  letterhead: {
+    corePurpose: 'Create a professional document header that establishes brand credibility',
+    visualElements: ['company logo space', 'contact information bar', 'subtle brand elements', 'formal typography'],
+    backgroundSetting: 'Clean white background with minimal brand color accents',
+    iconicImagery: ['professional logo placeholder', 'subtle watermark', 'corporate elements'],
+    colorMood: 'Professional, clean, brand-consistent colors',
+    designStrategy: 'Top-heavy design with branding, leaving ample space for document content below',
+    desiredAction: 'Trust this organization',
+    emotionalJob: 'Confident in the professionalism of this organization',
+    successMetric: 'Viewer recognizes this as professional letterhead stationery',
+  },
+
+  // === SOCIAL MEDIA FORMATS ===
+  instagram_story: {
+    corePurpose: 'Create a vertical, swipe-stopping story that drives engagement in the Instagram Stories feed',
+    visualElements: ['vertical focal point', 'bold overlay text', 'interactive element hints', 'mobile-optimized imagery'],
+    backgroundSetting: 'Full-bleed vertical background optimized for 9:16 mobile viewing',
+    iconicImagery: ['story-native elements', 'swipe-up hints', 'engagement prompts'],
+    colorMood: 'Vibrant, Instagram-native colors that stand out in Stories',
+    designStrategy: 'Vertical composition with key content in safe zones, designed for quick consumption',
+    desiredAction: 'Engage with story (swipe, reply, react)',
+    emotionalJob: 'Engaged, entertained, connected',
+    successMetric: 'Viewer stops on this story and engages - NOT a square or landscape poster',
+  },
+  instagram_post: {
+    corePurpose: 'Create a feed-stopping square post that drives likes, comments, and saves',
+    visualElements: ['centered focal point', 'clean composition', 'brand-consistent elements', 'caption-ready design'],
+    backgroundSetting: 'Square format background that works in the Instagram grid',
+    iconicImagery: ['Instagram-native visual style', 'shareable elements', 'aesthetic composition'],
+    colorMood: 'Aesthetic, curated colors that fit Instagram visual culture',
+    designStrategy: 'Square composition optimized for grid view and individual viewing',
+    desiredAction: 'Like, comment, save, or share this post',
+    emotionalJob: 'Inspired, connected, aesthetically pleased',
+    successMetric: 'Viewer engages with the post - designed for Instagram grid',
+  },
+  linkedin_post: {
+    corePurpose: 'Create a professional, thought-leadership post that drives engagement in the LinkedIn feed',
+    visualElements: ['professional imagery', 'clear headline text', 'data visualization elements', 'corporate-appropriate design'],
+    backgroundSetting: 'Professional, clean background appropriate for business context',
+    iconicImagery: ['professional icons', 'business imagery', 'thought leadership visuals'],
+    colorMood: 'Professional blues, corporate colors, trustworthy palette',
+    designStrategy: 'Professional composition that looks good in LinkedIn feed and drives comments',
+    desiredAction: 'Engage with post, comment, or connect',
+    emotionalJob: 'Professionally impressed, thoughtful, engaged',
+    successMetric: 'Viewer sees professional content worthy of LinkedIn engagement',
+  },
+
+  // === MARKETING FORMATS ===
+  flyer: {
+    corePurpose: 'Create an attention-grabbing promotional flyer that can be distributed physically or digitally',
+    visualElements: ['bold headline', 'event details', 'call to action', 'promotional imagery'],
+    backgroundSetting: 'Eye-catching background appropriate for promotional material',
+    iconicImagery: ['promotional graphics', 'action-oriented imagery', 'event visuals'],
+    colorMood: 'Vibrant, attention-grabbing colors that stand out when distributed',
+    designStrategy: 'Clear hierarchy with headline, details, and CTA - designed for quick scanning',
+    desiredAction: 'Read details and take action (attend, sign up, buy)',
+    emotionalJob: 'Excited, interested, motivated to act',
+    successMetric: 'Viewer gets the key message quickly and knows what action to take',
+  },
+  billboard: {
+    corePurpose: 'Create a high-impact design readable at a glance from distance',
+    visualElements: ['massive bold text', 'single focal image', 'brand logo', 'minimal elements'],
+    backgroundSetting: 'Bold, simple background with maximum contrast for outdoor viewing',
+    iconicImagery: ['single powerful image', 'iconic brand elements', 'dramatic visuals'],
+    colorMood: 'High contrast, bold colors visible from distance',
+    designStrategy: 'Ultra-simple composition with 7 words or less - readable at 60mph',
+    desiredAction: 'Remember the brand/message',
+    emotionalJob: 'Impacted, aware, brand recognition',
+    successMetric: 'Viewer gets the message in 3 seconds from distance',
+  },
+
+  // === PRESENTATION FORMATS ===
+  presentation_slide: {
+    corePurpose: 'Create a clear, scannable slide that supports presenter without overwhelming',
+    visualElements: ['bullet points or key text', 'supporting graphic', 'slide number', 'minimal design'],
+    backgroundSetting: 'Clean, professional background that doesn\'t distract from content',
+    iconicImagery: ['supporting icons', 'data visualizations', 'professional graphics'],
+    colorMood: 'Professional, readable colors with good contrast for projection',
+    designStrategy: 'Content-focused with clear hierarchy, designed to be spoken TO not read FROM',
+    desiredAction: 'Understand the key point and listen to presenter',
+    emotionalJob: 'Informed, focused, engaged with presenter',
+    successMetric: 'Viewer can grasp the slide point in 3 seconds - NOT a document to read',
+  },
+
+  // === EVENT FORMATS (default poster behavior) ===
+  event_poster: {
+    corePurpose: 'Create an attention-grabbing event poster that drives attendance',
+    visualElements: ['bold event title', 'event imagery', 'date and venue', 'call to action'],
+    backgroundSetting: 'Event-appropriate background with visual impact',
+    iconicImagery: ['event-specific icons', 'thematic elements', 'action imagery'],
+    colorMood: 'Event-appropriate colors that create excitement and urgency',
+    designStrategy: 'Visual hierarchy leading to registration/attendance CTA',
+    desiredAction: 'Register or attend the event',
+    emotionalJob: 'Excited, informed, motivated to attend',
+    successMetric: 'Viewer knows what the event is, when it is, and wants to attend',
+  },
+}
+
+/**
  * Generate a fallback design context when AI fails
- * Now uses event-type specific fallbacks for better contextual results
+ * FORMAT takes PRIORITY over event type for design direction
  */
 export function generateFallbackContext(brief: DesignBrief): DesignContext {
   const eventType = brief.eventType?.replace(/_/g, ' ') || 'event'
   const eventTypeKey = brief.eventType?.toLowerCase() || ''
   const eventName = brief.eventName || 'Special Event'
+  const formatId = brief.formatId?.toLowerCase() || ''
+  const formatName = brief.formatName || brief.formatId?.replace(/_/g, ' ') || 'design'
 
-  // Try to find event-type specific fallback
+  // PRIORITY 1: Try FORMAT-specific fallback first (defines design TYPE)
+  const formatFallback = FORMAT_DESIGN_CONTEXTS[formatId]
+
+  if (formatFallback) {
+    console.log('[Design Intelligence] Using FORMAT-specific fallback for:', formatId)
+    console.log('[Design Intelligence] Event content:', eventTypeKey || 'general')
+
+    // Merge format design with event content context
+    return {
+      corePurpose: formatFallback.corePurpose || `Create a professional ${formatName}`,
+      desiredAction: formatFallback.desiredAction || `Engage with this ${formatName}`,
+      emotionalJob: formatFallback.emotionalJob || 'Professionally impressed',
+      visualElements: formatFallback.visualElements || [],
+      backgroundSetting: formatFallback.backgroundSetting || 'Professional background',
+      iconicImagery: formatFallback.iconicImagery || [],
+      colorMood: formatFallback.colorMood || 'Professional colors',
+      designStrategy: formatFallback.designStrategy || 'Clear, professional layout',
+      successMetric: formatFallback.successMetric || `Viewer recognizes this as a ${formatName}`
+    }
+  }
+
+  // PRIORITY 2: Try event-type specific fallback (for posters/general creatives)
   const specificFallback = EVENT_TYPE_FALLBACKS[eventTypeKey]
 
   if (specificFallback) {
@@ -580,8 +812,8 @@ export function generateFallbackContext(brief: DesignBrief): DesignContext {
     }
   }
 
-  // Generic fallback for unknown event types
-  console.log('[Design Intelligence] Using generic fallback (no specific type found for:', eventTypeKey, ')')
+  // PRIORITY 3: Generic fallback for unknown format/event types
+  console.log('[Design Intelligence] Using generic fallback (no specific type found for format:', formatId, 'event:', eventTypeKey, ')')
   return {
     corePurpose: `Create an engaging ${eventType} design that captures attention and communicates professionalism`,
     desiredAction: `Attend and participate in ${eventName}`,

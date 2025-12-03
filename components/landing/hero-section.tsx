@@ -79,7 +79,7 @@ export function HeroSection() {
 
           {/* Hero Image/Preview */}
           <div className="mt-16 w-full max-w-3xl">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border bg-card">
+            <div className="relative rounded-2xl overflow-hidden border-2 border-border bg-card">
               {/* Mockup of the app */}
               <div className="aspect-video bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center">
                 <div className="text-center p-8">

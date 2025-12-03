@@ -1,4 +1,12 @@
 import sharp from 'sharp'
+import {
+  type LogoSizePreset,
+  getLogoSizePixels,
+  DEFAULT_LOGO_SIZE,
+  LOGO_PADDING_OPTIONS,
+  type LogoPaddingPreset,
+  getLogoPaddingPixels,
+} from '@/lib/constants/logoConstants'
 
 // Logo position grid (9 positions) - matches lib/config/constants.ts
 export type LogoPosition =
@@ -15,6 +23,7 @@ export type LogoPosition =
 interface LogoPlacement {
   logoId: string
   position: LogoPosition
+  size?: LogoSizePreset | number // Size preset or custom pixel value
   logo?: {
     file_url: string
   }
@@ -23,8 +32,8 @@ interface LogoPlacement {
 interface OverlayConfig {
   baseImageBuffer: Buffer
   logosPlacements: LogoPlacement[]
-  logoSize?: number // Default logo size in pixels
-  padding?: number // Padding from edges
+  defaultLogoSize?: LogoSizePreset | number // Default logo size (preset or pixels)
+  padding?: LogoPaddingPreset | number // Padding preset or custom pixels
 }
 
 /**
@@ -78,9 +87,13 @@ async function downloadImage(url: string): Promise<Buffer> {
 
 /**
  * Overlay logos onto a base image using Sharp
+ * Now supports individual logo sizes per placement
  */
 export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer> {
-  const { baseImageBuffer, logosPlacements, logoSize = 80, padding = 20 } = config
+  const { baseImageBuffer, logosPlacements, defaultLogoSize = DEFAULT_LOGO_SIZE, padding = 'normal' } = config
+
+  // Convert padding to pixels
+  const paddingPixels = typeof padding === 'number' ? padding : getLogoPaddingPixels(padding)
 
   // Get base image metadata
   const baseImage = sharp(baseImageBuffer)
@@ -98,28 +111,34 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
       console.log(`Skipping logo ${placement.logoId}: no file_url`)
       continue
     }
-    console.log(`Processing logo ${placement.logoId} at position ${placement.position}`)
+
+    // Get the logo size for this specific placement
+    // Use placement's size if specified, otherwise fall back to default
+    const logoSizeValue = placement.size ?? defaultLogoSize
+    const logoSizePixels = getLogoSizePixels(logoSizeValue)
+
+    console.log(`Processing logo ${placement.logoId} at position ${placement.position} with size ${logoSizePixels}px`)
 
     try {
       // Download logo image
       const logoBuffer = await downloadImage(placement.logo.file_url)
 
-      // Resize logo while maintaining aspect ratio
+      // Resize logo while maintaining aspect ratio using individual size
       const resizedLogo = await sharp(logoBuffer)
-        .resize(logoSize, logoSize, {
+        .resize(logoSizePixels, logoSizePixels, {
           fit: 'inside',
           withoutEnlargement: true,
         })
         .png() // Ensure PNG format for transparency
         .toBuffer()
 
-      // Calculate position
+      // Calculate position using individual logo size
       const { x, y } = calculatePosition(
         placement.position,
         imageWidth,
         imageHeight,
-        logoSize,
-        padding
+        logoSizePixels,
+        paddingPixels
       )
 
       compositeOperations.push({

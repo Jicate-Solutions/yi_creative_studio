@@ -76,7 +76,7 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <Card
               key={feature.title}
-              className="group relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              className="group relative overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
             >
               <div className="absolute inset-0 gradient-yi-subtle opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardHeader className="relative">

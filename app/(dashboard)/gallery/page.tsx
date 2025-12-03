@@ -48,6 +48,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ExportModal } from '@/components/export'
 import type { Creative } from '@/types/database.types'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -63,6 +64,8 @@ export default function GalleryPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest')
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   const [selectedCreative, setSelectedCreative] = useState<Creative | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [creativeForExport, setCreativeForExport] = useState<Creative | null>(null)
 
   const fetchCreatives = useCallback(async () => {
     if (!currentOrganization?.id) return
@@ -183,25 +186,27 @@ export default function GalleryPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gallery</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+            Gallery
+          </h1>
+          <p className="text-muted-foreground mt-1">
             Browse and manage your generated creatives
           </p>
         </div>
-        <Badge variant="secondary" className="w-fit">
+        <span className="badge-pill badge-pill-primary font-semibold">
           {creatives.length} creative{creatives.length !== 1 ? 's' : ''}
-        </Badge>
+        </span>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/30 rounded-xl border">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search creatives..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 input-premium"
           />
         </div>
         <Select value={verticalFilter} onValueChange={setVerticalFilter}>
@@ -263,11 +268,11 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {creatives.map((creative) => (
             <Card
               key={creative.id}
-              className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              className="group overflow-hidden cursor-pointer card-premium card-interactive"
               onClick={() => setSelectedCreative(creative)}
             >
               <div className="relative aspect-[4/5]">
@@ -276,33 +281,100 @@ export default function GalleryPage() {
                   alt={creative.title || 'Creative'}
                   fill
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="object-cover"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
                 />
 
                 {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
 
-                {/* Favorite Badge */}
+                {/* Action Buttons - Top Right */}
+                <div className="card-actions flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="h-8 w-8 bg-white/90 hover:bg-white shadow-md"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleFavorite(creative)
+                    }}
+                  >
+                    <Heart
+                      className={`h-4 w-4 ${
+                        creative.is_favorite
+                          ? 'fill-red-500 text-red-500'
+                          : 'text-gray-600'
+                      }`}
+                    />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 bg-white/90 hover:bg-white shadow-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4 text-gray-600" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCreativeForExport(creative)
+                          setExportModalOpen(true)
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          saveAsTemplate(creative)
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Save as Template
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteCreative(creative.id)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Favorite Badge - Always visible if favorite */}
                 {creative.is_favorite && (
-                  <div className="absolute top-2 right-2">
-                    <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                  <div className="absolute top-2 left-2 group-hover:opacity-0 transition-opacity">
+                    <div className="bg-white/90 rounded-full p-1.5 shadow-md">
+                      <Heart className="h-4 w-4 fill-red-500 text-red-500" />
+                    </div>
                   </div>
                 )}
 
                 {/* Info Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <h3 className="text-white font-medium text-sm truncate">
+                <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                  <h3 className="text-white font-semibold text-sm truncate mb-2">
                     {creative.title || 'Untitled'}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2">
                     {creative.vertical && (
-                      <Badge variant="secondary" className="text-xs">
+                      <span className="badge-pill bg-white/20 text-white text-xs backdrop-blur-sm">
                         {creative.vertical}
-                      </Badge>
+                      </span>
                     )}
-                    <span className="text-white/70 text-xs">
-                      {format(new Date(creative.created_at), 'MMM d, yyyy')}
+                    <span className="text-white/80 text-xs flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(creative.created_at), 'MMM d')}
                     </span>
                   </div>
                 </div>
@@ -374,31 +446,15 @@ export default function GalleryPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem asChild>
-                        <a href={`/api/download?id=${selectedCreative.id}&format=png`} download>
-                          PNG (High Quality)
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <a href={`/api/download?id=${selectedCreative.id}&format=jpeg&quality=90`} download>
-                          JPEG (Compressed)
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <a href={`/api/download?id=${selectedCreative.id}&format=webp&quality=85`} download>
-                          WebP (Web Optimized)
-                        </a>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    onClick={() => {
+                      setCreativeForExport(selectedCreative)
+                      setExportModalOpen(true)
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => toggleFavorite(selectedCreative)}
@@ -438,6 +494,20 @@ export default function GalleryPage() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Export Modal - Same as Create page for consistency */}
+      {creativeForExport && (
+        <ExportModal
+          open={exportModalOpen}
+          onOpenChange={(open) => {
+            setExportModalOpen(open)
+            if (!open) setCreativeForExport(null)
+          }}
+          creativeId={creativeForExport.id}
+          creativeName={creativeForExport.title || 'Creative'}
+          previewUrl={creativeForExport.image_url}
+        />
+      )}
     </div>
   )
 }

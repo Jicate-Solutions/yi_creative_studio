@@ -156,7 +156,9 @@
       "WebFetch(domain:www.npmjs.com)",
       "Bash(wc:*)",
       "mcp__plugin_compounding-engineering_playwright__browser_press_key",
-      "Skill(bug-boundary-integration)"
+      "Skill(bug-boundary-integration)",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__evaluate_script"
     ],
     "deny": [],
     "ask": [],

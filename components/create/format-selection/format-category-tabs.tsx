@@ -15,7 +15,6 @@ import {
   FileText,
   LayoutGrid,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 interface FormatCategoryTabsProps {
   selectedCategory: FormatCategoryId | 'all'
@@ -53,21 +52,20 @@ export function FormatCategoryTabs({
         const isSelected = selectedCategory === categoryId
 
         return (
-          <Button
+          <button
             key={categoryId}
-            variant={isSelected ? 'default' : 'outline'}
-            size="sm"
+            type="button"
             onClick={() => onSelect(categoryId)}
             className={cn(
-              'gap-1.5 transition-all',
-              isSelected && 'shadow-sm'
+              'filter-btn-canva inline-flex items-center gap-2 text-sm',
+              isSelected && 'active'
             )}
           >
             <Icon className="w-4 h-4" />
             <span className="hidden sm:inline">
               {isAll ? 'All' : category?.label}
             </span>
-          </Button>
+          </button>
         )
       })}
     </div>

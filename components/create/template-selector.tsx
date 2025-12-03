@@ -50,7 +50,8 @@ export function TemplateSelector({
   selectedFormat,
 }: TemplateSelectorProps) {
   const { templateImages, isLoading, getTemplatesByVertical } = useTemplateImages()
-  const [filter, setFilter] = useState<string>('all')
+  // Default to 'recommended' (vertical-filtered) for better UX per Issue #2
+  const [filter, setFilter] = useState<string>('recommended')
 
   // Helper to check if template matches format aspect ratio (within tolerance)
   const matchesFormatAspectRatio = (template: TemplateImage): boolean => {

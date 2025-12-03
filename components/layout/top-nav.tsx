@@ -2,7 +2,6 @@
 
 import { useAuth } from '@/lib/providers/auth-provider'
 import { useAuthStore } from '@/stores/auth-store'
-import { useUIStore } from '@/stores/ui-store'
 import { Logo } from './logo'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +15,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
-  Menu,
   Bell,
   Settings,
   LogOut,
@@ -30,14 +28,9 @@ import Link from 'next/link'
 import { ROUTES } from '@/lib/config/constants'
 import { RoleSwitcher } from '@/components/rbac'
 
-interface TopNavProps {
-  showSidebarToggle?: boolean
-}
-
-export function TopNav({ showSidebarToggle = true }: TopNavProps) {
+export function TopNav() {
   const { user, profile, signOut, currentOrganization } = useAuth()
   const { organizations, switchOrganization } = useAuthStore()
-  const { toggleSidebar, toggleMobileNav } = useUIStore()
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -46,34 +39,9 @@ export function TopNav({ showSidebarToggle = true }: TopNavProps) {
     .toUpperCase() || user?.email?.[0].toUpperCase() || '?'
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-14 items-center px-4 gap-4">
-        {/* Mobile menu toggle */}
-        {showSidebarToggle && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={toggleMobileNav}
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle mobile menu</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden md:flex"
-              onClick={toggleSidebar}
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle sidebar</span>
-            </Button>
-          </>
-        )}
-
-        {/* Logo - Mobile only when sidebar hidden */}
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 shadow-sm">
+      <div className="flex h-16 items-center px-4 md:px-6 gap-4">
+        {/* Logo - Mobile only */}
         <div className="md:hidden">
           <Logo size="sm" showText={false} />
         </div>
@@ -119,31 +87,31 @@ export function TopNav({ showSidebarToggle = true }: TopNavProps) {
         {/* Credits Display */}
         {currentOrganization && (
           <Link href={ROUTES.billing}>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Coins className="h-4 w-4 text-yellow-500" />
-              <span className="font-medium">
+            <Button variant="outline" size="sm" className="gap-2 rounded-full px-4 hover:bg-primary/5 transition-colors">
+              <Coins className="h-4 w-4 text-amber-500" />
+              <span className="font-semibold">
                 {currentOrganization.credits_balance.toLocaleString()}
               </span>
-              <span className="text-muted-foreground hidden sm:inline">credits</span>
+              <span className="text-muted-foreground hidden sm:inline text-xs">credits</span>
             </Button>
           </Link>
         )}
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-muted transition-colors">
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notifications</span>
           {/* Notification dot */}
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive" />
+          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background" />
         </Button>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full ring-2 ring-transparent hover:ring-primary/20 transition-all">
+              <Avatar className="h-9 w-9">
                 <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || ''} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>

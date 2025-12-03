@@ -35,6 +35,37 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
     }
   }, [])
 
+  // Reposition bug reporter button to left side
+  useEffect(() => {
+    const adjustPosition = () => {
+      // Target all possible bug reporter button selectors
+      const selectors = [
+        '[data-bug-reporter-button]',
+        'button[class*="bug-reporter"]',
+        'button[aria-label*="bug" i]',
+        'button[aria-label*="report" i]',
+      ]
+
+      for (const selector of selectors) {
+        const btn = document.querySelector(selector) as HTMLElement
+        if (btn) {
+          btn.style.right = 'auto'
+          btn.style.left = '16px'
+          break
+        }
+      }
+    }
+
+    const observer = new MutationObserver(adjustPosition)
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    adjustPosition()
+    setTimeout(adjustPosition, 500)
+    setTimeout(adjustPosition, 1000)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <BugReporterProvider
       apiKey={process.env.NEXT_PUBLIC_BUG_REPORTER_API_KEY!}

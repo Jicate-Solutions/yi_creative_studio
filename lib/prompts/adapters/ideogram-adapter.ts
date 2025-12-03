@@ -20,10 +20,12 @@
  */
 
 import type { PromptIntent, IdeogramPromptOutput, PromptAdapter, IdeogramStyleType, IdeogramMagicPrompt, DesignContext } from '../types'
+import type { CreativeTemplate } from '../knowledge-base/types'
 import { buildTextListForIdeogram } from '../helpers/text-rendering'
 import { getColorDescriptionShort, buildIdeogramColorPalette } from '../helpers/color-narrative'
 import { getIdeogramStyleType, getMagicPromptSetting } from '../data/style-treatments'
 import { buildCustomizationSummaryShort, getCustomizationNegativePrompts } from '../helpers/customization'
+import { buildCompactLanguageInstruction, isRTLLanguage } from '../languageConfigs'
 
 // ============================================================
 // NEGATIVE PROMPTS
@@ -96,7 +98,7 @@ const STYLE_NEGATIVES: Record<string, string[]> = {
 }
 
 /**
- * Build negative prompt from style and customization
+ * Build negative prompt from style, customization, and creative template
  */
 function buildNegativePrompt(intent: PromptIntent): string {
   const negatives: string[] = [...BASE_NEGATIVE_PROMPTS]
@@ -104,6 +106,12 @@ function buildNegativePrompt(intent: PromptIntent): string {
   // Add style-specific negatives
   const styleNegatives = STYLE_NEGATIVES[intent.style.value] || []
   negatives.push(...styleNegatives)
+
+  // Add template-specific negatives from knowledge base
+  if (intent.creativeTemplate) {
+    negatives.push(...intent.creativeTemplate.negativePrompts.base)
+    negatives.push(...intent.creativeTemplate.negativePrompts.typeSpecific)
+  }
 
   // Add customization negatives
   if (intent.customization) {
@@ -145,15 +153,44 @@ function buildDesignContextSection(context: DesignContext): string {
 }
 
 /**
+ * Build template-specific prompt additions from knowledge base
+ */
+function buildTemplateSpecificGuidance(template: CreativeTemplate): string {
+  const parts: string[] = []
+
+  // Add template's typography mood
+  if (template.typography?.mood) {
+    parts.push(template.typography.mood)
+  }
+
+  // Add visual recommendations (top 2)
+  if (template.visuals?.recommended?.length > 0) {
+    parts.push(template.visuals.recommended.slice(0, 2).join(', '))
+  }
+
+  // Add safe area guidance if present
+  if (template.safeAreas && template.safeAreas.length > 0) {
+    const safeAreaGuidance = template.safeAreas
+      .map(sa => `avoid ${sa.description.toLowerCase()} (${sa.reason})`)
+      .join(', ')
+    parts.push(safeAreaGuidance)
+  }
+
+  return parts.join(', ')
+}
+
+/**
  * Build concise Ideogram prompt
- * Now integrates AI-generated design context for purpose-driven designs
+ * Now integrates AI-generated design context AND creative template from knowledge base
  */
 function buildIdeogramPrompt(intent: PromptIntent): string {
   const parts: string[] = []
+  const template = intent.creativeTemplate
 
-  // Opening with award-winning quality marker
+  // Opening with quality keywords from template (if available)
+  const qualityPrefix = template?.qualityKeywords?.slice(0, 2).join(' ') || 'Award-winning'
   parts.push(
-    `Award-winning ${intent.style.label.toLowerCase()} ${intent.creativeType.replace(/_/g, ' ')} design`
+    `${qualityPrefix} ${intent.style.label.toLowerCase()} ${intent.creativeType.replace(/_/g, ' ')} design`
   )
 
   // CRITICAL: AI-Generated Design Context (if available)
@@ -183,6 +220,14 @@ function buildIdeogramPrompt(intent: PromptIntent): string {
   const styleTreatment = getStyleTreatmentShort(intent.style.value)
   parts.push(styleTreatment)
 
+  // Template-specific guidance from knowledge base
+  if (template) {
+    const templateGuidance = buildTemplateSpecificGuidance(template)
+    if (templateGuidance) {
+      parts.push(templateGuidance)
+    }
+  }
+
   // Lighting hint
   const lightingHint = getLightingHint(intent.theme.value)
   if (lightingHint) {
@@ -207,6 +252,15 @@ function buildIdeogramPrompt(intent: PromptIntent): string {
   // Final typography reminder with emotional goal
   if (intent.designContext?.emotionalJob) {
     parts.push(`design that makes viewers feel ${intent.designContext.emotionalJob}`)
+  }
+
+  // Language instruction (compact version for Ideogram)
+  const languageInstruction = buildCompactLanguageInstruction(intent.language)
+  parts.push(languageInstruction)
+
+  // RTL guidance if applicable
+  if (isRTLLanguage(intent.language)) {
+    parts.push('right-to-left text alignment and layout flow')
   }
 
   // CRITICAL: Edge-to-edge and anti-mockup instructions

@@ -6,6 +6,7 @@
  */
 
 import type { CreativeContent } from '../types'
+import { getEnhancedTypographyDirection } from '../languageConfigs'
 
 type TextRole = 'headline' | 'subheadline' | 'body' | 'label' | 'accent'
 type TextEmphasis = 'high' | 'medium' | 'low'
@@ -146,9 +147,12 @@ export function buildTextListForIdeogram(content: CreativeContent): string[] {
 
 /**
  * Get typography direction based on language
+ * Now uses the comprehensive language configuration for proper guidance
  */
 export function getTypographyDirection(language: string, languageLabel: string): string {
-  return `Typography should feel modern and confident. Headlines demand attention while remaining elegant. Body text maintains clarity and readability. All text appears in ${languageLabel}.`
+  // Use the enhanced typography direction from languageConfigs
+  // This provides detailed language-specific typography guidance
+  return getEnhancedTypographyDirection(language)
 }
 
 /**

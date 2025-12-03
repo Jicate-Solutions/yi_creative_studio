@@ -103,7 +103,7 @@ const settingsNavItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useUIStore()
+  const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed, createModeActive } = useUIStore()
   const { canManage } = useAuthStore()
 
   const isAdmin = canManage()
@@ -112,23 +112,25 @@ export function Sidebar() {
     (item) => !item.adminOnly || isAdmin
   )
 
-  if (!sidebarOpen) return null
+  // Hide sidebar when closed or when Create mode is active (child sidebar takes over)
+  if (!sidebarOpen || createModeActive) return null
 
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r bg-sidebar transition-all duration-300',
+        'hidden md:flex flex-col border-r border-sidebar-border shadow-sm transition-all duration-300',
+        'bg-white',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Header */}
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-16 items-center border-b border-sidebar-border px-4">
         <Logo showText={!sidebarCollapsed} size="sm" />
         <Button
           variant="ghost"
           size="icon"
           className={cn(
-            'ml-auto h-8 w-8',
+            'ml-auto h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200',
             sidebarCollapsed && 'rotate-180'
           )}
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -145,7 +147,7 @@ export function Sidebar() {
             <Button
               asChild
               className={cn(
-                'w-full gap-2 gradient-yi hover:opacity-90',
+                'w-full gap-2 btn-premium',
                 sidebarCollapsed && 'px-2'
               )}
             >
@@ -177,9 +179,9 @@ export function Sidebar() {
           {/* Settings Section */}
           {filteredSettingsItems.length > 0 && (
             <>
-              <Separator className="my-4" />
+              <Separator className="my-4 bg-sidebar-border" />
               {!sidebarCollapsed && (
-                <span className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                <span className="px-3 text-xs font-semibold text-sidebar-muted uppercase tracking-wider mb-2">
                   Settings
                 </span>
               )}
@@ -197,7 +199,7 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="border-t p-4">
+      <div className="border-t border-sidebar-border p-4">
         <NavLink
           item={{
             title: 'Help & Support',
@@ -223,20 +225,24 @@ function NavLink({ item, isActive, collapsed }: NavLinkProps) {
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
         'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2',
         isActive
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-          : 'text-sidebar-foreground',
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm'
+          : 'text-sidebar-foreground/70',
         collapsed && 'justify-center px-2'
       )}
     >
-      <item.icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary')} />
+      <item.icon className={cn(
+        'h-5 w-5 shrink-0 transition-colors',
+        isActive ? 'text-sidebar-primary' : 'text-sidebar-muted'
+      )} />
       {!collapsed && (
         <>
           <span className="flex-1">{item.title}</span>
           {item.badge && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+            <span className="rounded-full bg-sidebar-primary/20 text-sidebar-primary px-2 py-0.5 text-xs font-medium">
               {item.badge}
             </span>
           )}

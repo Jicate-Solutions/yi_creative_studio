@@ -5,6 +5,9 @@ interface UIState {
   sidebarOpen: boolean
   sidebarCollapsed: boolean
 
+  // Create mode - hides parent sidebar for child sidebar
+  createModeActive: boolean
+
   // Mobile navigation
   mobileNavOpen: boolean
 
@@ -20,6 +23,8 @@ interface UIState {
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
   setSidebarCollapsed: (collapsed: boolean) => void
+  enterCreateMode: () => void
+  exitCreateMode: () => void
   toggleMobileNav: () => void
   setMobileNavOpen: (open: boolean) => void
   openModal: (modalId: string, data?: Record<string, unknown>) => void
@@ -31,6 +36,7 @@ export const useUIStore = create<UIState>()((set) => ({
   // Initial state
   sidebarOpen: true,
   sidebarCollapsed: false,
+  createModeActive: false,
   mobileNavOpen: false,
   activeModal: null,
   modalData: null,
@@ -43,6 +49,10 @@ export const useUIStore = create<UIState>()((set) => ({
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+
+  enterCreateMode: () => set({ createModeActive: true }),
+
+  exitCreateMode: () => set({ createModeActive: false }),
 
   toggleMobileNav: () => set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
 

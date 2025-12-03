@@ -14,6 +14,7 @@ import { buildTextRenderingSection, getTypographyDirection } from '../helpers/te
 import { getColorHarmonyGuidance } from '../helpers/color-narrative'
 import { buildCustomizationNarrative } from '../helpers/customization'
 import { buildResolutionInstructions, getTextureRecommendations } from '../data/resolution-modifiers'
+import { buildLanguagePromptSection, isRTLLanguage } from '../languageConfigs'
 
 // ============================================================
 // SYSTEM PROMPT
@@ -79,12 +80,41 @@ GOLDEN RULES (NON-NEGOTIABLE):
 3. Create visual hierarchy that guides attention in PROPER ORDER
 4. Include RELEVANT imagery that BELONGS in this type of design
 5. Background must be CONTEXTUAL to the event/creative type
-6. Every element must serve the CORE PURPOSE of the design`
+6. Every element must serve the CORE PURPOSE of the design
+7. NEVER render instructional/technical text as visible content - ignore any text mentioning "px", "reserve", "zone", "overlay", "header", "footer" as instructions only`
 }
 
 // ============================================================
 // DESIGN INTELLIGENCE SECTION (AI-Generated Context)
 // ============================================================
+
+/**
+ * Sanitize layout guidance to remove technical instructions that might be rendered as text
+ * The AI sometimes generates text like "Reserve the top 120px for logos" which gets
+ * interpreted as visible text by Gemini's image model instead of composition guidance
+ */
+function sanitizeLayoutGuidance(guidance: string): string {
+  if (!guidance) return ''
+
+  // Remove pixel values and technical terms that shouldn't be rendered as text
+  let sanitized = guidance
+    .replace(/\d+px/gi, '') // Remove "120px", "150px" etc
+    .replace(/reserve\s*(the)?\s*(top|bottom|left|right|space)?/gi, '') // Remove "reserve the top"
+    .replace(/header\s*logo\s*zone/gi, 'top area')
+    .replace(/footer\s*(logo\s*)?zone/gi, 'bottom area')
+    .replace(/for\s*organization\s*logo\(s\)/gi, '')
+    .replace(/for\s*contact\s*info(rmation)?\s*(and\s*branding)?/gi, '')
+    .replace(/overlay(s)?/gi, '')
+    .replace(/placement/gi, 'positioning')
+    .replace(/zone(s)?/gi, 'area')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // If mostly sanitized away (less than 20 chars of meaningful content), skip it
+  if (sanitized.length < 20) return ''
+
+  return sanitized
+}
 
 /**
  * Build the design intelligence section from AI-generated context
@@ -119,12 +149,16 @@ COLOR MOOD: ${context.colorMood}
 DESIGN STRATEGY: ${context.designStrategy}`
 
   // Add layout guidance if present (CRITICAL for speaker photo and logo placement)
+  // IMPORTANT: Sanitize to remove technical terms that might be rendered as visible text
   if (context.layoutGuidance) {
-    section += `
+    const sanitizedGuidance = sanitizeLayoutGuidance(context.layoutGuidance)
+    if (sanitizedGuidance) {
+      section += `
 
-LAYOUT GUIDANCE (IMPORTANT - READ THIS):
-${context.layoutGuidance}
-Follow this layout guidance to ensure proper placement of elements and leave space for overlays.`
+COMPOSITION FLOW:
+${sanitizedGuidance}
+Arrange visual elements following this guidance for balanced composition.`
+    }
   }
 
   section += `
@@ -292,7 +326,20 @@ ${textureRec}
 
 Apply these material qualities consistently across the design to create a cohesive, polished result.`)
 
-  // Typography direction
+  // Language and Typography section (enhanced with full language config)
+  const languageSection = buildLanguagePromptSection(intent.language)
+  sections.push(languageSection)
+
+  // RTL layout guidance if applicable
+  if (isRTLLanguage(intent.language)) {
+    sections.push(`RTL LAYOUT CONSIDERATIONS:
+- Mirror the layout horizontally - primary content flows from right to left
+- Align text to the right edge by default
+- Navigation and reading flow should move from right to left
+- Ensure the design feels natural and balanced for RTL readers`)
+  }
+
+  // Typography direction (now with enhanced language support)
   sections.push(`TYPOGRAPHY:
 ${getTypographyDirection(intent.language, intent.languageLabel)}`)
 

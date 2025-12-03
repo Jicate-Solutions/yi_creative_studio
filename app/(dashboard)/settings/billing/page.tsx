@@ -198,7 +198,7 @@ export default function BillingPage() {
           {CREDIT_PACKAGES.map((pkg) => (
             <Card
               key={pkg.id}
-              className={`relative ${pkg.popular ? 'border-primary shadow-lg' : ''}`}
+              className={`relative ${pkg.popular ? 'border-2 border-primary' : ''}`}
             >
               {pkg.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">

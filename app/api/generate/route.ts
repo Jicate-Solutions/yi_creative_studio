@@ -20,6 +20,9 @@ import {
   type DesignBrief,
 } from '@/lib/prompts/services/design-intelligence'
 import { validateLogoPositions } from '@/lib/config/logo-locks'
+import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
+import { compileFormData, summarizeCompiledData } from '@/lib/prompts/services/form-data-compiler'
+import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +49,7 @@ export async function POST(request: NextRequest) {
       formatId,
       customDimensions,
       language,
+      userFormData,
     } = body as {
       prompt: string
       model: string
@@ -60,6 +64,7 @@ export async function POST(request: NextRequest) {
       formatId?: CreativeFormatId
       customDimensions?: { width: number; height: number } | null
       language?: 'en' | 'ta' | 'hi'
+      userFormData?: Record<string, unknown>
     }
 
     // Get format if specified
@@ -166,8 +171,33 @@ export async function POST(request: NextRequest) {
       // - Design strategy
       console.log('[Design Intelligence] Stage 1: Generating design context...')
 
-      // Parse content for the brief
+      // Parse content for the brief (fallback for when form data is unavailable)
       const parsedContent = parseEventContent(prompt)
+
+      // Extract from user form data (PRIMARY - more reliable than parsing prompt)
+      const formDataContent = extractFromFormData(userFormData)
+
+      // Log for debugging - helps verify form data is being received
+      console.log('[Generate] === USER FORM DATA ===')
+      console.log('[Generate] Raw Form Data:', JSON.stringify(userFormData, null, 2))
+      console.log('[Generate] Extracted Event Name:', formDataContent.eventName || '(not found)')
+      console.log('[Generate] Extracted Guest Name:', formDataContent.guestName || '(not found)')
+      console.log('[Generate] Fallback (parsed) Event Name:', parsedContent.eventName || '(not found)')
+
+      // ========================================================
+      // STAGE 0.5: COMPILE FORM DATA & GENERATE ULTRA-PRO PROMPT
+      // Uses Claude AI to transform user values into optimized prompt
+      // ========================================================
+      const compiledData = compileFormData(userFormData, formatId, designData, language)
+      console.log('[Generate] === COMPILED FORM DATA ===')
+      console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
+
+      // Generate ultra-pro prompt using Claude AI
+      const ultraProPrompt = await generateUltraProPromptSafe(compiledData, 'claude')
+      console.log('[Generate] === ULTRA-PRO PROMPT ===')
+      console.log('[Generate] Primary Text:', ultraProPrompt.primaryText)
+      console.log('[Generate] Secondary Text:', ultraProPrompt.secondaryText.join(', '))
+      console.log('[Generate] Visual Scene:', ultraProPrompt.visualScene.substring(0, 100) + '...')
 
       // Clean instruction text from the prompt before passing to design intelligence
       // This prevents instruction text like "Create a striking..." from being analyzed
@@ -177,18 +207,28 @@ export async function POST(request: NextRequest) {
       const speakerPhotoConfig = designData.customization?.speakerPhoto
       const layoutConfig = designData.customization?.layout
 
+      // Get format info for format-aware design intelligence
+      const formatTemplate = formatId ? getTemplateForFormat(formatId) : null
+
       const designBrief: DesignBrief = {
-        // Event content
-        eventType: parsedContent.eventType,
-        eventName: parsedContent.eventName,
-        organizationName: 'Yi Creatives',
-        details: cleanedPrompt, // Use cleaned prompt, not raw template
+        // Event content - USE ULTRA-PRO PROMPT VALUES (Claude AI refined)
+        eventType: formDataContent.eventType || parsedContent.eventType,
+        eventName: ultraProPrompt.primaryText || formDataContent.eventName || parsedContent.eventName,
+        organizationName: compiledData.organizationName || 'Yi Creatives',
+        details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt
         theme: designData.theme,
         style: designData.style,
-        guestName: parsedContent.guestName,
-        guestDesignation: parsedContent.guestDesignation, // NEW: Pass guest designation
-        venue: parsedContent.venue,
-        additionalContext: parsedContent.additionalText,
+        guestName: compiledData.speakerName || formDataContent.guestName || parsedContent.guestName,
+        guestDesignation: compiledData.speakerDesignation || formDataContent.guestDesignation || parsedContent.guestDesignation,
+        venue: compiledData.venue || formDataContent.venue || parsedContent.venue,
+        additionalContext: `${ultraProPrompt.visualScene}. ${ultraProPrompt.designGuidance}`,
+
+        // === FORMAT AWARENESS (CRITICAL - defines design TYPE) ===
+        // Format takes PRIORITY over event type for design direction
+        formatId: formatId,
+        formatName: selectedFormat?.label,
+        formatCategory: formatTemplate?.basePattern,
+        formatGuidance: formatTemplate?.promptTemplate?.substring(0, 300),
 
         // === VISUAL LAYOUT CONTEXT (CRITICAL FOR BETTER IMAGE GENERATION) ===
         // Speaker photo configuration
@@ -303,6 +343,58 @@ export async function POST(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Generation failed' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Extract event content from user form data with multiple field name fallbacks.
+ * This is more reliable than parsing prompt text with regex since it uses the actual user input.
+ */
+function extractFromFormData(formData: Record<string, unknown> | undefined): Partial<CreativeContent> {
+  if (!formData) return {}
+
+  return {
+    // Event name: check multiple possible field names
+    eventName: String(
+      formData.title ||
+      formData.eventName ||
+      formData.eventTitle ||
+      formData.name ||
+      ''
+    ).trim() || undefined,
+
+    // Event type: infer from explicit field
+    eventType: String(formData.eventType || formData.type || '').trim() || undefined,
+
+    // Date/Time (CreativeContent uses 'date' and 'time', not 'eventDate')
+    date: String(formData.date || formData.eventDate || '').trim() || undefined,
+    time: String(formData.time || formData.eventTime || '').trim() || undefined,
+
+    // Venue
+    venue: String(formData.venue || formData.location || formData.venueName || '').trim() || undefined,
+
+    // Speaker/Guest
+    guestName: String(
+      formData.speaker ||
+      formData.guestName ||
+      formData.speakerName ||
+      formData.guest ||
+      ''
+    ).trim() || undefined,
+    guestDesignation: String(
+      formData.designation ||
+      formData.guestDesignation ||
+      formData.speakerDesignation ||
+      ''
+    ).trim() || undefined,
+
+    // Description
+    additionalText: String(
+      formData.description ||
+      formData.additionalInfo ||
+      formData.details ||
+      ''
+    ).trim() || undefined,
   }
 }
 

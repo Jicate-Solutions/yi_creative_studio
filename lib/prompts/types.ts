@@ -4,6 +4,7 @@
  */
 
 import type { CustomizationData, ColorConfig } from '@/lib/config/design-constants'
+import type { CreativeTemplate } from './knowledge-base/types'
 
 // ============================================================
 // CREATIVE CONTENT (Event data for poster generation)
@@ -146,6 +147,8 @@ export interface DesignContext {
 
 export interface PromptIntent {
   creativeType: 'event_poster' | 'social_post' | 'banner'
+  /** Format ID for template resolution (e.g., 'instagram_story', 'youtube_thumbnail') */
+  format?: string
   content: CreativeContent
   theme: ThemeIntent
   style: StyleIntent
@@ -162,6 +165,8 @@ export interface PromptIntent {
   languageLabel: string
   /** AI-generated design intelligence (Stage 1 output) */
   designContext?: DesignContext
+  /** Resolved creative template from knowledge base */
+  creativeTemplate?: CreativeTemplate
 }
 
 // ============================================================
@@ -205,6 +210,8 @@ export type AIProvider = 'google' | 'ideogram'
 export interface GeneratePromptParams {
   provider: AIProvider
   type: 'event_poster' | 'social_post' | 'banner'
+  /** Format ID for template resolution (e.g., 'instagram_story', 'youtube_thumbnail') */
+  format?: string
   content: CreativeContent
   brand: {
     primary_color: string

@@ -10,7 +10,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import type { TablesInsert, Json } from '@/types/database.types'
 import type { SuggestableField } from '@/types/suggestions'
+import { getCreativeSchema } from '@/lib/schemas/creativeSchemas'
 import { FormatSelectionInline } from '@/components/create/format-selection'
+import { CustomSizeForm } from '@/components/create/format-selection/custom-size-form'
 import type { CreativeFormat } from '@/lib/config/creative-formats'
 import {
   Card,
@@ -66,6 +68,7 @@ import {
   LayoutTemplate,
   WifiOff,
   Globe,
+  Save,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
 import { Stepper, type Step } from '@/components/ui/stepper'
@@ -75,6 +78,10 @@ import {
   AITriggerButton,
 } from '@/components/create/ai-suggestion-field'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
+import { DynamicDetailsForm } from '@/components/create/DynamicDetailsForm'
+import { SaveTemplateDialog } from '@/components/create/SaveTemplateDialog'
+import { CreateSidebar } from '@/components/create/create-sidebar'
+import { useUIStore } from '@/stores/ui-store'
 
 // Dynamic imports for heavy components - improves initial load time
 const PreviewPanel = dynamic(
@@ -180,13 +187,13 @@ const DEFAULT_SPEAKER_PHOTO: SpeakerPhotoCustomization = {
 
 // Step definitions - Format is step 0, then workflow continues 1-6
 const STEPS: Step[] = [
-  { id: 0, title: 'Format', icon: <LayoutGrid className="h-4 w-4" /> },
-  { id: 1, title: 'Vertical', icon: <Palette className="h-4 w-4" /> },
-  { id: 2, title: 'Mode', icon: <Sparkles className="h-4 w-4" /> },
-  { id: 3, title: 'Template', icon: <FileImage className="h-4 w-4" /> },
-  { id: 4, title: 'Details', icon: <FileText className="h-4 w-4" /> },
-  { id: 5, title: 'Logos', icon: <ImageIcon className="h-4 w-4" /> },
-  { id: 6, title: 'Generate', icon: <Wand2 className="h-4 w-4" /> },
+  { id: 1, title: 'Format', icon: <LayoutGrid className="h-4 w-4" /> },
+  { id: 2, title: 'Vertical', icon: <Palette className="h-4 w-4" /> },
+  { id: 3, title: 'Mode', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 4, title: 'Template', icon: <FileImage className="h-4 w-4" /> },
+  { id: 5, title: 'Details', icon: <FileText className="h-4 w-4" /> },
+  { id: 6, title: 'Logos', icon: <ImageIcon className="h-4 w-4" /> },
+  { id: 7, title: 'Generate', icon: <Wand2 className="h-4 w-4" /> },
 ]
 
 export default function CreatePage() {
@@ -197,7 +204,7 @@ export default function CreatePage() {
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
   const { logos, fetchLogos } = useLogos()
-  const { balance, canAfford, deductCredits } = useCredits()
+  const { canAfford, deductCredits } = useCredits()
   const { isOnline } = useOnlineStatus()
 
   const {
@@ -227,19 +234,34 @@ export default function CreatePage() {
     // Format selection
     selectedFormat,
     selectFormat,
+    setCustomDimensions,
     getFormatDimensions,
+    // Dynamic schema (AI-generated form fields)
+    dynamicSchema,
+    generateDynamicSchema,
+    clearDynamicSchema,
   } = useCreativeStore()
 
-  // Always start at step 0 (format selection) when visiting create page
-  const [step, setStep] = useState(0)
+  // UI Store for create mode sidebar
+  const { enterCreateMode, exitCreateMode, createModeActive } = useUIStore()
+
+  // Enter create mode on mount (hides parent sidebar, shows create sidebar)
+  useEffect(() => {
+    enterCreateMode()
+    return () => exitCreateMode()
+  }, [enterCreateMode, exitCreateMode])
+
+  // Always start at step 1 (format selection) when visiting create page
+  const [step, setStep] = useState(1)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
 
-  // Handle format selection - auto advance to step 1
+  // Handle format selection - auto advance to step 2 (Vertical)
   const handleSelectFormat = useCallback((format: CreativeFormat) => {
     selectFormat(format.id)
-    setStep(1)
+    setStep(2)
   }, [selectFormat])
 
   // AI Suggestions hook
@@ -287,6 +309,20 @@ export default function CreatePage() {
   useEffect(() => {
     fetchLogos()
   }, [fetchLogos])
+
+  // Trigger dynamic schema generation when vertical is selected (background, non-blocking)
+  useEffect(() => {
+    if (selectedVertical && formData.formatId) {
+      // Generate dynamic schema in background - user can continue through steps
+      generateDynamicSchema(
+        formData.formatId,
+        selectedVertical.slug,
+        currentOrganization?.id
+      )
+    } else {
+      clearDynamicSchema()
+    }
+  }, [selectedVertical?.id, formData.formatId, generateDynamicSchema, clearDynamicSchema, currentOrganization?.id])
 
   const creditCost = getModelCost()
   const canGenerate = selectedVertical && selectedModel && canAfford(creditCost) && isOnline
@@ -369,6 +405,8 @@ export default function CreatePage() {
           customDimensions: formData.customDimensions || null,
           // Language selection (PRD Section 10.2)
           language: formData.formData?.language || 'en',
+          // Pass form data directly for reliable value extraction (bypasses template placeholder issues)
+          userFormData: formData.formData,
         }),
       })
 
@@ -434,27 +472,36 @@ export default function CreatePage() {
 
   // Navigation handlers
   const handleBack = () => {
-    if (step > 0) setStep(step - 1)
+    if (step > 1) setStep(step - 1)
   }
 
   const handleNext = () => {
-    if (step < 6) setStep(step + 1)
+    if (step < 7) setStep(step + 1)
   }
 
   const canProceed = () => {
     switch (step) {
-      case 0:
-        return !!selectedFormat
       case 1:
-        return !!selectedVertical
+        return !!selectedFormat
       case 2:
-        return !!formData.creationMode
+        return !!selectedVertical
       case 3:
-        return true // Template is optional
+        return !!formData.creationMode
       case 4:
-        return !!(formData.formData as { title?: string }).title
+        return true // Template is optional
       case 5:
-        return true // Logos are optional, model selection happens in Step 6
+        // Dynamically validate based on current schema's first required field
+        // Use dynamic schema if available (AI-generated), otherwise fall back to static
+        const dynamicFields = dynamicSchema.schema?.fields
+        const staticSchema = getCreativeSchema(selectedFormat?.id || null)
+        const fieldsToValidate = dynamicFields || staticSchema.fields
+
+        const firstRequiredField = fieldsToValidate.find(f => f.required)
+        if (!firstRequiredField) return true
+        const fieldValue = (formData.formData as Record<string, unknown>)[firstRequiredField.id]
+        return !!fieldValue && String(fieldValue).trim().length > 0
+      case 6:
+        return true // Logos are optional, model selection happens in Step 7
       default:
         return true
     }
@@ -462,83 +509,69 @@ export default function CreatePage() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col">
-        {/* Sticky Header with Stepper */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b">
-          <div className="container py-4">
-            {/* Header Row */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">
-                  {step === 0
-                    ? 'What would you like to create?'
-                    : selectedFormat
-                    ? `Create ${selectedFormat.label}`
-                    : 'Create Poster'}
-                </h1>
-                <p className="text-sm text-muted-foreground hidden sm:block">
-                  {step === 0
-                    ? 'Choose a format to get started with AI-powered creative generation'
-                    : selectedFormat
-                    ? `${selectedFormat.width} × ${selectedFormat.height} px • ${selectedFormat.aspectRatio}`
-                    : 'Generate AI-powered brand creatives'}
-                </p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="gap-2 cursor-help">
-                    <Coins className="h-4 w-4 text-yellow-500" />
-                    <span className="font-semibold">{balance.toLocaleString()}</span>
-                    <span className="hidden sm:inline text-muted-foreground">credits</span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your available credits for generating creatives</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Stepper */}
-            <Stepper
-              steps={STEPS}
-              currentStep={step}
-              onStepClick={(stepId) => {
-                if (stepId < step) setStep(stepId)
-              }}
-            />
-          </div>
-        </div>
+      <div className="flex min-h-screen">
+        {/* Create Sidebar - Left (Desktop only) */}
+        {createModeActive && (
+          <CreateSidebar
+            steps={STEPS}
+            currentStep={step}
+            onStepClick={(stepId) => {
+              if (stepId < step && !isGenerating) setStep(stepId)
+            }}
+          />
+        )}
 
         {/* Main Content Area */}
-        <div className="flex-1 container py-6">
+        <div className={cn(
+          "flex-1 flex flex-col min-w-0",
+          createModeActive && "md:ml-64"
+        )}>
+          {/* Step Content Area */}
+          <div className={cn(
+            "flex-1 py-6",
+            (step === 1 || step === 4) ? "px-6" : "container"
+          )}>
           <div className={cn(
             "grid grid-cols-1 gap-6",
-            step === 6 && "lg:grid-cols-12"
+            step === 7 && "lg:grid-cols-12"
           )}>
             {/* Step Content - Left Panel */}
             <div className={cn(
-              step === 6 ? "lg:col-span-6" : "max-w-4xl mx-auto w-full"
+              step === 7 ? "lg:col-span-6" : (step === 1 || step === 4) ? "w-full" : "max-w-4xl mx-auto w-full"
             )}>
-              {/* Step 0: Select Format */}
-              {step === 0 && (
+              {/* Step 1: Select Format */}
+              {step === 1 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <LayoutGrid className="h-5 w-5 text-primary" />
-                      Choose Format
-                    </CardTitle>
-                    <CardDescription>
-                      Select the canvas size and format for your creative
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <LayoutGrid className="h-5 w-5 text-primary" />
+                          Choose Format
+                        </CardTitle>
+                        <CardDescription>
+                          Select the canvas size and format for your creative
+                        </CardDescription>
+                      </div>
+                      <CustomSizeForm
+                        customDimensions={formData.customDimensions}
+                        onApply={(width, height) => {
+                          selectFormat('custom')
+                          setCustomDimensions(width, height)
+                        }}
+                        onClear={() => {}}
+                        className="shrink-0"
+                      />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <FormatSelectionInline onSelect={handleSelectFormat} />
+                    <FormatSelectionInline onSelect={handleSelectFormat} hideCustomSize />
                   </CardContent>
                 </Card>
               )}
 
-              {/* Step 1: Select Vertical & Creation Mode */}
-              {step === 1 && (
+              {/* Step 2: Select Vertical & Creation Mode */}
+              {step === 2 && (
                 <div className="space-y-6">
                   <Card>
                     <CardHeader>
@@ -633,16 +666,16 @@ export default function CreatePage() {
                 </div>
               )}
 
-              {/* Step 2: How would you like to create? */}
-              {step === 2 && selectedVertical && (
+              {/* Step 3: How would you like to create? */}
+              {step === 3 && selectedVertical && (
                 <ModeSelector
                   mode={formData.creationMode}
                   onModeChange={setCreationMode}
                 />
               )}
 
-              {/* Step 3: Choose Template or Design Options */}
-              {step === 3 && selectedVertical && (
+              {/* Step 4: Choose Template or Design Options */}
+              {step === 4 && selectedVertical && (
                 formData.creationMode === 'template' ? (
                   <Card>
                     <CardHeader>
@@ -688,169 +721,56 @@ export default function CreatePage() {
                 )
               )}
 
-              {/* Step 4: Fill Details */}
-              {step === 4 && selectedVertical && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      Event Details
-                    </CardTitle>
-                    <CardDescription>
-                      Fill in the details for your {selectedVertical.name} creative
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Event Title with AI Trigger Button */}
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Event Title</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="title"
-                          placeholder="Enter event title (e.g., Annual Traffic Awareness Campaign)"
-                          value={(formData.formData as { title?: string }).title || ''}
-                          onChange={(e) => updateFormData({ title: e.target.value })}
-                          className="flex-1"
-                          maxLength={100}
-                        />
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <AITriggerButton
-                                onClick={handleRequestSuggestions}
-                                isLoading={isSuggestionsLoading}
-                                disabled={((formData.formData as { title?: string }).title || '').length < 5}
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Get AI suggestions for all fields based on the title</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      {/* Character counter (PRD Edge Case E08) */}
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">
-                          Enter a descriptive title, then click the magic wand to get AI suggestions
-                        </p>
-                        <span className={cn(
-                          'text-xs',
-                          ((formData.formData as { title?: string }).title || '').length >= 100
-                            ? 'text-destructive font-medium'
-                            : ((formData.formData as { title?: string }).title || '').length >= 80
-                              ? 'text-amber-600'
-                              : 'text-muted-foreground'
-                        )}>
-                          {((formData.formData as { title?: string }).title || '').length} / 100
-                        </span>
-                      </div>
-                    </div>
+              {/* Step 5: Fill Details - Dynamic form based on format type */}
+              {step === 5 && selectedVertical && (
+                <div className="space-y-6">
+                  {/* Dynamic Details Form - renders fields based on selected format */}
+                  <DynamicDetailsForm
+                    formatId={formData.formatId || null}
+                    verticalName={selectedVertical.name}
+                    formData={formData.formData as Record<string, unknown>}
+                    // Dynamic schema props (AI-generated fields)
+                    dynamicSchema={dynamicSchema.schema}
+                    isDynamicSchemaLoading={dynamicSchema.isLoading}
+                    dynamicSchemaError={dynamicSchema.error}
+                    isDynamicSchemaFallback={dynamicSchema.isFallback}
+                    suggestions={(() => {
+                      // Convert suggestions to the format expected by DynamicDetailsForm
+                      const suggestionMap: Record<string, { value: string; confidence: number }> = {}
+                      const suggestableFields = ['title', 'date', 'time', 'venue', 'speaker', 'description',
+                        'postTitle', 'postDescription', 'callToAction', 'hashtags',
+                        'certificateTitle', 'achievementDescription', 'subjectLine', 'brandMessage',
+                        'articleTitle', 'articleSummary', 'campaignName', 'campaignMessage']
+                      suggestableFields.forEach(field => {
+                        const suggestion = getSuggestion(field as SuggestableField)
+                        if (suggestion) {
+                          suggestionMap[field] = suggestion
+                        }
+                      })
+                      return suggestionMap
+                    })()}
+                    isSuggestionsLoading={isSuggestionsLoading}
+                    suggestionsError={suggestionsError}
+                    onFormChange={(fieldId, value) => updateFormData({ [fieldId]: value })}
+                    onRequestSuggestions={handleRequestSuggestions}
+                    onAcceptSuggestion={(fieldId) => acceptSuggestion(fieldId as SuggestableField)}
+                    onDismissSuggestion={(fieldId) => dismissSuggestion(fieldId as SuggestableField)}
+                    onAcceptAllSuggestions={acceptAllSuggestions}
+                    onDismissAllSuggestions={dismissAllSuggestions}
+                    languageValue={(formData.formData?.language as string) || 'en'}
+                    onLanguageChange={(value) => updateFormData({ language: value })}
+                    showLanguageSelector={true}
+                  />
 
-                    {/* AI Suggestions Error */}
-                    {suggestionsError && (
-                      <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-                        {suggestionsError}
-                      </div>
-                    )}
-
-                    {/* Bulk AI Actions */}
-                    <AISuggestionActions
-                      hasSuggestions={hasSuggestions}
-                      onAcceptAll={acceptAllSuggestions}
-                      onDismissAll={dismissAllSuggestions}
-                      isLoading={isSuggestionsLoading}
-                    />
-
-                    {/* Dynamic form fields with AI suggestions */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <AISuggestionField
-                        field="date"
-                        label="Event Date"
-                        value={getFieldValue('date')}
-                        suggestion={getSuggestion('date')}
-                        onChange={(value) => setFieldValue('date', value)}
-                        onAccept={() => acceptSuggestion('date')}
-                        onDismiss={() => dismissSuggestion('date')}
-                        isLoading={isSuggestionsLoading}
-                        placeholder="e.g., March 15, 2025"
-                      />
-
-                      <AISuggestionField
-                        field="time"
-                        label="Event Time"
-                        value={getFieldValue('time')}
-                        suggestion={getSuggestion('time')}
-                        onChange={(value) => setFieldValue('time', value)}
-                        onAccept={() => acceptSuggestion('time')}
-                        onDismiss={() => dismissSuggestion('time')}
-                        isLoading={isSuggestionsLoading}
-                        placeholder="e.g., 6:00 PM onwards"
-                      />
-
-                      <AISuggestionField
-                        field="venue"
-                        label="Venue"
-                        value={getFieldValue('venue')}
-                        suggestion={getSuggestion('venue')}
-                        onChange={(value) => setFieldValue('venue', value)}
-                        onAccept={() => acceptSuggestion('venue')}
-                        onDismiss={() => dismissSuggestion('venue')}
-                        isLoading={isSuggestionsLoading}
-                        placeholder="Event venue"
-                      />
-
-                      <AISuggestionField
-                        field="speaker"
-                        label="Speaker/Guest (Optional)"
-                        value={getFieldValue('speaker')}
-                        suggestion={getSuggestion('speaker')}
-                        onChange={(value) => setFieldValue('speaker', value)}
-                        onAccept={() => acceptSuggestion('speaker')}
-                        onDismiss={() => dismissSuggestion('speaker')}
-                        isLoading={isSuggestionsLoading}
-                        placeholder="Chief guest or speaker name"
-                      />
-                    </div>
-
-                    <AISuggestionField
-                      field="description"
-                      label="Additional Details (Optional)"
-                      value={getFieldValue('description')}
-                      suggestion={getSuggestion('description')}
-                      onChange={(value) => setFieldValue('description', value)}
-                      onAccept={() => acceptSuggestion('description')}
-                      onDismiss={() => dismissSuggestion('description')}
-                      isLoading={isSuggestionsLoading}
-                      placeholder="Any additional information to include"
-                      multiline
-                    />
-
-                    {/* Language Selection (PRD Section 10.2) */}
-                    <div className="space-y-2">
-                      <Label htmlFor="language" className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        Language
-                      </Label>
-                      <Select
-                        value={(formData.formData?.language as string) || 'en'}
-                        onValueChange={(value) => updateFormData({ language: value })}
-                      >
-                        <SelectTrigger id="language">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
-                          <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Choose the primary language for text in your creative
-                      </p>
-                    </div>
-
-                    {/* Optional Settings: Speaker Photo & Footer */}
-                    <Separator className="my-6" />
+                  {/* Optional Settings: Speaker Photo & Footer */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Optional Settings</CardTitle>
+                      <CardDescription>
+                        Additional customization options for your creative
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
                     <Accordion type="multiple" className="space-y-2">
                       {/* Speaker Photo - Optional */}
                       <AccordionItem value="speaker-photo" className="border rounded-lg px-4">
@@ -953,10 +873,11 @@ export default function CreatePage() {
                     </Accordion>
                   </CardContent>
                 </Card>
+                </div>
               )}
 
-              {/* Step 5: Logo Placement */}
-              {step === 5 && (
+              {/* Step 6: Logo Placement */}
+              {step === 6 && (
                 <div className="space-y-6">
                   {/* Logo Placement */}
                   <Card>
@@ -976,8 +897,8 @@ export default function CreatePage() {
                 </div>
               )}
 
-              {/* Step 6: Generate & Result */}
-              {step === 6 && (
+              {/* Step 7: Generate & Result */}
+              {step === 7 && (
                 <div className="space-y-6">
                   {/* AI Model Selection - Show before generation */}
                   {!generatedImage && (
@@ -1087,14 +1008,25 @@ export default function CreatePage() {
 
                       <div className="flex flex-col sm:flex-row justify-center gap-3">
                         {generatedImage && (
-                          <Button
-                            size="lg"
-                            onClick={() => setExportModalOpen(true)}
-                            className="gap-2"
-                          >
-                            <Download className="h-4 w-4" />
-                            Download
-                          </Button>
+                          <>
+                            <Button
+                              size="lg"
+                              onClick={() => setExportModalOpen(true)}
+                              className="gap-2"
+                            >
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              onClick={() => setSaveTemplateDialogOpen(true)}
+                              className="gap-2"
+                            >
+                              <Save className="h-4 w-4" />
+                              Save as Template
+                            </Button>
+                          </>
                         )}
                         <Button
                           variant="outline"
@@ -1116,8 +1048,8 @@ export default function CreatePage() {
               )}
             </div>
 
-            {/* Preview Panel - Right Sidebar (Step 6 only) */}
-            {step === 6 && (
+            {/* Preview Panel - Right Sidebar (Step 7 only) */}
+            {step === 7 && (
               <div className="lg:col-span-6">
                 <PreviewPanel
                   isGenerating={isGenerating}
@@ -1128,31 +1060,44 @@ export default function CreatePage() {
           </div>
         </div>
 
-        {/* Sticky Footer Navigation */}
-        {(step !== 6 || !generatedImage) && (
-          <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur-md border-t">
+        {/* Footer Navigation */}
+        {(step !== 7 || !generatedImage) && (
+          <div className="bg-background border-t">
             <div className="container py-4">
               <div className="flex items-center justify-between">
+                {/* Back Button - Canva style with hover border */}
                 <Button
                   variant="outline"
                   onClick={handleBack}
-                  disabled={step === 0}
-                  className="gap-2"
+                  disabled={step === 1 || isGenerating}
+                  className={cn(
+                    "gap-2 border-2 transition-all duration-300",
+                    "hover:border-[#005B96] hover:text-[#005B96]"
+                  )}
                 >
                   <ArrowLeft className="h-4 w-4" />
                   <span className="hidden sm:inline">Back</span>
                 </Button>
 
                 {/* Step info for mobile */}
-                <div className="text-sm text-muted-foreground lg:hidden">
-                  Step {step} of 6
+                <div className="text-sm text-muted-foreground lg:hidden font-medium">
+                  Step {step} of 7
                 </div>
 
-                {step === 6 ? (
+                {step === 7 ? (
+                  /* Generate Button - Canva gradient style */
                   <Button
                     onClick={handleGenerateWithDateCheck}
                     disabled={!canGenerate || isGenerating}
-                    className="gap-2 gradient-yi"
+                    className={cn(
+                      "gap-2 px-6 transition-all duration-300",
+                      "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                      "text-white font-semibold",
+                      "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
+                      "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
+                      "hover:-translate-y-0.5",
+                      "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                    )}
                   >
                     {isGenerating ? (
                       <>
@@ -1168,17 +1113,26 @@ export default function CreatePage() {
                       <>
                         <Sparkles className="h-4 w-4" />
                         <span className="hidden sm:inline">Generate</span>
-                        <Badge variant="secondary" className="ml-1 text-xs">
+                        <Badge variant="secondary" className="ml-1 text-xs bg-white/20 text-white border-0">
                           {creditCost} credits
                         </Badge>
                       </>
                     )}
                   </Button>
                 ) : (
+                  /* Continue Button - Canva gradient style */
                   <Button
                     onClick={handleNext}
                     disabled={!canProceed()}
-                    className="gap-2"
+                    className={cn(
+                      "gap-2 px-6 transition-all duration-300",
+                      "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                      "text-white font-semibold",
+                      "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
+                      "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
+                      "hover:-translate-y-0.5",
+                      "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                    )}
                   >
                     <span className="hidden sm:inline">Continue</span>
                     <ArrowRight className="h-4 w-4" />
@@ -1188,6 +1142,7 @@ export default function CreatePage() {
             </div>
           </div>
         )}
+        </div> {/* End Main Content Area */}
 
         {/* Export Modal */}
         {creativeId && generatedImage && (
@@ -1201,6 +1156,22 @@ export default function CreatePage() {
               'Creative'
             }
             previewUrl={generatedImage}
+          />
+        )}
+
+        {/* Save as Template Dialog */}
+        {creativeId && generatedImage && (
+          <SaveTemplateDialog
+            open={saveTemplateDialogOpen}
+            onOpenChange={setSaveTemplateDialogOpen}
+            creativeId={creativeId}
+            previewImageUrl={generatedImage}
+            formData={formData.formData as Record<string, unknown>}
+            logoConfig={formData.logosPlacements}
+            currentVertical={selectedVertical?.id}
+            onSaveComplete={(templateId) => {
+              toast.success('Template saved! You can find it in your templates.')
+            }}
           />
         )}
 

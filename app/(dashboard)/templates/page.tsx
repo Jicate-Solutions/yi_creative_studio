@@ -364,7 +364,7 @@ export default function TemplatesPage() {
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => setSelectedTemplate(template)}
                 >
                   <div className="relative h-40 bg-muted">
@@ -483,7 +483,7 @@ export default function TemplatesPage() {
               {filteredImageTemplates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => setSelectedImageTemplate(template)}
                 >
                   <div className="relative aspect-[4/5] bg-muted">
@@ -566,7 +566,7 @@ export default function TemplatesPage() {
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => setSelectedTemplate(template)}
                 >
                   <div className="relative h-40 bg-muted">
@@ -627,7 +627,7 @@ export default function TemplatesPage() {
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => setSelectedTemplate(template)}
                 >
                   <div className="relative h-40 bg-muted">

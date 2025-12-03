@@ -44,14 +44,18 @@ export function FormatSearch({
   }, [onChange])
 
   return (
-    <div className={cn('relative', className)}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <div className={cn('search-input-wrapper relative', className)}>
+      <Search className="search-icon absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-300" />
       <Input
         type="text"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-9"
+        className={cn(
+          'pl-10 pr-9 h-11 border-2 rounded-lg transition-all duration-300',
+          'focus:border-[#005B96] focus:shadow-[0_0_0_3px_rgba(0,91,150,0.1)]',
+          'placeholder:text-muted-foreground'
+        )}
       />
       {localValue && (
         <Button
@@ -59,7 +63,7 @@ export function FormatSearch({
           variant="ghost"
           size="icon"
           onClick={handleClear}
-          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-muted rounded-md"
         >
           <X className="w-4 h-4" />
           <span className="sr-only">Clear search</span>

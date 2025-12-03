@@ -19,16 +19,18 @@ import { getStyleTreatment } from '../data/style-treatments'
 import { getAudienceContext } from '../data/audience-contexts'
 import { getResolutionModifiers } from '../data/resolution-modifiers'
 import { buildColorPaletteIntent } from '../helpers/color-narrative'
+import { getLanguageConfig, getAvailableLanguages } from '../languageConfigs'
+import { getTemplateForFormat } from '../knowledge-base'
 
 // ============================================================
-// LANGUAGE MAPPING
+// LANGUAGE MAPPING (Legacy - use languageConfigs.ts for full config)
 // ============================================================
 
-const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'ta', label: 'Tamil' },
-  { value: 'hi', label: 'Hindi' },
-]
+// Get languages from the comprehensive language configs
+const LANGUAGES = getAvailableLanguages().map((lang) => ({
+  value: lang.value,
+  label: lang.label,
+}))
 
 // ============================================================
 // DEFAULT VALUES
@@ -181,9 +183,15 @@ export function buildPromptIntent(params: GeneratePromptParams): PromptIntent {
   // Get resolution modifiers
   const resolutionModifiers = getResolutionModifiers(params.resolution)
 
+  // Resolve creative template from knowledge base
+  // Use format if provided, otherwise fall back to type for backward compatibility
+  const formatId = params.format || params.type
+  const creativeTemplate = getTemplateForFormat(formatId)
+
   // Build the complete intent
   const intent: PromptIntent = {
     creativeType: params.type,
+    format: formatId,
     content: params.content,
     theme: themeIntent,
     style: styleIntent,
@@ -200,6 +208,8 @@ export function buildPromptIntent(params: GeneratePromptParams): PromptIntent {
     languageLabel: getLanguageLabel(params.language),
     // Pass through AI-generated design context if provided
     designContext: params.designContext,
+    // Resolved creative template from knowledge base
+    creativeTemplate,
   }
 
   return intent

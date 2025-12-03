@@ -20,6 +20,7 @@ import { useCreativeStore } from '@/stores/creative-store'
 
 interface FormatSelectionInlineProps {
   onSelect?: (format: CreativeFormat) => void
+  hideCustomSize?: boolean
 }
 
 /**
@@ -35,6 +36,7 @@ interface FormatSelectionInlineProps {
  */
 export function FormatSelectionInline({
   onSelect,
+  hideCustomSize = false,
 }: FormatSelectionInlineProps) {
   const {
     selectedFormat,
@@ -128,13 +130,15 @@ export function FormatSelectionInline({
       </div>
 
       {/* Custom size */}
-      <div className="pt-4 border-t">
-        <CustomSizeForm
-          customDimensions={formData.customDimensions}
-          onApply={handleApplyCustomSize}
-          onClear={handleClearCustomSize}
-        />
-      </div>
+      {!hideCustomSize && (
+        <div className="pt-4 border-t">
+          <CustomSizeForm
+            customDimensions={formData.customDimensions}
+            onApply={handleApplyCustomSize}
+            onClear={handleClearCustomSize}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -42,105 +42,121 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Yi Brand Colors */
+  /* Yi Brand Colors - Premium Palette */
   --color-yi-blue: #005B96;
+  --color-yi-blue-dark: #004A7A;
   --color-yi-orange: #FF6B35;
+  --color-yi-orange-dark: #E85A28;
   --color-yi-green: #00A86B;
+  --color-yi-teal: #1B998B;
+  --color-yi-teal-dark: #168B7F;
+  --color-yi-navy: #1a2332;
+  --color-yi-navy-light: #243447;
 }
 
 :root {
   --radius: 0.625rem;
 
   /* Yi Brand Theme - Light Mode */
-  --background: oklch(0.995 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  /* Using hex colors only for html2canvas (Bug Reporter SDK) compatibility */
+  /* Note: oklch() colors removed - html2canvas cannot parse modern CSS color functions */
+  --background: #fdfdfd;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
 
   /* Primary: Yi Blue #005B96 */
-  --primary: oklch(0.42 0.12 240);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #005B96;
+  --primary-foreground: #fafafa;
 
   /* Secondary: Yi Orange #FF6B35 */
-  --secondary: oklch(0.70 0.18 35);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: #FF6B35;
+  --secondary-foreground: #fafafa;
 
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.50 0 0);
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
 
   /* Accent: Yi Green #00A86B */
-  --accent: oklch(0.60 0.15 160);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: #00A86B;
+  --accent-foreground: #fafafa;
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.90 0 0);
-  --input: oklch(0.90 0 0);
-  --ring: oklch(0.42 0.12 240);
+  --destructive: #dc2626;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #005B96;
 
   /* Chart colors with Yi brand influence */
-  --chart-1: oklch(0.42 0.12 240);
-  --chart-2: oklch(0.70 0.18 35);
-  --chart-3: oklch(0.60 0.15 160);
-  --chart-4: oklch(0.65 0.15 280);
-  --chart-5: oklch(0.75 0.12 85);
+  --chart-1: #005B96;
+  --chart-2: #FF6B35;
+  --chart-3: #00A86B;
+  --chart-4: #8B5CF6;
+  --chart-5: #EAB308;
 
-  /* Sidebar - Yi themed */
-  --sidebar: oklch(0.98 0.005 240);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.42 0.12 240);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.94 0.02 240);
-  --sidebar-accent-foreground: oklch(0.42 0.12 240);
-  --sidebar-border: oklch(0.90 0.01 240);
-  --sidebar-ring: oklch(0.42 0.12 240);
+  /* Sidebar - Soft Pastel Gradient Theme */
+  --sidebar: linear-gradient(180deg, #E8F4FD 0%, #F0E6FF 50%, #F3E8FF 100%);
+  --sidebar-bg-start: #E8F4FD;
+  --sidebar-bg-end: #F3E8FF;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(99, 102, 241, 0.1);
+  --sidebar-accent-foreground: #4f46e5;
+  --sidebar-border: rgba(99, 102, 241, 0.15);
+  --sidebar-ring: #6366f1;
+  --sidebar-muted: #64748b;
 }
 
 .dark {
-  --background: oklch(0.12 0.01 240);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.16 0.01 240);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.16 0.01 240);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Using hex colors only for html2canvas (Bug Reporter SDK) compatibility */
+  /* Note: oklch() colors removed - html2canvas cannot parse modern CSS color functions */
+  --background: #1a1a2e;
+  --foreground: #fafafa;
+  --card: #252542;
+  --card-foreground: #fafafa;
+  --popover: #252542;
+  --popover-foreground: #fafafa;
 
   /* Primary: Yi Blue - Brighter for dark mode */
-  --primary: oklch(0.55 0.15 240);
-  --primary-foreground: oklch(0.12 0 0);
+  --primary: #3b82f6;
+  --primary-foreground: #1a1a1a;
 
   /* Secondary: Yi Orange */
-  --secondary: oklch(0.75 0.18 35);
-  --secondary-foreground: oklch(0.12 0 0);
+  --secondary: #FF8C5A;
+  --secondary-foreground: #1a1a1a;
 
-  --muted: oklch(0.22 0.01 240);
-  --muted-foreground: oklch(0.65 0 0);
+  --muted: #2d2d4a;
+  --muted-foreground: #a3a3a3;
 
   /* Accent: Yi Green */
-  --accent: oklch(0.65 0.15 160);
-  --accent-foreground: oklch(0.12 0 0);
+  --accent: #22c55e;
+  --accent-foreground: #1a1a1a;
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.25 0.01 240);
-  --input: oklch(0.25 0.01 240);
-  --ring: oklch(0.55 0.15 240);
+  --destructive: #ef4444;
+  --border: #3d3d5c;
+  --input: #3d3d5c;
+  --ring: #3b82f6;
 
   /* Chart colors - Dark mode */
-  --chart-1: oklch(0.55 0.15 240);
-  --chart-2: oklch(0.75 0.18 35);
-  --chart-3: oklch(0.65 0.15 160);
-  --chart-4: oklch(0.70 0.15 280);
-  --chart-5: oklch(0.80 0.12 85);
+  --chart-1: #3b82f6;
+  --chart-2: #FF8C5A;
+  --chart-3: #22c55e;
+  --chart-4: #a78bfa;
+  --chart-5: #facc15;
 
-  /* Sidebar - Dark mode */
-  --sidebar: oklch(0.14 0.01 240);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.55 0.15 240);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.20 0.02 240);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.25 0.01 240);
-  --sidebar-ring: oklch(0.55 0.15 240);
+  /* Sidebar - Dark mode (elegant dark with purple tint) */
+  --sidebar: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+  --sidebar-bg-start: #1e1b4b;
+  --sidebar-bg-end: #312e81;
+  --sidebar-foreground: rgba(255, 255, 255, 0.9);
+  --sidebar-primary: #a78bfa;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(167, 139, 250, 0.15);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(167, 139, 250, 0.2);
+  --sidebar-ring: #a78bfa;
+  --sidebar-muted: rgba(255, 255, 255, 0.6);
 }
 
 @layer base {
@@ -163,7 +179,7 @@
   }
 
   .gradient-yi-subtle {
-    background: linear-gradient(135deg, oklch(0.42 0.12 240 / 0.1) 0%, oklch(0.70 0.18 35 / 0.1) 100%);
+    background: linear-gradient(135deg, rgba(0, 91, 150, 0.1) 0%, rgba(255, 107, 53, 0.1) 100%);
   }
 
   /* Text gradient */
@@ -176,13 +192,13 @@
 
   /* Glass effect */
   .glass {
-    background: oklch(1 0 0 / 0.7);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
 
   .dark .glass {
-    background: oklch(0.12 0.01 240 / 0.7);
+    background: rgba(26, 26, 46, 0.7);
   }
 
   /* Animation utilities */
@@ -216,5 +232,514 @@
   @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+  }
+
+  /* ========================================
+     PREMIUM UI ENHANCEMENTS
+     ======================================== */
+
+  /* Premium Card Styling */
+  .card-premium {
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 300ms ease;
+  }
+
+  .card-premium:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    border-color: var(--primary);
+  }
+
+  .dark .card-premium {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .dark .card-premium:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Interactive Card with Action Overlay */
+  .card-interactive {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-interactive .card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: all 200ms ease;
+  }
+
+  .card-interactive:hover .card-actions {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Premium Button Styles */
+  .btn-premium {
+    background: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-blue-dark) 100%);
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px 20px;
+    transition: all 300ms ease;
+    box-shadow: 0 2px 8px rgba(0, 91, 150, 0.3);
+  }
+
+  .btn-premium:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 91, 150, 0.4);
+  }
+
+  .btn-premium:active {
+    transform: translateY(0);
+  }
+
+  /* Premium Badge Styles */
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 200ms ease;
+  }
+
+  .badge-pill-primary {
+    background: rgba(0, 91, 150, 0.1);
+    color: var(--color-yi-blue);
+  }
+
+  .badge-pill-success {
+    background: rgba(0, 168, 107, 0.1);
+    color: var(--color-yi-green);
+  }
+
+  .badge-pill-warning {
+    background: rgba(255, 107, 53, 0.1);
+    color: var(--color-yi-orange);
+  }
+
+  /* Focus States - Accessibility */
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Smooth Transitions Global */
+  .transition-premium {
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Sidebar Active Indicator */
+  .nav-item-active {
+    position: relative;
+    background: var(--sidebar-accent);
+  }
+
+  .nav-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--sidebar-primary);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Section Header Styling */
+  .section-header {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--sidebar-muted);
+    padding: 8px 12px;
+    margin-top: 8px;
+  }
+
+  /* Premium Input Styling */
+  .input-premium {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    transition: all 200ms ease;
+    background: var(--background);
+  }
+
+  .input-premium:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+    outline: none;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      #e5e5e5 50%,
+      var(--muted) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  @keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .dark .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      #3f3f3f 50%,
+      var(--muted) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Hover Scale Effect */
+  .hover-scale {
+    transition: transform 300ms ease;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  /* Top Bar Premium */
+  .topbar-premium {
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dark .topbar-premium {
+    background: rgba(15, 23, 42, 0.8);
+  }
+
+  /* ========================================
+     CANVA-STYLE UI COMPONENTS
+     ======================================== */
+
+  /* Gradient Button: Primary (Blue → Teal) */
+  .btn-gradient-primary {
+    background: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-teal) 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    transition: all 300ms ease;
+    box-shadow: 0 4px 12px rgba(0, 91, 150, 0.25);
+  }
+
+  .btn-gradient-primary:hover {
+    background: linear-gradient(135deg, var(--color-yi-blue-dark) 0%, var(--color-yi-teal-dark) 100%);
+    box-shadow: 0 6px 20px rgba(0, 91, 150, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .btn-gradient-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 91, 150, 0.2);
+  }
+
+  .btn-gradient-primary:focus-visible {
+    outline: 2px solid var(--color-yi-blue);
+    outline-offset: 2px;
+  }
+
+  /* Gradient Button: Secondary (Orange → Blue) */
+  .btn-gradient-secondary {
+    background: linear-gradient(135deg, var(--color-yi-orange) 0%, var(--color-yi-blue) 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    transition: all 300ms ease;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+  }
+
+  .btn-gradient-secondary:hover {
+    background: linear-gradient(135deg, var(--color-yi-orange-dark) 0%, var(--color-yi-blue-dark) 100%);
+    box-shadow: 0 6px 20px rgba(255, 107, 53, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .btn-gradient-secondary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+  }
+
+  .btn-gradient-secondary:focus-visible {
+    outline: 2px solid var(--color-yi-orange);
+    outline-offset: 2px;
+  }
+
+  /* Gradient Button: Accent (Teal → Orange) */
+  .btn-gradient-accent {
+    background: linear-gradient(135deg, var(--color-yi-teal) 0%, var(--color-yi-orange) 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    transition: all 300ms ease;
+    box-shadow: 0 4px 12px rgba(27, 153, 139, 0.25);
+  }
+
+  .btn-gradient-accent:hover {
+    background: linear-gradient(135deg, var(--color-yi-teal-dark) 0%, var(--color-yi-orange-dark) 100%);
+    box-shadow: 0 6px 20px rgba(27, 153, 139, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .btn-gradient-accent:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(27, 153, 139, 0.2);
+  }
+
+  .btn-gradient-accent:focus-visible {
+    outline: 2px solid var(--color-yi-teal);
+    outline-offset: 2px;
+  }
+
+  /* Format Card - Canva Style */
+  .format-card-canva {
+    position: relative;
+    background: var(--card);
+    border-radius: 12px;
+    border: 2px solid transparent;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 300ms ease;
+    overflow: hidden;
+  }
+
+  /* Gradient border effect on hover */
+  .format-card-canva::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(135deg, #005B96, #1B998B, #FF6B35);
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity 300ms ease;
+    z-index: -1;
+  }
+
+  .format-card-canva:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 32px rgba(0, 91, 150, 0.2);
+  }
+
+  .format-card-canva:hover::before {
+    opacity: 1;
+  }
+
+  /* Selected state */
+  .format-card-canva.selected {
+    background: linear-gradient(135deg, rgba(0, 91, 150, 0.08), rgba(27, 153, 139, 0.08));
+    border: 2px solid var(--color-yi-blue);
+  }
+
+  .format-card-canva:focus-visible {
+    outline: 2px solid var(--color-yi-blue);
+    outline-offset: 2px;
+  }
+
+  /* Category Filter Button - Canva Style */
+  .filter-btn-canva {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 300ms ease;
+  }
+
+  .filter-btn-canva:hover {
+    border-color: var(--color-yi-blue);
+    color: var(--color-yi-blue);
+    background: rgba(0, 91, 150, 0.05);
+  }
+
+  .filter-btn-canva.active {
+    background: linear-gradient(135deg, var(--color-yi-blue), var(--color-yi-teal));
+    color: white;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 12px rgba(0, 91, 150, 0.25);
+  }
+
+  .filter-btn-canva:focus-visible {
+    outline: 2px solid var(--color-yi-blue);
+    outline-offset: 2px;
+  }
+
+  /* Search Input - Enhanced Focus */
+  .search-input-enhanced {
+    width: 100%;
+    padding: 12px 16px 12px 40px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 300ms ease;
+    background: var(--background);
+  }
+
+  .search-input-enhanced::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .search-input-enhanced:focus {
+    outline: none;
+    border-color: var(--color-yi-blue);
+    box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+  }
+
+  .search-input-wrapper .search-icon {
+    color: var(--muted-foreground);
+    transition: color 300ms ease;
+  }
+
+  .search-input-wrapper:focus-within .search-icon {
+    color: var(--color-yi-blue);
+  }
+
+  /* Section Title - Gradient Text */
+  .section-title-gradient {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-teal) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Popular Badge - Orange Gradient */
+  .badge-popular {
+    background: linear-gradient(135deg, var(--color-yi-orange), #FF8C54);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  /* Continue Button - Footer CTA */
+  .btn-continue-canva {
+    background: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-teal) 100%);
+    color: white;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 300ms ease;
+    box-shadow: 0 4px 12px rgba(0, 91, 150, 0.25);
+  }
+
+  .btn-continue-canva:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 91, 150, 0.35);
+  }
+
+  .btn-continue-canva:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-continue-canva:focus-visible {
+    outline: 2px solid var(--color-yi-blue);
+    outline-offset: 2px;
+  }
+
+  /* Back Button - Footer Secondary */
+  .btn-back-canva {
+    padding: 10px 16px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 300ms ease;
+  }
+
+  .btn-back-canva:hover {
+    border-color: var(--color-yi-blue);
+    color: var(--color-yi-blue);
+  }
+
+  .btn-back-canva:focus-visible {
+    outline: 2px solid var(--color-yi-blue);
+    outline-offset: 2px;
+  }
+
+  /* Selection Checkmark Badge */
+  .selection-checkmark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, var(--color-yi-blue), var(--color-yi-teal));
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .btn-gradient-primary,
+    .btn-gradient-secondary,
+    .btn-gradient-accent,
+    .format-card-canva,
+    .filter-btn-canva,
+    .btn-continue-canva,
+    .btn-back-canva {
+      transition: none;
+    }
+
+    .btn-gradient-primary:hover,
+    .btn-gradient-secondary:hover,
+    .btn-gradient-accent:hover,
+    .format-card-canva:hover,
+    .btn-continue-canva:hover:not(:disabled) {
+      transform: none;
+    }
+  }
+
+  /* Bug Reporter SDK - Reposition to Left Side */
+  [data-bug-reporter-button],
+  button[class*="bug-reporter"],
+  button[aria-label*="bug" i],
+  button[aria-label*="report" i],
+  body > div > button[style*="position: fixed"],
+  body > button[style*="position: fixed"] {
+    right: auto !important;
+    left: 16px !important;
   }
 }

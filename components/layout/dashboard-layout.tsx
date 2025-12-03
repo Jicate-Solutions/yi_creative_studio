@@ -10,6 +10,7 @@ import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
 import { OfflineBanner } from '@/components/ui/offline-banner'
 import { useAuthStore } from '@/stores/auth-store'
+import { useUIStore } from '@/stores/ui-store'
 import type { UserProfile, Organization, OrganizationMember } from '@/types/database.types'
 
 interface InitialAuthData {
@@ -27,6 +28,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, className, initialAuthData }: DashboardLayoutProps) {
   const { setProfile, setMembership, setCurrentOrganization, setOrganizations } = useAuthStore()
+  const { createModeActive } = useUIStore()
 
   // Hydrate auth store with server-fetched data
   useEffect(() => {
@@ -68,7 +70,11 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             <TopNav />
 
             {/* Page Content */}
-            <main className={cn('flex-1 p-4 md:p-6', className)}>
+            <main className={cn(
+              'flex-1',
+              !createModeActive && 'p-4 md:p-6',
+              className
+            )}>
               {children}
             </main>
           </div>

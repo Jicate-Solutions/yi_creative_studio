@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Ruler, Check } from 'lucide-react'
+import { Ruler, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -179,6 +179,9 @@ export function CustomSizeForm({
               Clear
             </Button>
           )}
+          <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
       </CollapsibleContent>
     </Collapsible>

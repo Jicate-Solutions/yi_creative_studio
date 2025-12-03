@@ -9,10 +9,33 @@ import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, Reso
 import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
+import { type LogoSizePreset, DEFAULT_LOGO_SIZE } from '@/lib/constants/logoConstants'
+import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 
-interface LogoPlacement {
+// Re-export for convenience
+export type { GeneratedSchema, DynamicSchemaField }
+
+// Dynamic Schema State for AI-generated form fields
+export interface DynamicSchemaState {
+  schema: GeneratedSchema | null
+  isLoading: boolean
+  error: string | null
+  cacheKey: string | null // format:vertical
+  isFallback: boolean // True if using static fallback schema
+}
+
+const initialDynamicSchemaState: DynamicSchemaState = {
+  schema: null,
+  isLoading: false,
+  error: null,
+  cacheKey: null,
+  isFallback: false,
+}
+
+export interface LogoPlacement {
   logoId: string
   position: LogoPosition
+  size: LogoSizePreset | number // Size preset or custom pixel value
   logo?: OrganizationLogo
 }
 
@@ -114,6 +137,9 @@ interface CreativeState {
   // AI Design Suggestions state (Design Tab)
   aiDesignSuggestions: AIDesignSuggestions
 
+  // Dynamic Schema state (AI-generated form fields)
+  dynamicSchema: DynamicSchemaState
+
   // Generation state
   isGenerating: boolean
   generationProgress: number
@@ -140,9 +166,10 @@ interface CreativeState {
   selectTemplate: (template: TemplateImage | null) => void
   updateFormData: (data: Record<string, unknown>) => void
 
-  addLogoPlacement: (logoId: string, position: LogoPosition) => void
+  addLogoPlacement: (logoId: string, position: LogoPosition, size?: LogoSizePreset | number) => void
   removeLogoPlacement: (logoId: string) => void
   updateLogoPosition: (logoId: string, position: LogoPosition) => void
+  updateLogoSize: (logoId: string, size: LogoSizePreset | number) => void
   clearLogoPlacements: () => void
 
   setGenerating: (generating: boolean) => void
@@ -196,6 +223,13 @@ interface CreativeState {
   clearAIColorSuggestions: () => void
   clearAllAISuggestions: () => void
 
+  // Dynamic Schema Actions (AI-generated form fields)
+  generateDynamicSchema: (formatId: string, verticalSlug: string, organizationId?: string) => Promise<void>
+  setDynamicSchema: (schema: GeneratedSchema | null, isFallback?: boolean) => void
+  setDynamicSchemaLoading: (loading: boolean) => void
+  setDynamicSchemaError: (error: string | null) => void
+  clearDynamicSchema: () => void
+
   resetForm: () => void
 }
 
@@ -240,6 +274,7 @@ export const useCreativeStore = create<CreativeState>()(
       selectedTemplate: null,
       aiForm: initialAIFormState,
       aiDesignSuggestions: initialAIDesignSuggestions,
+      dynamicSchema: initialDynamicSchemaState,
       isGenerating: false,
       generationProgress: 0,
       generatedImage: null,
@@ -347,7 +382,7 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
-      addLogoPlacement: (logoId, position) => {
+      addLogoPlacement: (logoId, position, size = DEFAULT_LOGO_SIZE) => {
         const { logos, formData } = get()
         const logo = logos.find((l) => l.id === logoId)
         const existing = formData.logosPlacements.find((p) => p.logoId === logoId)
@@ -389,7 +424,7 @@ export const useCreativeStore = create<CreativeState>()(
           set({
             formData: {
               ...formData,
-              logosPlacements: [...updatedPlacements, { logoId, position: finalPosition, logo }],
+              logosPlacements: [...updatedPlacements, { logoId, position: finalPosition, size, logo }],
             },
           })
         } else if (!existing) {
@@ -397,7 +432,7 @@ export const useCreativeStore = create<CreativeState>()(
           set({
             formData: {
               ...formData,
-              logosPlacements: [...formData.logosPlacements, { logoId, position, logo }],
+              logosPlacements: [...formData.logosPlacements, { logoId, position, size, logo }],
             },
           })
         }
@@ -431,6 +466,16 @@ export const useCreativeStore = create<CreativeState>()(
             },
           }
         }),
+
+      updateLogoSize: (logoId, size) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logosPlacements: state.formData.logosPlacements.map((p) =>
+              p.logoId === logoId ? { ...p, size } : p
+            ),
+          },
+        })),
 
       clearLogoPlacements: () =>
         set((state) => ({
@@ -790,6 +835,116 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
+      // Dynamic Schema Actions (AI-generated form fields)
+      generateDynamicSchema: async (formatId, verticalSlug, organizationId) => {
+        const cacheKey = `${formatId}:${verticalSlug}`
+
+        // Check if we already have this schema cached
+        const { dynamicSchema } = get()
+        if (dynamicSchema.schema && dynamicSchema.cacheKey === cacheKey && !dynamicSchema.isFallback) {
+          return // Already have valid schema
+        }
+
+        // Set loading state
+        set({
+          dynamicSchema: {
+            ...initialDynamicSchemaState,
+            isLoading: true,
+            cacheKey,
+          },
+        })
+
+        try {
+          const response = await fetch('/api/generate-fields', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              formatId,
+              verticalSlug,
+              organizationId,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success) {
+            set({
+              dynamicSchema: {
+                schema: data.schema,
+                isLoading: false,
+                error: null,
+                cacheKey,
+                isFallback: false,
+              },
+            })
+          } else if (data.fallbackSchema) {
+            // API returned a fallback schema
+            set({
+              dynamicSchema: {
+                schema: data.fallbackSchema,
+                isLoading: false,
+                error: data.error || null,
+                cacheKey,
+                isFallback: true,
+              },
+            })
+          } else {
+            set({
+              dynamicSchema: {
+                schema: null,
+                isLoading: false,
+                error: data.error || 'Failed to generate fields',
+                cacheKey,
+                isFallback: false,
+              },
+            })
+          }
+        } catch (error) {
+          console.error('Failed to generate dynamic schema:', error)
+          set({
+            dynamicSchema: {
+              schema: null,
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'Network error',
+              cacheKey,
+              isFallback: false,
+            },
+          })
+        }
+      },
+
+      setDynamicSchema: (schema, isFallback = false) =>
+        set((state) => ({
+          dynamicSchema: {
+            ...state.dynamicSchema,
+            schema,
+            isFallback,
+            error: null,
+          },
+        })),
+
+      setDynamicSchemaLoading: (isLoading) =>
+        set((state) => ({
+          dynamicSchema: {
+            ...state.dynamicSchema,
+            isLoading,
+          },
+        })),
+
+      setDynamicSchemaError: (error) =>
+        set((state) => ({
+          dynamicSchema: {
+            ...state.dynamicSchema,
+            error,
+            isLoading: false,
+          },
+        })),
+
+      clearDynamicSchema: () =>
+        set({
+          dynamicSchema: initialDynamicSchemaState,
+        }),
+
       resetForm: () =>
         set({
           formData: initialFormData,
@@ -799,6 +954,7 @@ export const useCreativeStore = create<CreativeState>()(
           selectedTemplate: null,
           aiForm: initialAIFormState,
           aiDesignSuggestions: initialAIDesignSuggestions,
+          dynamicSchema: initialDynamicSchemaState,
           generatedImage: null,
           generationError: null,
           generationProgress: 0,
