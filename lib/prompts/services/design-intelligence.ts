@@ -99,6 +99,10 @@ export interface DesignBrief {
   footerHeight?: number
   /** Additional layout preferences */
   layoutPreferences?: string
+
+  // === LOGO AWARENESS (Smart Layout) ===
+  /** Pre-computed logo safe zone guidance for AI */
+  logoSafeZoneGuidance?: string
 }
 
 // ============================================================
@@ -364,6 +368,17 @@ function buildBriefText(brief: DesignBrief): string {
   // Additional layout preferences
   if (brief.layoutPreferences) {
     parts.push(`Layout Preferences: ${brief.layoutPreferences}`)
+  }
+
+  // === LOGO SAFE ZONES (Smart Layout - CRITICAL FOR AI AWARENESS) ===
+  if (brief.logoSafeZoneGuidance) {
+    parts.push('')  // Empty line for separation
+    parts.push('=== LOGO SAFE ZONES (DO NOT PLACE CONTENT HERE) ===')
+    parts.push(brief.logoSafeZoneGuidance)
+    parts.push('')
+    parts.push('IMPORTANT: Logos will be digitally overlaid AFTER image generation.')
+    parts.push('Your job is to create a design where these areas have clean, simple backgrounds.')
+    parts.push('Do NOT place headlines, key text, or important visuals in logo zones.')
   }
 
   return parts.join('\n')

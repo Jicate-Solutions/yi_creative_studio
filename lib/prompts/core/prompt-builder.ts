@@ -210,6 +210,8 @@ export function buildPromptIntent(params: GeneratePromptParams): PromptIntent {
     designContext: params.designContext,
     // Resolved creative template from knowledge base
     creativeTemplate,
+    // Pass through logo awareness for Smart Layout
+    logoAwareness: params.logoAwareness,
   }
 
   return intent

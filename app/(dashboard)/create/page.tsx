@@ -26,7 +26,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -54,7 +53,6 @@ import {
   Loader2,
   Download,
   RefreshCw,
-  Coins,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -67,7 +65,6 @@ import {
   User,
   LayoutTemplate,
   WifiOff,
-  Globe,
   Save,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
@@ -84,11 +81,6 @@ import { CreateSidebar } from '@/components/create/create-sidebar'
 import { useUIStore } from '@/stores/ui-store'
 
 // Dynamic imports for heavy components - improves initial load time
-const PreviewPanel = dynamic(
-  () => import('@/components/create/preview-panel').then(mod => ({ default: mod.PreviewPanel })),
-  { ssr: false, loading: () => <ComponentLoadingSkeleton type="preview" /> }
-)
-
 const LogoPositionGrid = dynamic(
   () => import('@/components/create/logo-position-grid').then(mod => ({ default: mod.LogoPositionGrid })),
   { loading: () => <ComponentLoadingSkeleton type="grid" /> }
@@ -185,14 +177,14 @@ const DEFAULT_SPEAKER_PHOTO: SpeakerPhotoCustomization = {
   shadow: true,
 }
 
-// Step definitions - Format is step 0, then workflow continues 1-6
+// Step definitions - Logos moved to Step 4 for Smart Layout (AI knows logo positions before designing)
 const STEPS: Step[] = [
   { id: 1, title: 'Format', icon: <LayoutGrid className="h-4 w-4" /> },
   { id: 2, title: 'Vertical', icon: <Palette className="h-4 w-4" /> },
   { id: 3, title: 'Mode', icon: <Sparkles className="h-4 w-4" /> },
-  { id: 4, title: 'Template', icon: <FileImage className="h-4 w-4" /> },
-  { id: 5, title: 'Details', icon: <FileText className="h-4 w-4" /> },
-  { id: 6, title: 'Logos', icon: <ImageIcon className="h-4 w-4" /> },
+  { id: 4, title: 'Logos', icon: <ImageIcon className="h-4 w-4" /> },
+  { id: 5, title: 'Template', icon: <FileImage className="h-4 w-4" /> },
+  { id: 6, title: 'Details', icon: <FileText className="h-4 w-4" /> },
   { id: 7, title: 'Generate', icon: <Wand2 className="h-4 w-4" /> },
 ]
 
@@ -488,8 +480,10 @@ export default function CreatePage() {
       case 3:
         return !!formData.creationMode
       case 4:
-        return true // Template is optional
+        return true // Logos are optional (Smart Layout - AI knows positions)
       case 5:
+        return true // Template is optional
+      case 6:
         // Dynamically validate based on current schema's first required field
         // Use dynamic schema if available (AI-generated), otherwise fall back to static
         const dynamicFields = dynamicSchema.schema?.fields
@@ -500,8 +494,6 @@ export default function CreatePage() {
         if (!firstRequiredField) return true
         const fieldValue = (formData.formData as Record<string, unknown>)[firstRequiredField.id]
         return !!fieldValue && String(fieldValue).trim().length > 0
-      case 6:
-        return true // Logos are optional, model selection happens in Step 7
       default:
         return true
     }
@@ -526,18 +518,15 @@ export default function CreatePage() {
           "flex-1 flex flex-col min-w-0",
           createModeActive && "md:ml-64"
         )}>
-          {/* Step Content Area */}
+          {/* Step Content Area - pb-24 ensures content isn't hidden behind sticky footer */}
           <div className={cn(
-            "flex-1 py-6",
-            (step === 1 || step === 4) ? "px-6" : "container"
+            "flex-1 py-6 pb-24",
+            (step === 1 || step === 3 || step === 4) ? "px-6" : "container"
           )}>
-          <div className={cn(
-            "grid grid-cols-1 gap-6",
-            step === 7 && "lg:grid-cols-12"
-          )}>
-            {/* Step Content - Left Panel */}
+          <div className="grid grid-cols-1 gap-6">
+            {/* Step Content */}
             <div className={cn(
-              step === 7 ? "lg:col-span-6" : (step === 1 || step === 4) ? "w-full" : "max-w-4xl mx-auto w-full"
+              (step === 1 || step === 3 || step === 4) ? "w-full" : "max-w-4xl mx-auto w-full"
             )}>
               {/* Step 1: Select Format */}
               {step === 1 && (
@@ -674,8 +663,32 @@ export default function CreatePage() {
                 />
               )}
 
-              {/* Step 4: Choose Template or Design Options */}
+              {/* Step 4: Smart Logo Placement (AI will avoid these areas) */}
               {step === 4 && selectedVertical && (
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <ImageIcon className="h-5 w-5 text-primary" />
+                        Smart Logo Placement
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          AI-Aware
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Position your logos - AI will structure the design to keep these areas clear
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <LogoPositionGrid />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Step 5: Choose Template or Design Options */}
+              {step === 5 && selectedVertical && (
                 formData.creationMode === 'template' ? (
                   <Card>
                     <CardHeader>
@@ -721,8 +734,8 @@ export default function CreatePage() {
                 )
               )}
 
-              {/* Step 5: Fill Details - Dynamic form based on format type */}
-              {step === 5 && selectedVertical && (
+              {/* Step 6: Fill Details - Dynamic form based on format type */}
+              {step === 6 && selectedVertical && (
                 <div className="space-y-6">
                   {/* Dynamic Details Form - renders fields based on selected format */}
                   <DynamicDetailsForm
@@ -876,193 +889,233 @@ export default function CreatePage() {
                 </div>
               )}
 
-              {/* Step 6: Logo Placement */}
-              {step === 6 && (
-                <div className="space-y-6">
-                  {/* Logo Placement */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <ImageIcon className="h-5 w-5 text-primary" />
-                        Logo Placement
-                      </CardTitle>
-                      <CardDescription>
-                        Select and position your logos on the creative
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <LogoPositionGrid />
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Step 7: Generate & Result */}
+              {/* Step 7: Generate & Result - Compact Two-Column Layout */}
               {step === 7 && (
-                <div className="space-y-6">
-                  {/* AI Model Selection - Show before generation */}
-                  {!generatedImage && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Wand2 className="h-5 w-5 text-primary" />
-                          AI Model
-                        </CardTitle>
-                        <CardDescription>
-                          Choose the AI model for generation
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <RadioGroup
-                          value={selectedModel?.id || ''}
-                          onValueChange={(value) => selectModel(value)}
-                          className="space-y-3"
-                        >
-                          {models.map((model) => (
-                            <div
-                              key={model.id}
-                              className={cn(
-                                'relative flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer',
-                                'hover:border-primary/50 hover:shadow-sm',
-                                selectedModel?.id === model.id
-                                  ? 'border-primary bg-primary/5 shadow-sm'
-                                  : 'border-border'
-                              )}
-                              onClick={() => selectModel(model.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <RadioGroupItem value={model.id} id={model.id} />
-                                <div>
-                                  <Label htmlFor={model.id} className="font-medium cursor-pointer">
-                                    {model.name}
-                                  </Label>
-                                  <p className="text-sm text-muted-foreground">
-                                    {model.description}
-                                  </p>
-                                  {model.best_for && (
-                                    <Badge variant="secondary" className="mt-1.5 text-xs">
-                                      Best for: {model.best_for}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-semibold flex items-center gap-1 justify-end">
-                                  <Coins className="h-4 w-4 text-yellow-500" />
-                                  {model.credits_cost}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  ~{model.avg_generation_time_seconds}s
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Result Card - Show after generation */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Summary & Controls */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-2 text-lg">
                         <Sparkles className="h-5 w-5 text-primary" />
-                        {generatedImage ? 'Your Creative is Ready!' : 'Generate Your Creative'}
+                        {generatedImage ? 'Your Creative is Ready!' : 'Ready to Generate'}
                       </CardTitle>
                       <CardDescription>
-                        {generatedImage ? 'Download or regenerate your creative' : 'Click the Generate button to create your poster'}
+                        {generatedImage
+                          ? 'Download your creative or create another'
+                          : 'Preview your design and generate when ready'}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      {generatedImage ? (
-                        <div className="relative aspect-[4/5] max-w-md mx-auto rounded-xl overflow-hidden border-2 shadow-xl">
-                          <img
-                            src={generatedImage}
-                            alt="Generated creative"
-                            className="w-full h-full object-cover"
-                          />
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                            <Button
-                              size="lg"
-                              onClick={() => setExportModalOpen(true)}
-                              className="gap-2"
-                            >
-                              <Download className="h-5 w-5" />
-                              Download
-                            </Button>
+                    <CardContent className="space-y-4">
+                      {/* Summary Info */}
+                      <div className="space-y-3">
+                        {/* Format */}
+                        {selectedFormat && (
+                          <div className="flex items-center justify-between py-2 border-b">
+                            <span className="text-sm text-muted-foreground">Format</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs font-medium">
+                                {selectedFormat.label}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formData.customDimensions
+                                  ? `${formData.customDimensions.width}×${formData.customDimensions.height}`
+                                  : `${selectedFormat.width}×${selectedFormat.height}`}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ) : generationError ? (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-                            <RefreshCw className="h-8 w-8 text-destructive" />
-                          </div>
-                          <p className="text-destructive mb-4">{generationError}</p>
-                          <Button onClick={handleGenerate} disabled={isGenerating}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Try Again
-                          </Button>
-                        </div>
-                      ) : null}
+                        )}
 
-                      <div className="flex flex-col sm:flex-row justify-center gap-3">
-                        {generatedImage && (
-                          <>
-                            <Button
-                              size="lg"
-                              onClick={() => setExportModalOpen(true)}
-                              className="gap-2"
-                            >
-                              <Download className="h-4 w-4" />
-                              Download
-                            </Button>
+                        {/* Vertical */}
+                        {selectedVertical && (
+                          <div className="flex items-center justify-between py-2 border-b">
+                            <span className="text-sm text-muted-foreground">Category</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {selectedVertical.name}
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Mode */}
+                        {formData.creationMode && (
+                          <div className="flex items-center justify-between py-2 border-b">
+                            <span className="text-sm text-muted-foreground">Mode</span>
+                            <span className="text-sm font-medium">
+                              {formData.creationMode === 'template' ? 'Template' : 'From Scratch'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Template */}
+                        {selectedTemplate && (
+                          <div className="flex items-center justify-between py-2 border-b">
+                            <span className="text-sm text-muted-foreground">Template</span>
+                            <span className="text-sm font-medium truncate max-w-[150px]">
+                              {selectedTemplate.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Model Selector - Compact */}
+                      {!generatedImage && (
+                        <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Wand2 className="h-4 w-4 text-muted-foreground" />
+                            <Label className="text-sm font-medium">AI Model</Label>
+                          </div>
+                          <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {models.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{model.name}</span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {model.credits_cost}
+                                    </Badge>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      {generatedImage && (
+                        <div className="flex flex-col gap-2 pt-2">
+                          <Button
+                            size="default"
+                            onClick={() => setExportModalOpen(true)}
+                            className="w-full gap-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </Button>
+                          <div className="flex gap-2">
                             <Button
                               variant="outline"
-                              size="lg"
+                              size="default"
                               onClick={() => setSaveTemplateDialogOpen(true)}
-                              className="gap-2"
+                              className="flex-1 gap-2"
                             >
                               <Save className="h-4 w-4" />
-                              Save as Template
+                              Save
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              onClick={handleStartOver}
+                              className="flex-1"
+                            >
+                              New
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Right Column - Compact Preview */}
+                  <Card className="flex flex-col">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Preview
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex items-center justify-center p-4">
+                      <div
+                        className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden"
+                        style={{
+                          aspectRatio: (() => {
+                            if (formData.customDimensions) {
+                              return `${formData.customDimensions.width}/${formData.customDimensions.height}`
+                            }
+                            if (selectedFormat) {
+                              return `${selectedFormat.width}/${selectedFormat.height}`
+                            }
+                            return '4/5'
+                          })(),
+                          maxHeight: '320px',
+                          maxWidth: '100%',
+                          width: 'auto',
+                          height: '320px',
+                        }}
+                      >
+                        {generatedImage ? (
+                          <>
+                            <img
+                              src={generatedImage}
+                              alt="Generated creative"
+                              className="w-full h-full object-contain"
+                            />
+                            <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                              <Button
+                                size="sm"
+                                onClick={() => setExportModalOpen(true)}
+                                className="gap-2"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
                           </>
+                        ) : isGenerating ? (
+                          <div className="flex flex-col items-center justify-center p-6">
+                            <div className="relative">
+                              <Skeleton className="w-12 h-12 rounded-full" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-3">Generating...</p>
+                            <div className="flex gap-1 mt-2">
+                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                            </div>
+                          </div>
+                        ) : generationError ? (
+                          <div className="flex flex-col items-center justify-center p-6">
+                            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+                              <RefreshCw className="h-5 w-5 text-destructive" />
+                            </div>
+                            <p className="text-destructive text-xs text-center mb-2">{generationError}</p>
+                            <Button onClick={handleGenerate} disabled={isGenerating} size="sm" variant="outline">
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Retry
+                            </Button>
+                          </div>
+                        ) : selectedTemplate ? (
+                          <img
+                            src={selectedTemplate.image_url}
+                            alt="Template preview"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-6 text-center">
+                            <div className="w-10 h-10 rounded-full bg-muted-foreground/10 flex items-center justify-center mb-2">
+                              <ImageIcon className="h-5 w-5 opacity-40" />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Click Generate to create
+                            </p>
+                          </div>
                         )}
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          onClick={handleGenerate}
-                          disabled={isGenerating}
-                          className="gap-2"
-                        >
-                          <RefreshCw className={cn("h-4 w-4", isGenerating && "animate-spin")} />
-                          Regenerate
-                        </Button>
-                        <Button variant="ghost" size="lg" onClick={handleStartOver}>
-                          Start Over
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
               )}
             </div>
-
-            {/* Preview Panel - Right Sidebar (Step 7 only) */}
-            {step === 7 && (
-              <div className="lg:col-span-6">
-                <PreviewPanel
-                  isGenerating={isGenerating}
-                  generatedImage={generatedImage}
-                />
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Footer Navigation */}
+        {/* Footer Navigation - Sticky for better UX */}
         {(step !== 7 || !generatedImage) && (
-          <div className="bg-background border-t">
+          <div className="sticky bottom-0 z-40 bg-background/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <div className="container py-4">
               <div className="flex items-center justify-between">
                 {/* Back Button - Canva style with hover border */}

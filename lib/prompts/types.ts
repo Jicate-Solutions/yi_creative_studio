@@ -5,6 +5,7 @@
 
 import type { CustomizationData, ColorConfig } from '@/lib/config/design-constants'
 import type { CreativeTemplate } from './knowledge-base/types'
+import type { LogoSafeZone } from './types/logo-awareness'
 
 // ============================================================
 // CREATIVE CONTENT (Event data for poster generation)
@@ -167,6 +168,12 @@ export interface PromptIntent {
   designContext?: DesignContext
   /** Resolved creative template from knowledge base */
   creativeTemplate?: CreativeTemplate
+  /** Logo awareness context for safe zone generation */
+  logoAwareness?: {
+    activeLogos: LogoSafeZone[]
+    layoutGuidance: string
+    hasLogos: boolean
+  }
 }
 
 // ============================================================
@@ -236,6 +243,12 @@ export interface GeneratePromptParams {
   customization?: DesignCustomization
   /** AI-generated design context from Stage 1 */
   designContext?: DesignContext
+  /** Logo awareness context for safe zone generation */
+  logoAwareness?: {
+    activeLogos: LogoSafeZone[]
+    layoutGuidance: string
+    hasLogos: boolean
+  }
 }
 
 // ============================================================

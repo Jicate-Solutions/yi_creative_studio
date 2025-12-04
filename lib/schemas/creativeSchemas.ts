@@ -16,6 +16,15 @@ export type CreativeSchemaType =
   | 'blogPost'
   | 'marketingMaterial'
   | 'eventPoster'
+  // New format-specific schemas
+  | 'youtubeThumbnail'
+  | 'invitation'
+  | 'presentation'
+  | 'businessCard'
+  | 'flyer'
+  | 'instagramStory'
+  | 'linkedinPost'
+  | 'announcement'
 
 export type FieldType = 'text' | 'textarea' | 'date' | 'select' | 'time'
 
@@ -368,6 +377,423 @@ export const CREATIVE_SCHEMAS: Record<CreativeSchemaType, CreativeSchema> = {
       },
     ],
   },
+
+  // =========================================================================
+  // NEW FORMAT-SPECIFIC SCHEMAS
+  // =========================================================================
+
+  youtubeThumbnail: {
+    type: 'youtubeThumbnail',
+    displayName: 'YouTube Thumbnail',
+    description: 'Eye-catching video thumbnail',
+    fields: [
+      {
+        id: 'videoTitle',
+        label: 'Video Title',
+        type: 'text',
+        required: true,
+        placeholder: 'Bold, attention-grabbing title (3-5 words)',
+        maxLength: 60,
+        suggestable: true,
+      },
+      {
+        id: 'hookText',
+        label: 'Hook/Teaser Text',
+        type: 'text',
+        required: false,
+        placeholder: "e.g., You Won't Believe This!",
+        maxLength: 30,
+        suggestable: true,
+      },
+      {
+        id: 'emotionHint',
+        label: 'Emotion/Expression',
+        type: 'select',
+        required: false,
+        options: ['Excited', 'Shocked', 'Happy', 'Curious', 'Serious', 'Funny'],
+      },
+      {
+        id: 'channelName',
+        label: 'Channel Name',
+        type: 'text',
+        required: false,
+        placeholder: 'For branding reference',
+        maxLength: 50,
+      },
+    ],
+  },
+
+  invitation: {
+    type: 'invitation',
+    displayName: 'Invitation',
+    description: 'Event invitation card',
+    fields: [
+      {
+        id: 'eventName',
+        label: 'Event Name',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Annual Gala Dinner',
+        maxLength: 100,
+        suggestable: true,
+      },
+      {
+        id: 'hostName',
+        label: 'Host/Organizer',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Yi Mumbai Chapter',
+        maxLength: 100,
+      },
+      {
+        id: 'date',
+        label: 'Event Date',
+        type: 'date',
+        required: true,
+      },
+      {
+        id: 'time',
+        label: 'Event Time',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., 7:00 PM onwards',
+        maxLength: 50,
+      },
+      {
+        id: 'venue',
+        label: 'Venue',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., The Grand Ballroom, Hotel Taj',
+        maxLength: 150,
+        suggestable: true,
+      },
+      {
+        id: 'rsvpDetails',
+        label: 'RSVP Information',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., RSVP by Dec 15 to events@yi.org',
+        maxLength: 150,
+      },
+      {
+        id: 'dressCode',
+        label: 'Dress Code',
+        type: 'select',
+        required: false,
+        options: ['Formal', 'Semi-Formal', 'Business Casual', 'Casual', 'Traditional', 'Theme-based'],
+      },
+    ],
+  },
+
+  presentation: {
+    type: 'presentation',
+    displayName: 'Presentation Slide',
+    description: 'Presentation or slide design',
+    fields: [
+      {
+        id: 'slideTitle',
+        label: 'Slide Title',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Q4 Performance Review',
+        maxLength: 80,
+        suggestable: true,
+      },
+      {
+        id: 'topic',
+        label: 'Topic/Subject',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Business Strategy, Annual Report',
+        maxLength: 100,
+        suggestable: true,
+      },
+      {
+        id: 'presenterName',
+        label: 'Presenter Name',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., John Doe, CEO',
+        maxLength: 100,
+      },
+      {
+        id: 'keyPoints',
+        label: 'Key Points (Optional)',
+        type: 'textarea',
+        required: false,
+        rows: 3,
+        placeholder: 'Bullet points to include...',
+        suggestable: true,
+      },
+    ],
+  },
+
+  businessCard: {
+    type: 'businessCard',
+    displayName: 'Business Card',
+    description: 'Professional contact card',
+    fields: [
+      {
+        id: 'fullName',
+        label: 'Full Name',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., John Doe',
+        maxLength: 50,
+      },
+      {
+        id: 'jobTitle',
+        label: 'Job Title/Designation',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Marketing Director',
+        maxLength: 50,
+      },
+      {
+        id: 'companyName',
+        label: 'Company/Organization',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Yi Mumbai',
+        maxLength: 80,
+      },
+      {
+        id: 'phoneNumber',
+        label: 'Phone Number',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., +91 98765 43210',
+        maxLength: 20,
+      },
+      {
+        id: 'emailAddress',
+        label: 'Email Address',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., john@yi.org',
+        maxLength: 50,
+      },
+      {
+        id: 'website',
+        label: 'Website',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., www.yi.org',
+        maxLength: 50,
+      },
+      {
+        id: 'tagline',
+        label: 'Tagline (Optional)',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Building Tomorrow\'s Leaders',
+        maxLength: 60,
+        suggestable: true,
+      },
+    ],
+  },
+
+  flyer: {
+    type: 'flyer',
+    displayName: 'Promotional Flyer',
+    description: 'Flyer with offer/discount details',
+    fields: [
+      {
+        id: 'headline',
+        label: 'Headline',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Road Safety Week 2025',
+        maxLength: 60,
+        suggestable: true,
+      },
+      {
+        id: 'subheadline',
+        label: 'Subheadline',
+        type: 'text',
+        required: false,
+        placeholder: 'Supporting message...',
+        maxLength: 80,
+        suggestable: true,
+      },
+      {
+        id: 'offerDetails',
+        label: 'Offer/Discount',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., 50% OFF, Free Entry, Early Bird',
+        maxLength: 50,
+      },
+      {
+        id: 'validityPeriod',
+        label: 'Validity/Dates',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Valid till Dec 31, 2025',
+        maxLength: 50,
+      },
+      {
+        id: 'callToAction',
+        label: 'Call-to-Action',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Register Now, Join Us',
+        maxLength: 30,
+        suggestable: true,
+      },
+      {
+        id: 'contactInfo',
+        label: 'Contact Information',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Call 1800-XXX or visit yi.org',
+        maxLength: 150,
+      },
+    ],
+  },
+
+  instagramStory: {
+    type: 'instagramStory',
+    displayName: 'Instagram Story',
+    description: 'Vertical full-screen story',
+    fields: [
+      {
+        id: 'headline',
+        label: 'Main Text/Headline',
+        type: 'text',
+        required: true,
+        placeholder: 'Short, impactful message...',
+        maxLength: 50,
+        suggestable: true,
+      },
+      {
+        id: 'swipeUpText',
+        label: 'Swipe Up/CTA Text',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Swipe Up to Register!',
+        maxLength: 30,
+      },
+      {
+        id: 'storyType',
+        label: 'Story Type',
+        type: 'select',
+        required: false,
+        options: ['Announcement', 'Behind the Scenes', 'Countdown', 'Poll/Question', 'Quote', 'Promotion'],
+      },
+      {
+        id: 'hashtags',
+        label: 'Hashtags',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., #YiIndia #RoadSafety',
+        maxLength: 100,
+        suggestable: true,
+      },
+    ],
+  },
+
+  linkedinPost: {
+    type: 'linkedinPost',
+    displayName: 'LinkedIn Post',
+    description: 'Professional LinkedIn content',
+    fields: [
+      {
+        id: 'headline',
+        label: 'Post Headline',
+        type: 'text',
+        required: true,
+        placeholder: 'Professional, engaging headline...',
+        maxLength: 100,
+        suggestable: true,
+      },
+      {
+        id: 'keyInsight',
+        label: 'Key Insight/Message',
+        type: 'textarea',
+        required: true,
+        rows: 3,
+        placeholder: 'The main professional insight or message...',
+        suggestable: true,
+      },
+      {
+        id: 'callToAction',
+        label: 'Call-to-Action',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Connect with us, Learn more',
+        maxLength: 50,
+        suggestable: true,
+      },
+      {
+        id: 'authorCredentials',
+        label: 'Author/Source',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Yi National Chair',
+        maxLength: 80,
+      },
+      {
+        id: 'hashtags',
+        label: 'Professional Hashtags',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., #Leadership #YiIndia #CSR',
+        maxLength: 100,
+        suggestable: true,
+      },
+    ],
+  },
+
+  announcement: {
+    type: 'announcement',
+    displayName: 'Announcement',
+    description: 'News or update announcement',
+    fields: [
+      {
+        id: 'headline',
+        label: 'Announcement Title',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., New Chapter Launch!',
+        maxLength: 80,
+        suggestable: true,
+      },
+      {
+        id: 'details',
+        label: 'Details',
+        type: 'textarea',
+        required: true,
+        rows: 3,
+        placeholder: 'Key details of the announcement...',
+        suggestable: true,
+      },
+      {
+        id: 'effectiveDate',
+        label: 'Effective Date (Optional)',
+        type: 'date',
+        required: false,
+      },
+      {
+        id: 'source',
+        label: 'Source/Authority',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Yi National Office',
+        maxLength: 80,
+      },
+      {
+        id: 'callToAction',
+        label: 'What to Do Next',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Visit our website for details',
+        maxLength: 50,
+        suggestable: true,
+      },
+    ],
+  },
 }
 
 // ============================================================================
@@ -378,20 +804,25 @@ const FORMAT_TO_SCHEMA_MAP: Partial<Record<CreativeFormatId, CreativeSchemaType>
   // Certificate schema
   certificate: 'certificate',
 
-  // Social Media schema
+  // Social Media - Platform-specific schemas
   instagram_post: 'socialMediaPost',
-  instagram_story: 'socialMediaPost',
-  instagram_reel: 'socialMediaPost',
+  instagram_story: 'instagramStory',      // Vertical story format
+  instagram_reel: 'instagramStory',       // Vertical story format
   facebook_post: 'socialMediaPost',
   facebook_cover: 'socialMediaPost',
-  facebook_ad: 'socialMediaPost',
-  linkedin_post: 'socialMediaPost',
-  linkedin_banner: 'socialMediaPost',
+  facebook_ad: 'marketingMaterial',       // Ads need offer/CTA fields
+  linkedin_post: 'linkedinPost',          // Professional post format
+  linkedin_banner: 'linkedinPost',        // Professional format
   twitter_post: 'socialMediaPost',
   twitter_header: 'socialMediaPost',
   pinterest_pin: 'socialMediaPost',
-  tiktok_cover: 'socialMediaPost',
-  whatsapp_status: 'socialMediaPost',
+  tiktok_cover: 'instagramStory',         // Vertical story format
+  whatsapp_status: 'instagramStory',      // Vertical story format
+
+  // Video thumbnails
+  youtube_thumbnail: 'youtubeThumbnail',  // Video thumbnail format
+  youtube_banner: 'socialMediaPost',
+  video_cover: 'youtubeThumbnail',        // Video thumbnail format
 
   // Email schema
   email_header: 'emailHeader',
@@ -402,27 +833,26 @@ const FORMAT_TO_SCHEMA_MAP: Partial<Record<CreativeFormatId, CreativeSchemaType>
   report_cover: 'blogPost',
   book_cover: 'blogPost',
 
-  // Marketing schema
-  flyer_a5: 'marketingMaterial',
-  flyer_a4: 'marketingMaterial',
-  brochure: 'marketingMaterial',
-  billboard: 'marketingMaterial',
-  web_banner: 'marketingMaterial',
-  announcement: 'marketingMaterial',
-  leaderboard_ad: 'marketingMaterial',
-  square_ad: 'marketingMaterial',
-
-  // Event Poster schema (default)
+  // Print formats
   event_poster: 'eventPoster',
   portrait_poster: 'eventPoster',
   landscape_poster: 'eventPoster',
-  youtube_thumbnail: 'eventPoster',
-  youtube_banner: 'eventPoster',
-  video_cover: 'eventPoster',
-  presentation_16_9: 'eventPoster',
-  presentation_4_3: 'eventPoster',
-  business_card: 'marketingMaterial',
-  invitation: 'eventPoster',
+  flyer_a5: 'flyer',                      // Promotional flyer format
+  flyer_a4: 'flyer',                      // Promotional flyer format
+  business_card: 'businessCard',          // Contact card format
+  invitation: 'invitation',               // Invitation format
+  brochure: 'marketingMaterial',
+
+  // Presentations
+  presentation_16_9: 'presentation',      // Presentation slide format
+  presentation_4_3: 'presentation',       // Presentation slide format
+
+  // Marketing & Ads
+  web_banner: 'marketingMaterial',
+  billboard: 'marketingMaterial',
+  announcement: 'announcement',           // Announcement format
+  leaderboard_ad: 'marketingMaterial',
+  square_ad: 'marketingMaterial',
 }
 
 // ============================================================================
@@ -518,9 +948,12 @@ export function mapFormDataToSchema(
 
   // Common field mappings for backwards compatibility
   const fieldMappings: Record<string, string[]> = {
-    title: ['title', 'postTitle', 'articleTitle', 'campaignName', 'certificateTitle', 'subjectLine'],
-    description: ['description', 'postDescription', 'articleSummary', 'campaignMessage', 'achievementDescription', 'brandMessage'],
-    date: ['date', 'dateIssued', 'publicationDate'],
+    title: ['title', 'postTitle', 'articleTitle', 'campaignName', 'certificateTitle', 'subjectLine', 'videoTitle', 'eventName', 'slideTitle', 'headline'],
+    description: ['description', 'postDescription', 'articleSummary', 'campaignMessage', 'achievementDescription', 'brandMessage', 'details', 'keyInsight', 'keyPoints'],
+    date: ['date', 'dateIssued', 'publicationDate', 'effectiveDate'],
+    name: ['fullName', 'recipientName', 'presenterName', 'authorCredentials', 'hostName'],
+    cta: ['callToAction', 'primaryCTA', 'swipeUpText'],
+    contact: ['contactInfo', 'registrationInfo', 'rsvpDetails'],
   }
 
   newSchema.fields.forEach((field) => {

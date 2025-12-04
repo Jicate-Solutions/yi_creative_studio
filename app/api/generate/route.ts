@@ -23,6 +23,8 @@ import { validateLogoPositions } from '@/lib/config/logo-locks'
 import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
 import { compileFormData, summarizeCompiledData } from '@/lib/prompts/services/form-data-compiler'
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
+import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
+import type { LogoPlacement } from '@/stores/creative-store'
 
 export async function POST(request: NextRequest) {
   try {
@@ -210,6 +212,20 @@ export async function POST(request: NextRequest) {
       // Get format info for format-aware design intelligence
       const formatTemplate = formatId ? getTemplateForFormat(formatId) : null
 
+      // ========================================================
+      // LOGO AWARENESS: Build safe zone context for Smart Layout
+      // This tells the AI where logos will be overlaid so it can
+      // avoid placing text/content in those areas
+      // ========================================================
+      const logoAwarenessContext = buildLogoAwarenessContext(
+        logosPlacements as LogoPlacement[] | undefined
+      )
+      if (logoAwarenessContext.hasLogos) {
+        console.log('[Generate] === LOGO AWARENESS (Smart Layout) ===')
+        console.log('[Generate] Logo Placements:', buildLogoSummary(logosPlacements as LogoPlacement[]))
+        console.log('[Generate] Safe Zones:', logoAwarenessContext.safeZoneDescriptions.join(', '))
+      }
+
       const designBrief: DesignBrief = {
         // Event content - USE ULTRA-PRO PROMPT VALUES (Claude AI refined)
         eventType: formDataContent.eventType || parsedContent.eventType,
@@ -241,6 +257,9 @@ export async function POST(request: NextRequest) {
         headerHeight: layoutConfig?.headerHeight,
         hasFooterLogo: (layoutConfig?.footerHeight ?? 0) > 0,
         footerHeight: layoutConfig?.footerHeight,
+
+        // === LOGO AWARENESS (Smart Layout) ===
+        logoSafeZoneGuidance: logoAwarenessContext.layoutGuidance || undefined,
       }
 
       // Generate AI-powered design context
@@ -270,7 +289,8 @@ export async function POST(request: NextRequest) {
         'Yi Creatives',
         selectedFormat,
         designContext, // Pass AI-generated design context
-        language || 'en' // Pass language from request (PRD Section 10.2)
+        language || 'en', // Pass language from request (PRD Section 10.2)
+        logoAwarenessContext // Pass logo awareness for Smart Layout
       )
 
       if (provider === 'google') {
@@ -590,7 +610,8 @@ function buildDesignPromptWithFormat(
   organizationName: string = 'Organization',
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
   designContext?: DesignContext, // AI-generated design intelligence
-  language: 'en' | 'ta' | 'hi' = 'en' // Language for text content (PRD Section 10.2)
+  language: 'en' | 'ta' | 'hi' = 'en', // Language for text content (PRD Section 10.2)
+  logoAwareness?: import('@/lib/prompts/helpers/logo-awareness').LogoAwarenessContext // Logo awareness for Smart Layout
 ): { prompt: string; systemPrompt?: string; styleType?: string; magicPrompt?: string; negativePrompt?: string } {
   // Parse event content from the base prompt
   const content = parseEventContent(basePrompt)
@@ -637,6 +658,12 @@ function buildDesignPromptWithFormat(
     customization: convertCustomization(designData.customization),
     // Pass AI-generated design context for purpose-driven prompts
     designContext,
+    // Pass logo awareness for Smart Layout (tells AI where to avoid placing content)
+    logoAwareness: logoAwareness?.hasLogos ? {
+      activeLogos: logoAwareness.activeLogos,
+      layoutGuidance: logoAwareness.layoutGuidance,
+      hasLogos: logoAwareness.hasLogos,
+    } : undefined,
   }
 
   // Generate the prompt (now includes design intelligence if available)

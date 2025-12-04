@@ -26,7 +26,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, Maximize2 } from 'lucide-react'
+import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, Maximize2, Sparkles, Info } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
 import { isPositionLocked, getLockedPosition, getLogoLockConfig } from '@/lib/config/logo-locks'
 import {
@@ -111,12 +111,36 @@ export function LogoPositionGrid() {
 
   return (
     <div className="space-y-6">
+      {/* Smart Layout Info Banner */}
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="p-1.5 rounded-full bg-primary/10 shrink-0">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-primary">Smart Layout Active</p>
+          <p className="text-xs text-muted-foreground">
+            AI will structure your design to keep these areas clear for logos. Place logos first, and the generated design will naturally avoid these zones.
+          </p>
+        </div>
+      </div>
+
       {/* Position Grid Preview */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Grid3X3 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Position Grid</span>
-          <Badge variant="secondary" className="ml-auto text-xs">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="ml-2 text-xs cursor-help">
+                <Info className="h-3 w-3 mr-1" />
+                AI-Aware
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[250px]">
+              <p>The AI will avoid placing important content in positions where you place logos</p>
+            </TooltipContent>
+          </Tooltip>
+          <Badge variant="outline" className="ml-auto text-xs">
             {formData.logosPlacements.length} / 4
           </Badge>
         </div>

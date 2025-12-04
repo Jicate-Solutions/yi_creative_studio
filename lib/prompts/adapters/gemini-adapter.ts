@@ -25,7 +25,30 @@ import { buildLanguagePromptSection, isRTLLanguage } from '../languageConfigs'
  * ULTRA-PRO DESIGNER mindset with purpose-driven design philosophy
  */
 function buildSystemPrompt(intent: PromptIntent): string {
-  return `CRITICAL OUTPUT REQUIREMENT (READ THIS FIRST):
+  return `⚠️ ZERO TOLERANCE CANVAS RULE (READ FIRST - HIGHEST PRIORITY) ⚠️
+
+Your image MUST fill EXACTLY ${intent.dimensions.width}×${intent.dimensions.height} pixels.
+
+FORBIDDEN (Will cause rejection):
+❌ Gray bars on any edge
+❌ Neutral/gray colored margins or padding
+❌ Letterboxing (black/gray bars on sides)
+❌ Pillarboxing (black/gray bars top/bottom)
+❌ Any empty space around the design
+❌ Border frames or edge decorations
+❌ Gray color (#808080, #666666, #999999, etc.) at image edges
+
+REQUIRED:
+✅ Design content extends to ALL FOUR EDGES
+✅ Every pixel from (0,0) to (${intent.dimensions.width},${intent.dimensions.height}) contains design content
+✅ If you need neutral space, use the brand background color (${intent.brand.backgroundColor}) NOT gray
+✅ Background patterns/gradients must touch all edges
+
+This is a ${intent.aspectRatio} aspect ratio canvas. Fill it COMPLETELY.
+
+---
+
+CRITICAL OUTPUT REQUIREMENT:
 You are generating the ACTUAL POSTER IMAGE, NOT a mockup or preview.
 - The generated image IS the poster - it fills the entire canvas edge-to-edge
 - DO NOT show the poster on a wall, pinned, framed, in a room, or any presentation context
@@ -66,6 +89,17 @@ ${intent.brand.headerHeight > 0 || intent.brand.footerHeight > 0 ? `RESERVED ZON
 - Do NOT include any frame, shadow, mat, clip, or presentation context around the design
 - The image should BE the poster itself, not SHOW the poster
 - Integrate branding elements naturally within the design flow`}
+
+${intent.logoAwareness?.hasLogos ? `LOGO SAFE ZONES (CRITICAL - READ CAREFULLY):
+${intent.logoAwareness.layoutGuidance}
+
+IMPORTANT: Organization logos will be DIGITALLY OVERLAID after image generation.
+Your job is to:
+1. Create designs where logo zones have CLEAN, SIMPLE backgrounds for optimal visibility
+2. AVOID placing important text, headlines, or key visuals in logo zones
+3. Structure the composition so content naturally FLOWS AROUND reserved logo areas
+4. Use subtle gradients, solid colors, or minimal patterns behind where logos will appear
+5. DO NOT generate placeholder logos, text saying "LOGO HERE", or any temporary markers` : ''}
 
 TECHNICAL SPECIFICATIONS:
 - Dimensions: ${intent.dimensions.width}px × ${intent.dimensions.height}px
@@ -257,13 +291,20 @@ VISUAL HIERARCHY:
 
 Ensure the eye naturally travels through these levels in order.
 
-CANVAS FILLING REQUIREMENT (MANDATORY):
+EDGE-TO-EDGE REQUIREMENT (ZERO TOLERANCE):
+The design MUST touch all four edges. Imagine the canvas has NO margin - your design IS the entire image.
+
+COMMON MISTAKE TO AVOID: AI models sometimes add gray padding bars when aspect ratio is non-standard (${aspectRatio}). DO NOT DO THIS. If you're unsure, extend background colors/patterns to the edges rather than leaving gray space.
+
+CHECK YOUR OUTPUT: Before finalizing, verify no edge has gray/neutral colored bars.
+
 Your design MUST extend to all four edges of the ${dimensions.width}×${dimensions.height}px canvas. There should be NO:
 - White or empty margins around the design
+- Gray bars (#808080, #666, #888, #999) on left, right, top, or bottom
 - Gaps between the design content and canvas edges
+- Letterboxing or pillarboxing effects
 - Presentation frames, mockup contexts, or "poster on wall" styling
-- Clips, pins, shadows, or other elements suggesting the poster is being displayed
-The final image should BE the poster itself, NOT show the poster as a mockup or preview.`
+The final image should BE the poster itself, filling every single pixel.`
 }
 
 /**
@@ -343,6 +384,15 @@ Apply these material qualities consistently across the design to create a cohesi
   sections.push(`TYPOGRAPHY:
 ${getTypographyDirection(intent.language, intent.languageLabel)}`)
 
+  // CRITICAL - What NOT to do (explicit negative examples to prevent gray bars)
+  sections.push(`CRITICAL - WHAT NOT TO DO:
+- DO NOT add gray/neutral bars on left or right edges
+- DO NOT add gray/neutral bars on top or bottom edges
+- DO NOT use gray (#808080, #666, #888, #999, etc.) as padding color
+- DO NOT leave any part of the canvas empty
+- DO NOT create letterbox or pillarbox effects
+- If the design needs breathing room, use the brand background color (${intent.brand.backgroundColor}), gradients, or patterns - NEVER solid gray`)
+
   // Enhanced final checklist with design intelligence validation
   const finalChecklist = intent.designContext
     ? `FINAL CHECKLIST (VERIFY BEFORE GENERATING):
@@ -388,8 +438,13 @@ function buildCompactPrompt(intent: PromptIntent): string {
   // 1. Core directive (1 line)
   parts.push(`Create a ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} event poster for ${intent.organizationName}.`)
 
-  // 2. Dimensions and format (critical)
-  parts.push(`DIMENSIONS: ${intent.dimensions.width}x${intent.dimensions.height}px. Full bleed design - fill entire canvas edge-to-edge. No mockup, no frame, no border.`)
+  // 2. Dimensions and format (critical - zero tolerance for gray bars)
+  parts.push(`⚠️ CANVAS: EXACTLY ${intent.dimensions.width}×${intent.dimensions.height}px. ZERO gray bars/margins allowed. Fill EVERY pixel edge-to-edge. Use background color ${intent.brand.backgroundColor} NOT gray if you need neutral space.`)
+
+  // 2b. Logo safe zones (critical for Smart Layout)
+  if (intent.logoAwareness?.hasLogos) {
+    parts.push(`LOGO SAFE ZONES: ${intent.logoAwareness.layoutGuidance} Keep these areas clean/simple - logos will be overlaid after generation.`)
+  }
 
   // 3. Design Intelligence context (most important - from AI Stage 1)
   if (intent.designContext) {
