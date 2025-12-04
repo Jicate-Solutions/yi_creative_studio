@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import sharp from 'sharp'
 import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
 import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
@@ -203,7 +204,8 @@ export async function POST(request: NextRequest) {
 
       // Clean instruction text from the prompt before passing to design intelligence
       // This prevents instruction text like "Create a striking..." from being analyzed
-      const cleanedPrompt = cleanPromptInstructions(prompt)
+      // Also sanitize any remaining {{placeholders}} that weren't replaced
+      const cleanedPrompt = sanitizePlaceholders(cleanPromptInstructions(prompt), 'cleanedPrompt')
 
       // Extract visual layout context from customization
       const speakerPhotoConfig = designData.customization?.speakerPhoto
@@ -227,16 +229,17 @@ export async function POST(request: NextRequest) {
       }
 
       const designBrief: DesignBrief = {
-        // Event content - USE ULTRA-PRO PROMPT VALUES (Claude AI refined)
+        // Event content - PRIORITY: User form data > Compiled data > AI-refined > Parsed
+        // This ensures actual user input is never overwritten by AI-generated values
         eventType: formDataContent.eventType || parsedContent.eventType,
-        eventName: ultraProPrompt.primaryText || formDataContent.eventName || parsedContent.eventName,
+        eventName: formDataContent.eventName || compiledData.eventName || ultraProPrompt.primaryText || parsedContent.eventName,
         organizationName: compiledData.organizationName || 'Yi Creatives',
-        details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt
+        details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt for visual guidance
         theme: designData.theme,
         style: designData.style,
-        guestName: compiledData.speakerName || formDataContent.guestName || parsedContent.guestName,
-        guestDesignation: compiledData.speakerDesignation || formDataContent.guestDesignation || parsedContent.guestDesignation,
-        venue: compiledData.venue || formDataContent.venue || parsedContent.venue,
+        guestName: formDataContent.guestName || compiledData.speakerName || parsedContent.guestName,
+        guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
+        venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
         additionalContext: `${ultraProPrompt.visualScene}. ${ultraProPrompt.designGuidance}`,
 
         // === FORMAT AWARENESS (CRITICAL - defines design TYPE) ===
@@ -294,7 +297,9 @@ export async function POST(request: NextRequest) {
       )
 
       if (provider === 'google') {
-        imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat)
+        // Extract resolution from designData or use default
+        const resolution = promptDesignData?.resolution || '1K'
+        imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution)
       } else if (provider === 'ideogram') {
         imageUrl = await generateWithIdeogram(
           promptData.prompt,
@@ -312,14 +317,23 @@ export async function POST(request: NextRequest) {
       }
     } else if (templateUrl) {
       // Template-based generation using Gemini Vision
-      imageUrl = await generateFromTemplate(prompt, templateUrl, verticalSlug)
+      // CRITICAL FIX: Pass userFormData DIRECTLY - don't filter through extractFromFormData!
+      // extractFromFormData() only knows hardcoded field names and IGNORES dynamic fields
+      // like videoTitle, viewerHook, etc. that come from format-specific schemas.
+
+      console.log('[Template Mode] === USER FORM DATA (RAW) ===')
+      console.log('[Template Mode] Raw Form Data:', JSON.stringify(userFormData, null, 2))
+      console.log('[Template Mode] Field Count:', Object.keys(userFormData || {}).length)
+      console.log('[Template Mode] Fields:', Object.keys(userFormData || {}).join(', '))
+
+      imageUrl = await generateFromTemplate(prompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined)
 
       // Increment template use count
       if (templateId) {
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
     } else if (provider === 'google') {
-      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat)
+      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K')
     } else if (provider === 'ideogram') {
       imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
     } else {
@@ -331,12 +345,14 @@ export async function POST(request: NextRequest) {
 
     // Resize to exact format dimensions if format is selected
     // This ensures the output matches the user's selected format exactly
+    // Use 'fill' mode to avoid cropping - AI/template has already handled composition
     if (formatDimensions) {
       console.log(`Resizing to exact format dimensions: ${formatDimensions.width}x${formatDimensions.height}`)
       imageUrl = await resizeImageToExactDimensions(
         imageUrl,
         formatDimensions.width,
-        formatDimensions.height
+        formatDimensions.height,
+        'fill' // Use fill (stretch) to avoid cropping content
       )
     }
 
@@ -552,6 +568,10 @@ function cleanPromptInstructions(prompt: string): string {
     /IMPORTANT:\s*[^.]+\./gi,
     // Space/zone instructions
     /Leave\s+\d+px\s+(?:clear\s+)?space[^.]+\./gi,
+    // Header/footer logo instructions that were leaking
+    /the\s+top\s+for\s+header\s*logos?\s*(?:and\s+\d+px[^.]*)?[.!]?/gi,
+    /header\s+logos?\s+and\s+\d+px\s+at\s+the\s+footer[.!]?/gi,
+    /\d+px\s+(?:clear\s+)?(?:at\s+the\s+)?(?:top|bottom|header|footer)[^.]*[.!]?/gi,
   ]
 
   let cleaned = prompt
@@ -561,6 +581,21 @@ function cleanPromptInstructions(prompt: string): string {
 
   // Clean up multiple spaces and trim
   return cleaned.replace(/\s+/g, ' ').trim()
+}
+
+// CRITICAL: Validate and clean any remaining template placeholders
+// This prevents {{variableName}} from appearing literally in generated images
+function sanitizePlaceholders(text: string, context: string = 'prompt'): string {
+  // Check for any remaining {{variableName}} placeholders
+  const placeholders = text.match(/\{\{[a-zA-Z_]+\}\}/g)
+
+  if (placeholders) {
+    console.warn(`[Generate] WARNING: Unreplaced placeholders found in ${context}:`, placeholders)
+    // Strip them to prevent rendering in image
+    return text.replace(/\{\{[a-zA-Z_]+\}\}/g, '').replace(/\s+/g, ' ').trim()
+  }
+
+  return text
 }
 
 // Convert Yi CreativeStudio customization to prompt system format
@@ -712,7 +747,9 @@ function getAspectRatioString(designData?: DesignData | null): string {
 async function generateFromTemplate(
   prompt: string,
   templateUrl: string,
-  verticalSlug: string
+  verticalSlug: string,
+  rawFormData?: Record<string, unknown>,  // Accept ANY fields - not just predefined ones
+  targetDimensions?: { width: number; height: number }  // Target format dimensions for outpainting
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -736,25 +773,136 @@ async function generateFromTemplate(
     throw new Error('Failed to load template image')
   }
 
-  // Build the template adaptation prompt
-  const adaptationPrompt = `You are a professional graphic designer. I'm providing you with a template image.
+  // ========================================================
+  // ASPECT RATIO CHANGE DETECTION & OUTPAINTING GUIDANCE
+  // If target format differs from template, instruct Gemini to EXTEND background
+  // ========================================================
+  let aspectRatioGuidance = ''
+  if (targetDimensions) {
+    try {
+      // Get template dimensions from Sharp metadata
+      const templateMetadata = await sharp(Buffer.from(templateBase64, 'base64')).metadata()
+      const templateWidth = templateMetadata.width || 1080
+      const templateHeight = templateMetadata.height || 1350
 
-Your task is to create a NEW poster that:
-1. MAINTAINS the exact same visual style, color palette, fonts, and layout structure as the template
-2. KEEPS all decorative elements, backgrounds, patterns, and design elements from the template
-3. ADAPTS the design to include these event details:
+      const templateRatio = templateWidth / templateHeight
+      const targetRatio = targetDimensions.width / targetDimensions.height
+      const ratioDiff = targetRatio - templateRatio
 
+      console.log('[Template Mode] === ASPECT RATIO CHECK ===')
+      console.log('[Template Mode] Template:', `${templateWidth}x${templateHeight} (ratio: ${templateRatio.toFixed(2)})`)
+      console.log('[Template Mode] Target:', `${targetDimensions.width}x${targetDimensions.height} (ratio: ${targetRatio.toFixed(2)})`)
+      console.log('[Template Mode] Ratio Diff:', ratioDiff.toFixed(2))
+
+      if (ratioDiff > 0.2) {
+        // Target is WIDER than template → need to extend LEFT/RIGHT (portrait → landscape)
+        console.log('[Template Mode] OUTPAINTING NEEDED: Extend horizontally (portrait → landscape)')
+        aspectRatioGuidance = `
+ASPECT RATIO CHANGE - OUTPAINTING REQUIRED:
+The output must be a ${targetDimensions.width}x${targetDimensions.height} LANDSCAPE format.
+The template is portrait - you MUST extend the background HORIZONTALLY on LEFT and RIGHT sides.
+
+CRITICAL OUTPAINTING INSTRUCTIONS:
+1. Keep ALL original content fully visible - DO NOT crop or zoom any part of the image
+2. Extend the background LEFT and RIGHT to fill the wider canvas
+3. Continue patterns, gradients, textures, or solid colors seamlessly to the sides
+4. Center the main content or reposition for better balance in landscape format
+5. All text, logos, decorative elements must remain completely visible
+6. DO NOT stretch or distort any elements - only ADD new background area
+
+This is OUTPAINTING (extend/add background), NOT cropping, NOT zooming, NOT stretching.`
+      } else if (ratioDiff < -0.2) {
+        // Target is TALLER than template → need to extend TOP/BOTTOM (landscape → portrait)
+        console.log('[Template Mode] OUTPAINTING NEEDED: Extend vertically (landscape → portrait)')
+        aspectRatioGuidance = `
+ASPECT RATIO CHANGE - OUTPAINTING REQUIRED:
+The output must be a ${targetDimensions.width}x${targetDimensions.height} format (more vertical than the template).
+You MUST extend the background VERTICALLY on TOP and BOTTOM.
+
+CRITICAL OUTPAINTING INSTRUCTIONS:
+1. Keep ALL original content fully visible - DO NOT crop or zoom any part of the image
+2. Extend the background TOP and BOTTOM to fill the taller canvas
+3. Continue patterns, gradients, textures, or solid colors seamlessly up and down
+4. Add breathing room between elements if needed
+5. All text, logos, decorative elements must remain completely visible
+6. DO NOT stretch or distort any elements - only ADD new background area
+
+This is OUTPAINTING (extend/add background), NOT cropping, NOT zooming, NOT stretching.`
+      } else {
+        console.log('[Template Mode] Aspect ratios similar - no major outpainting needed')
+      }
+    } catch (metadataError) {
+      console.error('[Template Mode] Error getting template metadata:', metadataError)
+      // Continue without aspect ratio guidance if metadata fails
+    }
+  }
+
+  // Build explicit text rendering section from ALL form data fields
+  // CRITICAL FIX: Iterate ALL fields dynamically - not just hardcoded names!
+  // This supports dynamic fields like videoTitle, viewerHook from format-specific schemas
+  let exactTextSection = ''
+  if (rawFormData && Object.keys(rawFormData).length > 0) {
+    const textLines: string[] = []
+
+    for (const [key, value] of Object.entries(rawFormData)) {
+      // Skip empty values
+      if (value === undefined || value === null || String(value).trim() === '') {
+        continue
+      }
+
+      // Convert camelCase to readable label: "videoTitle" → "Video Title"
+      const label = key
+        .replace(/([A-Z])/g, ' $1')  // Add space before capitals
+        .replace(/^./, str => str.toUpperCase())  // Capitalize first letter
+        .trim()
+
+      textLines.push(`- ${label}: "${String(value).trim()}"`)
+    }
+
+    console.log('[Template Mode] === BUILT TEXT LINES ===')
+    console.log('[Template Mode] Text Lines Count:', textLines.length)
+    console.log('[Template Mode] Text Lines:', textLines.join(' | '))
+
+    if (textLines.length > 0) {
+      exactTextSection = `
+
+=== EXACT TEXT TO RENDER (MANDATORY - DO NOT MODIFY) ===
+${textLines.join('\n')}
+
+CRITICAL INSTRUCTIONS:
+1. Render EXACTLY the text shown above - character for character
+2. DO NOT generate placeholder text like "[Insert Date]" or "Insert Time"
+3. DO NOT use any text from the template image - ONLY use text from this list
+4. If a field is missing from my list, leave it blank - do NOT invent content
+5. Copy my exact spelling, capitalization, and punctuation
+===============================================`
+    }
+  }
+
+  // Build the template adaptation prompt - MUCH STRONGER rejection of template text
+  // Include aspect ratio guidance if dimensions differ significantly
+  const adaptationPrompt = `You are recreating a poster using ONLY the text I provide below.
+
+${exactTextSection}
+${aspectRatioGuidance}
+
+STRICT REQUIREMENTS - READ CAREFULLY:
+1. REPLACE ALL text in the template with ONLY the text I provided above
+2. The template image is ONLY for visual style reference - COMPLETELY IGNORE its text content
+3. DO NOT copy ANY text from the template image like "Helmet Awareness", "Road Safety", "[Insert Date]", "Insert Time", etc.
+4. ONLY render the exact text I specified in my list above - nothing else
+
+Visual style instructions:
+- Maintain the template's color palette, fonts, and overall aesthetic
+- Keep the decorative elements, backgrounds, patterns, and design structure
+- Place my provided text in logical positions following the template's hierarchy
+- Ensure all text is readable with appropriate contrast
+- Preserve brand logos and their positions
+
+Additional context:
 ${prompt}
 
-Important guidelines:
-- Preserve the template's color scheme exactly
-- Keep the same font styles and text hierarchy
-- Place text in logical positions following the template's text layout
-- Ensure all text is clearly readable with appropriate contrast
-- Maintain the same aspect ratio and composition
-- Keep any brand elements, borders, or decorative patterns from the template
-
-Generate a professional marketing poster that looks like it was designed with the same template as the reference image.`
+Generate a poster that uses the template's visual style but contains ONLY my specified text content. The template text like "Helmet Awareness Campaign" must NOT appear in your output.`
 
   // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
@@ -818,12 +966,21 @@ async function generateWithGemini(
   prompt: string,
   designData?: DesignData | null,
   systemPrompt?: string,
-  format?: import('@/lib/config/creative-formats').CreativeFormat | null
+  format?: import('@/lib/config/creative-formats').CreativeFormat | null,
+  resolution?: string
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     throw new Error('Gemini API key not configured')
   }
+
+  // Get aspect ratio for imageConfig - format now uses Gemini-supported ratios
+  const geminiAspectRatio = format?.aspectRatio || '1:1'
+
+  // Ensure imageSize is UPPERCASE (Gemini API requirement)
+  const geminiImageSize = (resolution || '1K').toUpperCase()
+
+  console.log('[Generate] Gemini imageConfig - aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
   // Get aspect ratio for the prompt - prefer format if available
   let aspectRatioText = 'Portrait orientation (4:5 aspect ratio)'
@@ -883,6 +1040,10 @@ async function generateWithGemini(
         ],
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: {
+            aspectRatio: geminiAspectRatio,
+            imageSize: geminiImageSize,
+          },
         },
       }),
     }

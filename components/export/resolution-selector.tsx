@@ -1,5 +1,6 @@
 "use client";
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import type { ExportResolution } from "@/types/export";
 import { EXPORT_RESOLUTIONS } from "@/types/export";
@@ -16,31 +17,28 @@ export function ResolutionSelector({
   disabled = false,
 }: ResolutionSelectorProps) {
   return (
-    <div className="space-y-2">
+    <ToggleGroup
+      type="single"
+      value={String(value)}
+      onValueChange={(val) => val && onChange(Number(val) as ExportResolution)}
+      disabled={disabled}
+      className="flex flex-wrap gap-2 justify-start"
+    >
       {EXPORT_RESOLUTIONS.map((res) => (
-        <button
+        <ToggleGroupItem
           key={res.dpi}
-          type="button"
-          onClick={() => onChange(res.dpi)}
-          disabled={disabled}
+          value={String(res.dpi)}
           className={cn(
-            "w-full flex items-center justify-between p-3 rounded-lg border transition-all",
-            value === res.dpi
-              ? "border-primary bg-primary/5 ring-1 ring-primary"
-              : "border-border hover:border-primary/50 hover:bg-muted/50",
+            "flex flex-col items-center px-4 py-2.5 rounded-full border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary",
+            "hover:bg-muted/80 transition-all min-w-[80px]",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <div className="text-left">
-            <div className="font-medium text-sm">{res.name}</div>
-            <div className="text-xs text-muted-foreground">{res.description}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-primary/80">{res.bestFor}</div>
-          </div>
-        </button>
+          <span className="font-semibold text-sm">{res.dpi}</span>
+          <span className="text-[10px] opacity-80">DPI</span>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -59,24 +57,26 @@ export function CompactResolutionSelector({
   disabled = false,
 }: CompactResolutionSelectorProps) {
   return (
-    <div className="flex gap-2">
+    <ToggleGroup
+      type="single"
+      value={String(value)}
+      onValueChange={(val) => val && onChange(Number(val) as ExportResolution)}
+      disabled={disabled}
+      className="flex gap-1"
+    >
       {EXPORT_RESOLUTIONS.map((res) => (
-        <button
+        <ToggleGroupItem
           key={res.dpi}
-          type="button"
-          onClick={() => onChange(res.dpi)}
-          disabled={disabled}
+          value={String(res.dpi)}
           className={cn(
-            "flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all",
-            value === res.dpi
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border hover:border-primary/50 hover:bg-muted/50",
+            "px-3 py-1.5 rounded-md text-xs font-medium",
+            "data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
           {res.dpi}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

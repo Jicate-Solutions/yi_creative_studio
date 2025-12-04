@@ -10,6 +10,42 @@ import { createClient } from '@/lib/supabase/server'
 import { resizeImageToExactDimensions } from '@/lib/sharp/logo-overlay'
 import { buildTemplateResizePrompt, buildCompactResizePrompt } from '@/lib/prompts/template-resize-prompt'
 
+/**
+ * Convert dimensions to nearest Gemini-supported aspect ratio
+ * Supported: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+ */
+function getGeminiAspectRatio(width: number, height: number): string {
+  const ratio = width / height
+
+  // Map to supported ratios with tolerance
+  const supportedRatios = [
+    { ratio: 1, label: '1:1' },
+    { ratio: 2/3, label: '2:3' },
+    { ratio: 3/2, label: '3:2' },
+    { ratio: 3/4, label: '3:4' },
+    { ratio: 4/3, label: '4:3' },
+    { ratio: 4/5, label: '4:5' },
+    { ratio: 5/4, label: '5:4' },
+    { ratio: 9/16, label: '9:16' },
+    { ratio: 16/9, label: '16:9' },
+    { ratio: 21/9, label: '21:9' },
+  ]
+
+  // Find closest match
+  let closest = supportedRatios[0]
+  let minDiff = Math.abs(ratio - closest.ratio)
+
+  for (const supported of supportedRatios) {
+    const diff = Math.abs(ratio - supported.ratio)
+    if (diff < minDiff) {
+      minDiff = diff
+      closest = supported
+    }
+  }
+
+  return closest.label
+}
+
 interface ResizeTemplateRequest {
   templateUrl: string
   targetWidth: number
@@ -70,7 +106,8 @@ export async function POST(request: NextRequest) {
           const resizedImage = await resizeImageToExactDimensions(
             templateUrl,
             targetWidth,
-            targetHeight
+            targetHeight,
+            'fill' // Use fill (stretch) to avoid any cropping even for simple resize
           )
 
           return NextResponse.json({
@@ -180,6 +217,8 @@ async function generateResizedTemplate(
         ],
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
+          // NOTE: imageConfig (aspectRatio, imageSize) is NOT supported for image-to-image editing
+          // The AI will adapt the design based on the prompt, Sharp handles exact dimensions afterwards
         },
       }),
     }
@@ -187,8 +226,21 @@ async function generateResizedTemplate(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[Resize] Gemini API error:', response.status, errorText)
-    throw new Error(`Gemini API error: ${response.status}`)
+    console.error('[Resize] Gemini API error:', response.status)
+    console.error('[Resize] Full error response:', errorText)
+
+    // Parse error for better messaging
+    let errorMessage = `Gemini API error: ${response.status}`
+    try {
+      const errorJson = JSON.parse(errorText)
+      if (errorJson.error?.message) {
+        errorMessage = `Gemini API: ${errorJson.error.message}`
+      }
+    } catch {
+      // Use default message if parsing fails
+    }
+
+    throw new Error(errorMessage)
   }
 
   const data = await response.json()
@@ -207,11 +259,14 @@ async function generateResizedTemplate(
   const imageDataUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`
 
   // Ensure exact dimensions with Sharp
+  // Use 'fill' mode (stretch) because AI has already handled the composition/outpainting
+  // We just need exact pixel dimensions - NOT cropping which would lose content
   try {
     const finalImage = await resizeImageToExactDimensions(
       imageDataUrl,
       targetWidth,
-      targetHeight
+      targetHeight,
+      'fill' // Stretch to exact dimensions - AI handled the layout adaptation
     )
     return finalImage
   } catch (error) {

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { TablesInsert, Json } from '@/types/database.types'
 import type { SuggestableField } from '@/types/suggestions'
 import { getCreativeSchema } from '@/lib/schemas/creativeSchemas'
+import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
 import { FormatSelectionInline } from '@/components/create/format-selection'
 import { CustomSizeForm } from '@/components/create/format-selection/custom-size-form'
 import type { CreativeFormat } from '@/lib/config/creative-formats'
@@ -66,6 +67,7 @@ import {
   LayoutTemplate,
   WifiOff,
   Save,
+  Maximize2,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
 import { Stepper, type Step } from '@/components/ui/stepper'
@@ -108,6 +110,11 @@ const SpeakerPhotoUpload = dynamic(
 
 const ExportModal = dynamic(
   () => import('@/components/export').then(mod => ({ default: mod.ExportModal })),
+  { ssr: false }
+)
+
+const ImagePreviewModal = dynamic(
+  () => import('@/components/create/image-preview-modal').then(mod => ({ default: mod.ImagePreviewModal })),
   { ssr: false }
 )
 
@@ -165,6 +172,15 @@ import { isPastDate } from '@/lib/utils/date-utils'
 import type { CreationMode } from '@/types/design.types'
 import type { SpeakerPhotoCustomization, CustomColors } from '@/lib/config/design-constants'
 import { cn } from '@/lib/utils'
+
+// Display-friendly names for AI models (hide technical names from users)
+const getModelDisplayName = (provider: string) => {
+  const displayNames: Record<string, string> = {
+    'ideogram': 'Smart Design',
+    'google': 'Poster Perfect',
+  }
+  return displayNames[provider] || provider
+}
 
 // Default speaker photo configuration
 const DEFAULT_SPEAKER_PHOTO: SpeakerPhotoCustomization = {
@@ -252,6 +268,7 @@ export default function CreatePage() {
   const [step, setStep] = useState(1)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false)
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
 
@@ -370,23 +387,53 @@ export default function CreatePage() {
       // Build prompt from vertical template and form data
       let prompt = selectedVertical.prompt_template
 
-      // Map form field names to template variable names
+      // Map form field names to template variable names (comprehensive mapping)
       const fieldToTemplateVar: Record<string, string> = {
+        // Event name variations
         title: 'eventName',
+        eventName: 'eventName',
+        name: 'eventName',
+        eventTitle: 'eventName',
+        // Date variations
         date: 'eventDate',
+        eventDate: 'eventDate',
+        // Time variations
         time: 'eventTime',
+        eventTime: 'eventTime',
+        // Venue variations
         venue: 'venueName',
+        venueName: 'venueName',
+        location: 'venueName',
+        // Speaker variations
         speaker: 'speakerName',
+        speakerName: 'speakerName',
+        guest: 'speakerName',
+        guestName: 'speakerName',
+        chiefGuest: 'speakerName',
+        // Designation variations
+        designation: 'speakerDesignation',
+        speakerDesignation: 'speakerDesignation',
+        guestDesignation: 'speakerDesignation',
+        // Description
         description: 'description',
+        additionalInfo: 'description',
+      }
+
+      // Helper: Check if value is valid for replacement
+      const isValidValue = (value: unknown): value is string | number => {
+        return value !== undefined && value !== null && value !== '' && String(value).trim() !== ''
       }
 
       // Replace template variables with form data (handling both mappings and direct names)
       Object.entries(formData.formData).forEach(([key, value]) => {
-        const templateVar = fieldToTemplateVar[key] || key
-        // Replace mapped variable (e.g., {{eventName}})
-        prompt = prompt.replace(new RegExp(`{{${templateVar}}}`, 'g'), String(value))
-        // Also replace direct variable name (e.g., {{title}}) for backwards compatibility
-        prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value))
+        if (isValidValue(value)) {
+          const templateVar = fieldToTemplateVar[key] || key
+          const safeValue = String(value).trim()
+          // Replace mapped variable (e.g., {{eventName}})
+          prompt = prompt.replace(new RegExp(`{{${templateVar}}}`, 'g'), safeValue)
+          // Also replace direct variable name (e.g., {{title}}) for backwards compatibility
+          prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), safeValue)
+        }
       })
 
       // Handle vertical-specific fields from form_fields
@@ -394,11 +441,14 @@ export default function CreatePage() {
         const verticalFields = selectedVertical.form_fields as Array<{ name: string }>
         verticalFields.forEach((field) => {
           const value = (formData.formData as Record<string, unknown>)[field.name]
-          if (value) {
-            prompt = prompt.replace(new RegExp(`{{${field.name}}}`, 'g'), String(value))
+          if (isValidValue(value)) {
+            prompt = prompt.replace(new RegExp(`{{${field.name}}}`, 'g'), String(value).trim())
           }
         })
       }
+
+      // CRITICAL: Clean any remaining unreplaced placeholders to prevent them from appearing in images
+      prompt = prompt.replace(/\{\{[a-zA-Z_]+\}\}/g, '').replace(/\s+/g, ' ').trim()
 
       // Call generation API with format info
       const formatDimensions = getFormatDimensions()
@@ -511,11 +561,20 @@ export default function CreatePage() {
       case 5:
         return true // Template is optional
       case 6:
-        // Dynamically validate based on current schema's first required field
-        // Use dynamic schema if available (AI-generated), otherwise fall back to static
+        // Match DynamicDetailsForm's field priority: dynamicSchema > formatFields > staticSchema
         const dynamicFields = dynamicSchema.schema?.fields
+        const formatFields = getFormatFields(selectedFormat?.id || '', selectedVertical?.slug)
         const staticSchema = getCreativeSchema(selectedFormat?.id || null)
-        const fieldsToValidate = dynamicFields || staticSchema.fields
+
+        // Priority: AI-generated > format-specific > static
+        let fieldsToValidate: Array<{ id: string; required: boolean }>
+        if (dynamicFields && dynamicFields.length > 0) {
+          fieldsToValidate = dynamicFields
+        } else if (formatFields && formatFields.length > 0) {
+          fieldsToValidate = formatFields
+        } else {
+          fieldsToValidate = staticSchema.fields
+        }
 
         const firstRequiredField = fieldsToValidate.find(f => f.required)
         if (!firstRequiredField) return true
@@ -734,6 +793,7 @@ export default function CreatePage() {
                         onSelect={selectTemplate}
                         selectedTemplate={selectedTemplate}
                         selectedFormat={selectedFormat}
+                        verticals={verticals}
                       />
                     </CardContent>
                   </Card>
@@ -766,7 +826,7 @@ export default function CreatePage() {
                 <div className="space-y-6">
                   {/* Dynamic Details Form - renders fields based on selected format */}
                   <DynamicDetailsForm
-                    formatId={formData.formatId || null}
+                    formatId={selectedFormat?.id || null}
                     verticalName={selectedVertical.name}
                     formData={formData.formData as Record<string, unknown>}
                     // Dynamic schema props (AI-generated fields)
@@ -998,7 +1058,7 @@ export default function CreatePage() {
                               {models.map((model) => (
                                 <SelectItem key={model.id} value={model.id}>
                                   <div className="flex items-center gap-2">
-                                    <span>{model.name}</span>
+                                    <span>{getModelDisplayName(model.provider)}</span>
                                     <Badge variant="secondary" className="text-xs">
                                       {model.credits_cost}
                                     </Badge>
@@ -1078,15 +1138,36 @@ export default function CreatePage() {
                               alt="Generated creative"
                               className="w-full h-full object-contain"
                             />
+                            {/* Full View button - top left */}
+                            <Button
+                              variant="secondary"
+                              size="icon"
+                              className="absolute top-2 left-2 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+                              onClick={() => setPreviewModalOpen(true)}
+                              title="Full View"
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" />
+                            </Button>
                             <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                              <Button
-                                size="sm"
-                                onClick={() => setExportModalOpen(true)}
-                                className="gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setPreviewModalOpen(true)}
+                                  className="gap-2"
+                                >
+                                  <Maximize2 className="h-4 w-4" />
+                                  Full View
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => setExportModalOpen(true)}
+                                  className="gap-2"
+                                >
+                                  <Download className="h-4 w-4" />
+                                  Download
+                                </Button>
+                              </div>
                             </div>
                           </>
                         ) : isGenerating ? (
@@ -1236,6 +1317,24 @@ export default function CreatePage() {
               'Creative'
             }
             previewUrl={generatedImage}
+          />
+        )}
+
+        {/* Full View Preview Modal */}
+        {generatedImage && (
+          <ImagePreviewModal
+            open={previewModalOpen}
+            onOpenChange={setPreviewModalOpen}
+            imageUrl={generatedImage}
+            imageName={
+              (formData.formData as { title?: string }).title ||
+              selectedVertical?.name ||
+              'Generated Creative'
+            }
+            onDownloadClick={() => {
+              setPreviewModalOpen(false)
+              setExportModalOpen(true)
+            }}
           />
         )}
 

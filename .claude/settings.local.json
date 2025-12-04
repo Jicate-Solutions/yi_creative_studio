@@ -165,7 +165,17 @@
       "mcp__actor-critic-thinking__actor-critic-thinking",
       "mcp__plugin_compounding-engineering_context7__get-library-docs",
       "mcp__memory__create_entities",
-      "mcp__memory__create_relations"
+      "mcp__memory__create_relations",
+      "Bash(gh pr view:*)",
+      "Bash(/c/Program Files/GitHub CLI/gh.exe --version)",
+      "Bash(/c/Users/Admin/AppData/Local/Programs/GitHub CLI/gh.exe --version)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr view --json number,state,isDraft,author,title,body,url,headRefName)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth login)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" pr list --json number,state,isDraft,title,url,headRefName --limit 10)",
+      "mcp__fetch__imageFetch",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(^-.*supabase)",
+      "Bash(\")"
     ],
     "deny": [],
     "ask": [],

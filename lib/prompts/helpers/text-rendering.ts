@@ -104,15 +104,9 @@ export function buildTextRenderingSection(content: CreativeContent): string {
     return ''
   }
 
-  return `TEXT ELEMENTS TO RENDER (use exact text in quotes):
-${textElements.join('\n')}
+  return `${textElements.join('\n')}
 
-TYPOGRAPHY REQUIREMENTS:
-- All text must be clearly legible and properly rendered
-- Use high contrast between text and backgrounds
-- Apply text shadows, outlines, or background pills where needed for readability
-- Maintain typographic hierarchy with consistent sizing
-- Never truncate or modify the quoted text content`
+Ensure all text is clearly legible with high contrast against backgrounds. Use text shadows, outlines, or background treatments where needed for readability. Maintain consistent typographic hierarchy and never truncate or modify the quoted text.`
 }
 
 /**

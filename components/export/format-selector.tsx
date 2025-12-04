@@ -1,8 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FileImage, FileType, File } from "lucide-react";
 import type { ExportFormat, ExportFormatInfo } from "@/types/export";
+import { cn } from "@/lib/utils";
 
 interface FormatSelectorProps {
   value: ExportFormat;
@@ -25,33 +26,32 @@ export function FormatSelector({
   disabled = false,
 }: FormatSelectorProps) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(val) => val && onChange(val as ExportFormat)}
+      disabled={disabled}
+      className="flex flex-wrap gap-2 justify-start"
+    >
       {availableFormats.map((format) => {
         const Icon = FORMAT_ICONS[format.id] || File;
         const isSelected = value === format.id;
 
         return (
-          <button
+          <ToggleGroupItem
             key={format.id}
-            type="button"
-            onClick={() => onChange(format.id)}
-            disabled={disabled}
+            value={format.id}
             className={cn(
-              "flex flex-col items-center gap-2 p-3 rounded-lg border transition-all",
-              isSelected
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border hover:border-primary/50 hover:bg-muted/50",
+              "flex items-center gap-2 px-4 py-2.5 rounded-full border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary",
+              "hover:bg-muted/80 transition-all",
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <Icon className={cn("h-6 w-6", isSelected ? "text-primary" : "text-muted-foreground")} />
-            <div className="text-center">
-              <div className="font-medium text-sm">{format.name}</div>
-              <div className="text-xs text-muted-foreground">{format.extension}</div>
-            </div>
-          </button>
+            <Icon className="h-4 w-4" />
+            <span className="font-medium text-sm">{format.name}</span>
+          </ToggleGroupItem>
         );
       })}
-    </div>
+    </ToggleGroup>
   );
 }

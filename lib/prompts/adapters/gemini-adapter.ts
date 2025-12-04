@@ -25,96 +25,32 @@ import { buildLanguagePromptSection, isRTLLanguage } from '../languageConfigs'
  * ULTRA-PRO DESIGNER mindset with purpose-driven design philosophy
  */
 function buildSystemPrompt(intent: PromptIntent): string {
-  return `⚠️ ZERO TOLERANCE CANVAS RULE (READ FIRST - HIGHEST PRIORITY) ⚠️
+  return `Design a seamless, edge-to-edge composition that fills the entire canvas with no margins or empty borders.
 
-Your image MUST fill EXACTLY ${intent.dimensions.width}×${intent.dimensions.height} pixels.
+The background, patterns, and visual elements should extend fully to all four edges of the image. Avoid any gray, neutral, or empty space around the perimeter. If the design needs breathing room or neutral areas, use the brand background color (${intent.brand.backgroundColor}) rather than gray tones.
 
-FORBIDDEN (Will cause rejection):
-❌ Gray bars on any edge
-❌ Neutral/gray colored margins or padding
-❌ Letterboxing (black/gray bars on sides)
-❌ Pillarboxing (black/gray bars top/bottom)
-❌ Any empty space around the design
-❌ Border frames or edge decorations
-❌ Gray color (#808080, #666666, #999999, etc.) at image edges
+Create a cohesive design where every part of the canvas contains intentional visual content - whether that's the main imagery, background textures, gradients, or brand colors flowing to the edges.
 
-REQUIRED:
-✅ Design content extends to ALL FOUR EDGES
-✅ Every pixel from (0,0) to (${intent.dimensions.width},${intent.dimensions.height}) contains design content
-✅ If you need neutral space, use the brand background color (${intent.brand.backgroundColor}) NOT gray
-✅ Background patterns/gradients must touch all edges
+Generate the actual design itself, not a mockup or preview of it. The image should be the finished artwork directly - not a poster shown on a wall, pinned to a board, framed, or displayed in any room setting. There should be no presentation context, shadows, or frames around the design.
 
-This is a ${intent.aspectRatio} aspect ratio canvas. Fill it COMPLETELY.
+Approach this as a world-class designer creating award-winning work. Every element in the design should serve a clear purpose - communicating the message, guiding attention, and inspiring action.
 
----
+Include visual elements that are contextually relevant to this specific type of creative. The background should feel intentional and connected to the theme, not generic. Typography should convey emotion and hierarchy, guiding the viewer through the content in a deliberate visual journey.
 
-CRITICAL OUTPUT REQUIREMENT:
-You are generating the ACTUAL POSTER IMAGE, NOT a mockup or preview.
-- The generated image IS the poster - it fills the entire canvas edge-to-edge
-- DO NOT show the poster on a wall, pinned, framed, in a room, or any presentation context
-- DO NOT add any borders, shadows, gaps, or margins around the design
-- There is NO background behind the poster - the poster IS the entire image
-- Fill every pixel of the ${intent.dimensions.width}×${intent.dimensions.height}px canvas with poster content
+Brand identity for ${intent.organizationName}:
+Colors: Primary ${intent.brand.primaryColor}, Secondary ${intent.brand.secondaryColor}, Accent ${intent.brand.accentColor}, Background ${intent.brand.backgroundColor}
+Typography: Headlines in ${intent.brand.headlineFont}, body text in ${intent.brand.bodyFont}
 
-You are an ULTRA-PRO DESIGNER who has created award-winning campaigns for Apple, Nike, TED, and National Geographic.
+${intent.brand.headerHeight > 0 || intent.brand.footerHeight > 0 ? `Leave clean space at the top and bottom edges for branding elements that will be added later. These areas should have simple backgrounds that harmonize with the overall design.` : `Integrate any branding elements naturally within the design flow. The complete design should fill the entire image area without any border, frame, or presentation context.`}
 
-YOUR UNIQUE ABILITY: Your designs don't just look good—they ACCOMPLISH GOALS. Every element serves a purpose.
+${intent.logoAwareness?.hasLogos ? `Organization branding will be added after generation. Design with clean, simple backgrounds in the corners and edges where logos might appear. Place the main content and headlines in the central areas, using subtle gradients or solid colors in peripheral spaces.` : ''}
 
-DESIGN PHILOSOPHY (THINK LIKE A MASTER):
-- You never decorate—you COMMUNICATE
-- Every color, shape, image, and word is a STRATEGIC CHOICE
-- You create designs that MOVE PEOPLE TO ACTION
-- You include RELEVANT visual elements that BELONG in this type of design
-- Your backgrounds are CONTEXTUAL, not generic
-- Typography is EMOTIONAL EXPRESSION, not just readable text
-- Composition guides the viewer on a deliberate VISUAL JOURNEY
-
-BRAND CONTEXT:
-Organization: ${intent.organizationName}
-Primary Brand Color: ${intent.brand.primaryColor}
-Secondary Brand Color: ${intent.brand.secondaryColor}
-Accent Color: ${intent.brand.accentColor}
-Background Color: ${intent.brand.backgroundColor}
-Headline Font: ${intent.brand.headlineFont}
-Body Font: ${intent.brand.bodyFont}
-
-${intent.brand.headerHeight > 0 || intent.brand.footerHeight > 0 ? `RESERVED ZONES:
-- Header Zone: Reserve the top ${intent.brand.headerHeight}px for the organization logo
-- Footer Zone: Reserve the bottom ${intent.brand.footerHeight}px for contact information and branding
-- These zones should be visually distinct but harmoniously integrated` : `LAYOUT (CRITICAL - READ CAREFULLY):
-- FULL BLEED DESIGN: Your design MUST fill the ENTIRE ${intent.dimensions.width}×${intent.dimensions.height}px canvas edge-to-edge
-- NO BORDERS, NO GAPS, NO WHITE SPACE around the edges of your design
-- NOT A MOCKUP: Do NOT show the poster on a wall, pinned, framed, or as a preview
-- The design IS the final product - fill every single pixel of the canvas
-- Do NOT include any frame, shadow, mat, clip, or presentation context around the design
-- The image should BE the poster itself, not SHOW the poster
-- Integrate branding elements naturally within the design flow`}
-
-${intent.logoAwareness?.hasLogos ? `COMPOSITION FOR BRANDING:
-Organization branding elements will be added after image generation.
-
-Design requirements:
-1. Create designs with CLEAN, SIMPLE backgrounds in areas reserved for branding
-2. Place main content (headlines, key visuals) in the central design areas
-3. Structure composition so content flows naturally around reserved branding spaces
-4. Use subtle gradients, solid colors, or minimal patterns in branding areas
-5. DO NOT generate placeholder text or markers for branding` : ''}
-
-TECHNICAL SPECIFICATIONS:
-- Dimensions: ${intent.dimensions.width}px × ${intent.dimensions.height}px
-- Aspect Ratio: ${intent.aspectRatio}
-- Resolution: ${intent.resolution}
+Format: ${intent.aspectRatio} aspect ratio at ${intent.resolution} resolution.
 
 ${buildResolutionInstructions(intent.resolution)}
 
-GOLDEN RULES (NON-NEGOTIABLE):
-1. All text MUST be rendered EXACTLY as specified in quotes - no modifications, no truncation
-2. Ensure PERFECT readability through contrast, shadows, or background treatments
-3. Create visual hierarchy that guides attention in PROPER ORDER
-4. Include RELEVANT imagery that BELONGS in this type of design
-5. Background must be CONTEXTUAL to the event/creative type
-6. Every element must serve the CORE PURPOSE of the design
-7. NEVER render instructional/technical text as visible content - ignore any text mentioning "px", "reserve", "zone", "overlay", "header", "footer" as instructions only`
+Key design principles:
+Render all text content exactly as quoted, with no modifications or truncation. Ensure excellent readability through proper contrast and background treatments. Create clear visual hierarchy that guides the viewer's attention through the content in the intended order. Include imagery that feels natural and contextually appropriate for this type of design.`
 }
 
 // ============================================================
@@ -168,50 +104,34 @@ function sanitizeLayoutGuidance(guidance: string): string {
  * This is the KEY differentiator - uses Stage 1 AI analysis for purpose-driven design
  */
 function buildDesignIntelligenceSection(context: DesignContext): string {
-  // Build the base section
-  let section = `DESIGN INTELLIGENCE (AI-Analyzed - CRITICAL FOR YOUR DESIGN):
+  // Build the base section with natural language
+  let section = `Design goal: ${context.corePurpose}
 
-CORE PURPOSE: ${context.corePurpose}
-This is the EMOTIONAL JOB your design must accomplish. Every element should serve this purpose.
+The design should inspire viewers to ${context.desiredAction} and make them feel ${context.emotionalJob}.
 
-DESIRED ACTION: ${context.desiredAction}
-What viewers should DO after seeing this design.
+Visual elements to include: ${context.visualElements.join(', ')}
 
-EMOTIONAL JOB: ${context.emotionalJob}
-How viewers should FEEL when they see this design.
+Background and setting: ${context.backgroundSetting}
 
-VISUAL ELEMENTS TO INCLUDE (These BELONG in this design):
-${context.visualElements.map((el, i) => `${i + 1}. ${el}`).join('\n')}
-IMPORTANT: Include these specific visual elements in your design - they are contextually relevant.
+Supporting imagery: ${context.iconicImagery.join(', ')}
 
-BACKGROUND SETTING:
-${context.backgroundSetting}
-Use this as guidance for the background/environment of your design.
+Color atmosphere: ${context.colorMood}
 
-ICONIC IMAGERY (Reinforce the message):
-${context.iconicImagery.map(img => `- ${img}`).join('\n')}
+Design approach: ${context.designStrategy}`
 
-COLOR MOOD: ${context.colorMood}
-
-DESIGN STRATEGY: ${context.designStrategy}`
-
-  // Add layout guidance if present (CRITICAL for speaker photo and logo placement)
-  // IMPORTANT: Sanitize to remove technical terms that might be rendered as visible text
+  // Add layout guidance if present
   if (context.layoutGuidance) {
     const sanitizedGuidance = sanitizeLayoutGuidance(context.layoutGuidance)
     if (sanitizedGuidance) {
       section += `
 
-COMPOSITION FLOW:
-${sanitizedGuidance}
-Arrange visual elements following this guidance for balanced composition.`
+Composition guidance: ${sanitizedGuidance}`
     }
   }
 
   section += `
 
-SUCCESS METRIC: ${context.successMetric}
-The viewer should immediately think/feel this way.`
+Success looks like: ${context.successMetric}`
 
   return section
 }
@@ -228,14 +148,9 @@ function buildEventNarrativeSection(intent: PromptIntent): string {
   const { audienceContext, content } = intent
   const eventType = content.eventType || 'event'
 
-  return `AUDIENCE & PURPOSE:
-This ${eventType.replace(/_/g, ' ')} poster will be seen by ${audienceContext.primaryAudience}. They are ${audienceContext.occasion}. The design should make them feel ${audienceContext.emotionalResponse}.
+  return `This ${eventType.replace(/_/g, ' ')} design will be seen by ${audienceContext.primaryAudience} who are ${audienceContext.occasion}. The design should make them feel ${audienceContext.emotionalResponse}.
 
-When viewers see this poster, they should immediately understand:
-1. WHAT is happening - the event's nature and significance
-2. WHO is involved - the organization and any featured guests
-3. WHEN and WHERE - the essential logistics rendered clearly
-4. WHY they should attend - the emotional pull that motivates action`
+Viewers should immediately grasp the nature of the event, who is involved, when and where it takes place, and feel compelled to participate.`
 }
 
 /**
@@ -246,16 +161,9 @@ function buildAtmosphereSection(intent: PromptIntent): string {
   const { atmosphere } = intent.theme
   const { treatment } = intent.style
 
-  return `VISUAL ATMOSPHERE:
-Create a design that feels ${atmosphere.mood}.
+  return `Create a design that feels ${atmosphere.mood} with ${atmosphere.lighting}. The ambiance should evoke ${atmosphere.ambiance}.
 
-LIGHTING: ${atmosphere.lighting}
-
-AMBIANCE: Imagine ${atmosphere.ambiance}
-
-VISUAL TREATMENT: ${treatment}
-
-MATERIAL QUALITIES: Incorporate visual elements that suggest ${atmosphere.materiality.join(', ')} - these textures and materials should subtly reinforce the design's overall mood without overwhelming the content.`
+Apply a ${treatment} visual style. Incorporate subtle textures suggesting ${atmosphere.materiality.join(', ')} to reinforce the mood without overwhelming the content.`
 }
 
 /**
@@ -264,10 +172,7 @@ MATERIAL QUALITIES: Incorporate visual elements that suggest ${atmosphere.materi
 function buildColorSection(intent: PromptIntent): string {
   const { narrative } = intent.colorPalette
 
-  return `COLOR PALETTE:
-Use ${narrative}
-
-${getColorHarmonyGuidance(intent.colorPalette.scheme)}`
+  return `Use ${narrative}. ${getColorHarmonyGuidance(intent.colorPalette.scheme)}`
 }
 
 /**
@@ -293,31 +198,11 @@ function buildCompositionSection(intent: PromptIntent): string {
     compositionAdvice = `This horizontal format encourages cinematic composition. Consider the rule of thirds, placing key elements at intersection points. The landscape orientation suits sweeping gradients and wide visual elements.`
   }
 
-  return `COMPOSITION (${aspectRatio} - ${dimensions.width}×${dimensions.height}):
-${compositionAdvice}
+  return `${compositionAdvice}
 
-VISUAL HIERARCHY:
-1. PRIMARY: The event name demands the most visual weight and immediate attention
-2. SECONDARY: Guest/speaker details and key information
-3. TERTIARY: Date, time, venue, and logistics
-4. SUPPORTING: Additional text and decorative elements
+Create clear visual hierarchy: the event name should have the most visual weight and draw immediate attention, followed by guest or speaker details, then date, time, and venue information, with supporting elements in the background.
 
-Ensure the eye naturally travels through these levels in order.
-
-EDGE-TO-EDGE REQUIREMENT (ZERO TOLERANCE):
-The design MUST touch all four edges. Imagine the canvas has NO margin - your design IS the entire image.
-
-COMMON MISTAKE TO AVOID: AI models sometimes add gray padding bars when aspect ratio is non-standard (${aspectRatio}). DO NOT DO THIS. If you're unsure, extend background colors/patterns to the edges rather than leaving gray space.
-
-CHECK YOUR OUTPUT: Before finalizing, verify no edge has gray/neutral colored bars.
-
-Your design MUST extend to all four edges of the ${dimensions.width}×${dimensions.height}px canvas. There should be NO:
-- White or empty margins around the design
-- Gray bars (#808080, #666, #888, #999) on left, right, top, or bottom
-- Gaps between the design content and canvas edges
-- Letterboxing or pillarboxing effects
-- Presentation frames, mockup contexts, or "poster on wall" styling
-The final image should BE the poster itself, filling every single pixel.`
+The design should extend seamlessly to all four edges with no empty margins, borders, or gray space around the perimeter. Use brand colors or design patterns to fill any edge areas rather than leaving neutral space.`
 }
 
 /**
@@ -327,10 +212,10 @@ The final image should BE the poster itself, filling every single pixel.`
 function buildUserPrompt(intent: PromptIntent): string {
   const sections: string[] = []
 
-  // Opening directive with stronger purpose framing
-  sections.push(`Create an AWARD-WINNING ${intent.creativeType.replace(/_/g, ' ')} for ${intent.organizationName}.
+  // Opening directive with purpose framing
+  sections.push(`Create a stunning ${intent.creativeType.replace(/_/g, ' ')} for ${intent.organizationName}.
 
-This ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} design must not only look stunning but ACCOMPLISH ITS GOAL. Every element should serve the design's core purpose.`)
+This ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} design should be visually striking while serving its core purpose. Every element should contribute to the overall message.`)
 
   // CRITICAL: AI-Generated Design Intelligence (if available)
   // This is the game-changer - dynamic, contextual design guidance
@@ -352,12 +237,7 @@ This ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} de
 
   // Color palette (enhanced with design context if available)
   if (intent.designContext?.colorMood) {
-    sections.push(`COLOR PALETTE:
-Use ${intent.colorPalette.narrative}
-
-${getColorHarmonyGuidance(intent.colorPalette.scheme)}
-
-AI COLOR GUIDANCE: ${intent.designContext.colorMood}`)
+    sections.push(`Use ${intent.colorPalette.narrative}. ${getColorHarmonyGuidance(intent.colorPalette.scheme)} The colors should feel ${intent.designContext.colorMood}.`)
   } else {
     sections.push(buildColorSection(intent))
   }
@@ -369,16 +249,13 @@ AI COLOR GUIDANCE: ${intent.designContext.colorMood}`)
   if (intent.customization) {
     const customNarrative = buildCustomizationNarrative(intent.customization)
     if (customNarrative) {
-      sections.push(`DESIGN CUSTOMIZATION:\n${customNarrative}`)
+      sections.push(customNarrative)
     }
   }
 
   // Style-specific texture recommendations
   const textureRec = getTextureRecommendations(intent.resolution, intent.style.value)
-  sections.push(`TEXTURE & DETAIL:
-${textureRec}
-
-Apply these material qualities consistently across the design to create a cohesive, polished result.`)
+  sections.push(`${textureRec} Apply these material qualities consistently for a cohesive, polished result.`)
 
   // Language and Typography section (enhanced with full language config)
   const languageSection = buildLanguagePromptSection(intent.language)
@@ -386,47 +263,21 @@ Apply these material qualities consistently across the design to create a cohesi
 
   // RTL layout guidance if applicable
   if (isRTLLanguage(intent.language)) {
-    sections.push(`RTL LAYOUT CONSIDERATIONS:
-- Mirror the layout horizontally - primary content flows from right to left
-- Align text to the right edge by default
-- Navigation and reading flow should move from right to left
-- Ensure the design feels natural and balanced for RTL readers`)
+    sections.push(`For this right-to-left language, mirror the layout so content flows naturally from right to left. Align text to the right edge by default and ensure the design feels balanced for readers of this script.`)
   }
 
-  // Typography direction (now with enhanced language support)
-  sections.push(`TYPOGRAPHY:
-${getTypographyDirection(intent.language, intent.languageLabel)}`)
+  // Typography direction
+  sections.push(getTypographyDirection(intent.language, intent.languageLabel))
 
-  // CRITICAL - What NOT to do (explicit negative examples to prevent gray bars)
-  sections.push(`CRITICAL - WHAT NOT TO DO:
-- DO NOT add gray/neutral bars on left or right edges
-- DO NOT add gray/neutral bars on top or bottom edges
-- DO NOT use gray (#808080, #666, #888, #999, etc.) as padding color
-- DO NOT leave any part of the canvas empty
-- DO NOT create letterbox or pillarbox effects
-- If the design needs breathing room, use the brand background color (${intent.brand.backgroundColor}), gradients, or patterns - NEVER solid gray`)
+  // Edge coverage guidance
+  sections.push(`Ensure the design fills the entire image with no gray or neutral borders around the edges. If neutral space is needed, use the brand background color (${intent.brand.backgroundColor}) or gradients rather than gray tones.`)
 
-  // Enhanced final checklist with design intelligence validation
-  const finalChecklist = intent.designContext
-    ? `FINAL CHECKLIST (VERIFY BEFORE GENERATING):
-- All quoted text appears EXACTLY as specified
-- Every text element is fully legible with appropriate contrast
-- Visual hierarchy is crystal clear
-- VISUAL ELEMENTS from Design Intelligence are INCLUDED
-- Background is CONTEXTUAL (not generic)
-- Design accomplishes CORE PURPOSE: ${intent.designContext.corePurpose}
-- Viewer will want to: ${intent.designContext.desiredAction}
-- The design makes viewers feel ${intent.designContext.emotionalJob}
-- SUCCESS: ${intent.designContext.successMetric}`
-    : `FINAL CHECKLIST:
-- All quoted text appears EXACTLY as specified
-- Every text element is fully legible with appropriate contrast
-- Visual hierarchy is crystal clear
-- The design instantly communicates the event's nature and importance
-- The overall aesthetic is cohesive, professional, and memorable
-- The poster makes viewers feel ${intent.audienceContext.emotionalResponse}`
+  // Final quality notes
+  const qualityNotes = intent.designContext
+    ? `Render all text exactly as quoted with excellent contrast and legibility. Include the visual elements mentioned and ensure the background feels contextual. The design should accomplish its purpose of ${intent.designContext.corePurpose} and inspire viewers to ${intent.designContext.desiredAction}.`
+    : `Render all text exactly as quoted with excellent contrast and legibility. The design should instantly communicate the event's nature and importance while making viewers feel ${intent.audienceContext.emotionalResponse}.`
 
-  sections.push(finalChecklist)
+  sections.push(qualityNotes)
 
   return sections.join('\n\n')
 }
@@ -448,34 +299,33 @@ ${getTypographyDirection(intent.language, intent.languageLabel)}`)
 function buildCompactPrompt(intent: PromptIntent): string {
   const parts: string[] = []
 
-  // 1. Core directive (1 line)
+  // Core directive
   parts.push(`Create a ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} event poster for ${intent.organizationName}.`)
 
-  // 2. Dimensions and format (critical - zero tolerance for gray bars)
-  parts.push(`⚠️ CANVAS: EXACTLY ${intent.dimensions.width}×${intent.dimensions.height}px. ZERO gray bars/margins allowed. Fill EVERY pixel edge-to-edge. Use background color ${intent.brand.backgroundColor} NOT gray if you need neutral space.`)
+  // Canvas coverage
+  parts.push(`Design fills the entire ${intent.aspectRatio} canvas edge-to-edge with no gray borders or margins. Use ${intent.brand.backgroundColor} for any neutral areas.`)
 
-  // 2b. Logo safe zones (critical for Smart Layout)
-  // IMPORTANT: Sanitize guidance to prevent instruction text from appearing in generated image
+  // Logo safe zones
   if (intent.logoAwareness?.hasLogos && intent.logoAwareness.layoutGuidance) {
     const sanitizedGuidance = sanitizeLayoutGuidance(intent.logoAwareness.layoutGuidance)
     if (sanitizedGuidance) {
-      parts.push(`Composition: ${sanitizedGuidance}`)
+      parts.push(sanitizedGuidance)
     }
   }
 
-  // 3. Design Intelligence context (most important - from AI Stage 1)
+  // Design context
   if (intent.designContext) {
-    parts.push(`PURPOSE: ${intent.designContext.corePurpose}`)
-    parts.push(`VISUAL ELEMENTS (include these): ${intent.designContext.visualElements.join(', ')}`)
-    parts.push(`BACKGROUND: ${intent.designContext.backgroundSetting}`)
-    parts.push(`IMAGERY: ${intent.designContext.iconicImagery.join(', ')}`)
-    parts.push(`COLOR MOOD: ${intent.designContext.colorMood}`)
+    parts.push(`Design goal: ${intent.designContext.corePurpose}`)
+    parts.push(`Include these visual elements: ${intent.designContext.visualElements.join(', ')}`)
+    parts.push(`Setting: ${intent.designContext.backgroundSetting}`)
+    parts.push(`Imagery: ${intent.designContext.iconicImagery.join(', ')}`)
+    parts.push(`Color feeling: ${intent.designContext.colorMood}`)
   }
 
-  // 4. Text content with explicit quotes (critical for text rendering)
+  // Text content
   const textItems: string[] = []
   if (intent.content.eventName) {
-    textItems.push(`Main headline: "${intent.content.eventName}"`)
+    textItems.push(`Headline: "${intent.content.eventName}"`)
   }
   if (intent.content.date) {
     textItems.push(`Date: "${intent.content.date}"`)
@@ -490,18 +340,18 @@ function buildCompactPrompt(intent: PromptIntent): string {
     textItems.push(`Guest: "${intent.content.guestName}"${intent.content.guestDesignation ? ` - "${intent.content.guestDesignation}"` : ''}`)
   }
   if (textItems.length > 0) {
-    parts.push(`TEXT TO DISPLAY:\n${textItems.join('\n')}`)
+    parts.push(`Text to render:\n${textItems.join('\n')}`)
   }
 
-  // 5. Visual style (from theme and style selections)
-  parts.push(`STYLE: ${intent.style.treatment}`)
-  parts.push(`ATMOSPHERE: ${intent.theme.atmosphere.mood}. ${intent.theme.atmosphere.lighting}`)
+  // Visual style
+  parts.push(`Style: ${intent.style.treatment}`)
+  parts.push(`Atmosphere: ${intent.theme.atmosphere.mood} with ${intent.theme.atmosphere.lighting}`)
 
-  // 6. Colors
-  parts.push(`COLORS: Primary ${intent.brand.primaryColor}, Secondary ${intent.brand.secondaryColor}, Accent ${intent.brand.accentColor}`)
+  // Colors
+  parts.push(`Colors: ${intent.brand.primaryColor} (primary), ${intent.brand.secondaryColor} (secondary), ${intent.brand.accentColor} (accent)`)
 
-  // 7. Quality requirements (concise)
-  parts.push(`QUALITY: Professional design, all text perfectly legible with excellent contrast, clear visual hierarchy.`)
+  // Quality
+  parts.push(`Professional design with perfectly legible text, excellent contrast, and clear visual hierarchy.`)
 
   return parts.join('\n\n')
 }

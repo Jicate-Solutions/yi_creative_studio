@@ -114,7 +114,7 @@ export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
     promptInstruction: 'Generate all text content in Arabic (العربية). Use proper Arabic script with correct letter connections and diacritical marks. Text should flow naturally from right to left.',
     typographyGuidance: 'Use Arabic-optimized fonts that support proper letter joining. The design should accommodate right-to-left text flow. Allow for graceful Arabic calligraphic elements where appropriate.',
     textRenderingHints: [
-      'CRITICAL: Arabic is RIGHT-TO-LEFT (RTL) text',
+      'Arabic text flows from right to left',
       'Arabic letters change shape based on position (initial, medial, final, isolated)',
       'Ensure proper letter connection (kashida where appropriate)',
       'Allow adequate line height for Arabic script and diacritics',
@@ -258,25 +258,22 @@ export function buildLanguagePromptSection(languageCode: string): string {
   const sections: string[] = []
 
   // Main language instruction
-  sections.push(`LANGUAGE REQUIREMENT (CRITICAL):
-${config.promptInstruction}`)
+  sections.push(config.promptInstruction)
 
   // Text direction guidance for RTL languages
   if (config.direction === 'rtl') {
-    sections.push(`TEXT DIRECTION: This is a RIGHT-TO-LEFT language. All text must flow from right to left. Align text to the right edge and ensure the visual design accommodates RTL reading flow.`)
+    sections.push(`This is a right-to-left language. All text should flow from right to left with right-aligned text.`)
   }
 
   // Typography guidance
-  sections.push(`TYPOGRAPHY FOR ${config.name.toUpperCase()}:
-${config.typographyGuidance}`)
+  sections.push(`${config.name} typography: ${config.typographyGuidance}`)
 
   // Font recommendations
-  sections.push(`RECOMMENDED FONTS: ${config.fontFamilies.slice(0, 3).join(', ')}`)
+  sections.push(`Recommended fonts: ${config.fontFamilies.slice(0, 3).join(', ')}`)
 
-  // Text rendering hints
+  // Text rendering hints as a sentence
   if (config.textRenderingHints.length > 0) {
-    sections.push(`TEXT RENDERING HINTS:
-${config.textRenderingHints.map((hint) => `- ${hint}`).join('\n')}`)
+    sections.push(`Typography tips: ${config.textRenderingHints.join('. ')}.`)
   }
 
   return sections.join('\n\n')

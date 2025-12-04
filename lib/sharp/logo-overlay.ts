@@ -194,13 +194,25 @@ export async function processImageWithLogos(
 }
 
 /**
+ * Resize mode for exact dimension fitting
+ * - 'fill': Stretch/distort to exact dimensions (best after AI resize - AI handled composition)
+ * - 'cover': Crop to fill (maintains aspect ratio, may lose content)
+ * - 'contain': Fit inside with letterboxing (maintains all content, adds bars)
+ */
+export type ResizeFitMode = 'fill' | 'cover' | 'contain'
+
+/**
  * Resize an image to exact dimensions
- * Uses 'cover' fit to maintain aspect ratio and crop to fill
+ * @param imageDataUrl - Source image as data URL or http URL
+ * @param targetWidth - Target width in pixels
+ * @param targetHeight - Target height in pixels
+ * @param mode - Resize mode: 'fill' (default, stretch), 'cover' (crop), 'contain' (letterbox)
  */
 export async function resizeImageToExactDimensions(
   imageDataUrl: string,
   targetWidth: number,
-  targetHeight: number
+  targetHeight: number,
+  mode: ResizeFitMode = 'fill'
 ): Promise<string> {
   // Extract buffer from data URL or fetch from URL
   let imageBuffer: Buffer
@@ -219,16 +231,38 @@ export async function resizeImageToExactDimensions(
   const currentWidth = metadata.width || targetWidth
   const currentHeight = metadata.height || targetHeight
 
-  console.log(`Resizing image from ${currentWidth}x${currentHeight} to ${targetWidth}x${targetHeight}`)
+  console.log(`Resizing image from ${currentWidth}x${currentHeight} to ${targetWidth}x${targetHeight} (mode: ${mode})`)
 
-  // Resize to exact dimensions using 'cover' (fills and crops)
-  const resizedBuffer = await sharp(imageBuffer)
-    .resize(targetWidth, targetHeight, {
-      fit: 'cover',
-      position: 'center',
-    })
-    .png()
-    .toBuffer()
+  // Resize based on mode
+  let resizedBuffer: Buffer
+
+  if (mode === 'fill') {
+    // Stretch to exact dimensions - best for AI-resized images where AI handled composition
+    resizedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, {
+        fit: 'fill', // Stretch/distort to exact dimensions
+      })
+      .png()
+      .toBuffer()
+  } else if (mode === 'contain') {
+    // Fit inside with background - preserves all content
+    resizedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, {
+        fit: 'contain',
+        background: { r: 255, g: 255, b: 255, alpha: 1 }, // White background for letterboxing
+      })
+      .png()
+      .toBuffer()
+  } else {
+    // 'cover' mode - crop to fill (original behavior)
+    resizedBuffer = await sharp(imageBuffer)
+      .resize(targetWidth, targetHeight, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .png()
+      .toBuffer()
+  }
 
   return `data:image/png;base64,${resizedBuffer.toString('base64')}`
 }

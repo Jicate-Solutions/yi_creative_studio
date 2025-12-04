@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useCreativeStore } from '@/stores/creative-store'
 import type { VerticalPreset } from '@/types/database.types'
 
+// Re-export the type for convenience
+export type { VerticalPreset }
+
 export function useVerticals() {
   // Memoize supabase client to prevent recreation on every render
   const supabase = useMemo(() => createClient(), [])

@@ -15,6 +15,7 @@ interface PreviewPanelProps {
   generatedImage?: string | null
   creativeId?: string | null
   onExportClick?: () => void
+  onFullViewClick?: () => void
 }
 
 // Type for form field values
@@ -27,11 +28,21 @@ interface FormFieldValues {
   description?: string
 }
 
-export function PreviewPanel({ className, isGenerating, generatedImage, creativeId, onExportClick }: PreviewPanelProps) {
+export function PreviewPanel({ className, isGenerating, generatedImage, creativeId, onExportClick, onFullViewClick }: PreviewPanelProps) {
   const { formData, selectedTemplate, selectedVertical, selectedFormat, templateResize } = useCreativeStore()
 
   // Get the effective template image URL (prefer resized if available)
   const effectiveTemplateUrl = templateResize.resizedTemplateUrl || selectedTemplate?.image_url
+
+  // Calculate aspect ratio from selected format for preview container
+  const getAspectRatioStyle = () => {
+    if (selectedFormat) {
+      const ratio = selectedFormat.width / selectedFormat.height
+      return { aspectRatio: `${ratio}` }
+    }
+    // Default to square if no format selected
+    return { aspectRatio: '1' }
+  }
 
   // Extract form field values with proper typing
   const fieldValues = formData.formData as FormFieldValues
@@ -45,8 +56,11 @@ export function PreviewPanel({ className, isGenerating, generatedImage, creative
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 pb-4">
-        {/* Preview Image Area */}
-        <div className="aspect-square rounded-xl bg-gradient-to-br from-muted/50 to-muted border-2 border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden relative">
+        {/* Preview Image Area - aspect ratio matches selected format */}
+        <div
+          className="rounded-xl bg-gradient-to-br from-muted/50 to-muted border-2 border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden relative"
+          style={getAspectRatioStyle()}
+        >
           {/* Format dimensions badge (top-right) */}
           {selectedFormat && (
             <Badge
@@ -56,6 +70,19 @@ export function PreviewPanel({ className, isGenerating, generatedImage, creative
               <Maximize2 className="h-2.5 w-2.5 mr-1" />
               {selectedFormat.width}×{selectedFormat.height}
             </Badge>
+          )}
+
+          {/* Full View button (top-left) - only when generated image exists */}
+          {generatedImage && onFullViewClick && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute top-2 left-2 z-10 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+              onClick={onFullViewClick}
+              title="Full View"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
           )}
 
           {/* Check generatedImage first - if image exists, show it immediately */}
