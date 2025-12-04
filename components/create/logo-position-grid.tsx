@@ -26,6 +26,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
+import { Slider } from '@/components/ui/slider'
 import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, Maximize2, Sparkles, Info } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
 import { isPositionLocked, getLockedPosition, getLogoLockConfig } from '@/lib/config/logo-locks'
@@ -346,17 +347,18 @@ export function LogoPositionGrid() {
               return (
                 <div
                   key={placement.logoId}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-lg bg-muted/50 border gap-2"
+                  className="flex flex-col p-3 rounded-lg bg-muted/50 border gap-3"
                 >
+                  {/* Logo Info Header */}
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-background border p-1.5 flex-shrink-0">
+                    <div className="w-12 h-12 rounded-lg bg-background border p-1.5 flex-shrink-0">
                       <img
                         src={logo.thumbnail_url || logo.file_url}
                         alt={logo.name}
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm font-medium truncate">{logo.name}</span>
                       {logoIsLocked && (
                         <span className="text-[10px] text-amber-600 dark:text-amber-500 flex items-center gap-1">
@@ -365,93 +367,12 @@ export function LogoPositionGrid() {
                         </span>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    {/* Size Selector */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center">
-                          <Maximize2 className="h-3.5 w-3.5 text-muted-foreground mr-1.5 hidden sm:block" />
-                          <Select
-                            value={typeof currentSize === 'string' ? currentSize : 'medium'}
-                            onValueChange={(size) =>
-                              updateLogoSize(placement.logoId, size as LogoSizePreset)
-                            }
-                          >
-                            <SelectTrigger className="w-[90px] h-8 text-xs">
-                              <SelectValue placeholder="Size" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getLogoSizeOptionsArray().map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  <div className="flex items-center gap-2">
-                                    <span>{option.label}</span>
-                                    <span className="text-muted-foreground text-[10px]">
-                                      {option.pixels}px
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>
-                          {typeof currentSize === 'string' && LOGO_SIZE_OPTIONS[currentSize as LogoSizePreset]
-                            ? LOGO_SIZE_OPTIONS[currentSize as LogoSizePreset].description
-                            : `${currentSize}px`}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Position Selector */}
-                    {logoIsLocked ? (
-                      // Show locked position indicator instead of dropdown
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                            <Lock className="h-3 w-3" />
-                            {POSITION_LABELS[placement.position]}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[200px]">
-                          <p>{lockConfig?.description || 'This logo position is locked per brand guidelines'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      // Show position dropdown for non-locked logos
-                      <Select
-                        value={placement.position}
-                        onValueChange={(pos) =>
-                          updateLogoPosition(placement.logoId, pos as LogoPosition)
-                        }
-                      >
-                        <SelectTrigger className="w-[110px] h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LOGO_POSITIONS.map((pos) => (
-                            <SelectItem
-                              key={pos}
-                              value={pos}
-                              disabled={
-                                placedPositions.includes(pos) &&
-                                pos !== placement.position
-                              }
-                            >
-                              {POSITION_LABELS[pos]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                           onClick={() => removeLogoPlacement(placement.logoId)}
                         >
                           <X className="h-4 w-4" />
@@ -459,6 +380,107 @@ export function LogoPositionGrid() {
                       </TooltipTrigger>
                       <TooltipContent>Remove logo</TooltipContent>
                     </Tooltip>
+                  </div>
+
+                  {/* Size & Position Controls */}
+                  <div className="flex flex-col gap-3">
+                    {/* Size Selector - Enhanced with ToggleGroup + Slider */}
+                    <div className="flex flex-col gap-2 p-3 rounded-lg bg-muted/30 border">
+                      <div className="flex items-center gap-1.5">
+                        <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium">Size</span>
+                        <Badge variant="secondary" className="text-[10px] ml-auto">
+                          {typeof currentSize === 'number'
+                            ? `${currentSize}px`
+                            : `${LOGO_SIZE_OPTIONS[currentSize as LogoSizePreset]?.pixels || 100}px`}
+                        </Badge>
+                      </div>
+
+                      {/* Preset Size ToggleGroup */}
+                      <ToggleGroup
+                        type="single"
+                        value={typeof currentSize === 'string' ? currentSize : undefined}
+                        onValueChange={(size) => size && updateLogoSize(placement.logoId, size as LogoSizePreset)}
+                        className="justify-start"
+                      >
+                        {getLogoSizeOptionsArray().map((option) => (
+                          <Tooltip key={option.value}>
+                            <TooltipTrigger asChild>
+                              <ToggleGroupItem
+                                value={option.value}
+                                className="text-xs px-3 h-7 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                              >
+                                {option.label === 'Extra Large' ? 'XL' : option.label[0]}
+                              </ToggleGroupItem>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p>{option.label} ({option.pixels}px) - {option.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </ToggleGroup>
+
+                      {/* Custom Size Slider */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground shrink-0">Custom</span>
+                        <Slider
+                          value={[typeof currentSize === 'number'
+                            ? currentSize
+                            : LOGO_SIZE_OPTIONS[currentSize as LogoSizePreset]?.pixels || 100]}
+                          min={30}
+                          max={300}
+                          step={10}
+                          onValueChange={([value]) => updateLogoSize(placement.logoId, value)}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Position Selector */}
+                    <div className="flex items-center gap-2">
+                      <Move className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium">Position</span>
+                      {logoIsLocked ? (
+                        // Show locked position indicator instead of dropdown
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-medium ml-auto">
+                              <Lock className="h-3 w-3" />
+                              {POSITION_LABELS[placement.position]}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px]">
+                            <p>{lockConfig?.description || 'This logo position is locked per brand guidelines'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        // Show position dropdown for non-locked logos
+                        <Select
+                          value={placement.position}
+                          onValueChange={(pos) =>
+                            updateLogoPosition(placement.logoId, pos as LogoPosition)
+                          }
+                        >
+                          <SelectTrigger className="w-[130px] h-8 text-xs ml-auto">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LOGO_POSITIONS.map((pos) => (
+                              <SelectItem
+                                key={pos}
+                                value={pos}
+                                disabled={
+                                  placedPositions.includes(pos) &&
+                                  pos !== placement.position
+                                }
+                              >
+                                {POSITION_LABELS[pos]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   </div>
                 </div>
               )

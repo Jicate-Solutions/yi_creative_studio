@@ -23,7 +23,41 @@ import {
   type CreativeSchema,
   type SchemaField,
 } from '@/lib/schemas/creativeSchemas'
+import {
+  getFormatFields,
+  getFormatSchema,
+  validateFormatFormData,
+  type DynamicField as FormatDynamicField,
+} from '@/lib/schemas/formatFieldSchemas'
 import type { CreativeFormatId } from '@/lib/config/creative-formats'
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// Convert verticalName to verticalId (snake_case)
+function getVerticalId(verticalName?: string): string | undefined {
+  if (!verticalName) return undefined
+  return verticalName
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+}
+
+// Convert FormatDynamicField to SchemaField for compatibility
+function formatFieldToSchemaField(field: FormatDynamicField): SchemaField {
+  return {
+    id: field.id,
+    label: field.label,
+    type: field.type,
+    required: field.required,
+    placeholder: field.placeholder,
+    maxLength: field.maxLength,
+    rows: field.rows,
+    options: field.options,
+    suggestable: field.suggestable,
+  }
+}
 import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -343,19 +377,51 @@ export function DynamicDetailsForm({
 }: DynamicDetailsFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Get static schema for current format (fallback)
+  // Get static schema for current format (legacy fallback)
   const staticSchema = useMemo(() => getCreativeSchema(formatId), [formatId])
 
-  // Use dynamic schema if available, otherwise fallback to static
+  // Get vertical ID from vertical name for format-specific field lookup
+  const verticalId = useMemo(() => getVerticalId(verticalName), [verticalName])
+
+  // Get format-specific fields (new system with per-format definitions)
+  const formatSpecificFields = useMemo(() => {
+    if (!formatId) return []
+    return getFormatFields(formatId, verticalId)
+  }, [formatId, verticalId])
+
+  // Get format schema metadata
+  const formatSchema = useMemo(() => formatId ? getFormatSchema(formatId) : null, [formatId])
+
+  // Priority: AI-generated > Format-specific > Static schema (fallback)
   const effectiveFields = useMemo<SchemaField[]>(() => {
+    // 1. AI-generated dynamic schema takes highest priority
     if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
       return dynamicSchema.fields.map(dynamicToSchemaField)
     }
+
+    // 2. Format-specific fields from formatFieldSchemas.ts (new system)
+    if (formatSpecificFields.length > 0) {
+      return formatSpecificFields.map(formatFieldToSchemaField)
+    }
+
+    // 3. Static schema fallback (legacy)
     return staticSchema.fields
-  }, [dynamicSchema, staticSchema])
+  }, [dynamicSchema, formatSpecificFields, staticSchema])
+
+  // Determine which schema source is being used
+  const schemaSource = useMemo(() => {
+    if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
+      return 'ai-generated'
+    }
+    if (formatSpecificFields.length > 0) {
+      return 'format-specific'
+    }
+    return 'static-fallback'
+  }, [dynamicSchema, formatSpecificFields])
 
   // Create an effective schema object for validation
   const schema = useMemo<CreativeSchema>(() => {
+    // AI-generated schema
     if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
       return {
         type: staticSchema.type,
@@ -364,8 +430,31 @@ export function DynamicDetailsForm({
         fields: effectiveFields,
       }
     }
+
+    // Format-specific schema
+    if (formatSchema && formatSpecificFields.length > 0) {
+      return {
+        type: staticSchema.type,
+        displayName: formatSchema.displayName,
+        description: formatSchema.designNotes || staticSchema.description,
+        fields: effectiveFields,
+      }
+    }
+
+    // Static fallback
     return staticSchema
-  }, [dynamicSchema, staticSchema, effectiveFields])
+  }, [dynamicSchema, staticSchema, effectiveFields, formatSchema, formatSpecificFields])
+
+  // Get display name for the form header
+  const displayName = useMemo(() => {
+    if (dynamicSchema?.schemaType) {
+      return dynamicSchema.schemaType
+    }
+    if (formatSchema?.displayName) {
+      return formatSchema.displayName
+    }
+    return staticSchema.displayName
+  }, [dynamicSchema, formatSchema, staticSchema])
 
   // Get suggestable fields
   const suggestableFieldIds = useMemo(() => {
@@ -436,8 +525,9 @@ export function DynamicDetailsForm({
     return titleValue.length >= 5
   }, [titleField, getFieldValue])
 
-  // Is using AI-generated schema
-  const isUsingDynamicSchema = dynamicSchema?.fields && dynamicSchema.fields.length > 0
+  // Is using AI-generated schema (for badge display)
+  const isUsingAISchema = schemaSource === 'ai-generated'
+  const isUsingFormatSchema = schemaSource === 'format-specific'
 
   return (
     <Card>
@@ -446,11 +536,16 @@ export function DynamicDetailsForm({
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              {staticSchema.displayName} Details
-              {isUsingDynamicSchema && !isDynamicSchemaFallback && (
+              {displayName} Details
+              {isUsingAISchema && !isDynamicSchemaFallback && (
                 <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 text-xs">
                   <Sparkles className="h-3 w-3 mr-1" />
                   AI Fields
+                </Badge>
+              )}
+              {isUsingFormatSchema && (
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700 text-xs">
+                  Format Fields
                 </Badge>
               )}
               {isDynamicSchemaFallback && (
@@ -461,8 +556,8 @@ export function DynamicDetailsForm({
             </CardTitle>
             <CardDescription className="mt-1">
               {verticalName
-                ? `Fill in the details for your ${verticalName} ${staticSchema.displayName.toLowerCase()}`
-                : staticSchema.description}
+                ? `Fill in the details for your ${verticalName} ${displayName.toLowerCase()}`
+                : schema.description}
             </CardDescription>
           </div>
           {isDynamicSchemaLoading && (
@@ -656,12 +751,15 @@ export function DynamicDetailsForm({
             variant="outline"
             className={cn(
               "text-xs",
-              isUsingDynamicSchema && !isDynamicSchemaFallback && "bg-purple-50 border-purple-200"
+              isUsingAISchema && !isDynamicSchemaFallback && "bg-purple-50 border-purple-200",
+              isUsingFormatSchema && "bg-blue-50 border-blue-200"
             )}
           >
-            {isUsingDynamicSchema && !isDynamicSchemaFallback
+            {isUsingAISchema && !isDynamicSchemaFallback
               ? `AI: ${dynamicSchema?.schemaType || 'Generated'}`
-              : `${staticSchema.displayName} Schema`
+              : isUsingFormatSchema
+                ? `${displayName}${verticalId ? ` + ${verticalName}` : ''}`
+                : `${staticSchema.displayName} Schema`
             }
           </Badge>
         </div>

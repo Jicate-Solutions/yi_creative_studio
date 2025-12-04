@@ -4,14 +4,17 @@ import Image from 'next/image'
 import { useCreativeStore } from '@/stores/creative-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Eye, Image as ImageIcon, Sparkles, Calendar, MapPin, User } from 'lucide-react'
+import { Eye, Image as ImageIcon, Sparkles, Calendar, MapPin, User, Loader2, Maximize2, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PreviewPanelProps {
   className?: string
   isGenerating?: boolean
   generatedImage?: string | null
+  creativeId?: string | null
+  onExportClick?: () => void
 }
 
 // Type for form field values
@@ -24,8 +27,11 @@ interface FormFieldValues {
   description?: string
 }
 
-export function PreviewPanel({ className, isGenerating, generatedImage }: PreviewPanelProps) {
-  const { formData, selectedTemplate, selectedVertical } = useCreativeStore()
+export function PreviewPanel({ className, isGenerating, generatedImage, creativeId, onExportClick }: PreviewPanelProps) {
+  const { formData, selectedTemplate, selectedVertical, selectedFormat, templateResize } = useCreativeStore()
+
+  // Get the effective template image URL (prefer resized if available)
+  const effectiveTemplateUrl = templateResize.resizedTemplateUrl || selectedTemplate?.image_url
 
   // Extract form field values with proper typing
   const fieldValues = formData.formData as FormFieldValues
@@ -41,6 +47,17 @@ export function PreviewPanel({ className, isGenerating, generatedImage }: Previe
       <CardContent className="space-y-3 pb-4">
         {/* Preview Image Area */}
         <div className="aspect-square rounded-xl bg-gradient-to-br from-muted/50 to-muted border-2 border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden relative">
+          {/* Format dimensions badge (top-right) */}
+          {selectedFormat && (
+            <Badge
+              variant="secondary"
+              className="absolute top-2 right-2 z-10 text-[10px] font-mono bg-background/80 backdrop-blur-sm"
+            >
+              <Maximize2 className="h-2.5 w-2.5 mr-1" />
+              {selectedFormat.width}×{selectedFormat.height}
+            </Badge>
+          )}
+
           {/* Check generatedImage first - if image exists, show it immediately */}
           {generatedImage ? (
             <img
@@ -63,13 +80,31 @@ export function PreviewPanel({ className, isGenerating, generatedImage }: Previe
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce" />
               </div>
             </div>
-          ) : selectedTemplate ? (
+          ) : templateResize.isResizing ? (
+            // Template resize loading state
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="relative">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 text-amber-500 animate-spin" />
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-4">Adapting template to format...</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                {selectedFormat?.label}
+              </p>
+            </div>
+          ) : effectiveTemplateUrl ? (
+            // Show template (resized or original)
             <Image
-              src={selectedTemplate.image_url}
+              src={effectiveTemplateUrl}
               alt="Template preview"
               fill
               sizes="(max-width: 768px) 100vw, 400px"
-              className="object-cover opacity-80"
+              className={cn(
+                "object-cover",
+                templateResize.resizedTemplateUrl ? "opacity-100" : "opacity-80"
+              )}
             />
           ) : (
             <div className="text-center text-muted-foreground p-6">
@@ -83,14 +118,33 @@ export function PreviewPanel({ className, isGenerating, generatedImage }: Previe
             </div>
           )}
 
-          {/* Template overlay indicator */}
-          {selectedTemplate && !generatedImage && !isGenerating && (
+          {/* Template info overlay */}
+          {selectedTemplate && !generatedImage && !isGenerating && !templateResize.isResizing && (
             <div className="absolute bottom-3 left-3 right-3">
               <div className="bg-background/90 backdrop-blur-sm rounded-lg p-2 text-xs">
                 <p className="font-medium truncate">{selectedTemplate.name}</p>
-                <p className="text-muted-foreground">
-                  {selectedTemplate.width} × {selectedTemplate.height}
+                <p className="text-muted-foreground flex items-center gap-1">
+                  {templateResize.resizedTemplateUrl ? (
+                    <>
+                      <span className="text-green-600">Adapted to</span>
+                      {selectedFormat?.width} × {selectedFormat?.height}
+                    </>
+                  ) : (
+                    <>
+                      {selectedTemplate.width} × {selectedTemplate.height}
+                    </>
+                  )}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Template resize error indicator */}
+          {templateResize.resizeError && !generatedImage && (
+            <div className="absolute bottom-3 left-3 right-3">
+              <div className="bg-destructive/90 backdrop-blur-sm rounded-lg p-2 text-xs text-destructive-foreground">
+                <p className="font-medium">Resize failed</p>
+                <p className="opacity-80 truncate">{templateResize.resizeError}</p>
               </div>
             </div>
           )}
@@ -147,15 +201,30 @@ export function PreviewPanel({ className, isGenerating, generatedImage }: Previe
           )}
         </div>
 
-        {/* Generation Stats (when generated) */}
+        {/* Generation Stats & Quick Export (when generated) */}
         {generatedImage && (
-          <div className="pt-2 border-t">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>AI Generated</span>
-              <Badge variant="outline" className="text-[10px] py-0 h-5">
-                <Sparkles className="h-2.5 w-2.5 mr-1" />
-                Ready to download
-              </Badge>
+          <div className="pt-3 border-t">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Sparkles className="h-3 w-3 text-primary" />
+                <span>AI Generated</span>
+              </div>
+              {onExportClick && creativeId ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onExportClick}
+                  className="h-7 text-xs gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary"
+                >
+                  <Download className="h-3 w-3" />
+                  Download
+                </Button>
+              ) : (
+                <Badge variant="outline" className="text-[10px] py-0 h-5">
+                  <Sparkles className="h-2.5 w-2.5 mr-1" />
+                  Ready to download
+                </Badge>
+              )}
             </div>
           </div>
         )}

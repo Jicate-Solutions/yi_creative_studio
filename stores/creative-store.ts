@@ -115,6 +115,19 @@ const initialAIDesignSuggestions: AIDesignSuggestions = {
   hasFetchedSuggestions: false,
 }
 
+// Template Resize State (Canva-style Magic Resize)
+interface TemplateResizeState {
+  isResizing: boolean
+  resizedTemplateUrl: string | null
+  resizeError: string | null
+}
+
+const initialTemplateResizeState: TemplateResizeState = {
+  isResizing: false,
+  resizedTemplateUrl: null,
+  resizeError: null,
+}
+
 interface CreativeState {
   // Available data
   verticals: VerticalPreset[]
@@ -139,6 +152,9 @@ interface CreativeState {
 
   // Dynamic Schema state (AI-generated form fields)
   dynamicSchema: DynamicSchemaState
+
+  // Template Resize state (Canva-style Magic Resize)
+  templateResize: TemplateResizeState
 
   // Generation state
   isGenerating: boolean
@@ -230,6 +246,12 @@ interface CreativeState {
   setDynamicSchemaError: (error: string | null) => void
   clearDynamicSchema: () => void
 
+  // Template Resize Actions (Canva-style Magic Resize)
+  checkTemplateFormatMismatch: () => boolean
+  resizeTemplateToFormat: () => Promise<void>
+  clearResizedTemplate: () => void
+  setTemplateResizeError: (error: string | null) => void
+
   resetForm: () => void
 }
 
@@ -275,6 +297,7 @@ export const useCreativeStore = create<CreativeState>()(
       aiForm: initialAIFormState,
       aiDesignSuggestions: initialAIDesignSuggestions,
       dynamicSchema: initialDynamicSchemaState,
+      templateResize: initialTemplateResizeState,
       isGenerating: false,
       generationProgress: 0,
       generatedImage: null,
@@ -945,6 +968,107 @@ export const useCreativeStore = create<CreativeState>()(
           dynamicSchema: initialDynamicSchemaState,
         }),
 
+      // Template Resize Actions (Canva-style Magic Resize)
+      checkTemplateFormatMismatch: () => {
+        const { selectedTemplate, selectedFormat } = get()
+
+        // No mismatch if either is missing
+        if (!selectedTemplate || !selectedFormat) return false
+
+        // No mismatch if template has no dimensions
+        if (!selectedTemplate.width || !selectedTemplate.height) return false
+
+        const templateRatio = selectedTemplate.width / selectedTemplate.height
+        const formatRatio = selectedFormat.width / selectedFormat.height
+        const tolerance = 0.1 // 10% tolerance
+
+        // Return true if aspect ratios differ by more than tolerance
+        return Math.abs(templateRatio - formatRatio) / formatRatio > tolerance
+      },
+
+      resizeTemplateToFormat: async () => {
+        const { selectedTemplate, selectedFormat, templateResize } = get()
+
+        // Guard clauses
+        if (!selectedTemplate || !selectedFormat) {
+          console.warn('[Resize] Missing template or format')
+          return
+        }
+
+        if (!selectedTemplate.image_url) {
+          console.warn('[Resize] Template has no image URL')
+          return
+        }
+
+        // Set loading state
+        set({
+          templateResize: {
+            ...templateResize,
+            isResizing: true,
+            resizeError: null,
+          },
+        })
+
+        try {
+          const response = await fetch('/api/resize-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              templateUrl: selectedTemplate.image_url,
+              targetWidth: selectedFormat.width,
+              targetHeight: selectedFormat.height,
+              originalWidth: selectedTemplate.width,
+              originalHeight: selectedTemplate.height,
+              preserveText: true,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.resizedImageUrl) {
+            set({
+              templateResize: {
+                isResizing: false,
+                resizedTemplateUrl: data.resizedImageUrl,
+                resizeError: null,
+              },
+            })
+            console.log(`[Resize] Success via ${data.method}`)
+          } else {
+            set({
+              templateResize: {
+                isResizing: false,
+                resizedTemplateUrl: null,
+                resizeError: data.error || 'Failed to resize template',
+              },
+            })
+          }
+        } catch (error) {
+          console.error('[Resize] Error:', error)
+          set({
+            templateResize: {
+              isResizing: false,
+              resizedTemplateUrl: null,
+              resizeError: error instanceof Error ? error.message : 'Network error',
+            },
+          })
+        }
+      },
+
+      clearResizedTemplate: () =>
+        set({
+          templateResize: initialTemplateResizeState,
+        }),
+
+      setTemplateResizeError: (error) =>
+        set((state) => ({
+          templateResize: {
+            ...state.templateResize,
+            resizeError: error,
+            isResizing: false,
+          },
+        })),
+
       resetForm: () =>
         set({
           formData: initialFormData,
@@ -955,6 +1079,7 @@ export const useCreativeStore = create<CreativeState>()(
           aiForm: initialAIFormState,
           aiDesignSuggestions: initialAIDesignSuggestions,
           dynamicSchema: initialDynamicSchemaState,
+          templateResize: initialTemplateResizeState,
           generatedImage: null,
           generationError: null,
           generationProgress: 0,

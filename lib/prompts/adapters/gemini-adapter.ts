@@ -90,16 +90,15 @@ ${intent.brand.headerHeight > 0 || intent.brand.footerHeight > 0 ? `RESERVED ZON
 - The image should BE the poster itself, not SHOW the poster
 - Integrate branding elements naturally within the design flow`}
 
-${intent.logoAwareness?.hasLogos ? `LOGO SAFE ZONES (CRITICAL - READ CAREFULLY):
-${intent.logoAwareness.layoutGuidance}
+${intent.logoAwareness?.hasLogos ? `COMPOSITION FOR BRANDING:
+Organization branding elements will be added after image generation.
 
-IMPORTANT: Organization logos will be DIGITALLY OVERLAID after image generation.
-Your job is to:
-1. Create designs where logo zones have CLEAN, SIMPLE backgrounds for optimal visibility
-2. AVOID placing important text, headlines, or key visuals in logo zones
-3. Structure the composition so content naturally FLOWS AROUND reserved logo areas
-4. Use subtle gradients, solid colors, or minimal patterns behind where logos will appear
-5. DO NOT generate placeholder logos, text saying "LOGO HERE", or any temporary markers` : ''}
+Design requirements:
+1. Create designs with CLEAN, SIMPLE backgrounds in areas reserved for branding
+2. Place main content (headlines, key visuals) in the central design areas
+3. Structure composition so content flows naturally around reserved branding spaces
+4. Use subtle gradients, solid colors, or minimal patterns in branding areas
+5. DO NOT generate placeholder text or markers for branding` : ''}
 
 TECHNICAL SPECIFICATIONS:
 - Dimensions: ${intent.dimensions.width}px × ${intent.dimensions.height}px
@@ -124,28 +123,42 @@ GOLDEN RULES (NON-NEGOTIABLE):
 
 /**
  * Sanitize layout guidance to remove technical instructions that might be rendered as text
- * The AI sometimes generates text like "Reserve the top 120px for logos" which gets
- * interpreted as visible text by Gemini's image model instead of composition guidance
+ * The AI sometimes interprets instruction text as content to render in the image.
+ *
+ * CRITICAL: This function must remove ALL technical/instruction-like text including:
+ * - Pixel values (120px, etc.)
+ * - Technical keywords (ZONE, CRITICAL, LAYOUT RULES, etc.)
+ * - Instructional phrases (Keep the top, Reserve space, etc.)
  */
 function sanitizeLayoutGuidance(guidance: string): string {
   if (!guidance) return ''
 
   // Remove pixel values and technical terms that shouldn't be rendered as text
   let sanitized = guidance
-    .replace(/\d+px/gi, '') // Remove "120px", "150px" etc
-    .replace(/reserve\s*(the)?\s*(top|bottom|left|right|space)?/gi, '') // Remove "reserve the top"
-    .replace(/header\s*logo\s*zone/gi, 'top area')
-    .replace(/footer\s*(logo\s*)?zone/gi, 'bottom area')
+    // Remove ALL pixel measurements
+    .replace(/~?\d+\s*px/gi, '')
+    // Remove technical keywords that look like instructions
+    .replace(/\b(CRITICAL|ZONE|RULES|LAYOUT|PLACEMENT|RESERVE|HEADER|FOOTER|OVERLAY|AWARENESS)\b/gi, '')
+    .replace(/TOP ZONE:|BOTTOM ZONE:|CENTER ZONE:|SIDE ZONE:/gi, '')
+    .replace(/LOGO PLACEMENT AWARENESS:/gi, '')
+    .replace(/CRITICAL LAYOUT RULES.*?:/gi, '')
+    // Remove instructional phrases
+    .replace(/reserve\s*(the)?\s*(top|bottom|left|right|space)?/gi, '')
+    .replace(/keep\s*(the)?\s*(top|bottom|left|right|areas?)?\s*(clear)?/gi, '')
+    .replace(/for\s*(header\s*)?logo(s)?/gi, '')
     .replace(/for\s*organization\s*logo\(s\)/gi, '')
     .replace(/for\s*contact\s*info(rmation)?\s*(and\s*branding)?/gi, '')
-    .replace(/overlay(s)?/gi, '')
-    .replace(/placement/gi, 'positioning')
-    .replace(/zone(s)?/gi, 'area')
+    .replace(/will\s*be\s*(digitally\s*)?(overlaid|placed)/gi, '')
+    // Clean up residual formatting
+    .replace(/side\(s\)/gi, 'side')
+    .replace(/\s*-\s*/g, ' ')
     .replace(/\s+/g, ' ')
+    .replace(/^\s*[,.:]+\s*/g, '') // Remove leading punctuation
+    .replace(/\s*[,.:]+\s*$/g, '') // Remove trailing punctuation
     .trim()
 
-  // If mostly sanitized away (less than 20 chars of meaningful content), skip it
-  if (sanitized.length < 20) return ''
+  // If mostly sanitized away (less than 15 chars of meaningful content), skip it
+  if (sanitized.length < 15) return ''
 
   return sanitized
 }
@@ -442,8 +455,12 @@ function buildCompactPrompt(intent: PromptIntent): string {
   parts.push(`⚠️ CANVAS: EXACTLY ${intent.dimensions.width}×${intent.dimensions.height}px. ZERO gray bars/margins allowed. Fill EVERY pixel edge-to-edge. Use background color ${intent.brand.backgroundColor} NOT gray if you need neutral space.`)
 
   // 2b. Logo safe zones (critical for Smart Layout)
-  if (intent.logoAwareness?.hasLogos) {
-    parts.push(`LOGO SAFE ZONES: ${intent.logoAwareness.layoutGuidance} Keep these areas clean/simple - logos will be overlaid after generation.`)
+  // IMPORTANT: Sanitize guidance to prevent instruction text from appearing in generated image
+  if (intent.logoAwareness?.hasLogos && intent.logoAwareness.layoutGuidance) {
+    const sanitizedGuidance = sanitizeLayoutGuidance(intent.logoAwareness.layoutGuidance)
+    if (sanitizedGuidance) {
+      parts.push(`Composition: ${sanitizedGuidance}`)
+    }
   }
 
   // 3. Design Intelligence context (most important - from AI Stage 1)

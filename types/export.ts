@@ -336,3 +336,49 @@ export function validateExportParams(params: ExportParams): string | null {
 
   return null;
 }
+
+/**
+ * Estimate file size based on export parameters
+ * @returns estimated size in bytes
+ */
+export function estimateFileSize(
+  originalWidth: number,
+  originalHeight: number,
+  params: Pick<ExportParams, 'format' | 'resolution' | 'quality' | 'colorMode'>
+): number {
+  // Base calculation: pixels * bytes per pixel
+  const scaleFactor = params.resolution / 72;
+  const pixels = originalWidth * originalHeight * scaleFactor * scaleFactor;
+
+  // Format-specific multipliers (accounting for compression)
+  const formatMultipliers: Record<ExportFormat, number> = {
+    png: 2, // 4 bytes per pixel (RGBA), compressed ~50%
+    jpg: 0.3, // Heavily compressed, quality dependent
+    tiff: 3.5, // LZW compression
+    pdf: 2.5, // Similar to PNG with metadata
+  };
+
+  let estimate = pixels * formatMultipliers[params.format];
+
+  // JPEG quality adjustment (higher quality = larger file)
+  if (params.format === 'jpg' && params.quality) {
+    estimate *= (params.quality / 100) * 1.5;
+  }
+
+  // CMYK adds ~25% for additional color channel
+  if (isCMYKMode(params.colorMode)) {
+    estimate *= 1.25;
+  }
+
+  // Minimum file size of 100KB
+  return Math.max(Math.round(estimate), 100 * 1024);
+}
+
+/**
+ * Format file size for display
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

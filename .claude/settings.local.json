@@ -160,7 +160,12 @@
       "mcp__chrome-devtools__fill",
       "mcp__chrome-devtools__evaluate_script",
       "mcp__plugin_compounding-engineering_playwright__browser_run_code",
-      "mcp__plugin_compounding-engineering_playwright__browser_type"
+      "mcp__plugin_compounding-engineering_playwright__browser_type",
+      "Bash(BashOutput 2ef4e7)",
+      "mcp__actor-critic-thinking__actor-critic-thinking",
+      "mcp__plugin_compounding-engineering_context7__get-library-docs",
+      "mcp__memory__create_entities",
+      "mcp__memory__create_relations"
     ],
     "deny": [],
     "ask": [],

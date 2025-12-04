@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +23,7 @@ import {
   FileType,
   Ruler,
   Sparkles,
+  HardDrive,
 } from "lucide-react";
 import { useExport } from "@/hooks/use-export";
 import { ColorModeSelector } from "./color-mode-selector";
@@ -30,6 +31,7 @@ import { FormatSelector } from "./format-selector";
 import { ResolutionSelector } from "./resolution-selector";
 import { QualitySlider } from "./quality-slider";
 import { cn } from "@/lib/utils";
+import { estimateFileSize, formatFileSize } from "@/types/export";
 
 interface ExportModalProps {
   open: boolean;
@@ -52,6 +54,7 @@ export function ExportModal({
     status,
     error,
     options,
+    progressStage,
     setFormat,
     setColorMode,
     setResolution,
@@ -61,6 +64,15 @@ export function ExportModal({
     showQualitySetting,
     reset,
   } = useExport();
+
+  // Progress stage messages for better UX
+  const PROGRESS_MESSAGES: Record<string, string> = {
+    preparing: 'Preparing export...',
+    processing: 'Processing image...',
+    converting: 'Converting color profile...',
+    downloading: 'Starting download...',
+    complete: 'Export complete!',
+  };
 
   // Reset on open
   useEffect(() => {
@@ -72,14 +84,25 @@ export function ExportModal({
   const handleExport = async () => {
     const success = await exportCreative(creativeId, creativeName);
     if (success) {
-      // Close modal after successful export with slight delay
+      // Close modal after successful export with longer delay for user to see success
       setTimeout(() => {
         onOpenChange(false);
-      }, 1500);
+      }, 3000);
     }
   };
 
   const availableFormats = getAvailableFormats();
+
+  // Estimate file size based on current options (use 1080x1350 as default dimensions)
+  const estimatedSize = useMemo(() => {
+    const estimate = estimateFileSize(1080, 1350, {
+      format: options.format,
+      resolution: options.resolution,
+      quality: options.quality,
+      colorMode: options.colorMode,
+    });
+    return formatFileSize(estimate);
+  }, [options]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -180,7 +203,7 @@ export function ExportModal({
         </Tabs>
 
         {/* Compact Summary Bar */}
-        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground border-t bg-muted/30 rounded-md">
+        <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-muted-foreground border-t bg-muted/30 rounded-md">
           <span className="font-medium">{options.colorMode === "rgb" ? "RGB" : "CMYK"}</span>
           <span>•</span>
           <span className="font-medium">{options.format.toUpperCase()}</span>
@@ -192,6 +215,11 @@ export function ExportModal({
               <span className="font-medium">{options.quality}%</span>
             </>
           )}
+          <span>•</span>
+          <span className="font-medium flex items-center gap-1">
+            <HardDrive className="h-3 w-3" />
+            ~{estimatedSize}
+          </span>
         </div>
 
         {/* Error Alert */}
@@ -202,29 +230,36 @@ export function ExportModal({
           </Alert>
         )}
 
-        {/* Progress */}
+        {/* Progress & Success State */}
         {isExporting && (
-          <div className="space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20 mt-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className={cn(
-                "font-medium flex items-center gap-2",
-                status === "complete" ? "text-green-600" : "text-primary"
-              )}>
-                {status === "complete" ? (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    Export complete!
-                  </>
-                ) : (
-                  <>
+          <div className="mt-2">
+            {status === "complete" ? (
+              // Success celebration UI
+              <div className="flex flex-col items-center justify-center py-6 px-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 animate-in fade-in-0 zoom-in-95">
+                <div className="h-14 w-14 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center mb-3">
+                  <CheckCircle className="h-7 w-7 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="font-semibold text-green-700 dark:text-green-300">Download Started!</p>
+                <p className="text-sm text-green-600/80 dark:text-green-400/80 mt-1">Check your downloads folder</p>
+              </div>
+            ) : (
+              // Progress UI with contextual messages
+              <div className="space-y-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium flex items-center gap-2 text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
+                    {progressStage ? PROGRESS_MESSAGES[progressStage] : 'Processing...'}
+                  </span>
+                  <span className="font-semibold tabular-nums">{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+                {progressStage === 'converting' && options.colorMode.startsWith('cmyk') && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Converting to CMYK color profile for print...
+                  </p>
                 )}
-              </span>
-              <span className="font-semibold">{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
+              </div>
+            )}
           </div>
         )}
 

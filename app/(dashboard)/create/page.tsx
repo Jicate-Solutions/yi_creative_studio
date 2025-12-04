@@ -232,6 +232,11 @@ export default function CreatePage() {
     dynamicSchema,
     generateDynamicSchema,
     clearDynamicSchema,
+    // Template resize (Canva-style Magic Resize)
+    templateResize,
+    checkTemplateFormatMismatch,
+    resizeTemplateToFormat,
+    clearResizedTemplate,
   } = useCreativeStore()
 
   // UI Store for create mode sidebar
@@ -315,6 +320,28 @@ export default function CreatePage() {
       clearDynamicSchema()
     }
   }, [selectedVertical?.id, formData.formatId, generateDynamicSchema, clearDynamicSchema, currentOrganization?.id])
+
+  // Clear resized template when format changes (user selected a different format)
+  useEffect(() => {
+    clearResizedTemplate()
+  }, [selectedFormat?.id, clearResizedTemplate])
+
+  // Auto-resize template when format mismatches (Canva-style Magic Resize)
+  useEffect(() => {
+    const shouldResize = checkTemplateFormatMismatch()
+    if (shouldResize && selectedTemplate && selectedFormat && !templateResize.isResizing) {
+      resizeTemplateToFormat()
+    }
+  }, [selectedTemplate?.id, selectedFormat?.id, checkTemplateFormatMismatch, resizeTemplateToFormat, templateResize.isResizing])
+
+  // Show toast notification for resize errors
+  useEffect(() => {
+    if (templateResize.resizeError) {
+      toast.error(`Template resize failed: ${templateResize.resizeError}`, {
+        description: 'Using original template instead.',
+      })
+    }
+  }, [templateResize.resizeError])
 
   const creditCost = getModelCost()
   const canGenerate = selectedVertical && selectedModel && canAfford(creditCost) && isOnline

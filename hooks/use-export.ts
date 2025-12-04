@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { toast } from "sonner";
 import type {
   ExportParams,
   ExportFormat,
@@ -20,6 +21,11 @@ import {
 } from "@/types/export";
 
 /**
+ * Progress stage type for contextual feedback
+ */
+type ProgressStage = 'preparing' | 'processing' | 'converting' | 'downloading' | 'complete' | null;
+
+/**
  * Export state interface
  */
 interface ExportState {
@@ -28,6 +34,7 @@ interface ExportState {
   status: ExportStatus | null;
   error: string | null;
   lastExport: ExportJob | null;
+  progressStage: ProgressStage;
 }
 
 /**
@@ -38,6 +45,42 @@ interface ExportOptions {
   colorMode: ColorMode;
   resolution: ExportResolution;
   quality: number;
+}
+
+const EXPORT_SETTINGS_KEY = 'yi-creative-export-settings';
+
+/**
+ * Get initial export options from localStorage or defaults
+ */
+function getInitialOptions(): ExportOptions {
+  if (typeof window === 'undefined') {
+    return {
+      format: "png",
+      colorMode: "rgb",
+      resolution: 300,
+      quality: 90,
+    };
+  }
+
+  try {
+    const saved = localStorage.getItem(EXPORT_SETTINGS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Validate the parsed data has expected shape
+      if (parsed.format && parsed.colorMode && parsed.resolution) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load export settings:', e);
+  }
+
+  return {
+    format: "png",
+    colorMode: "rgb",
+    resolution: 300,
+    quality: 90,
+  };
 }
 
 /**
@@ -51,14 +94,21 @@ export function useExport() {
     status: null,
     error: null,
     lastExport: null,
+    progressStage: null,
   });
 
-  const [options, setOptions] = useState<ExportOptions>({
-    format: "png",
-    colorMode: "rgb",
-    resolution: 300,
-    quality: 90,
-  });
+  const [options, setOptions] = useState<ExportOptions>(getInitialOptions);
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(EXPORT_SETTINGS_KEY, JSON.stringify(options));
+      } catch (e) {
+        console.warn('Failed to save export settings:', e);
+      }
+    }
+  }, [options]);
 
   /**
    * Update export options
@@ -140,6 +190,10 @@ export function useExport() {
       const validationError = validateOptions(creativeId);
       if (validationError) {
         setState((prev) => ({ ...prev, error: validationError }));
+        toast.error('Invalid export options', {
+          description: validationError,
+          duration: 5000,
+        });
         return false;
       }
 
@@ -149,13 +203,17 @@ export function useExport() {
         status: "processing",
         error: null,
         lastExport: null,
+        progressStage: 'preparing',
       });
 
       try {
-        // Simulate progress updates
-        setState((prev) => ({ ...prev, progress: 20 }));
+        // Preparing stage
+        setState((prev) => ({ ...prev, progress: 10, progressStage: 'preparing' }));
 
         console.log('[Export] Starting export with:', { creativeId, options });
+
+        // Processing stage
+        setState((prev) => ({ ...prev, progress: 20, progressStage: 'processing' }));
 
         const response = await fetch("/api/export", {
           method: "POST",
@@ -171,7 +229,12 @@ export function useExport() {
           }),
         });
 
-        setState((prev) => ({ ...prev, progress: 80 }));
+        // Converting stage (especially for CMYK)
+        setState((prev) => ({
+          ...prev,
+          progress: 60,
+          progressStage: isCMYKMode(options.colorMode) ? 'converting' : 'processing'
+        }));
 
         console.log('[Export] Response status:', response.status);
 
@@ -180,6 +243,9 @@ export function useExport() {
           console.error('[Export] Error response:', errorData);
           throw new Error(errorData.error || "Export failed");
         }
+
+        // Downloading stage
+        setState((prev) => ({ ...prev, progress: 80, progressStage: 'downloading' }));
 
         // Get the blob
         const blob = await response.blob();
@@ -215,10 +281,12 @@ export function useExport() {
         // Delay revoking URL to ensure download starts
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
+        // Complete stage
         setState((prev) => ({
           ...prev,
           progress: 100,
           status: "complete",
+          progressStage: 'complete',
           lastExport: {
             id: crypto.randomUUID(),
             creativeId,
@@ -234,15 +302,22 @@ export function useExport() {
           },
         }));
 
-        // Reset after a delay
+        // Show success toast
+        toast.success('Download started!', {
+          description: `${filename} is being downloaded`,
+          duration: 4000,
+        });
+
+        // Reset after a delay (longer to show success state)
         setTimeout(() => {
           setState((prev) => ({
             ...prev,
             isExporting: false,
             progress: 0,
             status: null,
+            progressStage: null,
           }));
-        }, 2000);
+        }, 3000);
 
         return true;
       } catch (error) {
@@ -253,7 +328,15 @@ export function useExport() {
           status: "error",
           error: message,
           lastExport: null,
+          progressStage: null,
         });
+
+        // Show error toast
+        toast.error('Export failed', {
+          description: message,
+          duration: 5000,
+        });
+
         return false;
       }
     },
@@ -268,7 +351,7 @@ export function useExport() {
   }, []);
 
   /**
-   * Reset state
+   * Reset state (keeps user's saved options preferences)
    */
   const reset = useCallback(() => {
     setState({
@@ -277,13 +360,9 @@ export function useExport() {
       status: null,
       error: null,
       lastExport: null,
+      progressStage: null,
     });
-    setOptions({
-      format: "png",
-      colorMode: "rgb",
-      resolution: 300,
-      quality: 90,
-    });
+    // Note: Options are NOT reset - they persist from localStorage
   }, []);
 
   /**
@@ -313,6 +392,7 @@ export function useExport() {
     status: state.status,
     error: state.error,
     lastExport: state.lastExport,
+    progressStage: state.progressStage,
 
     // Options
     options,

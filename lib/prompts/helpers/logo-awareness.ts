@@ -87,66 +87,58 @@ function getHorizontalPositions(zones: LogoSafeZone[]): string {
 /**
  * Build comprehensive layout guidance string for AI prompt
  * This is the main text that tells the AI where NOT to place content
+ *
+ * IMPORTANT: Avoid using technical keywords, pixel values, or instruction-like
+ * text that AI image models might render as actual text in the design.
+ * Use natural, descriptive language about spatial composition instead.
  */
 export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   if (safeZones.length === 0) {
     return ''
   }
 
-  const positionList = safeZones
-    .map((z) => LOGO_POSITION_DESCRIPTIONS[z.position])
-    .join(', ')
-
   const { top, middle, bottom } = groupZonesByRegion(safeZones)
-
   const lines: string[] = []
 
-  lines.push('LOGO PLACEMENT AWARENESS:')
-  lines.push(`Organization logos will be digitally overlaid at: ${positionList}.`)
-  lines.push('')
-  lines.push('CRITICAL LAYOUT RULES - AVOID THESE ZONES:')
+  // Use natural composition language, not technical instructions
+  lines.push('Reserve clear space for branding elements:')
 
-  // Top region guidance
+  // Top region guidance - semantic description only
   if (top.length > 0) {
     const horizontalPos = getHorizontalPositions(top)
-    const maxSize = Math.max(...top.map((z) => z.sizePixels)) + EDGE_PADDING
     lines.push(
-      `- TOP ZONE: Keep the top ~${maxSize}px on the ${horizontalPos} side(s) clear - no headlines, key text, or important visuals here.`
+      `Use simple, uncluttered background in the upper ${horizontalPos} area.`
     )
   }
 
-  // Bottom region guidance
+  // Bottom region guidance - semantic description only
   if (bottom.length > 0) {
     const horizontalPos = getHorizontalPositions(bottom)
-    const maxSize = Math.max(...bottom.map((z) => z.sizePixels)) + EDGE_PADDING
     lines.push(
-      `- BOTTOM ZONE: Keep the bottom ~${maxSize}px on the ${horizontalPos} side(s) clear for logo placement.`
+      `Keep the lower ${horizontalPos} area clean with minimal elements.`
     )
   }
 
-  // Middle region guidance
+  // Middle region guidance - semantic description only
   if (middle.length > 0) {
     const hasCenter = middle.some((z) => z.position === 'center')
     if (hasCenter) {
       lines.push(
-        `- CENTER ZONE: A logo will be placed at the center - structure content to flow around this area.`
+        `Design with breathing room at the center for branding.`
       )
     } else {
       const horizontalPos = getHorizontalPositions(middle)
       lines.push(
-        `- SIDE ZONE: Keep the ${horizontalPos} middle area clear for logo placement.`
+        `Maintain clear space on the ${horizontalPos} side at mid-height.`
       )
     }
   }
 
-  lines.push('')
-  lines.push('DESIGN APPROACH:')
-  lines.push('- Use clean, simple backgrounds in logo zones for optimal visibility')
-  lines.push('- Place headlines, key messages, and important imagery AWAY from logo zones')
-  lines.push('- Structure the visual hierarchy so content naturally flows around reserved areas')
-  lines.push('- Avoid busy patterns or dark elements directly behind where logos will appear')
+  // General composition guidance - natural language
+  lines.push('Position main content and headlines away from these reserved areas.')
+  lines.push('Use solid or gradient backgrounds in branding spaces for best visibility.')
 
-  return lines.join('\n')
+  return lines.join(' ')
 }
 
 /**

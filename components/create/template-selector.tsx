@@ -32,6 +32,7 @@ import {
   Filter,
   Maximize2,
   RectangleHorizontal,
+  Wand2,
 } from 'lucide-react'
 
 interface TemplateSelectorProps {
@@ -256,6 +257,15 @@ export function TemplateSelector({
                               >
                                 <RectangleHorizontal className="h-3 w-3 mr-1" />
                                 {selectedFormat.aspectRatio}
+                              </Badge>
+                            )}
+                            {selectedFormat && !isFormatMatch(template) && (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs shadow-sm bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                              >
+                                <Wand2 className="h-3 w-3 mr-1" />
+                                Will adapt
                               </Badge>
                             )}
                           </div>
