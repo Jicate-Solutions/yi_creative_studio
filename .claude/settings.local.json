@@ -34,7 +34,9 @@
       "Bash(head:*)",
       "Bash(del \"C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.next\\dev\\lock\")",
       "mcp__supabase__get_logs",
-      "mcp__supabase__get_advisors"
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_tables"
     ],
     "deny": [],
     "ask": [],
