@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, Suspense, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useCreativeStore } from '@/stores/creative-store'
@@ -77,7 +77,6 @@ import {
   AITriggerButton,
 } from '@/components/create/ai-suggestion-field'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
-import { DynamicDetailsForm } from '@/components/create/DynamicDetailsForm'
 import { SaveTemplateDialog } from '@/components/create/SaveTemplateDialog'
 import { CreateSidebar } from '@/components/create/create-sidebar'
 import { useUIStore } from '@/stores/ui-store'
@@ -116,6 +115,11 @@ const ExportModal = dynamic(
 const ImagePreviewModal = dynamic(
   () => import('@/components/create/image-preview-modal').then(mod => ({ default: mod.ImagePreviewModal })),
   { ssr: false }
+)
+
+const DynamicDetailsForm = dynamic(
+  () => import('@/components/create/DynamicDetailsForm').then(mod => ({ default: mod.DynamicDetailsForm })),
+  { loading: () => <ComponentLoadingSkeleton type="design" /> }
 )
 
 // Loading skeleton for dynamically imported components
@@ -206,7 +210,7 @@ const STEPS: Step[] = [
 
 export default function CreatePage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization } = useAuthStore()
 
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
@@ -294,15 +298,26 @@ export default function CreatePage() {
     organizationType: currentOrganization?.type || 'yi_chapter',
   })
 
+  // Get the title field ID dynamically (same logic as DynamicDetailsForm)
+  const getTitleFieldId = useCallback(() => {
+    if (!selectedFormat?.id) return 'title'
+    const fields = getFormatFields(selectedFormat.id, selectedVertical?.slug)
+    const titleField = fields.find(f => f.suggestable && f.type === 'text' && f.required)
+    return titleField?.id || 'title'
+  }, [selectedFormat?.id, selectedVertical?.slug])
+
   // Handle AI suggestion trigger
   const handleRequestSuggestions = useCallback(async () => {
-    const title = (formData.formData as { title?: string }).title || ''
+    const titleFieldId = getTitleFieldId()
+    const formDataObj = formData.formData as Record<string, unknown>
+    const title = (formDataObj[titleFieldId] as string) || ''
+
     if (title.length < 5) {
       toast.error('Enter at least 5 characters in the title to get suggestions')
       return
     }
     await requestSuggestions(title)
-  }, [formData.formData, requestSuggestions])
+  }, [formData.formData, requestSuggestions, getTitleFieldId])
 
   // Get field value helper
   const getFieldValue = useCallback(
@@ -338,15 +353,28 @@ export default function CreatePage() {
     }
   }, [selectedVertical?.id, formData.formatId, generateDynamicSchema, clearDynamicSchema, currentOrganization?.id])
 
+  // Track which template+format combinations have been resized to prevent duplicate calls
+  const resizeAttemptedRef = useRef<string | null>(null)
+
   // Clear resized template when format changes (user selected a different format)
   useEffect(() => {
     clearResizedTemplate()
+    // Reset the resize attempt tracker when format changes
+    resizeAttemptedRef.current = null
   }, [selectedFormat?.id, clearResizedTemplate])
 
   // Auto-resize template when format mismatches (Canva-style Magic Resize)
   useEffect(() => {
+    const currentKey = `${selectedTemplate?.id}-${selectedFormat?.id}`
+
+    // Skip if we've already attempted this combination
+    if (resizeAttemptedRef.current === currentKey) {
+      return
+    }
+
     const shouldResize = checkTemplateFormatMismatch()
     if (shouldResize && selectedTemplate && selectedFormat && !templateResize.isResizing) {
+      resizeAttemptedRef.current = currentKey
       resizeTemplateToFormat()
     }
   }, [selectedTemplate?.id, selectedFormat?.id, checkTemplateFormatMismatch, resizeTemplateToFormat, templateResize.isResizing])

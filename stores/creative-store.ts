@@ -883,41 +883,59 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })
 
-        try {
-          const response = await fetch('/api/generate-fields', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              formatId,
-              verticalSlug,
-              organizationId,
-            }),
-          })
+        // Retry configuration for reliability
+        const maxRetries = 2
+        const baseDelay = 1000 // 1 second
 
-          const data = await response.json()
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await fetch('/api/generate-fields', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                formatId,
+                verticalSlug,
+                organizationId,
+              }),
+            })
 
-          if (data.success) {
-            set({
-              dynamicSchema: {
-                schema: data.schema,
-                isLoading: false,
-                error: null,
-                cacheKey,
-                isFallback: false,
-              },
-            })
-          } else if (data.fallbackSchema) {
-            // API returned a fallback schema
-            set({
-              dynamicSchema: {
-                schema: data.fallbackSchema,
-                isLoading: false,
-                error: data.error || null,
-                cacheKey,
-                isFallback: true,
-              },
-            })
-          } else {
+            const data = await response.json()
+
+            if (data.success) {
+              set({
+                dynamicSchema: {
+                  schema: data.schema,
+                  isLoading: false,
+                  error: null,
+                  cacheKey,
+                  isFallback: false,
+                },
+              })
+              return // Success - exit retry loop
+            }
+
+            // If got fallback but more retries available, try again on timeout
+            if (data.fallbackSchema && attempt < maxRetries && data.code === 'TIMEOUT') {
+              console.log(`[DynamicSchema] Attempt ${attempt + 1} timed out, retrying...`)
+              await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)))
+              continue
+            }
+
+            // No more retries or non-timeout failure - use fallback
+            if (data.fallbackSchema) {
+              set({
+                dynamicSchema: {
+                  schema: data.fallbackSchema,
+                  isLoading: false,
+                  error: data.error || null,
+                  cacheKey,
+                  isFallback: true,
+                },
+              })
+              return
+            }
+
+            // No fallback available
             set({
               dynamicSchema: {
                 schema: null,
@@ -927,18 +945,25 @@ export const useCreativeStore = create<CreativeState>()(
                 isFallback: false,
               },
             })
+            return
+          } catch (error) {
+            if (attempt < maxRetries) {
+              console.log(`[DynamicSchema] Network error on attempt ${attempt + 1}, retrying...`)
+              await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)))
+              continue
+            }
+
+            console.error('Failed to generate dynamic schema:', error)
+            set({
+              dynamicSchema: {
+                schema: null,
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'Network error',
+                cacheKey,
+                isFallback: false,
+              },
+            })
           }
-        } catch (error) {
-          console.error('Failed to generate dynamic schema:', error)
-          set({
-            dynamicSchema: {
-              schema: null,
-              isLoading: false,
-              error: error instanceof Error ? error.message : 'Network error',
-              cacheKey,
-              isFallback: false,
-            },
-          })
         }
       },
 

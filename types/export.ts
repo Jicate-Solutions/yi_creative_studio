@@ -182,6 +182,125 @@ export const EXPORT_RESOLUTIONS: ResolutionInfo[] = [
 ];
 
 // ============================================================
+// EXPORT PURPOSE (User-Centric Presets)
+// ============================================================
+
+/**
+ * Export purposes for user-friendly selection
+ * - social: Optimized for social media (Instagram, Facebook, WhatsApp)
+ * - print: Professional print-ready (CMYK, high DPI)
+ * - quick: Quick download with balanced quality
+ * - custom: Full manual control (Pro mode)
+ */
+export type ExportPurpose = 'social' | 'print' | 'quick' | 'custom';
+
+/**
+ * Export options for a specific purpose
+ */
+export interface ExportPurposeOptions {
+  format: ExportFormat;
+  resolution: ExportResolution;
+  colorMode: ColorMode;
+  quality: number;
+}
+
+/**
+ * Purpose display information
+ */
+export interface ExportPurposeInfo {
+  id: ExportPurpose;
+  name: string;
+  description: string;
+  icon: string;
+  options: ExportPurposeOptions;
+  estimatedSizeLabel: string;
+}
+
+/**
+ * All available export purposes with presets
+ */
+export const EXPORT_PURPOSES: ExportPurposeInfo[] = [
+  {
+    id: 'social',
+    name: 'Social Media',
+    description: 'Instagram, Facebook, WhatsApp',
+    icon: 'smartphone',
+    options: {
+      format: 'jpg',
+      resolution: 72,
+      colorMode: 'rgb',
+      quality: 85,
+    },
+    estimatedSizeLabel: '~2 MB',
+  },
+  {
+    id: 'print',
+    name: 'Print Ready',
+    description: 'Professional printing',
+    icon: 'printer',
+    options: {
+      format: 'pdf',
+      resolution: 300,
+      colorMode: 'cmyk-fogra39',
+      quality: 100,
+    },
+    estimatedSizeLabel: '~15 MB',
+  },
+  {
+    id: 'quick',
+    name: 'Quick Download',
+    description: 'Best for most uses',
+    icon: 'zap',
+    options: {
+      format: 'png',
+      resolution: 150,
+      colorMode: 'rgb',
+      quality: 100,
+    },
+    estimatedSizeLabel: '~5 MB',
+  },
+  {
+    id: 'custom',
+    name: 'Custom Settings',
+    description: 'Full control',
+    icon: 'settings',
+    options: {
+      format: 'png',
+      resolution: 300,
+      colorMode: 'rgb',
+      quality: 100,
+    },
+    estimatedSizeLabel: 'Varies',
+  },
+];
+
+/**
+ * Get purpose info by ID
+ */
+export function getPurposeInfo(purpose: ExportPurpose): ExportPurposeInfo | undefined {
+  return EXPORT_PURPOSES.find((p) => p.id === purpose);
+}
+
+/**
+ * Get default options for a purpose
+ */
+export function getPurposeOptions(purpose: ExportPurpose): ExportPurposeOptions {
+  const purposeInfo = getPurposeInfo(purpose);
+  return purposeInfo?.options ?? EXPORT_PURPOSES[2].options; // Default to quick
+}
+
+// ============================================================
+// EXPORT MODE (Simple vs Pro)
+// ============================================================
+
+/**
+ * Export mode for UI
+ * - simple: Purpose-based selection (default for regular users)
+ * - pro: Full control with all options (for designers)
+ */
+export type ExportMode = 'simple' | 'pro';
+
+// ============================================================
 // EXPORT REQUEST/RESPONSE
 // ============================================================
 

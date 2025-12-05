@@ -27,7 +27,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, className, initialAuthData }: DashboardLayoutProps) {
-  const { setProfile, setMembership, setCurrentOrganization, setOrganizations } = useAuthStore()
+  const { setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated } = useAuthStore()
   const { createModeActive } = useUIStore()
 
   // Hydrate auth store with server-fetched data
@@ -45,8 +45,11 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
       if (initialAuthData.organizations) {
         setOrganizations(initialAuthData.organizations)
       }
+      // Clear loading state and mark as server-hydrated to prevent double fetching
+      setLoading(false)
+      setServerHydrated(true)
     }
-  }, [initialAuthData, setProfile, setMembership, setCurrentOrganization, setOrganizations])
+  }, [initialAuthData, setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated])
 
   return (
     <RoleProvider>

@@ -1,13 +1,13 @@
 'use client'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Organization, OrganizationMember, BrandConfig } from '@/types/database.types'
 import { toast } from 'sonner'
 
 export function useOrganization() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const {
     currentOrganization,
     membership,

@@ -1,15 +1,15 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Organization, UserProfile, OrganizationMember } from '@/types/database.types'
 
 // Timeout constants for auth operations
-// Increased timeout to handle cold starts and slow connections
-const AUTH_INIT_TIMEOUT_MS = 15000 // 15 seconds for initial auth (increased from 10)
-const USER_DATA_TIMEOUT_MS = 8000 // 8 seconds for user data queries (increased from 5)
+// Fast timeout for good UX - auth state changes will recover if needed
+const AUTH_INIT_TIMEOUT_MS = 2000 // 2 seconds for initial auth (optimized for fast failure recovery)
+const USER_DATA_TIMEOUT_MS = 2000 // 2 seconds for user data queries (optimized)
 
 interface AuthContextType {
   user: User | null
@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   currentOrganization: Organization | null
+  initialized: boolean
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>
 }
@@ -25,7 +26,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+  // Memoize supabase client to prevent infinite auth request loops
+  // Without this, createClient() creates new reference each render,
+  // causing useCallback deps to change, triggering useEffect infinitely
+  const supabase = useMemo(() => createClient(), [])
   const [initialized, setInitialized] = useState(false)
 
   const {
@@ -46,6 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } = useAuthStore()
 
   const fetchUserData = useCallback(async (userId: string) => {
+    // Skip if already hydrated from server-side data in dashboard layout
+    // This prevents duplicate API calls when the dashboard layout has already fetched the data
+    const currentState = useAuthStore.getState()
+    if (currentState.serverHydrated && currentState.profile && currentState.currentOrganization) {
+      console.log('[Auth] Skipping fetchUserData - already hydrated from server')
+      return
+    }
+
     try {
       // Create timeout promise - client-side Supabase queries can hang
       const timeoutPromise = new Promise<null>((resolve) => {
@@ -213,8 +225,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Setting session and fetching user data for:', newSession.user.id)
           setSession(newSession)
           setUser(newSession.user)
-          await fetchUserData(newSession.user.id)
-          console.log('User data fetched')
+          setLoading(false) // Clear loading immediately - don't block on user data fetch
+
+          // Fetch user data in background - non-blocking for better UX
+          fetchUserData(newSession.user.id).catch(err =>
+            console.warn('[Auth] Background user data fetch failed:', err)
+          )
+          console.log('Session set, user data fetching in background')
         } else if (event === 'SIGNED_OUT') {
           reset()
         } else if (event === 'TOKEN_REFRESHED' && newSession) {
@@ -230,15 +247,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, setLoading, setSession, setUser, fetchUserData, reset])
 
-  // Don't render children until initialized
-  if (!initialized) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    )
-  }
-
+  // Always render children immediately - no blocking spinner
+  // The dashboard layout already gates access server-side via middleware
+  // Components can check `initialized` or `isLoading` if they need to show loading states
   return (
     <AuthContext.Provider
       value={{
@@ -248,6 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated,
         currentOrganization,
+        initialized,
         signOut,
         refreshSession,
       }}

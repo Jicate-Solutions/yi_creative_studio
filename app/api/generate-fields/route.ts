@@ -47,7 +47,7 @@ interface GenerateFieldsResponse {
 interface GenerateFieldsError {
   success: false
   error: string
-  code: 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'AI_ERROR' | 'TIMEOUT' | 'FALLBACK'
+  code: 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'AI_ERROR' | 'TIMEOUT' | 'FALLBACK' | 'RATE_LIMITED'
   fallbackSchema?: GeneratedSchema
 }
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Too many requests. Please wait a moment.',
-          code: 'TIMEOUT',
+          code: 'RATE_LIMITED',
         } as GenerateFieldsError,
         { status: 429 }
       )
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       const result = await geminiCacheManager.generateContentWithTimeout<GeneratedSchema>(
         FIELD_GENERATION_SYSTEM_PROMPT,
         userPrompt,
-        8000, // 8 second timeout
+        12000, // 12 second timeout (increased from 8s to handle cold starts)
         {
           temperature: 0.7,
           maxTokens: 2048,

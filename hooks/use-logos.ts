@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useCreativeStore } from '@/stores/creative-store'
@@ -9,7 +9,10 @@ import { LOGO_CATEGORIES, type LogoCategory } from '@/lib/config/constants'
 import { toast } from 'sonner'
 
 export function useLogos() {
-  const supabase = createClient()
+  // Memoize supabase client to prevent infinite refetch loops
+  // Without this, createClient() creates new reference each render,
+  // causing useCallback deps to change, triggering useEffect infinitely
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization } = useAuthStore()
   const { logos, setLogos } = useCreativeStore()
   const [isLoading, setIsLoading] = useState(false)
@@ -264,10 +267,13 @@ export function useLogos() {
     return { success, failed }
   }, [currentOrganization?.id, supabase, fetchLogos])
 
-  // Fetch logos on mount
+  // Fetch logos on mount only if not already loaded
+  // This prevents duplicate fetches when multiple components use this hook
   useEffect(() => {
-    fetchLogos()
-  }, [fetchLogos])
+    if (logos.length === 0) {
+      fetchLogos()
+    }
+  }, [fetchLogos, logos.length])
 
   return {
     logos,

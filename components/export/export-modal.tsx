@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Download,
   Loader2,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Sparkles,
   HardDrive,
+  Palette,
+  FileImage,
+  Maximize,
+  Minimize2,
+  Expand,
 } from "lucide-react";
 import { useExport } from "@/hooks/use-export";
 import { ColorModeSelector } from "./color-mode-selector";
@@ -62,13 +69,16 @@ export function ExportModal({
     reset,
   } = useExport();
 
+  // State for full view image preview
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
   // Progress stage messages for better UX
   const PROGRESS_MESSAGES: Record<string, string> = {
-    preparing: 'Preparing export...',
-    processing: 'Processing image...',
-    converting: 'Converting color profile...',
-    downloading: 'Starting download...',
-    complete: 'Export complete!',
+    preparing: "Preparing export...",
+    processing: "Processing image...",
+    converting: "Converting color profile...",
+    downloading: "Starting download...",
+    complete: "Export complete!",
   };
 
   // Reset on open
@@ -91,52 +101,102 @@ export function ExportModal({
   const availableFormats = getAvailableFormats();
 
   // Estimate file size based on current options (use 1080x1350 as default dimensions)
-  const estimatedSize = useMemo(() => {
-    const estimate = estimateFileSize(1080, 1350, {
+  const { estimatedSize, estimatedSizeBytes } = useMemo(() => {
+    const bytes = estimateFileSize(1080, 1350, {
       format: options.format,
       resolution: options.resolution,
       quality: options.quality,
       colorMode: options.colorMode,
     });
-    return formatFileSize(estimate);
+    return {
+      estimatedSize: formatFileSize(bytes),
+      estimatedSizeBytes: bytes,
+    };
   }, [options]);
+
+  // Determine if file size is large
+  const isLargeFile = estimatedSizeBytes > 50_000_000; // > 50MB
+  const isVeryLargeFile = estimatedSizeBytes > 100_000_000; // > 100MB
+
+  // Color mode display name
+  const colorModeDisplay = options.colorMode === "rgb" ? "RGB" : "CMYK";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4">
+        {/* Fixed Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5 text-primary" />
-            Export Creative
+            Download Creative
           </DialogTitle>
-          <DialogDescription>
-            Choose your export settings
+          <DialogDescription className="text-sm">
+            Configure export settings for your creative
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 px-6">
-          <div className="space-y-4 pb-4">
-            {/* Preview */}
+        {/* Scrollable Content Area - Use native overflow instead of ScrollArea */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="px-6 py-4 space-y-5">
+            {/* Preview - With Full View Toggle */}
             {previewUrl && (
-              <div className="flex flex-col items-center p-3 rounded-xl bg-muted/50 border">
-                <img
-                  src={previewUrl}
-                  alt={creativeName}
-                  className="h-32 w-auto object-contain rounded-lg shadow-sm"
-                />
-                <div className="mt-2 text-center">
-                  <p className="font-medium text-sm truncate max-w-[280px]">{creativeName}</p>
-                  <Badge variant="secondary" className="text-xs mt-1">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    AI Generated
-                  </Badge>
+              <div className="flex flex-col items-center p-4 rounded-xl bg-muted/30 border">
+                {/* Image with Full View toggle */}
+                <div className="relative w-full flex justify-center">
+                  <img
+                    src={previewUrl}
+                    alt={creativeName}
+                    className={cn(
+                      "object-contain rounded-lg shadow-sm transition-all duration-300",
+                      showFullPreview
+                        ? "max-h-[50vh] w-auto"
+                        : "h-24 w-auto"
+                    )}
+                  />
+                  {/* Full View Toggle Button */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowFullPreview(!showFullPreview)}
+                    className="absolute top-2 right-2 h-8 w-8 p-0 rounded-full bg-background/80 hover:bg-background shadow-md"
+                  >
+                    {showFullPreview ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Expand className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="font-medium text-sm truncate max-w-[280px]">
+                    {creativeName}
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mt-1.5">
+                    <Badge variant="secondary" className="text-xs">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      AI Generated
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFullPreview(!showFullPreview)}
+                      className="text-xs h-auto py-1 px-2"
+                    >
+                      {showFullPreview ? "Minimize" : "Full View"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
+            <Separator />
+
             {/* Color Mode Section */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Color Mode</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Palette className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Color Mode</h4>
+              </div>
               <ColorModeSelector
                 value={options.colorMode}
                 onChange={setColorMode}
@@ -144,9 +204,14 @@ export function ExportModal({
               />
             </div>
 
+            <Separator />
+
             {/* Format Section */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Format</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileImage className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Format</h4>
+              </div>
               <FormatSelector
                 value={options.format}
                 onChange={setFormat}
@@ -155,9 +220,14 @@ export function ExportModal({
               />
             </div>
 
+            <Separator />
+
             {/* Resolution Section */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Resolution</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Maximize className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Resolution</h4>
+              </div>
               <ResolutionSelector
                 value={options.resolution}
                 onChange={setResolution}
@@ -167,35 +237,73 @@ export function ExportModal({
 
             {/* Quality Slider (JPEG only) */}
             {showQualitySetting && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Quality</h4>
-                <QualitySlider
-                  value={options.quality}
-                  onChange={setQuality}
-                  disabled={isExporting}
-                />
-              </div>
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold">Quality</h4>
+                  <QualitySlider
+                    value={options.quality}
+                    onChange={setQuality}
+                    disabled={isExporting}
+                  />
+                </div>
+              </>
             )}
 
-            {/* Summary Bar */}
-            <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground bg-muted/30 rounded-lg border">
-              <span className="font-medium">{options.colorMode === "rgb" ? "RGB" : "CMYK"}</span>
-              <span>•</span>
-              <span className="font-medium">{options.format.toUpperCase()}</span>
-              <span>•</span>
-              <span className="font-medium">{options.resolution} DPI</span>
-              {showQualitySetting && (
-                <>
-                  <span>•</span>
-                  <span className="font-medium">{options.quality}%</span>
-                </>
-              )}
-              <span>•</span>
-              <span className="font-medium flex items-center gap-1">
-                <HardDrive className="h-3 w-3" />
-                ~{estimatedSize}
-              </span>
-            </div>
+            <Separator />
+
+            {/* File Size Warning */}
+            {isLargeFile && (
+              <Alert variant={isVeryLargeFile ? "destructive" : "default"}>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>
+                  {isVeryLargeFile ? "Very large file" : "Large file size"}
+                </AlertTitle>
+                <AlertDescription>
+                  ~{estimatedSize}. Consider using lower DPI for faster download.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Export Summary Card */}
+            <Card className="bg-muted/30 border-dashed">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wide">
+                    Export Summary
+                  </p>
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="font-medium">
+                      {colorModeDisplay}
+                    </Badge>
+                    <Badge variant="outline" className="font-medium">
+                      {options.format.toUpperCase()}
+                    </Badge>
+                    <Badge variant="outline" className="font-medium">
+                      {options.resolution} DPI
+                    </Badge>
+                    {showQualitySetting && (
+                      <Badge variant="outline" className="font-medium">
+                        {options.quality}%
+                      </Badge>
+                    )}
+                  </div>
+                  <div
+                    className={cn(
+                      "flex items-center justify-center gap-2 text-sm font-semibold",
+                      isVeryLargeFile
+                        ? "text-destructive"
+                        : isLargeFile
+                          ? "text-amber-600 dark:text-amber-500"
+                          : "text-muted-foreground"
+                    )}
+                  >
+                    <HardDrive className="h-4 w-4" />
+                    <span>~{estimatedSize}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Error Alert */}
             {error && (
@@ -214,8 +322,12 @@ export function ExportModal({
                     <div className="h-14 w-14 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center mb-3">
                       <CheckCircle className="h-7 w-7 text-green-600 dark:text-green-400" />
                     </div>
-                    <p className="font-semibold text-green-700 dark:text-green-300">Download Started!</p>
-                    <p className="text-sm text-green-600/80 dark:text-green-400/80 mt-1">Check your downloads folder</p>
+                    <p className="font-semibold text-green-700 dark:text-green-300">
+                      Download Started!
+                    </p>
+                    <p className="text-sm text-green-600/80 dark:text-green-400/80 mt-1">
+                      Check your downloads folder
+                    </p>
                   </div>
                 ) : (
                   // Progress UI with contextual messages
@@ -223,24 +335,30 @@ export function ExportModal({
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium flex items-center gap-2 text-primary">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {progressStage ? PROGRESS_MESSAGES[progressStage] : 'Processing...'}
+                        {progressStage
+                          ? PROGRESS_MESSAGES[progressStage]
+                          : "Processing..."}
                       </span>
-                      <span className="font-semibold tabular-nums">{progress}%</span>
+                      <span className="font-semibold tabular-nums">
+                        {progress}%
+                      </span>
                     </div>
                     <Progress value={progress} className="h-2" />
-                    {progressStage === 'converting' && options.colorMode.startsWith('cmyk') && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        Converting to CMYK color profile for print...
-                      </p>
-                    )}
+                    {progressStage === "converting" &&
+                      options.colorMode.startsWith("cmyk") && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Converting to CMYK color profile for print...
+                        </p>
+                      )}
                   </div>
                 )}
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-muted/30">
+        {/* Fixed Footer */}
+        <DialogFooter className="px-6 py-4 border-t bg-muted/30 shrink-0">
           <div className="flex gap-3 w-full">
             <Button
               variant="outline"

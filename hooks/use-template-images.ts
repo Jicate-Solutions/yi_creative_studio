@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import type { TemplateImage, VerticalPreset } from '@/types/database.types'
@@ -19,7 +19,10 @@ interface FolderFile {
 }
 
 export function useTemplateImages() {
-  const supabase = createClient()
+  // Memoize supabase client to prevent infinite refetch loops
+  // Without this, createClient() creates new reference each render,
+  // causing useCallback deps to change, triggering useEffect infinitely
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user } = useAuthStore()
   const [templateImages, setTemplateImages] = useState<TemplateImage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -346,10 +349,13 @@ export function useTemplateImages() {
     })
   }
 
-  // Fetch on mount
+  // Fetch on mount only if not already loaded
+  // This prevents duplicate fetches when multiple components use this hook
   useEffect(() => {
-    fetchTemplateImages()
-  }, [fetchTemplateImages])
+    if (templateImages.length === 0) {
+      fetchTemplateImages()
+    }
+  }, [fetchTemplateImages, templateImages.length])
 
   return {
     templateImages,

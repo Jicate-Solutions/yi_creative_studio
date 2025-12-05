@@ -534,6 +534,23 @@ const eventPoster: FormatFieldSchema = {
       placeholder: 'e.g., Director, Road Safety Board',
     },
     {
+      id: 'entryFee',
+      label: 'Entry Fee',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 40,
+      placeholder: 'e.g., Free Entry, Rs. 500',
+    },
+    {
+      id: 'targetAudience',
+      label: 'Target Audience',
+      type: 'select',
+      required: false,
+      suggestable: false,
+      options: ['General Public', 'Business Professionals', 'Students', 'Families', 'Youth (18-35)', 'Senior Citizens'],
+    },
+    {
       id: 'registrationInfo',
       label: 'Registration Info',
       type: 'text',
@@ -930,6 +947,15 @@ const certificate: FormatFieldSchema = {
       placeholder: 'For outstanding contribution to...',
     },
     {
+      id: 'style',
+      label: 'Certificate Style',
+      type: 'select',
+      required: false,
+      suggestable: false,
+      options: ['Classic', 'Modern', 'Corporate', 'Academic'],
+      placeholder: 'Select a style',
+    },
+    {
       id: 'dateIssued',
       label: 'Date Issued',
       type: 'date',
@@ -962,6 +988,24 @@ const certificate: FormatFieldSchema = {
       suggestable: false,
       maxLength: 60,
       placeholder: 'e.g., National Chair',
+    },
+    {
+      id: 'signatoryName2',
+      label: 'Second Signatory Name',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 60,
+      placeholder: 'e.g., Jane Doe, Co-Chair',
+    },
+    {
+      id: 'signatoryDesignation2',
+      label: 'Second Signatory Designation',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 60,
+      placeholder: 'e.g., Regional Director',
     },
     {
       id: 'certificateNumber',
@@ -1953,7 +1997,12 @@ export function getFormatFields(
   // Check if this format supports vertical overrides
   if (verticalId && schema.applicableVerticals?.includes(verticalId)) {
     const verticalFields = VERTICAL_FIELD_OVERRIDES[verticalId] || []
-    return [...baseFields, ...verticalFields]
+
+    // Deduplicate: vertical fields OVERRIDE base fields with same ID
+    const verticalFieldIds = new Set(verticalFields.map((f) => f.id))
+    const uniqueBaseFields = baseFields.filter((f) => !verticalFieldIds.has(f.id))
+
+    return [...uniqueBaseFields, ...verticalFields]
   }
 
   return baseFields

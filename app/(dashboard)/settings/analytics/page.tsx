@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import {
@@ -46,13 +46,14 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  const supabase = createClient()
-  const { currentOrganization } = useAuthStore()
+  const supabase = useMemo(() => createClient(), [])
+  const { currentOrganization, isLoading: authLoading, serverHydrated } = useAuthStore()
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d')
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
 
   const fetchAnalytics = useCallback(async () => {
+    // Don't fetch if organization isn't ready yet - but keep loading state
     if (!currentOrganization?.id) return
 
     setIsLoading(true)
@@ -186,7 +187,8 @@ export default function AnalyticsPage() {
         </Select>
       </div>
 
-      {isLoading ? (
+      {/* Show loading if either auth is loading or data is loading */}
+      {(authLoading || isLoading || !currentOrganization?.id) ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-32" />

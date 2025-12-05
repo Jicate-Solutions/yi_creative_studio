@@ -11,6 +11,7 @@ interface AuthState {
   profile: UserProfile | null
   isLoading: boolean
   isAuthenticated: boolean
+  serverHydrated: boolean // Flag to prevent double data fetching
 
   // Organization state
   currentOrganization: Organization | null
@@ -22,6 +23,7 @@ interface AuthState {
   setSession: (session: Session | null) => void
   setProfile: (profile: UserProfile | null) => void
   setLoading: (loading: boolean) => void
+  setServerHydrated: (hydrated: boolean) => void
   setCurrentOrganization: (org: Organization | null) => void
   setMembership: (membership: OrganizationMember | null) => void
   setOrganizations: (orgs: Organization[]) => void
@@ -40,6 +42,7 @@ const initialState = {
   profile: null,
   isLoading: true,
   isAuthenticated: false,
+  serverHydrated: false,
   currentOrganization: null,
   membership: null,
   organizations: [],
@@ -60,6 +63,8 @@ export const useAuthStore = create<AuthState>()(
       setProfile: (profile) => set({ profile }),
 
       setLoading: (isLoading) => set({ isLoading }),
+
+      setServerHydrated: (serverHydrated) => set({ serverHydrated }),
 
       setCurrentOrganization: (currentOrganization) => set({ currentOrganization }),
 

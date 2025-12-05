@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
@@ -54,7 +54,7 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 
 export default function GalleryPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user } = useAuthStore()
   const [creatives, setCreatives] = useState<Creative[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -399,14 +399,15 @@ export default function GalleryPage() {
             </DialogHeader>
 
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Image */}
-              <div className="relative aspect-[4/5] rounded-lg overflow-hidden border">
+              {/* Image - Full View */}
+              <div className="relative rounded-lg overflow-hidden border">
                 <Image
                   src={selectedCreative.image_url}
                   alt={selectedCreative.title || 'Creative'}
-                  fill
+                  width={800}
+                  height={1000}
                   sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-cover"
+                  className="object-contain w-full h-auto"
                   priority
                 />
               </div>
@@ -445,8 +446,12 @@ export default function GalleryPage() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2 pt-4">
+                {/* Action Buttons */}
+                <div className="pt-4 space-y-3">
+                  {/* Primary Action - Download */}
                   <Button
+                    className="w-full"
+                    size="lg"
                     onClick={() => {
                       setCreativeForExport(selectedCreative)
                       setExportModalOpen(true)
@@ -455,34 +460,43 @@ export default function GalleryPage() {
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
+
+                  {/* Secondary Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => toggleFavorite(selectedCreative)}
+                    >
+                      <Heart
+                        className={`h-4 w-4 mr-2 ${
+                          selectedCreative.is_favorite
+                            ? 'fill-red-500 text-red-500'
+                            : ''
+                        }`}
+                      />
+                      {selectedCreative.is_favorite ? 'Unfavorite' : 'Favorite'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => saveAsTemplate(selectedCreative)}
+                      disabled={isSavingTemplate}
+                    >
+                      {isSavingTemplate ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4 mr-2" />
+                      )}
+                      Save as Template
+                    </Button>
+                  </div>
+
+                  {/* Destructive Action */}
                   <Button
-                    variant="outline"
-                    onClick={() => toggleFavorite(selectedCreative)}
-                  >
-                    <Heart
-                      className={`h-4 w-4 mr-2 ${
-                        selectedCreative.is_favorite
-                          ? 'fill-red-500 text-red-500'
-                          : ''
-                      }`}
-                    />
-                    {selectedCreative.is_favorite ? 'Unfavorite' : 'Favorite'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => saveAsTemplate(selectedCreative)}
-                    disabled={isSavingTemplate}
-                  >
-                    {isSavingTemplate ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="h-4 w-4 mr-2" />
-                    )}
-                    Save as Template
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => deleteCreative(selectedCreative.id)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />

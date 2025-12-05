@@ -134,18 +134,44 @@ export async function POST(request: NextRequest) {
     console.log('[Resize] Using AI resize with prompt length:', prompt.length)
 
     // Call Gemini Vision for intelligent resize
-    const resizedImageUrl = await generateResizedTemplate(
-      prompt,
-      templateUrl,
-      targetWidth,
-      targetHeight
-    )
+    try {
+      const resizedImageUrl = await generateResizedTemplate(
+        prompt,
+        templateUrl,
+        targetWidth,
+        targetHeight
+      )
 
-    return NextResponse.json({
-      success: true,
-      resizedImageUrl,
-      method: 'ai_resize',
-    })
+      return NextResponse.json({
+        success: true,
+        resizedImageUrl,
+        method: 'ai_resize',
+      })
+    } catch (aiError) {
+      // If Gemini quota is exceeded, fall back to simple resize
+      if (aiError instanceof Error && aiError.message === 'QUOTA_EXCEEDED') {
+        console.log('[Resize] AI quota exceeded, using simple resize fallback')
+        try {
+          const fallbackImage = await resizeImageToExactDimensions(
+            templateUrl,
+            targetWidth,
+            targetHeight,
+            'fill'
+          )
+          return NextResponse.json({
+            success: true,
+            resizedImageUrl: fallbackImage,
+            method: 'simple_resize_fallback',
+            warning: 'AI resize unavailable (quota exceeded), used simple resize',
+          })
+        } catch (fallbackError) {
+          console.error('[Resize] Fallback resize also failed:', fallbackError)
+          throw new Error('Both AI and simple resize failed')
+        }
+      }
+      // Re-throw other errors
+      throw aiError
+    }
 
   } catch (error) {
     console.error('[Resize Template] Error:', error)
@@ -228,6 +254,13 @@ async function generateResizedTemplate(
     const errorText = await response.text()
     console.error('[Resize] Gemini API error:', response.status)
     console.error('[Resize] Full error response:', errorText)
+
+    // Check if it's a quota error (429)
+    if (response.status === 429) {
+      console.log('[Resize] Quota exceeded, falling back to simple resize')
+      // Return a special marker that tells the caller to use simple resize
+      throw new Error('QUOTA_EXCEEDED')
+    }
 
     // Parse error for better messaging
     let errorMessage = `Gemini API error: ${response.status}`

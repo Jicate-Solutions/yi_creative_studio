@@ -3,8 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Providers } from "@/lib/providers"
 import "./globals.css"
 
-// Force dynamic rendering to ensure environment variables are available at runtime
-export const dynamic = 'force-dynamic'
+// Environment variables are available at runtime without force-dynamic
+// Removed force-dynamic to enable static optimization for root layout
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

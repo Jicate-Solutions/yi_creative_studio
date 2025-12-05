@@ -35,7 +35,6 @@ export function FormatSelector({
     >
       {availableFormats.map((format) => {
         const Icon = FORMAT_ICONS[format.id] || File;
-        const isSelected = value === format.id;
 
         return (
           <ToggleGroupItem

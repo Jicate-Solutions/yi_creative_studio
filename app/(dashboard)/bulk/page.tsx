@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useOrganization } from '@/hooks/use-organization'
@@ -51,7 +51,7 @@ interface BulkItem {
 }
 
 export default function BulkGenerationPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user } = useAuthStore()
   const { creditsBalance, canAfford } = useOrganization()
 

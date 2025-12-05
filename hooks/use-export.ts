@@ -9,6 +9,8 @@ import type {
   ExportResolution,
   ExportJob,
   ExportStatus,
+  ExportPurpose,
+  ExportMode,
 } from "@/types/export";
 import {
   validateExportParams,
@@ -18,6 +20,8 @@ import {
   COLOR_MODES,
   EXPORT_FORMATS,
   EXPORT_RESOLUTIONS,
+  EXPORT_PURPOSES,
+  getPurposeOptions,
 } from "@/types/export";
 
 /**
@@ -45,42 +49,50 @@ interface ExportOptions {
   colorMode: ColorMode;
   resolution: ExportResolution;
   quality: number;
+  purpose: ExportPurpose;
+  mode: ExportMode;
 }
 
 const EXPORT_SETTINGS_KEY = 'yi-creative-export-settings';
+const EXPORT_MODE_KEY = 'yi-creative-export-mode';
 
 /**
  * Get initial export options from localStorage or defaults
  */
 function getInitialOptions(): ExportOptions {
+  const defaultOptions: ExportOptions = {
+    format: "png",
+    colorMode: "rgb",
+    resolution: 150,
+    quality: 100,
+    purpose: "quick",
+    mode: "simple",
+  };
+
   if (typeof window === 'undefined') {
-    return {
-      format: "png",
-      colorMode: "rgb",
-      resolution: 300,
-      quality: 90,
-    };
+    return defaultOptions;
   }
 
   try {
     const saved = localStorage.getItem(EXPORT_SETTINGS_KEY);
+    const savedMode = localStorage.getItem(EXPORT_MODE_KEY);
+
     if (saved) {
       const parsed = JSON.parse(saved);
       // Validate the parsed data has expected shape
       if (parsed.format && parsed.colorMode && parsed.resolution) {
-        return parsed;
+        return {
+          ...defaultOptions,
+          ...parsed,
+          mode: (savedMode as ExportMode) || parsed.mode || 'simple',
+        };
       }
     }
   } catch (e) {
     console.warn('Failed to load export settings:', e);
   }
 
-  return {
-    format: "png",
-    colorMode: "rgb",
-    resolution: 300,
-    quality: 90,
-  };
+  return defaultOptions;
 }
 
 /**
@@ -164,6 +176,41 @@ export function useExport() {
   const setQuality = useCallback(
     (quality: number) => {
       updateOptions({ quality: Math.max(1, Math.min(100, quality)) });
+    },
+    [updateOptions]
+  );
+
+  /**
+   * Set export purpose and auto-apply preset options
+   */
+  const setPurpose = useCallback(
+    (purpose: ExportPurpose) => {
+      const purposeOptions = getPurposeOptions(purpose);
+      updateOptions({
+        purpose,
+        format: purposeOptions.format,
+        colorMode: purposeOptions.colorMode,
+        resolution: purposeOptions.resolution,
+        quality: purposeOptions.quality,
+      });
+    },
+    [updateOptions]
+  );
+
+  /**
+   * Set export mode (simple/pro)
+   */
+  const setMode = useCallback(
+    (mode: ExportMode) => {
+      updateOptions({ mode });
+      // Persist mode separately for quick access
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(EXPORT_MODE_KEY, mode);
+        } catch (e) {
+          console.warn('Failed to save export mode:', e);
+        }
+      }
     },
     [updateOptions]
   );
@@ -400,6 +447,8 @@ export function useExport() {
     colorMode: options.colorMode,
     resolution: options.resolution,
     quality: options.quality,
+    purpose: options.purpose,
+    mode: options.mode,
 
     // Actions
     exportCreative,
@@ -408,6 +457,8 @@ export function useExport() {
     setColorMode,
     setResolution,
     setQuality,
+    setPurpose,
+    setMode,
     validateOptions,
     clearError,
     reset,
@@ -421,5 +472,6 @@ export function useExport() {
     colorModes: COLOR_MODES,
     formats: EXPORT_FORMATS,
     resolutions: EXPORT_RESOLUTIONS,
+    purposes: EXPORT_PURPOSES,
   };
 }

@@ -2,8 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Monitor, Printer } from "lucide-react";
-import type { ColorMode } from "@/types/export";
-import { COLOR_MODES, isCMYKMode } from "@/types/export";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -11,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { ColorMode } from "@/types/export";
+import { COLOR_MODES, isCMYKMode } from "@/types/export";
 
 interface ColorModeSelectorProps {
   value: ColorMode;
@@ -29,82 +30,91 @@ export function ColorModeSelector({
   // Get CMYK modes for the profile selector
   const cmykModes = COLOR_MODES.filter((m) => isCMYKMode(m.id));
 
+  // Determine active tab
+  const activeTab = isRGB ? "digital" : "print";
+
+  const handleTabChange = (tab: string) => {
+    if (tab === "digital") {
+      onChange("rgb");
+    } else if (tab === "print" && !isCMYK) {
+      onChange("cmyk-fogra39"); // Default CMYK profile
+    }
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {/* RGB Card */}
-      <button
-        type="button"
-        onClick={() => onChange("rgb")}
-        disabled={disabled}
-        className={cn(
-          "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-          isRGB
-            ? "border-primary bg-primary/5"
-            : "border-border hover:border-primary/50 hover:bg-muted/50",
-          disabled && "opacity-50 cursor-not-allowed"
-        )}
-      >
-        <div className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
-          isRGB ? "bg-primary/10" : "bg-muted"
-        )}>
-          <Monitor className={cn("h-4 w-4", isRGB ? "text-primary" : "text-muted-foreground")} />
-        </div>
-        <div className="text-left">
-          <div className="font-semibold text-sm">RGB</div>
-          <div className="text-xs text-muted-foreground">Digital / Web</div>
-        </div>
-      </button>
+    <Tabs
+      value={activeTab}
+      onValueChange={handleTabChange}
+      className="w-full"
+    >
+      <TabsList className="grid w-full grid-cols-2 h-12">
+        <TabsTrigger
+          value="digital"
+          disabled={disabled}
+          className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+        >
+          <Monitor className="h-4 w-4" />
+          <span className="font-medium">Digital</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="print"
+          disabled={disabled}
+          className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+        >
+          <Printer className="h-4 w-4" />
+          <span className="font-medium">Print</span>
+        </TabsTrigger>
+      </TabsList>
 
-      {/* CMYK Card */}
-      <button
-        type="button"
-        onClick={() => !isCMYK && onChange("cmyk-fogra39")}
-        disabled={disabled}
-        className={cn(
-          "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
-          isCMYK
-            ? "border-primary bg-primary/5"
-            : "border-border hover:border-primary/50 hover:bg-muted/50",
-          disabled && "opacity-50 cursor-not-allowed"
-        )}
-      >
-        <div className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
-          isCMYK ? "bg-primary/10" : "bg-muted"
-        )}>
-          <Printer className={cn("h-4 w-4", isCMYK ? "text-primary" : "text-muted-foreground")} />
+      <TabsContent value="digital" className="mt-3">
+        <div className="p-3 rounded-lg bg-muted/50 border">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500" />
+            <span className="text-sm font-medium">RGB (sRGB)</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Perfect for web, social media & digital screens
+          </p>
         </div>
-        <div className="text-left">
-          <div className="font-semibold text-sm">CMYK</div>
-          <div className="text-xs text-muted-foreground">Print Ready</div>
-        </div>
-      </button>
+      </TabsContent>
 
-      {/* CMYK Profile Selector - Show below both cards when CMYK is selected */}
-      {isCMYK && (
-        <div className="col-span-2">
-          <Select
-            value={value}
-            onValueChange={(val) => onChange(val as ColorMode)}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Select profile" />
-            </SelectTrigger>
-            <SelectContent>
-              {cmykModes.map((mode) => (
-                <SelectItem key={mode.id} value={mode.id} className="text-xs">
-                  <div>
-                    <span className="font-medium">{mode.name.replace('CMYK ', '')}</span>
-                    <span className="text-muted-foreground ml-1">- {mode.bestFor.split(',')[0]}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <TabsContent value="print" className="mt-3 space-y-3">
+        <div className="p-3 rounded-lg bg-muted/50 border">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5">
+              <div className="h-3 w-3 rounded-full bg-cyan-500" />
+              <div className="h-3 w-3 rounded-full bg-magenta-500" />
+              <div className="h-3 w-3 rounded-full bg-yellow-500" />
+              <div className="h-3 w-3 rounded-full bg-black" />
+            </div>
+            <span className="text-sm font-medium">CMYK</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Professional print-ready color profile
+          </p>
         </div>
-      )}
-    </div>
+
+        {/* CMYK Profile Selector */}
+        <Select
+          value={value}
+          onValueChange={(val) => onChange(val as ColorMode)}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Select print profile" />
+          </SelectTrigger>
+          <SelectContent>
+            {cmykModes.map((mode) => (
+              <SelectItem key={mode.id} value={mode.id}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{mode.name.replace('CMYK ', '')}</span>
+                  <span className="text-xs text-muted-foreground">{mode.bestFor.split(',')[0]}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TabsContent>
+    </Tabs>
   );
 }

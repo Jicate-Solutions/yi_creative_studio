@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -376,6 +377,22 @@ export function DynamicDetailsForm({
   isDynamicSchemaFallback = false,
 }: DynamicDetailsFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const fallbackToastShownRef = useRef(false)
+
+  // Show toast notification when fallback schema is used
+  useEffect(() => {
+    if (isDynamicSchemaFallback && dynamicSchemaError && !fallbackToastShownRef.current) {
+      fallbackToastShownRef.current = true
+      toast.info('Using default fields', {
+        description: 'AI field generation unavailable. Using standard fields for this format.',
+        duration: 5000,
+      })
+    }
+    // Reset when no longer fallback
+    if (!isDynamicSchemaFallback) {
+      fallbackToastShownRef.current = false
+    }
+  }, [isDynamicSchemaFallback, dynamicSchemaError])
 
   // Get static schema for current format (legacy fallback)
   const staticSchema = useMemo(() => getCreativeSchema(formatId), [formatId])
@@ -392,16 +409,37 @@ export function DynamicDetailsForm({
   // Get format schema metadata
   const formatSchema = useMemo(() => formatId ? getFormatSchema(formatId) : null, [formatId])
 
-  // Priority: AI-generated > Format-specific > Static schema (fallback)
+  // Priority: AI-generated merged with Format-specific > Format-specific > Static schema (fallback)
+  // IMPORTANT: AI schema is MERGED with format-specific fields, not replaced
+  // This ensures new fields in formatFieldSchemas.ts always appear
   const effectiveFields = useMemo<SchemaField[]>(() => {
-    // 1. AI-generated dynamic schema takes highest priority
+    // Get base fields: format-specific if available, otherwise static fallback
+    const baseFields = formatSpecificFields.length > 0
+      ? formatSpecificFields.map(formatFieldToSchemaField)
+      : staticSchema.fields
+
+    // 1. AI-generated schema merges WITH format-specific fields
     if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
-      return dynamicSchema.fields.map(dynamicToSchemaField)
+      const aiFields = dynamicSchema.fields.map(dynamicToSchemaField)
+      const aiFieldIds = new Set(aiFields.map(f => f.id))
+
+      // Append any base fields that are NOT in the AI schema
+      // This ensures new format-specific fields always appear
+      const missingBaseFields = baseFields.filter(f => !aiFieldIds.has(f.id))
+
+      // Final safety deduplication to prevent React key errors
+      const combined = [...aiFields, ...missingBaseFields]
+      const seenIds = new Set<string>()
+      return combined.filter(field => {
+        if (seenIds.has(field.id)) return false
+        seenIds.add(field.id)
+        return true
+      })
     }
 
-    // 2. Format-specific fields from formatFieldSchemas.ts (new system)
+    // 2. Format-specific fields only (no AI schema)
     if (formatSpecificFields.length > 0) {
-      return formatSpecificFields.map(formatFieldToSchemaField)
+      return baseFields
     }
 
     // 3. Static schema fallback (legacy)
@@ -411,6 +449,12 @@ export function DynamicDetailsForm({
   // Determine which schema source is being used
   const schemaSource = useMemo(() => {
     if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
+      // Check if we merged format fields with AI fields
+      if (formatSpecificFields.length > 0) {
+        const aiFieldIds = new Set(dynamicSchema.fields.map(f => f.id))
+        const hasMergedFields = formatSpecificFields.some(f => !aiFieldIds.has(f.id))
+        return hasMergedFields ? 'ai-merged' : 'ai-generated'
+      }
       return 'ai-generated'
     }
     if (formatSpecificFields.length > 0) {
@@ -570,6 +614,12 @@ export function DynamicDetailsForm({
         {dynamicSchemaError && !isDynamicSchemaFallback && (
           <div className="mt-2 text-sm text-amber-600 bg-amber-50 p-2 rounded-lg">
             {dynamicSchemaError}
+          </div>
+        )}
+        {isDynamicSchemaFallback && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md">
+            <AlertCircle className="h-3 w-3" />
+            <span>Using default fields (AI unavailable)</span>
           </div>
         )}
       </CardHeader>

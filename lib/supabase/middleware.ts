@@ -2,6 +2,23 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  // Define public routes that don't require authentication
+  // Check this FIRST to potentially skip the Supabase call entirely for public routes
+  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback']
+  const isPublicRoute = publicRoutes.some(route =>
+    request.nextUrl.pathname === route ||
+    request.nextUrl.pathname.startsWith('/join/') ||
+    request.nextUrl.pathname.startsWith('/auth/')
+  )
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+
+  // For public routes (non-auth pages), skip auth check entirely for faster response
+  // Auth pages still need the check to redirect logged-in users
+  const isAuthPage = request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup'
+  if (isPublicRoute && !isAuthPage) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -35,30 +52,30 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Define public routes that don't require authentication
-  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback']
-  const isPublicRoute = publicRoutes.some(route =>
-    request.nextUrl.pathname === route ||
-    request.nextUrl.pathname.startsWith('/join/') ||
-    request.nextUrl.pathname.startsWith('/auth/')
-  )
-
-  // Check if this is an API route
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
-
   // Redirect unauthenticated users to login (but not for API routes)
   if (!user && !isPublicRoute && !isApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('redirectTo', request.nextUrl.pathname)
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    // Preserve any session cookies that were refreshed during getUser()
+    // This is critical - without this, refreshed tokens are lost on redirect
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
+    })
+    return redirectResponse
   }
 
   // Redirect authenticated users away from auth pages
   if (user && (request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    // Preserve session cookies on redirect
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
+    })
+    return redirectResponse
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're

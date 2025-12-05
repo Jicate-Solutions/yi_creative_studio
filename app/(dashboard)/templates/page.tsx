@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
@@ -72,7 +72,7 @@ const CATEGORIES = [
 
 export default function TemplatesPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user, canManage } = useAuthStore()
   const isEditor = canManage()
   const { templateImages, isLoading: isLoadingImages, fetchTemplateImages, deleteTemplateImage, getTemplatesByVertical } = useTemplateImages()

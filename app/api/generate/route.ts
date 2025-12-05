@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import sharp from 'sharp'
+import type sharp from 'sharp'
+// Lazy load sharp to reduce cold start time (40-60MB native binary)
+// Only loaded when actually needed for template processing
+let sharpInstance: typeof sharp | null = null
+async function getSharp(): Promise<typeof sharp> {
+  if (!sharpInstance) {
+    const sharpModule = await import('sharp')
+    sharpInstance = sharpModule.default
+  }
+  return sharpInstance
+}
 import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
 import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
@@ -26,6 +36,7 @@ import { compileFormData, summarizeCompiledData } from '@/lib/prompts/services/f
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
+import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,6 +64,7 @@ export async function POST(request: NextRequest) {
       customDimensions,
       language,
       userFormData,
+      useXmlPrompts, // New flag to opt-in to XML-structured prompts (Gemini-optimized)
     } = body as {
       prompt: string
       model: string
@@ -68,6 +80,7 @@ export async function POST(request: NextRequest) {
       customDimensions?: { width: number; height: number } | null
       language?: 'en' | 'ta' | 'hi'
       userFormData?: Record<string, unknown>
+      useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
     }
 
     // Get format if specified
@@ -285,38 +298,126 @@ export async function POST(request: NextRequest) {
       // ========================================================
       // STAGE 2: Build enhanced prompt with AI-generated context
       // ========================================================
-      const promptData = buildDesignPromptWithFormat(
-        enhancedPrompt,
-        promptDesignData,
-        providerType,
-        'Yi Creatives',
-        selectedFormat,
-        designContext, // Pass AI-generated design context
-        language || 'en', // Pass language from request (PRD Section 10.2)
-        logoAwarenessContext // Pass logo awareness for Smart Layout
+
+      // Check if we should use the new XML-structured prompts (Gemini-optimized)
+      // This path uses YiPromptBuilder for cleaner, more structured prompts
+      const shouldUseXmlPrompts = useXmlPrompts || (
+        provider === 'google' &&
+        formatId &&
+        YiPromptBuilder.isSupportedFormat(formatId)
       )
 
-      if (provider === 'google') {
-        // Extract resolution from designData or use default
-        const resolution = promptDesignData?.resolution || '1K'
-        imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution)
-      } else if (provider === 'ideogram') {
-        imageUrl = await generateWithIdeogram(
-          promptData.prompt,
+      if (shouldUseXmlPrompts && provider === 'google' && formatId) {
+        // ========================================================
+        // NEW: XML-STRUCTURED PROMPT GENERATION v3.0 (Gemini-optimized)
+        // Uses YiPromptBuilder with enhanced options for:
+        // - Logo awareness (keeping zones clear for overlay)
+        // - Brand context (organization colors)
+        // - Resolution/quality guidance
+        // - Few-shot examples
+        // ========================================================
+        console.log('[Generate] === USING XML-STRUCTURED PROMPTS (v3.0) ===')
+        console.log('[Generate] Format:', formatId)
+        console.log('[Generate] User Form Data:', JSON.stringify(userFormData, null, 2))
+
+        // Determine resolution
+        const resolution = (promptDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
+
+        // Build EnhancedBuildOptions for v3.0 prompts
+        const buildOptions: EnhancedBuildOptions = {
+          verticalId: verticalSlug,
+          resolution: resolution,
+          language: language || 'en',
+          // Logo awareness - tells AI where to keep zones clear for overlay
+          // Supports multiple logos with individual positions and sizes
+          logoAwareness: logoAwarenessContext.hasLogos ? {
+            hasLogo: true,
+            // Primary logo (backward compatible)
+            logoPosition: logoAwarenessContext.activeLogos[0]?.position as 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top' || 'top-left',
+            logoSize: 'medium',
+            clearZone: logoAwarenessContext.layoutGuidance || 'Keep logo area(s) clear for overlay',
+            // All logos for multi-logo support
+            logos: logoAwarenessContext.activeLogos.map(logo => ({
+              position: (logo.position || 'top-left') as 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top',
+              size: (typeof logo.sizePreset === 'string' ? logo.sizePreset : 'medium') as 'small' | 'medium' | 'large',
+            })),
+          } : undefined,
+          // Brand context - always include organization info for awareness
+          // useBrandColors flag determines if colors should be applied
+          brandContext: {
+            organizationName: designBrief.organizationName || 'Yi Creatives',
+            brandName: designBrief.organizationName,
+            // Include colors when available
+            primaryColor: promptDesignData?.customization?.background?.primaryColor,
+            secondaryColor: promptDesignData?.customization?.background?.secondaryColor,
+            accentColor: promptDesignData?.customization?.title?.color,
+            // Flag to control color application
+            useBrandColors: promptDesignData?.colorConfig?.useBrandColors ?? false,
+          },
+        }
+
+        console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
+
+        // Build XML-structured prompt using YiPromptBuilder with enhanced options
+        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, buildOptions)
+
+        // Inject vertical context if applicable (redundant with buildOptions.verticalId but kept for compatibility)
+        const finalXmlPrompt = verticalSlug
+          ? injectVerticalContext(xmlPrompt, verticalSlug)
+          : xmlPrompt
+
+        console.log('[Generate] XML Prompt Preview (first 1000 chars):')
+        console.log(finalXmlPrompt.substring(0, 1000))
+        console.log('[Generate] ... (truncated)')
+
+        // Get system instruction from YiPromptBuilder
+        const systemInstruction = YiPromptBuilder.getSystemInstruction()
+
+        // Generate with Gemini using the new prompt
+        imageUrl = await generateWithGemini(
+          finalXmlPrompt,
           promptDesignData,
-          promptData.styleType,
-          promptData.magicPrompt,
-          promptData.negativePrompt,
-          selectedFormat
+          systemInstruction,
+          selectedFormat,
+          resolution
         )
       } else {
-        return NextResponse.json(
-          { error: 'Invalid AI provider' },
-          { status: 400 }
+        // ========================================================
+        // LEGACY: Original prompt generation path
+        // ========================================================
+        const promptData = buildDesignPromptWithFormat(
+          enhancedPrompt,
+          promptDesignData,
+          providerType,
+          'Yi Creatives',
+          selectedFormat,
+          designContext, // Pass AI-generated design context
+          language || 'en', // Pass language from request (PRD Section 10.2)
+          logoAwarenessContext // Pass logo awareness for Smart Layout
         )
+
+        if (provider === 'google') {
+          // Extract resolution from designData or use default
+          const resolution = promptDesignData?.resolution || '1K'
+          imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution)
+        } else if (provider === 'ideogram') {
+          imageUrl = await generateWithIdeogram(
+            promptData.prompt,
+            promptDesignData,
+            promptData.styleType,
+            promptData.magicPrompt,
+            promptData.negativePrompt,
+            selectedFormat
+          )
+        } else {
+          return NextResponse.json(
+            { error: 'Invalid AI provider' },
+            { status: 400 }
+          )
+        }
       }
     } else if (templateUrl) {
-      // Template-based generation using Gemini Vision
+      // Template-based generation using Gemini Vision with v3.0 integration
       // CRITICAL FIX: Pass userFormData DIRECTLY - don't filter through extractFromFormData!
       // extractFromFormData() only knows hardcoded field names and IGNORES dynamic fields
       // like videoTitle, viewerHook, etc. that come from format-specific schemas.
@@ -326,7 +427,48 @@ export async function POST(request: NextRequest) {
       console.log('[Template Mode] Field Count:', Object.keys(userFormData || {}).length)
       console.log('[Template Mode] Fields:', Object.keys(userFormData || {}).join(', '))
 
-      imageUrl = await generateFromTemplate(prompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined)
+      // Build logo awareness context for template mode (v3.0)
+      const templateLogoContext = buildLogoAwarenessContext(
+        logosPlacements as LogoPlacement[] | undefined
+      )
+      if (templateLogoContext.hasLogos) {
+        console.log('[Template Mode] Logo Awareness:', buildLogoSummary(logosPlacements as LogoPlacement[]))
+      }
+
+      // Build v3.0 prompt if format is supported
+      let templatePrompt = prompt
+      if (formatId && YiPromptBuilder.isSupportedFormat(formatId)) {
+        console.log('[Template Mode] Using YiPromptBuilder v3.0 for format:', formatId)
+
+        const templateBuildOptions: EnhancedBuildOptions = {
+          verticalId: verticalSlug,
+          resolution: '1K', // Templates use 1K for Gemini Vision
+          language: language || 'en',
+          templateMode: true,
+          logoAwareness: templateLogoContext.hasLogos ? {
+            hasLogo: true,
+            logoPosition: templateLogoContext.activeLogos[0]?.position as 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top' || 'top-left',
+            logoSize: 'medium',
+            clearZone: templateLogoContext.layoutGuidance || 'Keep logo area(s) clear for overlay',
+            logos: templateLogoContext.activeLogos.map(logo => ({
+              position: (logo.position || 'top-left') as 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top',
+              size: (typeof logo.sizePreset === 'string' ? logo.sizePreset : 'medium') as 'small' | 'medium' | 'large',
+            })),
+          } : undefined,
+          brandContext: {
+            organizationName: 'Yi Creatives', // Template mode uses default
+            brandName: 'Yi Creatives',
+            useBrandColors: false, // Template mode uses template's colors
+          },
+        }
+
+        // Build v3.0 prompt for template adaptation
+        templatePrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, templateBuildOptions)
+        console.log('[Template Mode] v3.0 Prompt Preview:', templatePrompt.substring(0, 500))
+      }
+
+      // Template mode uses '1K' resolution since Gemini Vision only supports 1K
+      imageUrl = await generateFromTemplate(templatePrompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined, selectedFormat, '1K')
 
       // Increment template use count
       if (templateId) {
@@ -749,7 +891,9 @@ async function generateFromTemplate(
   templateUrl: string,
   verticalSlug: string,
   rawFormData?: Record<string, unknown>,  // Accept ANY fields - not just predefined ones
-  targetDimensions?: { width: number; height: number }  // Target format dimensions for outpainting
+  targetDimensions?: { width: number; height: number },  // Target format dimensions for outpainting
+  format?: import('@/lib/config/creative-formats').CreativeFormat | null,  // For fallback generation
+  resolution?: string  // For fallback generation
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -780,7 +924,8 @@ async function generateFromTemplate(
   let aspectRatioGuidance = ''
   if (targetDimensions) {
     try {
-      // Get template dimensions from Sharp metadata
+      // Get template dimensions from Sharp metadata (lazy loaded)
+      const sharp = await getSharp()
       const templateMetadata = await sharp(Buffer.from(templateBase64, 'base64')).metadata()
       const templateWidth = templateMetadata.width || 1080
       const templateHeight = templateMetadata.height || 1350
@@ -940,8 +1085,8 @@ Generate a poster that uses the template's visual style but contains ONLY my spe
     const errorText = await response.text()
     console.error('Gemini Vision API error:', response.status, errorText)
     // Fallback to regular Gemini generation if template adaptation fails
-    console.log('Falling back to regular Gemini generation')
-    return generateWithGemini(prompt)
+    console.log('Falling back to regular Gemini generation with proper context')
+    return generateWithGemini(prompt, null, undefined, format, resolution || '1K')
   }
 
   const data = await response.json()
@@ -951,8 +1096,8 @@ Generate a poster that uses the template's visual style but contains ONLY my spe
   const imagePart = parts?.find((p: { inlineData?: { data: string } }) => p.inlineData)
 
   if (!imagePart?.inlineData?.data) {
-    console.log('No image in template adaptation response, falling back')
-    return generateWithGemini(prompt)
+    console.log('No image in template adaptation response, falling back with proper context')
+    return generateWithGemini(prompt, null, undefined, format, resolution || '1K')
   }
 
   // Convert base64 to data URL
@@ -1006,31 +1151,56 @@ async function generateWithGemini(
     }
   }
 
-  // Build the prompt - use system prompt if provided (from new prompt system)
-  let finalPrompt: string
-  if (designData && systemPrompt) {
-    // New prompt system with system context
-    finalPrompt = `${systemPrompt}\n\n---\n\n${prompt}`
-  } else if (designData) {
-    // Already enhanced with design data
-    finalPrompt = prompt
+  // Build the user prompt - system instruction sent separately via Gemini API
+  let userPrompt: string
+  if (designData) {
+    // Enhanced prompt with design data
+    userPrompt = prompt
   } else {
     // Fallback for template mode
-    finalPrompt = `Create a professional marketing poster image. ${prompt}.
+    userPrompt = `Create a professional marketing poster image. ${prompt}.
     Style: Clean, modern, professional.
     Format: ${aspectRatioText}.
     Include realistic photo elements where appropriate.
     Make text clearly readable and well-designed.`
   }
 
-  // Log the final prompt for debugging
+  // Log the prompt for debugging
   console.log('[Generate] === FINAL PROMPT TO GEMINI ===')
-  console.log('[Generate] Prompt Length:', finalPrompt.length, 'chars')
-  console.log('[Generate] Estimated Tokens:', Math.ceil(finalPrompt.length / 4))
-  console.log('[Generate] Has System Prompt:', !!systemPrompt)
-  console.log('[Generate] Prompt Preview (first 800 chars):')
-  console.log(finalPrompt.substring(0, 800))
+  console.log('[Generate] User Prompt Length:', userPrompt.length, 'chars')
+  console.log('[Generate] Estimated Tokens:', Math.ceil(userPrompt.length / 4))
+  console.log('[Generate] Has System Instruction:', !!systemPrompt)
+  if (systemPrompt) {
+    console.log('[Generate] System Instruction Length:', systemPrompt.length, 'chars')
+  }
+  console.log('[Generate] User Prompt Preview (first 800 chars):')
+  console.log(userPrompt.substring(0, 800))
   console.log('[Generate] ... (truncated)')
+
+  // Build request body with proper Gemini API structure
+  // System instruction is sent as a separate field, not concatenated with user prompt
+  const requestBody: Record<string, unknown> = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userPrompt }],
+      },
+    ],
+    generationConfig: {
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageConfig: {
+        aspectRatio: geminiAspectRatio,
+        imageSize: geminiImageSize,
+      },
+    },
+  }
+
+  // Add system instruction if provided (proper Gemini API format)
+  if (systemPrompt) {
+    requestBody.systemInstruction = {
+      parts: [{ text: systemPrompt }],
+    }
+  }
 
   // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
@@ -1041,24 +1211,7 @@ async function generateWithGemini(
         'Content-Type': 'application/json',
         'x-goog-api-key': apiKey,
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: finalPrompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseModalities: ['TEXT', 'IMAGE'],
-          imageConfig: {
-            aspectRatio: geminiAspectRatio,
-            imageSize: geminiImageSize,
-          },
-        },
-      }),
+      body: JSON.stringify(requestBody),
     }
   )
 
