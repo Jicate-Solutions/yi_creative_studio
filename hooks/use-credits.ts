@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useOrganization } from './use-organization'
@@ -8,7 +8,8 @@ import type { CreditTransaction } from '@/types/database.types'
 import { toast } from 'sonner'
 
 export function useCredits() {
-  const supabase = createClient()
+  // Memoize supabase client to prevent infinite refetch loops
+  const supabase = useMemo(() => createClient(), [])
   const { currentOrganization } = useAuthStore()
   const { refreshOrganization, creditsBalance, canAfford } = useOrganization()
   const [transactions, setTransactions] = useState<CreditTransaction[]>([])
@@ -96,10 +97,13 @@ export function useCredits() {
     return data[0]
   }, [currentOrganization?.id, supabase, refreshOrganization, fetchTransactions])
 
-  // Fetch transactions on mount
+  // Fetch transactions on mount only if not already loaded
+  // Guard prevents infinite loops when fetchTransactions changes reference
   useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+    if (transactions.length === 0) {
+      fetchTransactions()
+    }
+  }, [fetchTransactions, transactions.length])
 
   return {
     balance: creditsBalance,

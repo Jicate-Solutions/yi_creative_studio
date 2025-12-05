@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCreativeStore } from '@/stores/creative-store'
 import type { AIModel } from '@/types/database.types'
 
 export function useAIModels() {
-  const supabase = createClient()
+  // Memoize supabase client to prevent infinite refetch loops
+  const supabase = useMemo(() => createClient(), [])
   const { models, setModels, selectedModel, selectModel } = useCreativeStore()
   const [isLoading, setIsLoading] = useState(false)
 

@@ -1,39 +1,17 @@
 'use client'
 
 import { BugReporterProvider } from '@boobalan_jkkn/bug-reporter-sdk'
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect } from 'react'
+import { useAuthStore } from '@/stores/auth-store'
 
 interface BugReporterWrapperProps {
   children: React.ReactNode
 }
 
 export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
-  const [user, setUser] = useState<{
-    id: string
-    email?: string
-    user_metadata?: { full_name?: string }
-  } | null>(null)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    // Get initial user
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
-    })
-
-    // Subscribe to auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
+  // Get user from auth-store instead of creating duplicate auth listener
+  // This eliminates redundant onAuthStateChange subscriptions
+  const { user } = useAuthStore()
 
   // Reposition bug reporter button to left side
   useEffect(() => {
