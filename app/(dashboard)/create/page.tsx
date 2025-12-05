@@ -803,6 +803,7 @@ export default function CreatePage() {
                       designData={formData.designData}
                       onThemeChange={updateTheme}
                       onStyleChange={updateStyle}
+                      onResolutionChange={updateResolution}
                       onToggleBrandColors={setUseBrandColors}
                       onSelectPalette={setColorPalette}
                       onCustomColorChange={setCustomColors}

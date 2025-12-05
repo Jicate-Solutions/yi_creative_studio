@@ -2,12 +2,13 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Palette, Wand2, Droplets } from 'lucide-react'
+import { Palette, Wand2, Droplets, Gauge } from 'lucide-react'
 import { ThemeTab } from './theme-tab'
 import { StyleTab } from './style-tab'
 import { ColorTab } from './color-tab'
+import { ResolutionTab } from './resolution-tab'
 import { useAIDesignSuggestions } from '@/hooks/use-ai-design-suggestions'
-import type { DesignData, CustomColors } from '@/lib/config/design-constants'
+import type { DesignData, CustomColors, ResolutionId } from '@/lib/config/design-constants'
 
 interface BrandColors {
   primary_color?: string | null
@@ -19,6 +20,7 @@ interface DesignTabProps {
   designData: DesignData
   onThemeChange: (theme: string) => void
   onStyleChange: (style: string) => void
+  onResolutionChange: (resolution: ResolutionId) => void
   onToggleBrandColors: (enabled: boolean) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
@@ -31,6 +33,7 @@ export function DesignTab({
   designData,
   onThemeChange,
   onStyleChange,
+  onResolutionChange,
   onToggleBrandColors,
   onSelectPalette,
   onCustomColorChange,
@@ -52,7 +55,7 @@ export function DesignTab({
       <CardContent className="space-y-6">
         {/* Tabs with per-tab AI toggles */}
         <Tabs defaultValue="theme" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="theme" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               <span className="hidden sm:inline">Theme</span>
@@ -64,6 +67,10 @@ export function DesignTab({
             <TabsTrigger value="colors" className="flex items-center gap-2">
               <Droplets className="h-4 w-4" />
               <span className="hidden sm:inline">Colors</span>
+            </TabsTrigger>
+            <TabsTrigger value="quality" className="flex items-center gap-2">
+              <Gauge className="h-4 w-4" />
+              <span className="hidden sm:inline">Quality</span>
             </TabsTrigger>
           </TabsList>
 
@@ -117,6 +124,14 @@ export function DesignTab({
               onToggleAI={aiSuggestions.color.toggleAI}
               onRefreshAI={aiSuggestions.color.refresh}
               creativeTips={aiSuggestions.color.creativeTips}
+            />
+          </TabsContent>
+
+          <TabsContent value="quality">
+            <ResolutionTab
+              selectedResolution={designData.resolution}
+              onResolutionChange={onResolutionChange}
+              aspectRatio={designData.aspectRatio}
             />
           </TabsContent>
         </Tabs>

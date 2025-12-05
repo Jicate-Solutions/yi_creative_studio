@@ -332,6 +332,9 @@ export const useCreativeStore = create<CreativeState>()(
             formatId,
             customDimensions: null,
           },
+          // Clear previous generation when starting new workflow
+          generatedImage: null,
+          generationError: null,
         })
       },
 
@@ -383,6 +386,9 @@ export const useCreativeStore = create<CreativeState>()(
         set({
           selectedVertical: vertical || null,
           formData: { ...get().formData, verticalId, formData: {} },
+          // Clear previous generation when changing vertical
+          generatedImage: null,
+          generationError: null,
         })
       },
 

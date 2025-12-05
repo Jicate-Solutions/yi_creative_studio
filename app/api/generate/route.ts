@@ -977,8 +977,21 @@ async function generateWithGemini(
   // Get aspect ratio for imageConfig - format now uses Gemini-supported ratios
   const geminiAspectRatio = format?.aspectRatio || '1:1'
 
-  // Ensure imageSize is UPPERCASE (Gemini API requirement)
-  const geminiImageSize = (resolution || '1K').toUpperCase()
+  // Model capability constraints - gemini-2.5-flash-image only supports 1K
+  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[] }> = {
+    'gemini-2.5-flash-image': { supportedSizes: ['1K'] },
+    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'] },
+  }
+
+  // Validate and constrain resolution based on model capabilities
+  const currentModel = 'gemini-2.5-flash-image'
+  const requestedSize = (resolution || '1K').toUpperCase()
+  const supportedSizes = GEMINI_MODEL_CAPABILITIES[currentModel]?.supportedSizes || ['1K']
+  const geminiImageSize = supportedSizes.includes(requestedSize) ? requestedSize : supportedSizes[0]
+
+  if (requestedSize !== geminiImageSize) {
+    console.warn(`[Generate] Resolution ${requestedSize} not supported by ${currentModel}, using ${geminiImageSize}`)
+  }
 
   console.log('[Generate] Gemini imageConfig - aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
