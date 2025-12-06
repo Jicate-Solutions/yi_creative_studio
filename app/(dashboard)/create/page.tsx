@@ -117,6 +117,11 @@ const ImagePreviewModal = dynamic(
   { ssr: false }
 )
 
+const CreativeFeedbackDialog = dynamic(
+  () => import('@/components/feedback/creative-feedback-dialog').then(mod => ({ default: mod.CreativeFeedbackDialog })),
+  { ssr: false }
+)
+
 const DynamicDetailsForm = dynamic(
   () => import('@/components/create/DynamicDetailsForm').then(mod => ({ default: mod.DynamicDetailsForm })),
   { loading: () => <ComponentLoadingSkeleton type="design" /> }
@@ -211,7 +216,7 @@ const STEPS: Step[] = [
 export default function CreatePage() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const { currentOrganization } = useAuthStore()
+  const { currentOrganization, user } = useAuthStore()
 
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
@@ -275,6 +280,7 @@ export default function CreatePage() {
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
 
   // Handle format selection - auto advance to step 2 (Vertical)
   const handleSelectFormat = useCallback((format: CreativeFormat) => {
@@ -537,6 +543,22 @@ export default function CreatePage() {
 
       if (creativeData?.id) {
         setCreativeId(creativeData.id)
+
+        // Backfill api_usage records with the new creative_id
+        // This links token consumption to the specific creative
+        // Note: Using type assertion as the function may not be in generated types yet
+        if (user?.id) {
+          await (supabase.rpc as Function)('backfill_api_usage_creative_id', {
+            p_creative_id: creativeData.id,
+            p_organization_id: currentOrganization.id,
+            p_user_id: user.id,
+            p_created_at: new Date().toISOString(),
+            p_window_seconds: 120,
+          })
+        }
+
+        // Show feedback dialog after a brief delay
+        setTimeout(() => setShowFeedbackDialog(true), 3000)
       }
 
       toast.success('Creative generated successfully!')
@@ -555,6 +577,7 @@ export default function CreatePage() {
     setStep(1)
     setCreativeId(null)
     setExportModalOpen(false)
+    setShowFeedbackDialog(false)
   }
 
   // Check for past date before generating (Edge Case E07)
@@ -632,9 +655,36 @@ export default function CreatePage() {
           "flex-1 flex flex-col min-w-0",
           createModeActive && "md:ml-64"
         )}>
-          {/* Step Content Area - pb-24 ensures content isn't hidden behind sticky footer */}
+          {/* Mobile Step Indicator - Sticky on mobile, hidden on desktop */}
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b md:hidden">
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    {STEPS[step - 1]?.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{STEPS[step - 1]?.title}</p>
+                    <p className="text-xs text-muted-foreground">Step {step} of 7</p>
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">
+                  {Math.round((step / 7) * 100)}%
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${(step / 7) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Step Content Area - pb-32 on mobile for fixed footer + bottom nav, pb-24 on desktop */}
           <div className={cn(
-            "flex-1 py-6 pb-24",
+            "flex-1 py-6 pb-32 md:pb-24",
             (step === 1 || step === 3 || step === 4) ? "px-6" : "container"
           )}>
           <div className="grid grid-cols-1 gap-6">
@@ -1250,10 +1300,10 @@ export default function CreatePage() {
           </div>
         </div>
 
-        {/* Footer Navigation - Sticky for better UX */}
+        {/* Footer Navigation - Fixed on mobile for always-visible step actions */}
         {(step !== 7 || !generatedImage) && (
-          <div className="sticky bottom-0 z-40 bg-background/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="container py-4">
+          <div className="fixed bottom-14 md:bottom-0 left-0 right-0 md:sticky md:left-auto md:right-auto z-40 bg-background/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="container py-3 md:py-4">
               <div className="flex items-center justify-between">
                 {/* Back Button - Canva style with hover border */}
                 <Button
@@ -1390,6 +1440,21 @@ export default function CreatePage() {
           onContinue={handleGenerate}
           date={(formData.formData as { date?: string }).date || ''}
         />
+
+        {/* Feedback Dialog - shows after generation */}
+        {creativeId && generatedImage && (
+          <CreativeFeedbackDialog
+            open={showFeedbackDialog}
+            onOpenChange={setShowFeedbackDialog}
+            creativeId={creativeId}
+            creativeType={selectedFormat?.id || 'event_poster'}
+            vertical={selectedVertical?.slug}
+            formData={formData.formData as Record<string, unknown>}
+            onFeedbackSubmit={() => {
+              toast.success('Thanks for your feedback!')
+            }}
+          />
+        )}
       </div>
     </TooltipProvider>
   )

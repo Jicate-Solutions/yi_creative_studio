@@ -46,6 +46,8 @@ import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-pro
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
+import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
+import { sanitizeForGemini, detectLabelLeaks } from '@/lib/prompts/services/prompt-sanitizer'
 
 export async function POST(request: NextRequest) {
   try {
@@ -277,6 +279,43 @@ export async function POST(request: NextRequest) {
         console.log('[Generate] Safe Zones:', logoAwarenessContext.safeZoneDescriptions.join(', '))
       }
 
+      // ========================================================
+      // THEME INFERENCE: Infer theme from event details
+      // This analyzes the user's actual content to suggest better themes
+      // Falls back to user-selected theme or event type defaults
+      // ========================================================
+      const eventDetails: EventDetails = {
+        title: formDataContent.eventName || compiledData.eventName || '',
+        description: compiledData.description || cleanedPrompt || '',
+        venue: formDataContent.venue || compiledData.venue || '',
+        speakerName: formDataContent.guestName || compiledData.speakerName || '',
+        speakerDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || '',
+        tagline: compiledData.tagline || '',
+        eventType: formDataContent.eventType || parsedContent.eventType || '',
+        organizationName: compiledData.organizationName || '',
+        customFields: compiledData.customFields || {},
+      }
+
+      const themeInference = inferThemeFromDetails(
+        eventDetails,
+        formDataContent.eventType || parsedContent.eventType
+      )
+
+      // Determine final theme: User selection takes priority, but inference provides fallback/enhancement
+      // If user hasn't explicitly selected a theme (default), use inferred theme
+      const finalTheme = designData.theme || themeInference.suggestedTheme
+      const finalStyle = designData.style || themeInference.inferredStyle
+
+      console.log('[Generate] === THEME INFERENCE ===')
+      console.log('[Generate] User Selected Theme:', designData.theme || '(none)')
+      console.log('[Generate] Inferred Theme:', themeInference.suggestedTheme, `(${themeInference.confidence})`)
+      console.log('[Generate] Reason:', themeInference.reason)
+      console.log('[Generate] Inferred Mood:', themeInference.inferredMood)
+      console.log('[Generate] Final Theme:', finalTheme)
+      if (themeInference.alternativeThemes.length > 0) {
+        console.log('[Generate] Alternatives:', themeInference.alternativeThemes.join(', '))
+      }
+
       const designBrief: DesignBrief = {
         // Event content - PRIORITY: User form data > Compiled data > AI-refined > Parsed
         // This ensures actual user input is never overwritten by AI-generated values
@@ -284,8 +323,8 @@ export async function POST(request: NextRequest) {
         eventName: formDataContent.eventName || compiledData.eventName || ultraProPrompt.primaryText || parsedContent.eventName,
         organizationName: compiledData.organizationName || 'Yi Creatives',
         details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt for visual guidance
-        theme: designData.theme,
-        style: designData.style,
+        theme: finalTheme,
+        style: finalStyle,
         guestName: formDataContent.guestName || compiledData.speakerName || parsedContent.guestName,
         guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
         venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
@@ -376,11 +415,25 @@ export async function POST(request: NextRequest) {
         // Determine resolution
         const resolution = (promptDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
 
-        // Build EnhancedBuildOptions for v3.0 prompts
+        // ========================================================
+        // Build EnhancedBuildOptions v3.1 - Form Data Completeness
+        // Passes ALL user data to format builders, including:
+        // - Theme & style preferences
+        // - Layout zone configuration
+        // - Speaker photo config (for zone reservation, even if user has own photo)
+        // - Organization context (name, tagline, industry)
+        // - Content type and format size
+        // ========================================================
+
+        // Store original speaker photo config BEFORE it was disabled for prompt
+        // This allows builders to reserve the correct zone even when user overlays their own photo
+        const originalSpeakerPhotoConfig = designData.customization?.speakerPhoto
+
         const buildOptions: EnhancedBuildOptions = {
           verticalId: verticalSlug,
           resolution: resolution,
           language: language || 'en',
+
           // Logo awareness - tells AI where to keep zones clear for overlay
           // Supports multiple logos with individual positions and sizes
           logoAwareness: logoAwarenessContext.hasLogos ? {
@@ -395,6 +448,7 @@ export async function POST(request: NextRequest) {
               size: (typeof logo.sizePreset === 'string' ? logo.sizePreset : 'medium') as 'small' | 'medium' | 'large',
             })),
           } : undefined,
+
           // Brand context - always include organization info for awareness
           // useBrandColors flag determines if colors should be applied
           brandContext: {
@@ -407,6 +461,39 @@ export async function POST(request: NextRequest) {
             // Flag to control color application
             useBrandColors: promptDesignData?.colorConfig?.useBrandColors ?? false,
           },
+
+          // NEW v3.1: Theme & style preferences
+          theme: designData.theme,
+          style: designData.style,
+
+          // NEW v3.1: Layout zone configuration (header/footer heights)
+          layout: layoutConfig ? {
+            headerHeight: layoutConfig.headerHeight,
+            footerHeight: layoutConfig.footerHeight,
+          } : undefined,
+
+          // NEW v3.1: Speaker photo zone config (passed even when user has own photo)
+          // This allows builders to reserve the correct zone for overlay
+          speakerPhotoConfig: originalSpeakerPhotoConfig?.enabled ? {
+            enabled: true,  // Always true if user enabled speaker photo (we want zone reserved)
+            position: originalSpeakerPhotoConfig.position as 'left' | 'right' | 'center',
+            // Convert numeric size (percentage) to string literal
+            size: (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large') as 'small' | 'medium' | 'large',
+            shape: originalSpeakerPhotoConfig.shape as 'circle' | 'rounded' | 'square',
+          } : undefined,
+
+          // NEW v3.1: Organization context for branding identity
+          organizationContext: {
+            name: designBrief.organizationName || 'Yi Creatives',
+            tagline: (userFormData?.tagline as string) || undefined,
+            industry: verticalSlug,
+          },
+
+          // NEW v3.1: Format-specific content type (e.g., LinkedIn article vs announcement)
+          contentType: (userFormData?.contentType as string) || (userFormData?.postType as string) || undefined,
+
+          // NEW v3.1: Format-specific size (e.g., A4/A5 for flyers, banner dimensions)
+          formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
@@ -432,7 +519,8 @@ export async function POST(request: NextRequest) {
           promptDesignData,
           systemInstruction,
           selectedFormat,
-          resolution
+          resolution,
+          model  // Pass model from request
         )
       } else {
         // ========================================================
@@ -452,7 +540,7 @@ export async function POST(request: NextRequest) {
         if (provider === 'google') {
           // Extract resolution from designData or use default
           const resolution = promptDesignData?.resolution || '1K'
-          imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution)
+          imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution, model)
         } else if (provider === 'ideogram') {
           imageUrl = await generateWithIdeogram(
             promptData.prompt,
@@ -493,11 +581,13 @@ export async function POST(request: NextRequest) {
       if (formatId && YiPromptBuilder.isSupportedFormat(formatId)) {
         console.log('[Template Mode] Using YiPromptBuilder v3.0 for format:', formatId)
 
+        // Build v3.1 options for template mode
         const templateBuildOptions: EnhancedBuildOptions = {
           verticalId: verticalSlug,
           resolution: '1K', // Templates use 1K for Gemini Vision
           language: language || 'en',
           templateMode: true,
+
           logoAwareness: templateLogoContext.hasLogos ? {
             hasLogo: true,
             logoPosition: templateLogoContext.activeLogos[0]?.position as 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top' || 'top-left',
@@ -508,11 +598,16 @@ export async function POST(request: NextRequest) {
               size: (typeof logo.sizePreset === 'string' ? logo.sizePreset : 'medium') as 'small' | 'medium' | 'large',
             })),
           } : undefined,
+
           brandContext: {
             organizationName: 'Yi Creatives', // Template mode uses default
             brandName: 'Yi Creatives',
             useBrandColors: false, // Template mode uses template's colors
           },
+
+          // NEW v3.1: Pass content type and format size for template mode too
+          contentType: (userFormData?.contentType as string) || (userFormData?.postType as string) || undefined,
+          formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
         }
 
         // Build v3.0 prompt for template adaptation
@@ -528,7 +623,7 @@ export async function POST(request: NextRequest) {
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
     } else if (provider === 'google') {
-      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K')
+      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model)
     } else if (provider === 'ideogram') {
       imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
     } else {
@@ -568,9 +663,12 @@ export async function POST(request: NextRequest) {
     // Gemini image generation has fixed cost per image + token cost for prompt
     if (creationMode === 'scratch' || templateUrl) {
       const imageProvider: AIProvider = provider === 'google' ? 'gemini' : 'gemini' // All image gen uses Gemini now
-      const imageModel = 'gemini-2.5-flash-image'
+      // Use actual model from request, default to Flash
+      const imageModel = model || 'gemini-2.5-flash-image'
       const estimatedInputTokens = Math.ceil(prompt.length / 4)
-      const estimatedOutputTokens = 100 // Minimal text output for image gen
+      // Output tokens vary by resolution for Gemini 3 Pro Image Preview
+      const requestedResolution = (designData?.resolution || '1K') as '1K' | '2K' | '4K'
+      const estimatedOutputTokens = imageModel === 'gemini-3-pro-image-preview' && requestedResolution === '4K' ? 2000 : imageModel === 'gemini-3-pro-image-preview' ? 1120 : 100
 
       await usageTracker.track(
         'image_generation',
@@ -582,6 +680,7 @@ export async function POST(request: NextRequest) {
           imageCount: 1, // Always 1 image per generation
           durationMs: 0, // We don't have duration here
           promptLength: prompt.length,
+          resolution: requestedResolution, // Track resolution for cost calculation
         }
       )
     }
@@ -1113,46 +1212,29 @@ This is OUTPAINTING (extend/add background), NOT cropping, NOT zooming, NOT stre
     console.log('[Template Mode] Text Lines:', textLines.join(' | '))
 
     if (textLines.length > 0) {
+      // FIXED: Removed section headers and instruction language that Gemini
+      // was rendering as visible text in images. Now using simple quoted values only.
       exactTextSection = `
 
-=== TEXT CONTENT TO RENDER (VALUES ONLY) ===
+Text elements for this poster:
 ${textLines.join('\n')}
-
-CRITICAL TEXT RENDERING INSTRUCTIONS:
-1. Render ONLY the quoted text content shown above - no labels or field names
-2. Each quoted string is a separate text element to place in the design
-3. DO NOT include words like "Title:", "Type:", or any field identifiers
-4. DO NOT generate placeholder text like "[Insert Date]" or "Insert Time"
-5. DO NOT use any text from the template image - ONLY use my provided values
-6. Copy exact spelling, capitalization, and punctuation from inside the quotes
-===============================================`
+`
     }
   }
 
-  // Build the template adaptation prompt - MUCH STRONGER rejection of template text
-  // Include aspect ratio guidance if dimensions differ significantly
-  const adaptationPrompt = `You are recreating a poster using ONLY the text I provide below.
-
-${exactTextSection}
+  // Build the template adaptation prompt
+  // FIXED: Removed instruction language like "STRICT REQUIREMENTS", "DO NOT", etc.
+  // that Gemini was rendering as visible text in images.
+  // Now using narrative descriptions of the desired poster.
+  const adaptationPrompt = `A professional poster design based on this template's visual style.
 ${aspectRatioGuidance}
+${exactTextSection}
 
-STRICT REQUIREMENTS - READ CAREFULLY:
-1. REPLACE ALL text in the template with ONLY the text I provided above
-2. The template image is ONLY for visual style reference - COMPLETELY IGNORE its text content
-3. DO NOT copy ANY text from the template image like "Helmet Awareness", "Road Safety", "[Insert Date]", "Insert Time", etc.
-4. ONLY render the exact text I specified in my list above - nothing else
+The poster maintains the template's color palette, typography style, decorative elements, backgrounds, and design structure.
+The text shown in the poster is exclusively from the provided text elements list.
+Clean, professional layout with all text clearly readable.
 
-Visual style instructions:
-- Maintain the template's color palette, fonts, and overall aesthetic
-- Keep the decorative elements, backgrounds, patterns, and design structure
-- Place my provided text in logical positions following the template's hierarchy
-- Ensure all text is readable with appropriate contrast
-- Preserve brand logos and their positions
-
-Additional context:
-${prompt}
-
-Generate a poster that uses the template's visual style but contains ONLY my specified text content. The template text like "Helmet Awareness Campaign" must NOT appear in your output.`
+${prompt}`
 
   // Use the latest Gemini 2.5 Flash Image model for image generation
   const response = await fetch(
@@ -1217,7 +1299,8 @@ async function generateWithGemini(
   designData?: DesignData | null,
   systemPrompt?: string,
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
-  resolution?: string
+  resolution?: string,
+  modelId?: string  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -1227,14 +1310,16 @@ async function generateWithGemini(
   // Get aspect ratio for imageConfig - format now uses Gemini-supported ratios
   const geminiAspectRatio = format?.aspectRatio || '1:1'
 
-  // Model capability constraints - gemini-2.5-flash-image only supports 1K
-  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[] }> = {
-    'gemini-2.5-flash-image': { supportedSizes: ['1K'] },
-    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'] },
+  // Model capability constraints with their API endpoints
+  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[]; endpoint: string }> = {
+    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image' },
+    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation' },
+    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'], endpoint: 'gemini-3-pro-image-preview' },
   }
 
   // Validate and constrain resolution based on model capabilities
-  const currentModel = 'gemini-2.5-flash-image'
+  // Use requested model or default to Flash
+  const currentModel = modelId && GEMINI_MODEL_CAPABILITIES[modelId] ? modelId : 'gemini-2.5-flash-image'
   const requestedSize = (resolution || '1K').toUpperCase()
   const supportedSizes = GEMINI_MODEL_CAPABILITIES[currentModel]?.supportedSizes || ['1K']
   const geminiImageSize = supportedSizes.includes(requestedSize) ? requestedSize : supportedSizes[0]
@@ -1243,7 +1328,8 @@ async function generateWithGemini(
     console.warn(`[Generate] Resolution ${requestedSize} not supported by ${currentModel}, using ${geminiImageSize}`)
   }
 
-  console.log('[Generate] Gemini imageConfig - aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
+  const modelEndpoint = GEMINI_MODEL_CAPABILITIES[currentModel]?.endpoint || 'gemini-2.5-flash-image'
+  console.log('[Generate] Gemini imageConfig - model:', currentModel, ', endpoint:', modelEndpoint, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
   // Get aspect ratio for the prompt - prefer format if available
   let aspectRatioText = 'Portrait orientation (4:5 aspect ratio)'
@@ -1262,40 +1348,52 @@ async function generateWithGemini(
     // Enhanced prompt with design data
     userPrompt = prompt
   } else {
-    // Fallback for template mode
-    userPrompt = `Create a professional marketing poster image. ${prompt}.
-    Style: Clean, modern, professional.
-    Format: ${aspectRatioText}.
-    Include realistic photo elements where appropriate.
-    Make text clearly readable and well-designed.`
+    // Fallback for template mode - use narrative description, not command language
+    userPrompt = `A professional marketing poster image. ${prompt}.
+    Clean, modern, professional style.
+    ${aspectRatioText}.
+    Realistic photo elements where appropriate.
+    All text clearly readable and well-designed.`
+  }
+
+  // SANITIZATION: Remove field labels and instruction language before sending to Gemini
+  // This prevents labels like "Event Name:", "Date:", "IMPORTANT:" from being rendered as text
+  const sanitizedPrompt = sanitizeForGemini(userPrompt)
+
+  // Debug: Check for any remaining leaks
+  const detectedLeaks = detectLabelLeaks(sanitizedPrompt)
+  if (detectedLeaks.length > 0) {
+    console.warn('[Generate] Warning: Potential label leaks detected after sanitization:', detectedLeaks)
   }
 
   // Log the prompt for debugging
   console.log('[Generate] === FINAL PROMPT TO GEMINI ===')
-  console.log('[Generate] User Prompt Length:', userPrompt.length, 'chars')
-  console.log('[Generate] Estimated Tokens:', Math.ceil(userPrompt.length / 4))
+  console.log('[Generate] Original Prompt Length:', userPrompt.length, 'chars')
+  console.log('[Generate] Sanitized Prompt Length:', sanitizedPrompt.length, 'chars')
+  console.log('[Generate] Estimated Tokens:', Math.ceil(sanitizedPrompt.length / 4))
   console.log('[Generate] Has System Instruction:', !!systemPrompt)
   if (systemPrompt) {
     console.log('[Generate] System Instruction Length:', systemPrompt.length, 'chars')
   }
-  console.log('[Generate] User Prompt Preview (first 800 chars):')
-  console.log(userPrompt.substring(0, 800))
+  console.log('[Generate] Sanitized Prompt Preview (first 800 chars):')
+  console.log(sanitizedPrompt.substring(0, 800))
   console.log('[Generate] ... (truncated)')
 
   // Build request body with proper Gemini API structure
   // System instruction is sent as a separate field, not concatenated with user prompt
+  // Use sanitizedPrompt to prevent field labels from being rendered as text
   const requestBody: Record<string, unknown> = {
     contents: [
       {
         role: 'user',
-        parts: [{ text: userPrompt }],
+        parts: [{ text: sanitizedPrompt }],
       },
     ],
     generationConfig: {
       responseModalities: ['TEXT', 'IMAGE'],
       imageConfig: {
-        aspectRatio: geminiAspectRatio,
-        imageSize: geminiImageSize,
+        aspect_ratio: geminiAspectRatio,
+        image_size: geminiImageSize,
       },
     },
   }
@@ -1307,9 +1405,9 @@ async function generateWithGemini(
     }
   }
 
-  // Use the latest Gemini 2.5 Flash Image model for image generation
+  // Use the selected Gemini model for image generation
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`,
     {
       method: 'POST',
       headers: {
@@ -1322,8 +1420,25 @@ async function generateWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Gemini API error:', response.status, errorText)
-    throw new Error('Failed to generate image with Gemini')
+    console.error('=== GEMINI API ERROR ===')
+    console.error('Status:', response.status)
+    console.error('Status Text:', response.statusText)
+    console.error('Response Body:', errorText)
+    console.error('API Key (last 4 chars):', apiKey.slice(-4))
+    console.error('========================')
+
+    // Parse error for more specific message
+    let errorMessage = 'Failed to generate image with Gemini'
+    try {
+      const errorJson = JSON.parse(errorText)
+      if (errorJson.error?.message) {
+        errorMessage = `Gemini API: ${errorJson.error.message}`
+      }
+    } catch {
+      // Keep default message if parse fails
+    }
+
+    throw new Error(errorMessage)
   }
 
   const data = await response.json()

@@ -52,19 +52,19 @@ export function FormatCard({ format, isSelected, onClick, className }: FormatCar
       {/* Aspect ratio preview box - Enhanced */}
       <div
         className={cn(
-          'w-full max-w-[90px] rounded-lg border-2 transition-all duration-300',
+          'w-full max-w-[90px] rounded-lg transition-all duration-300',
           'flex items-center justify-center shadow-sm',
           isSelected
-            ? 'border-[#005B96]/60 bg-gradient-to-br from-[#005B96]/10 to-[#1B998B]/10'
-            : 'border-muted bg-gradient-to-br from-muted/30 to-muted/50',
-          'group-hover:border-[#005B96]/40 group-hover:bg-gradient-to-br group-hover:from-[#005B96]/5 group-hover:to-[#1B998B]/5'
+            ? 'shadow-[var(--shadow-card-active)] bg-primary/10'
+            : 'shadow-[var(--shadow-card)] bg-muted/30',
+          'group-hover:shadow-[var(--shadow-card-hover)] group-hover:bg-primary/5'
         )}
         style={getAspectStyle()}
       >
         <span className={cn(
           'text-[11px] font-semibold transition-colors',
-          isSelected ? 'text-[#005B96]' : 'text-muted-foreground',
-          'group-hover:text-[#005B96]'
+          isSelected ? 'text-primary' : 'text-muted-foreground',
+          'group-hover:text-primary'
         )}>
           {format.aspectRatio === 'custom' ? '?' : format.aspectRatio}
         </span>
@@ -75,8 +75,8 @@ export function FormatCard({ format, isSelected, onClick, className }: FormatCar
         <p
           className={cn(
             'text-sm font-semibold truncate transition-colors',
-            isSelected ? 'text-[#005B96]' : 'text-foreground',
-            'group-hover:text-[#005B96]'
+            isSelected ? 'text-primary' : 'text-foreground',
+            'group-hover:text-primary'
           )}
         >
           {format.label}

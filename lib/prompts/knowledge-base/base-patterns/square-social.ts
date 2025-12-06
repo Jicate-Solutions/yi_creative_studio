@@ -85,6 +85,12 @@ export const SQUARE_SOCIAL_PATTERN: BasePattern = {
       'watermarks',
       'mockup',
       'poster on wall',
+      // Label exclusions - prevent field labels from appearing in images
+      'field labels with colons',
+      'data labels',
+      'form field names',
+      'placeholder text',
+      'instruction text',
     ],
     typeSpecific: [
       'too much text',
@@ -92,6 +98,10 @@ export const SQUARE_SOCIAL_PATTERN: BasePattern = {
       'cluttered',
       'corporate boring',
       'stock photo feel',
+      // Specific labels that should never appear
+      'text containing Title colon',
+      'text containing Date colon',
+      'text containing Type colon',
     ],
   },
 

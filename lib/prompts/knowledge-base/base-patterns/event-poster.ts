@@ -134,12 +134,24 @@ export const EVENT_POSTER_PATTERN: BasePattern = {
       'clutter',
       'mockup',
       'poster on wall',
+      // Label exclusions - prevent field labels from appearing in images
+      'field labels with colons',
+      'data labels',
+      'form field names',
+      'placeholder text',
+      'instruction text',
+      'metadata text',
     ],
     typeSpecific: [
       'hard-to-read text',
       'irrelevant imagery',
       'non-specified colors',
       'unprofessional fonts',
+      // Specific labels that should never appear
+      'text containing Event Name colon',
+      'text containing Date colon',
+      'text containing Time colon',
+      'text containing Venue colon',
     ],
   },
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCreativeStore } from '@/stores/creative-store'
 import type {
   SuggestFieldsRequest,
@@ -31,10 +31,33 @@ export function useEventSuggestions({
   organizationId,
   organizationType,
 }: UseEventSuggestionsProps): UseEventSuggestionsReturn {
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // PERMANENT FIX: Track component mount status to prevent state updates after unmount
+  const isMountedRef = useRef(true)
+
+  // Set up mount tracking - cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true
+
+    return () => {
+      isMountedRef.current = false
+
+      // Cancel any pending debounce
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+
+      // Abort any ongoing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+    }
+  }, [])
 
   const {
     selectedVertical,
@@ -55,6 +78,9 @@ export function useEventSuggestions({
 
   const requestSuggestions = useCallback(
     async (title: string) => {
+      // PERMANENT FIX: Early exit if component unmounted
+      if (!isMountedRef.current) return
+
       // Clear any pending debounce
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
@@ -67,19 +93,28 @@ export function useEventSuggestions({
 
       // Validate input
       if (!title || title.trim().length < SUGGESTION_CONFIG.minTitleLength) {
-        setError('Title must be at least 5 characters')
+        if (isMountedRef.current) {
+          setError('Title must be at least 5 characters')
+        }
         return
       }
 
       if (!selectedVertical?.slug) {
-        setError('Please select a vertical first')
+        if (isMountedRef.current) {
+          setError('Please select a vertical first')
+        }
         return
       }
 
       // Debounce the request
       return new Promise<void>((resolve) => {
         debounceRef.current = setTimeout(async () => {
-          setIsLoading(true)
+          // PERMANENT FIX: Check mount status before starting async operation
+          if (!isMountedRef.current) {
+            resolve()
+            return
+          }
+
           setError(null)
           setLoadingSuggestions(true)
 
@@ -114,6 +149,12 @@ export function useEventSuggestions({
               signal: abortControllerRef.current.signal,
             })
 
+            // PERMANENT FIX: Check mount status after async operation
+            if (!isMountedRef.current) {
+              resolve()
+              return
+            }
+
             // Check content type to avoid parsing HTML as JSON
             const contentType = response.headers.get('content-type')
             if (!contentType || !contentType.includes('application/json')) {
@@ -131,24 +172,35 @@ export function useEventSuggestions({
               throw new Error(errorData.error || 'Failed to get suggestions')
             }
 
-            const successData = data as SuggestFieldsResponse
-            setSuggestions(successData.suggestions)
-            setError(null)
+            // PERMANENT FIX: Check mount status before updating state
+            if (isMountedRef.current) {
+              const successData = data as SuggestFieldsResponse
+              setSuggestions(successData.suggestions)
+              setError(null)
+            }
           } catch (err) {
             if (err instanceof Error) {
               if (err.name === 'AbortError') {
                 // Request was cancelled, ignore
+                resolve()
                 return
               }
-              setError(err.message)
-              setSuggestionError(err.message)
+              // PERMANENT FIX: Check mount status before error state update
+              if (isMountedRef.current) {
+                setError(err.message)
+                setSuggestionError(err.message)
+              }
             } else {
-              setError('An unexpected error occurred')
-              setSuggestionError('An unexpected error occurred')
+              if (isMountedRef.current) {
+                setError('An unexpected error occurred')
+                setSuggestionError('An unexpected error occurred')
+              }
             }
           } finally {
-            setIsLoading(false)
-            setLoadingSuggestions(false)
+            // PERMANENT FIX: Check mount status before final state update
+            if (isMountedRef.current) {
+              setLoadingSuggestions(false)
+            }
             resolve()
           }
         }, SUGGESTION_CONFIG.debounceMs)
@@ -197,7 +249,9 @@ export function useEventSuggestions({
   }, [storeDismissAllSuggestions])
 
   return {
-    isLoading: isLoading || aiForm.isLoadingSuggestions,
+    // PERMANENT FIX: Consolidated loading state - use only store's loading state
+    // This eliminates dual loading state sources that caused sync issues
+    isLoading: aiForm.isLoadingSuggestions,
     error: error || aiForm.suggestionError,
     hasSuggestions,
     requestSuggestions,

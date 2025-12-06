@@ -1,12 +1,69 @@
 /**
- * Business Card Prompt Builder v3.0
+ * Business Card Prompt Builder v3.1
  * Generates XML-structured prompts for business card designs
- * Enhanced with logo awareness, brand context, and quality context
+ * Enhanced with:
+ * - Logo awareness, brand context, and quality context
+ * - Theme and organization context (v3.1)
+ * - Professional styling variations
  */
 
 import type { BusinessCardFormData, EnhancedBuildOptions } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLanguageContext,
+} from '../context-helpers'
 import { BUSINESS_CARD_EXAMPLES } from '../examples'
+
+// ============================================================
+// STYLE VARIATIONS (v3.1)
+// ============================================================
+
+interface BusinessCardStyleContext {
+  visualStyle: string
+  background: string
+  typography: string
+  decoration: string
+}
+
+function getBusinessCardStyleContext(style?: string): BusinessCardStyleContext {
+  const styleContexts: Record<string, BusinessCardStyleContext> = {
+    minimal: {
+      visualStyle: 'Ultra-minimal, clean white space, essential info only',
+      background: 'Pure white or soft off-white',
+      typography: 'Clean sans-serif, generous spacing, light weights',
+      decoration: 'None or single thin accent line',
+    },
+    modern: {
+      visualStyle: 'Contemporary, bold accents, professional edge',
+      background: 'White with bold color accent zones',
+      typography: 'Modern sans-serif, bold name, clean hierarchy',
+      decoration: 'Geometric accent shapes, bold color blocks',
+    },
+    classic: {
+      visualStyle: 'Traditional, timeless, executive appropriate',
+      background: 'Cream or ivory with subtle texture',
+      typography: 'Elegant serif for name, clean sans for contact',
+      decoration: 'Subtle border, classic underlines',
+    },
+    creative: {
+      visualStyle: 'Distinctive, memorable, creative industry',
+      background: 'Bold color or unique gradient',
+      typography: 'Mix of weights and styles, artistic hierarchy',
+      decoration: 'Creative elements, unique layout',
+    },
+    corporate: {
+      visualStyle: 'Corporate professional, boardroom appropriate',
+      background: 'Clean white or light gray',
+      typography: 'Professional sans-serif, consistent weights',
+      decoration: 'Minimal, brand-compliant accents only',
+    },
+  }
+  return styleContexts[style || 'minimal'] || styleContexts.minimal
+}
 
 // ============================================================
 // MAIN BUILDER
@@ -16,10 +73,18 @@ export function buildBusinessCardPrompt(
   data: BusinessCardFormData,
   options: EnhancedBuildOptions = {}
 ): string {
-  // Build context sections
+  // Get style context (v3.1)
+  const styleContext = getBusinessCardStyleContext(data.style || options.style)
+
+  // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, 'business_card')
+
+  // NEW v3.1: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const langContext = buildLanguageContext(options.language)
 
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
@@ -34,6 +99,7 @@ Type: Business Card
 Size: Standard 3.5" x 2" (89mm x 51mm)
 Orientation: ${data.orientation || 'Horizontal'}
 Purpose: Professional networking, personal branding, contact information exchange
+Style Variant: ${data.style || 'minimal'}
 </format>
 
 ${logoContext}
@@ -42,15 +108,23 @@ ${brandContext}
 
 ${qualityContext}
 
+${themeContext}
+
+${orgContext}
+
+${langContext}
+
 <subject>
 A professional business card for: ${data.personName}
 Title: ${data.jobTitle}
 ${data.companyName ? `Company: ${data.companyName}` : ''}
+${options.organizationContext?.name ? `Organization: ${options.organizationContext.name}` : ''}
 The card should reflect professionalism and be memorable but not gimmicky.
 </subject>
 
 <composition>
 Layout: Clean, balanced ${data.orientation || 'horizontal'} layout
+Visual Style: ${styleContext.visualStyle}
 
 CRITICAL PRINT MARGINS: No text within 3mm of ANY edge (will be trimmed)
 
@@ -67,12 +141,13 @@ Contact Section (organized, aligned):
   ${data.address ? `- Address: ${data.address}` : ''}
   ${data.socialHandle ? `- Social: ${data.socialHandle}` : ''}
 
-Background: ${data.backgroundStyle || 'Clean white or subtle brand color'}
+Background: ${styleContext.background}
+Decoration: ${styleContext.decoration}
 White Space: Balanced, not cramped - professional breathing room
 </composition>
 
 <text_content>
-<text role="name" prominence="LARGEST" style="professional ${options.brandContext?.fontPreference || 'sans-serif'}, bold">${data.personName}</text>
+<text role="name" prominence="LARGEST" style="${styleContext.typography}, bold">${data.personName}</text>
 <text role="title" prominence="medium" style="clean, slightly smaller, ${options.brandContext?.primaryColor ? `${options.brandContext.primaryColor} accent` : 'gray or muted'}">${data.jobTitle}</text>
 ${data.companyName ? `<text role="company" prominence="medium" style="with logo">${data.companyName}</text>` : ''}
 ${data.phoneNumber ? `<text role="contact" prominence="small" style="clean, readable, with phone icon">${data.phoneNumber}</text>` : ''}
@@ -83,11 +158,11 @@ ${data.socialHandle ? `<text role="contact" prominence="small" style="clean, rea
 </text_content>
 
 <style>
-Visual Style: ${data.style || 'Professional, clean, memorable'}
+Visual Style: ${styleContext.visualStyle}
 Color Palette: ${colorScheme}
 Mood: Professional, trustworthy, distinctive
-Typography: Elegant, readable at actual card size (text must be legible when printed small)
-Decoration: Minimal - subtle accent line or shape at most
+Typography: ${styleContext.typography}, readable at actual card size (text must be legible when printed small)
+Decoration: ${styleContext.decoration}
 </style>
 
 ${BUSINESS_CARD_EXAMPLES}
@@ -107,6 +182,15 @@ ${options.brandContext ? '- Brand colors properly applied' : ''}
 Avoid: Cluttered design, tiny unreadable text (under 7pt), too much information crammed in, unprofessional or playful fonts, busy backgrounds, poor contrast, text too close to edges (will be cut), gimmicky or flashy design
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
 </constraints>
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Print terminology (DPI, margins, bleed)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+</render_constraints>
 `.trim()
 }
 

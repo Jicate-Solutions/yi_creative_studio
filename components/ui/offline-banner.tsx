@@ -14,8 +14,8 @@ export function OfflineBanner() {
   if (isOnline) return null
 
   return (
-    <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
-      <div className="container mx-auto flex items-center justify-center gap-2 text-amber-700 dark:text-amber-400">
+    <div className="bg-warning-muted shadow-[inset_0_-1px_0_hsl(var(--warning)/0.2)] px-4 py-2">
+      <div className="container mx-auto flex items-center justify-center gap-2 text-warning">
         <WifiOff className="w-4 h-4 flex-shrink-0" />
         <span className="text-sm font-medium">
           You&apos;re offline. Connect to internet to generate creatives.

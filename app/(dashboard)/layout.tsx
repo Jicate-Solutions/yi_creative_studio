@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardLayout } from '@/components/layout'
 import { ROUTES } from '@/lib/config/constants'
 
-// Force dynamic rendering for authenticated routes
-export const dynamic = 'force-dynamic'
+// Use revalidate instead of force-dynamic for better performance
+// Pages will still be dynamic due to cookies() usage in createClient
+// but Next.js can optimize static parts of the page
+export const revalidate = 0
 
 export default async function DashboardRootLayout({
   children,

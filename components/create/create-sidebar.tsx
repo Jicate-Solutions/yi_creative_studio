@@ -31,13 +31,12 @@ export function CreateSidebar({
       className={cn(
         'hidden md:flex flex-col w-64 h-screen',
         'fixed top-0 left-0 z-50',
-        'bg-white',
-        'border-r border-sidebar-border shadow-sm',
+        'glass-sidebar',
         className
       )}
     >
       {/* Header - Back to Dashboard */}
-      <div className="flex h-16 items-center border-b border-sidebar-border px-4">
+      <div className="flex h-16 items-center px-4">
         <Link
           href="/dashboard"
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
@@ -49,7 +48,7 @@ export function CreateSidebar({
 
 
       {/* Progress Section */}
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Progress
@@ -58,9 +57,9 @@ export function CreateSidebar({
             Step {currentStep} of {totalSteps}
           </span>
         </div>
-        <div className="h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+        <div className="h-2 bg-muted rounded-full overflow-hidden shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-[#005B96] to-[#1B998B] transition-all duration-500 ease-out rounded-full"
+            className="h-full gradient-yi transition-all duration-500 ease-out rounded-full"
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
@@ -83,8 +82,8 @@ export function CreateSidebar({
                   disabled={!isClickable}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200',
-                    isCurrent && 'bg-gradient-to-r from-[#005B96]/10 to-[#1B998B]/10 border border-[#005B96]/20',
-                    isCompleted && 'hover:bg-gray-100 cursor-pointer',
+                    isCurrent && 'bg-primary/10 shadow-[var(--shadow-card-active)]',
+                    isCompleted && 'hover:bg-muted cursor-pointer',
                     isPending && 'opacity-50 cursor-not-allowed'
                   )}
                 >
@@ -92,9 +91,9 @@ export function CreateSidebar({
                   <div
                     className={cn(
                       'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200',
-                      isCompleted && 'bg-gradient-to-r from-[#1B998B] to-[#22c55e] text-white',
-                      isCurrent && 'bg-gradient-to-r from-[#005B96] to-[#1B998B] text-white shadow-md',
-                      isPending && 'bg-gray-100 text-muted-foreground border border-gray-300'
+                      isCompleted && 'bg-success text-success-foreground',
+                      isCurrent && 'gradient-yi text-white shadow-md',
+                      isPending && 'bg-muted text-muted-foreground shadow-sm'
                     )}
                   >
                     {isCompleted ? (
@@ -110,7 +109,7 @@ export function CreateSidebar({
                       <span
                         className={cn(
                           'text-sm font-medium truncate',
-                          isCurrent && 'text-[#005B96]',
+                          isCurrent && 'text-primary',
                           isCompleted && 'text-foreground/80',
                           isPending && 'text-muted-foreground'
                         )}
@@ -118,12 +117,12 @@ export function CreateSidebar({
                         {step.title}
                       </span>
                       {isCompleted && (
-                        <span className="text-[10px] font-medium text-[#1B998B] uppercase tracking-wider flex-shrink-0">
+                        <span className="text-[10px] font-medium text-success uppercase tracking-wider flex-shrink-0">
                           Done
                         </span>
                       )}
                       {isCurrent && (
-                        <span className="text-[10px] font-medium text-[#005B96] uppercase tracking-wider flex-shrink-0">
+                        <span className="text-[10px] font-medium text-primary uppercase tracking-wider flex-shrink-0">
                           Active
                         </span>
                       )}

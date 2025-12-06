@@ -77,10 +77,39 @@ export interface LogoAwarenessContext {
 }
 
 // ============================================================
-// ENHANCED BUILD OPTIONS (v3.0)
+// ENHANCED BUILD OPTIONS (v3.1 - Form Data Completeness)
 // ============================================================
 
+/**
+ * Speaker photo configuration for overlay zones
+ * Used to reserve space in generated images for speaker photo overlays
+ */
+export interface SpeakerPhotoConfig {
+  enabled: boolean
+  position?: 'left' | 'right' | 'center'
+  size?: 'small' | 'medium' | 'large'
+  shape?: 'circle' | 'rounded' | 'square'
+}
+
+/**
+ * Layout zone configuration for header/footer overlays
+ */
+export interface LayoutZoneConfig {
+  headerHeight?: number  // Percentage of height reserved for header
+  footerHeight?: number  // Percentage of height reserved for footer
+}
+
+/**
+ * Organization context for branding
+ */
+export interface OrganizationContext {
+  name: string
+  tagline?: string
+  industry?: string
+}
+
 export interface EnhancedBuildOptions {
+  // Existing fields
   verticalId?: string
   engine?: 'yi_vision' | 'yi_craft'
   language?: 'en' | 'ta' | 'hi'
@@ -88,6 +117,15 @@ export interface EnhancedBuildOptions {
   logoAwareness?: LogoAwarenessContext
   resolution?: '1K' | '2K' | '4K'
   templateMode?: boolean
+
+  // NEW v3.1: Previously lost data now properly passed
+  theme?: string                        // User's selected theme (professional, creative, elegant, etc.)
+  style?: string                        // Design style preference
+  layout?: LayoutZoneConfig             // Layout zone configuration
+  speakerPhotoConfig?: SpeakerPhotoConfig  // Speaker photo settings for zone reservation
+  organizationContext?: OrganizationContext // Organization branding context
+  contentType?: string                  // Format-specific content type (e.g., LinkedIn article/announcement)
+  formatSize?: string                   // Format-specific size (e.g., A4/A5 for flyers, banner sizes)
 }
 
 // ============================================================

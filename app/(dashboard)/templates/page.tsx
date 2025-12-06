@@ -272,24 +272,29 @@ export default function TemplatesPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList>
-          <TabsTrigger value="my" className="gap-2">
-            <Lock className="h-4 w-4" />
-            My Templates
-          </TabsTrigger>
-          <TabsTrigger value="images" className="gap-2">
-            <ImageIcon className="h-4 w-4" />
-            Image Templates
-          </TabsTrigger>
-          <TabsTrigger value="public" className="gap-2">
-            <Globe className="h-4 w-4" />
-            Public
-          </TabsTrigger>
-          <TabsTrigger value="featured" className="gap-2">
-            <Star className="h-4 w-4" />
-            Featured
-          </TabsTrigger>
-        </TabsList>
+        {/* Horizontally scrollable tabs on mobile */}
+        <div className="overflow-x-auto -mx-4 px-4 scrollbar-none">
+          <TabsList className="inline-flex w-auto min-w-full sm:w-auto">
+            <TabsTrigger value="my" className="gap-2 flex-shrink-0">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">My Templates</span>
+              <span className="sm:hidden">My</span>
+            </TabsTrigger>
+            <TabsTrigger value="images" className="gap-2 flex-shrink-0">
+              <ImageIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Image Templates</span>
+              <span className="sm:hidden">Images</span>
+            </TabsTrigger>
+            <TabsTrigger value="public" className="gap-2 flex-shrink-0">
+              <Globe className="h-4 w-4" />
+              Public
+            </TabsTrigger>
+            <TabsTrigger value="featured" className="gap-2 flex-shrink-0">
+              <Star className="h-4 w-4" />
+              Featured
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
@@ -338,9 +343,9 @@ export default function TemplatesPage() {
         {/* My Templates Tab */}
         <TabsContent value="my" className="mt-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-64 rounded-lg" />
+                <Skeleton key={i} className="h-48 md:h-64 rounded-lg" />
               ))}
             </div>
           ) : templates.length === 0 ? (
@@ -360,14 +365,14 @@ export default function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 stagger-children">
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-200 hover:-translate-y-0.5"
                   onClick={() => setSelectedTemplate(template)}
                 >
-                  <div className="relative h-40 bg-muted">
+                  <div className="relative h-32 md:h-40 bg-muted">
                     {template.preview_image_url ? (
                       <img
                         src={template.preview_image_url}
@@ -376,20 +381,20 @@ export default function TemplatesPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <FileText className="h-16 w-16 text-muted-foreground/30" />
+                        <FileText className="h-12 md:h-16 w-12 md:w-16 text-muted-foreground/30" />
                       </div>
                     )}
                     <div className="absolute top-2 left-2 flex gap-1">
                       {template.is_featured && (
-                        <Badge className="bg-yellow-500 text-yellow-950">
+                        <Badge className="bg-yellow-500 text-yellow-950 text-xs">
                           <Star className="h-3 w-3 mr-1 fill-current" />
-                          Featured
+                          <span className="hidden sm:inline">Featured</span>
                         </Badge>
                       )}
                       {template.is_public && (
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="text-xs">
                           <Globe className="h-3 w-3 mr-1" />
-                          Public
+                          <span className="hidden sm:inline">Public</span>
                         </Badge>
                       )}
                     </div>
@@ -432,19 +437,19 @@ export default function TemplatesPage() {
                       </DropdownMenu>
                     </div>
                   </div>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg truncate">{template.name}</CardTitle>
+                  <CardHeader className="p-3 md:pb-2">
+                    <CardTitle className="text-sm md:text-lg truncate">{template.name}</CardTitle>
                     {template.description && (
-                      <CardDescription className="line-clamp-2">
+                      <CardDescription className="line-clamp-1 md:line-clamp-2 text-xs md:text-sm">
                         {template.description}
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between text-sm">
-                      <Badge variant="outline">{getCategoryLabel(template.category)}</Badge>
-                      <span className="text-muted-foreground">
-                        {template.use_count || 0} uses
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center justify-between text-xs md:text-sm gap-2">
+                      <Badge variant="outline" className="text-xs truncate">{getCategoryLabel(template.category)}</Badge>
+                      <span className="text-muted-foreground flex-shrink-0">
+                        {template.use_count || 0}
                       </span>
                     </div>
                   </CardContent>
@@ -457,7 +462,7 @@ export default function TemplatesPage() {
         {/* Image Templates Tab */}
         <TabsContent value="images" className="mt-6">
           {isLoadingImages ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {[...Array(8)].map((_, i) => (
                 <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
               ))}
@@ -479,11 +484,11 @@ export default function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 stagger-children">
               {filteredImageTemplates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-200 hover:-translate-y-0.5"
                   onClick={() => setSelectedImageTemplate(template)}
                 >
                   <div className="relative aspect-[4/5] bg-muted">
@@ -546,9 +551,9 @@ export default function TemplatesPage() {
         {/* Public Templates Tab */}
         <TabsContent value="public" className="mt-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-64 rounded-lg" />
+                <Skeleton key={i} className="h-48 md:h-64 rounded-lg" />
               ))}
             </div>
           ) : templates.length === 0 ? (
@@ -562,14 +567,14 @@ export default function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 stagger-children">
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-200 hover:-translate-y-0.5"
                   onClick={() => setSelectedTemplate(template)}
                 >
-                  <div className="relative h-40 bg-muted">
+                  <div className="relative h-32 md:h-40 bg-muted">
                     {template.preview_image_url ? (
                       <img
                         src={template.preview_image_url}
@@ -578,23 +583,23 @@ export default function TemplatesPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <FileText className="h-16 w-16 text-muted-foreground/30" />
+                        <FileText className="h-12 md:h-16 w-12 md:w-16 text-muted-foreground/30" />
                       </div>
                     )}
                   </div>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg truncate">{template.name}</CardTitle>
+                  <CardHeader className="p-3 md:pb-2">
+                    <CardTitle className="text-sm md:text-lg truncate">{template.name}</CardTitle>
                     {template.description && (
-                      <CardDescription className="line-clamp-2">
+                      <CardDescription className="line-clamp-1 md:line-clamp-2 text-xs md:text-sm">
                         {template.description}
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between text-sm">
-                      <Badge variant="outline">{getCategoryLabel(template.category)}</Badge>
-                      <span className="text-muted-foreground">
-                        {template.use_count || 0} uses
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center justify-between text-xs md:text-sm gap-2">
+                      <Badge variant="outline" className="text-xs truncate">{getCategoryLabel(template.category)}</Badge>
+                      <span className="text-muted-foreground flex-shrink-0">
+                        {template.use_count || 0}
                       </span>
                     </div>
                   </CardContent>
@@ -607,9 +612,9 @@ export default function TemplatesPage() {
         {/* Featured Templates Tab */}
         <TabsContent value="featured" className="mt-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-64 rounded-lg" />
+                <Skeleton key={i} className="h-48 md:h-64 rounded-lg" />
               ))}
             </div>
           ) : templates.length === 0 ? (
@@ -623,14 +628,14 @@ export default function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 stagger-children">
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-200 hover:-translate-y-0.5"
                   onClick={() => setSelectedTemplate(template)}
                 >
-                  <div className="relative h-40 bg-muted">
+                  <div className="relative h-32 md:h-40 bg-muted">
                     {template.preview_image_url ? (
                       <img
                         src={template.preview_image_url}
@@ -639,29 +644,29 @@ export default function TemplatesPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <FileText className="h-16 w-16 text-muted-foreground/30" />
+                        <FileText className="h-12 md:h-16 w-12 md:w-16 text-muted-foreground/30" />
                       </div>
                     )}
                     <div className="absolute top-2 left-2">
-                      <Badge className="bg-yellow-500 text-yellow-950">
+                      <Badge className="bg-yellow-500 text-yellow-950 text-xs">
                         <Star className="h-3 w-3 mr-1 fill-current" />
-                        Featured
+                        <span className="hidden sm:inline">Featured</span>
                       </Badge>
                     </div>
                   </div>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg truncate">{template.name}</CardTitle>
+                  <CardHeader className="p-3 md:pb-2">
+                    <CardTitle className="text-sm md:text-lg truncate">{template.name}</CardTitle>
                     {template.description && (
-                      <CardDescription className="line-clamp-2">
+                      <CardDescription className="line-clamp-1 md:line-clamp-2 text-xs md:text-sm">
                         {template.description}
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between text-sm">
-                      <Badge variant="outline">{getCategoryLabel(template.category)}</Badge>
-                      <span className="text-muted-foreground">
-                        {template.use_count || 0} uses
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center justify-between text-xs md:text-sm gap-2">
+                      <Badge variant="outline" className="text-xs truncate">{getCategoryLabel(template.category)}</Badge>
+                      <span className="text-muted-foreground flex-shrink-0">
+                        {template.use_count || 0}
                       </span>
                     </div>
                   </CardContent>

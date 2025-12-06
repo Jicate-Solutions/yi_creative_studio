@@ -52,8 +52,8 @@ export function FormatSearch({
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          'pl-10 pr-9 h-11 border-2 rounded-lg transition-all duration-300',
-          'focus:border-[#005B96] focus:shadow-[0_0_0_3px_rgba(0,91,150,0.1)]',
+          'pl-10 pr-9 h-11 rounded-lg transition-all duration-300',
+          'focus-visible:shadow-[var(--shadow-input-focus)]',
           'placeholder:text-muted-foreground'
         )}
       />

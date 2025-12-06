@@ -371,3 +371,195 @@ export { FORMAT_OVERRIDES, getFormatOverride } from './format-overrides/override
 
 // Base patterns (for direct access if needed)
 export { BASE_PATTERNS }
+
+// ============================================================================
+// Design Architecture Module (Ultra-Pro Image Generation)
+// ============================================================================
+
+// Border systems for certificates and formal documents
+export {
+  CERTIFICATE_BORDER_STYLES,
+  getBorderStyle,
+  getBorderStylePromptFragment,
+  getAvailableBorderStyles,
+  normalizeStyleId,
+} from './design-architecture'
+
+// Zone architecture for certificates and speaker photos
+export {
+  CERTIFICATE_ZONE_ARCHITECTURE,
+  getCertificateZonePromptFragment,
+  getCertificateZone,
+  getCertificateZonesByPurpose,
+  SPEAKER_ZONE_CONFIGS,
+  getSpeakerZoneConfig,
+  getSpeakerZonePromptFragment,
+  getAvailableSpeakerZones,
+  shouldIncludeSpeakerZone,
+  buildSpeakerZoneContext,
+} from './design-architecture'
+
+// Typography hierarchy systems
+export {
+  TYPOGRAPHY_HIERARCHY_SYSTEMS,
+  getTypographySystem,
+  getTypographyPromptFragment,
+  getVisualWeight,
+  getAvailableTypographySystems,
+} from './design-architecture'
+
+// Platform-specific scroll-stop patterns
+export {
+  PLATFORM_SCROLL_STOP_PATTERNS,
+  getPlatformPattern,
+  getScrollStopPromptFragment,
+  getPlatformAntiPatterns,
+  getPlatformColorPsychology,
+  getAvailablePlatformPatterns,
+} from './design-architecture'
+
+// Design architecture convenience functions
+export {
+  getDesignArchitectureForFormat,
+  hasDesignArchitecture,
+} from './design-architecture'
+
+// Design architecture types
+export type {
+  BorderStyle,
+  BorderCategory,
+  BorderStyleId,
+  CornerStyle,
+  BorderLine,
+  DecorativeElement,
+  ZoneArchitecture,
+  DesignZone,
+  ZonePosition,
+  ZoneDimensions,
+  ZoneAnchor,
+  ZonePurpose,
+  SpeakerZoneConfig,
+  SpeakerZoneLayout,
+  SpeakerPosition,
+  SpeakerSize,
+  SpeakerShape,
+  ContentFlow,
+  TextHierarchySystem,
+  TypographyHierarchy,
+  TypographyLevel,
+  FontWeight,
+  FontStyle,
+  LetterSpacing,
+  VisualWeightRule,
+  WeightDistribution,
+  FocalPoint,
+  FlowPattern,
+  PlatformPattern,
+  ScrollStopTechnique,
+  ColorPsychologyRule,
+  SafeZoneRule,
+  PlatformId,
+  FormatId,
+} from './design-architecture'
+
+// ============================================================================
+// Gemini-Optimized JSON Knowledge Base (NEW)
+// ============================================================================
+
+// JSON Schema for Gemini prompts (explicit exports to avoid naming conflicts)
+export {
+  // Types
+  type AspectRatio,
+  type LayoutType as GeminiLayoutType,
+  type FocalPoint as GeminiFocalPoint,
+  type TypographySystem as GeminiTypographySystem,
+  type FontWeight as GeminiFontWeight,
+  type LetterSpacing as GeminiLetterSpacing,
+  type VisualStyle,
+  type ProductionStandard,
+  type WCAGLevel,
+  type ColorPalette,
+  type TechnicalSpecs,
+  type TextElement as GeminiTextElement,
+  type TextContent,
+  type ZoneDefinition as GeminiZoneDefinition,
+  type CompositionRules,
+  type TypographyVariant as GeminiTypographyVariant,
+  type TypographySpecs,
+  type ColorDefinition,
+  type ColorSpecs,
+  type VisualSpecs,
+  type LogoOverlay,
+  type SpeakerPhotoOverlay,
+  type OverlaySpecs,
+  type QualitySpecs,
+  type ExclusionSpecs,
+  type GeminiOptimizedPrompt,
+  // Functions
+  validateTextLength,
+  validateColorContrast,
+  validateOverlayZones,
+  validatePrompt,
+  toGeminiJSON,
+  toMinimalGeminiJSON,
+} from './schemas/gemini-prompt-schema'
+
+// Color Psychology System
+export {
+  COLOR_PSYCHOLOGY,
+  COLOR_HARMONIES,
+  EVENT_COLOR_RECOMMENDATIONS,
+  getColorPsychology,
+  getEventColorRecommendation,
+  getHarmoniousPalettes,
+  buildColorContext,
+  buildColorJSON,
+} from './color-psychology-system'
+
+export type {
+  ColorPsychology,
+  ColorHarmony,
+  EventTypeColorRecommendation,
+} from './color-psychology-system'
+
+// Typography Specification System
+export {
+  TYPOGRAPHY_SYSTEMS,
+  FORMAT_TYPOGRAPHY,
+  getTypographySystem as getTypographySystemSpec,
+  getFormatTypography,
+  getVariantForRole,
+  calculatePixelSize,
+  buildTypographyContext,
+  buildTypographyJSON,
+} from './typography-spec'
+
+export type {
+  TypographyVariant,
+  TypographySystemSpec,
+  FormatTypographySpec,
+  TextRole,
+  TypographySystem as TypographySystemId,
+} from './typography-spec'
+
+// Composition Rules System
+export {
+  COMPOSITION_LAYOUTS,
+  FORMAT_COMPOSITIONS,
+  getCompositionLayout,
+  getFormatComposition,
+  getFormatZones,
+  getKeepClearZones,
+  buildCompositionContext,
+  buildCompositionJSON,
+  buildZoneDiagram,
+} from './composition-rules'
+
+export type {
+  CompositionLayout,
+  FormatComposition,
+  ZoneDefinition as CompositionZone,
+  LayoutType,
+  FocalPoint as CompositionFocalPoint,
+  VisualWeight,
+} from './composition-rules'

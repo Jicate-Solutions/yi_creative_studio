@@ -1,12 +1,30 @@
 /**
- * Instagram Post Prompt Builder v3.0
+ * Instagram Post Prompt Builder v3.1
  * Generates XML-structured prompts for Instagram post designs
- * Enhanced with logo awareness, brand context, and quality context
+ * Enhanced with:
+ * - Logo awareness, brand context, and quality context
+ * - Platform-specific scroll-stop patterns for Instagram
+ * - Typography hierarchy with visual weight
+ * - Instruction/content separation for cleaner AI generation
  */
 
 import type { InstagramFormData, EnhancedBuildOptions } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLanguageContext,
+} from '../context-helpers'
 import { INSTAGRAM_POST_EXAMPLES } from '../examples'
+
+// Import design architecture for ultra-pro quality
+import {
+  getScrollStopPromptFragment,
+  getTypographyPromptFragment,
+  getPlatformAntiPatterns,
+} from '../../../knowledge-base/design-architecture'
 
 // ============================================================
 // INSTAGRAM CONTEXTS
@@ -102,10 +120,20 @@ export function buildInstagramPrompt(
 ): string {
   const postContext = getInstagramContext(data.postType)
 
-  // Build context sections
+  // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, 'instagram_post')
+
+  // NEW v3.1: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const langContext = buildLanguageContext(options.language)
+
+  // Get platform-specific scroll-stop patterns and typography
+  const scrollStopPatterns = getScrollStopPromptFragment('instagram')
+  const typographyRules = getTypographyPromptFragment('instagram_post')
+  const antiPatterns = getPlatformAntiPatterns('instagram')
 
   // Determine colors - use brand colors if available
   const colors = options.brandContext?.primaryColor
@@ -129,11 +157,26 @@ ${brandContext}
 
 ${qualityContext}
 
+${themeContext}
+
+${orgContext}
+
+${langContext}
+
+<platform_optimization>
+${scrollStopPatterns}
+</platform_optimization>
+
+<typography_hierarchy>
+${typographyRules}
+</typography_hierarchy>
+
 <subject>
 An eye-catching social media graphic that will STOP THE SCROLL.
 Main Message: "${data.postTitle}"
 Goal: ${postContext.goal}
 Critical: Must capture attention within 0.5-1 second of viewing in feed.
+This is a mobile-first platform - design for thumb-scrolling users.
 </subject>
 
 <composition>
@@ -181,7 +224,18 @@ ${options.logoAwareness?.hasLogo ? '- Logo area clean and ready for overlay' : '
 <constraints>
 Avoid: Tiny text requiring zoom, cluttered composition with multiple competing elements, low contrast (text hard to read), boring/generic look that blends into feed, thin/light fonts that disappear, too much text (keep headline under 10 words), busy background under text, muted/dull colors that don't pop
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+Platform Anti-Patterns: ${antiPatterns.slice(0, 5).join(', ')}
 </constraints>
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Platform terminology (scroll-stop, engagement, mobile-first)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+- Any content from platform_optimization or typography_hierarchy sections
+</render_constraints>
 `.trim()
 }
 

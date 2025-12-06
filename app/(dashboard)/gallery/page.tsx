@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
@@ -41,6 +41,11 @@ import {
   Star,
   FileText,
   Loader2,
+  X,
+  Clock,
+  Coins,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -51,7 +56,8 @@ import {
 import { ExportModal } from '@/components/export'
 import type { Creative } from '@/types/database.types'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 export default function GalleryPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -59,13 +65,34 @@ export default function GalleryPage() {
   const [creatives, setCreatives] = useState<Creative[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [verticalFilter, setVerticalFilter] = useState<string>('all')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest')
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   const [selectedCreative, setSelectedCreative] = useState<Creative | null>(null)
+  const [isFullScreen, setIsFullScreen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [creativeForExport, setCreativeForExport] = useState<Creative | null>(null)
+
+  // PERFORMANCE: Debounce search to prevent re-fetch on every keystroke
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300) // 300ms debounce delay
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [searchQuery])
 
   const fetchCreatives = useCallback(async () => {
     if (!currentOrganization?.id) return
@@ -86,8 +113,8 @@ export default function GalleryPage() {
       query = query.eq('is_favorite', true)
     }
 
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,prompt_used.ilike.%${searchQuery}%`)
+    if (debouncedSearchQuery) {
+      query = query.or(`title.ilike.%${debouncedSearchQuery}%,prompt_used.ilike.%${debouncedSearchQuery}%`)
     }
 
     const { data, error } = await query
@@ -100,7 +127,7 @@ export default function GalleryPage() {
     }
 
     setCreatives(data || [])
-  }, [currentOrganization?.id, supabase, searchQuery, verticalFilter, favoritesOnly, sortBy])
+  }, [currentOrganization?.id, supabase, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
 
   useEffect(() => {
     fetchCreatives()
@@ -198,60 +225,73 @@ export default function GalleryPage() {
         </span>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/30 rounded-xl border">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Filters - Horizontally scrollable on mobile */}
+      <div className="flex flex-col gap-4 p-4 bg-muted/30 rounded-xl border">
+        {/* Search - Full width on mobile */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search creatives..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 input-premium"
+            className="pl-10 input-premium"
           />
         </div>
-        <Select value={verticalFilter} onValueChange={setVerticalFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter by vertical" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Verticals</SelectItem>
-            {verticals.map((v) => (
-              <SelectItem key={v} value={v || ''}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant={favoritesOnly ? 'default' : 'outline'}
-          onClick={() => setFavoritesOnly(!favoritesOnly)}
-          className="gap-2"
-        >
-          <Star className={`h-4 w-4 ${favoritesOnly ? 'fill-current' : ''}`} />
-          Favorites
-        </Button>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'oldest')}>
-          <SelectTrigger className="w-[140px]">
-            {sortBy === 'newest' ? (
-              <SortDesc className="h-4 w-4 mr-2" />
-            ) : (
-              <SortAsc className="h-4 w-4 mr-2" />
-            )}
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Filter controls - Horizontal scroll on mobile */}
+        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          <Select value={verticalFilter} onValueChange={setVerticalFilter}>
+            <SelectTrigger className="w-[160px] flex-shrink-0">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter by vertical" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Verticals</SelectItem>
+              {verticals.map((v) => (
+                <SelectItem key={v} value={v || ''}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant={favoritesOnly ? 'default' : 'outline'}
+            onClick={() => setFavoritesOnly(!favoritesOnly)}
+            className="gap-2 flex-shrink-0"
+          >
+            <Star className={`h-4 w-4 ${favoritesOnly ? 'fill-current' : ''}`} />
+            Favorites
+          </Button>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'oldest')}>
+            <SelectTrigger className="w-[140px] flex-shrink-0">
+              {sortBy === 'newest' ? (
+                <SortDesc className="h-4 w-4 mr-2" />
+              ) : (
+                <SortAsc className="h-4 w-4 mr-2" />
+              )}
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Gallery Grid */}
+      {/* Gallery Grid - Masonry Layout */}
       {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="columns-2 md:columns-3 lg:columns-4 gallery-masonry">
           {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="aspect-[4/5] rounded-lg" />
+            <Card key={i} className="break-inside-avoid mb-4 md:mb-6 gallery-card">
+              <div
+                className="bg-muted rounded-t-xl animate-pulse"
+                style={{ height: [200, 280, 320, 240, 260, 300, 220, 290][i % 8] }}
+              />
+              <div className="p-3 space-y-2">
+                <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+              </div>
+            </Card>
           ))}
         </div>
       ) : creatives.length === 0 ? (
@@ -268,20 +308,23 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="columns-2 md:columns-3 lg:columns-4 gallery-masonry">
           {creatives.map((creative) => (
-            <Card
+            <div
               key={creative.id}
-              className="group overflow-hidden cursor-pointer card-premium card-interactive"
+              className="break-inside-avoid mb-4 md:mb-6 gallery-card group cursor-pointer"
               onClick={() => setSelectedCreative(creative)}
             >
-              <div className="relative aspect-[4/5]">
+              {/* Image Container - Natural Height */}
+              <div className="relative overflow-hidden rounded-t-xl">
                 <Image
                   src={creative.thumbnail_url || creative.image_url}
                   alt={creative.title || 'Creative'}
-                  fill
+                  width={400}
+                  height={0}
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                  style={{ height: 'auto' }}
                   loading="lazy"
                 />
 
@@ -289,7 +332,7 @@ export default function GalleryPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
 
                 {/* Action Buttons - Top Right */}
-                <div className="card-actions flex gap-1">
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-[-4px] group-hover:translate-y-0">
                   <Button
                     size="icon"
                     variant="secondary"
@@ -361,97 +404,149 @@ export default function GalleryPage() {
                   </div>
                 )}
 
-                {/* Info Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                  <h3 className="text-white font-semibold text-sm truncate mb-2">
+                {/* Info Overlay on Image */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                  <h3 className="text-white font-semibold text-sm truncate">
                     {creative.title || 'Untitled'}
                   </h3>
-                  <div className="flex items-center gap-2">
-                    {creative.vertical && (
-                      <span className="badge-pill bg-white/20 text-white text-xs backdrop-blur-sm">
-                        {creative.vertical}
-                      </span>
-                    )}
-                    <span className="text-white/80 text-xs flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(creative.created_at), 'MMM d')}
-                    </span>
-                  </div>
                 </div>
               </div>
-            </Card>
+
+              {/* Card Footer - Always Visible */}
+              <div className="p-3 rounded-b-xl bg-background/50 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  {creative.vertical && (
+                    <span className="badge-pill badge-pill-secondary text-xs truncate max-w-[100px]">
+                      {creative.vertical}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground text-xs flex items-center gap-1 flex-shrink-0">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(creative.created_at), 'MMM d')}
+                  </span>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Creative Detail Dialog */}
+      {/* Creative Detail Dialog - Immersive Premium Layout */}
       <Dialog
         open={!!selectedCreative}
-        onOpenChange={(open) => !open && setSelectedCreative(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedCreative(null)
+            setIsFullScreen(false)
+          }
+        }}
       >
         {selectedCreative && (
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
+          <DialogContent
+            className={cn(
+              "p-0 gap-0 overflow-hidden",
+              isFullScreen
+                ? "w-screen h-screen max-w-none max-h-none inset-0 rounded-none bg-black"
+                : "max-w-6xl w-[95vw] max-h-[95vh] h-[85vh] rounded-2xl"
+            )}
+            showCloseButton={false}
+          >
+            {/* Hidden accessible title for screen readers */}
+            <DialogHeader className="sr-only">
               <DialogTitle>{selectedCreative.title || 'Creative Details'}</DialogTitle>
-              <DialogDescription>
-                Generated on {format(new Date(selectedCreative.created_at), 'MMMM d, yyyy')}
-              </DialogDescription>
             </DialogHeader>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Image - Full View */}
-              <div className="relative rounded-lg overflow-hidden border">
+            {/* Custom close button - top right */}
+            <button
+              onClick={() => setSelectedCreative(null)}
+              className="creative-close-btn absolute top-4 right-4 z-20"
+              aria-label="Close dialog"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Main container */}
+            <div className="flex flex-col h-full">
+              {/* Image Hero Section */}
+              <div className={cn("creative-hero-container", isFullScreen && "h-full")}>
                 <Image
                   src={selectedCreative.image_url}
                   alt={selectedCreative.title || 'Creative'}
-                  width={800}
-                  height={1000}
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-contain w-full h-auto"
+                  width={1200}
+                  height={1500}
+                  sizes="(max-width: 768px) 95vw, 70vw"
+                  className="object-contain max-w-full max-h-full"
                   priority
                 />
+
+                {/* Floating action buttons - top left */}
+                <div className="absolute top-4 left-4 flex gap-2 z-10">
+                  <button
+                    onClick={() => setIsFullScreen(!isFullScreen)}
+                    className="creative-action-btn"
+                    aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
+                  >
+                    {isFullScreen ? (
+                      <Minimize2 className="h-5 w-5" />
+                    ) : (
+                      <Maximize2 className="h-5 w-5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => toggleFavorite(selectedCreative)}
+                    className="creative-action-btn"
+                    aria-label={selectedCreative.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  >
+                    <Heart
+                      className={`h-5 w-5 transition-colors ${
+                        selectedCreative.is_favorite
+                          ? 'fill-red-500 text-red-500'
+                          : ''
+                      }`}
+                    />
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="creative-action-btn" aria-label="More options">
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => saveAsTemplate(selectedCreative)}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Save as Template
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => deleteCreative(selectedCreative.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
-              {/* Details */}
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Vertical
-                  </h4>
-                  <Badge>{selectedCreative.vertical || 'General'}</Badge>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    AI Model
-                  </h4>
-                  <p className="text-sm">{selectedCreative.ai_model}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                    Credits Used
-                  </h4>
-                  <p className="text-sm">{selectedCreative.credits_used}</p>
-                </div>
-
-                {selectedCreative.generation_time_ms && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">
-                      Generation Time
-                    </h4>
-                    <p className="text-sm">
-                      {(selectedCreative.generation_time_ms / 1000).toFixed(1)}s
+              {/* Bottom Metadata Panel - Dark gradient overlay (hidden in full screen) */}
+              {!isFullScreen && (
+                <div className="creative-metadata-panel">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Title and date */}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-white text-lg md:text-xl font-semibold truncate">
+                      {selectedCreative.title || 'Untitled Creative'}
+                    </h2>
+                    <p className="text-white/60 text-sm mt-1">
+                      Generated {formatDistanceToNow(new Date(selectedCreative.created_at))} ago
                     </p>
                   </div>
-                )}
 
-                {/* Action Buttons */}
-                <div className="pt-4 space-y-3">
-                  {/* Primary Action - Download */}
+                  {/* Primary CTA */}
                   <Button
-                    className="w-full"
+                    variant="glass-primary"
                     size="lg"
+                    className="shrink-0"
                     onClick={() => {
                       setCreativeForExport(selectedCreative)
                       setExportModalOpen(true)
@@ -460,50 +555,58 @@ export default function GalleryPage() {
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
+                </div>
 
-                  {/* Secondary Actions */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => toggleFavorite(selectedCreative)}
-                    >
-                      <Heart
-                        className={`h-4 w-4 mr-2 ${
-                          selectedCreative.is_favorite
-                            ? 'fill-red-500 text-red-500'
-                            : ''
-                        }`}
-                      />
-                      {selectedCreative.is_favorite ? 'Unfavorite' : 'Favorite'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => saveAsTemplate(selectedCreative)}
-                      disabled={isSavingTemplate}
-                    >
-                      {isSavingTemplate ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <FileText className="h-4 w-4 mr-2" />
-                      )}
-                      Save as Template
-                    </Button>
-                  </div>
+                {/* Metadata chips */}
+                <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
+                  {selectedCreative.vertical && (
+                    <span className="badge-pill badge-pill-primary shrink-0">
+                      {selectedCreative.vertical}
+                    </span>
+                  )}
+                  <span className="badge-pill bg-white/20 text-white shrink-0 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    {selectedCreative.ai_model}
+                  </span>
+                  {selectedCreative.generation_time_ms && (
+                    <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {(selectedCreative.generation_time_ms / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                  <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
+                    <Coins className="h-3 w-3" />
+                    {selectedCreative.credits_used} credits
+                  </span>
+                </div>
 
-                  {/* Destructive Action */}
+                {/* Secondary actions row */}
+                <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-white border-white/20 hover:bg-white/10 hover:text-white"
+                    onClick={() => saveAsTemplate(selectedCreative)}
+                    disabled={isSavingTemplate}
+                  >
+                    {isSavingTemplate ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    Save as Template
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                     onClick={() => deleteCreative(selectedCreative.id)}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         )}

@@ -39,18 +39,18 @@ export function TopNav() {
     .toUpperCase() || user?.email?.[0].toUpperCase() || '?'
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 shadow-sm">
-      <div className="flex h-16 items-center px-4 md:px-6 gap-4">
+    <header className="sticky top-0 z-50 w-full glass-nav overflow-x-hidden">
+      <div className="flex h-14 md:h-16 items-center px-3 md:px-6 gap-2 md:gap-4 max-w-full">
         {/* Logo - Mobile only */}
         <div className="md:hidden">
           <Logo size="sm" showText={false} />
         </div>
 
-        {/* Organization Switcher */}
+        {/* Organization Switcher - Hidden on mobile, shown on tablet+ */}
         {currentOrganization && organizations.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2 max-w-[200px]">
+              <Button variant="outline" className="hidden sm:flex gap-2 max-w-[200px]">
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span className="truncate">{currentOrganization.name}</span>
                 <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -81,28 +81,30 @@ export function TopNav() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Role Switcher - Admins only */}
-        <RoleSwitcher />
+        {/* Role Switcher - Hidden on mobile */}
+        <div className="hidden md:block">
+          <RoleSwitcher />
+        </div>
 
-        {/* Credits Display */}
+        {/* Credits Display - Compact on mobile */}
         {currentOrganization && (
           <Link href={ROUTES.billing}>
-            <Button variant="outline" size="sm" className="gap-2 rounded-full px-4 hover:bg-primary/5 transition-colors">
-              <Coins className="h-4 w-4 text-amber-500" />
-              <span className="font-semibold">
+            <Button variant="outline" size="sm" className="gap-1.5 md:gap-2 rounded-full px-2.5 md:px-4 hover:bg-primary/5 transition-colors h-9">
+              <Coins className="h-4 w-4 text-warning" />
+              <span className="font-semibold text-sm">
                 {currentOrganization.credits_balance.toLocaleString()}
               </span>
-              <span className="text-muted-foreground hidden sm:inline text-xs">credits</span>
+              <span className="text-muted-foreground hidden md:inline text-xs">credits</span>
             </Button>
           </Link>
         )}
 
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-muted transition-colors">
+        {/* Notifications - Hidden on mobile */}
+        <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-muted transition-colors hidden sm:flex h-9 w-9">
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notifications</span>
           {/* Notification dot */}
-          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
         </Button>
 
         {/* User Menu */}

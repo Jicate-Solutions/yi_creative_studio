@@ -93,12 +93,27 @@ export const PORTRAIT_STORY_PATTERN: BasePattern = {
   },
 
   negativePrompts: {
-    base: ['blurry', 'dark', 'muted colors', 'mockup', 'poster on wall'],
+    base: [
+      'blurry',
+      'dark',
+      'muted colors',
+      'mockup',
+      'poster on wall',
+      // Label exclusions
+      'field labels with colons',
+      'data labels',
+      'form field names',
+      'placeholder text',
+      'instruction text',
+    ],
     typeSpecific: [
       'small text',
       'horizontal composition',
       'content in UI zones',
       'landscape orientation',
+      // Specific labels that should never appear
+      'text containing Title colon',
+      'text containing Date colon',
     ],
   },
 

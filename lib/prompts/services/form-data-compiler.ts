@@ -192,65 +192,105 @@ export function summarizeCompiledData(data: CompiledFormData): string {
 
 /**
  * Builds a text brief from compiled data for AI consumption.
+ *
+ * IMPORTANT: This function outputs VALUES ONLY without field labels.
+ * Previously, labels like "Event Name:", "Date:", "Venue:" were being
+ * rendered as literal text in generated images by Gemini.
+ *
+ * Structure:
+ * - Line 1: Event name (primary headline)
+ * - Line 2: Tagline/subtitle (if present)
+ * - Line 3: Date and time
+ * - Line 4: Venue
+ * - Line 5+: Speaker info, organization, custom fields
  */
 export function buildTextBriefFromCompiled(data: CompiledFormData): string {
+  const textValues: string[] = []
+
+  // Primary text - Event name (no label)
+  if (data.eventName?.trim()) {
+    textValues.push(`"${data.eventName.trim()}"`)
+  }
+
+  // Tagline/subtitle (no label)
+  if (data.tagline?.trim()) {
+    textValues.push(`"${data.tagline.trim()}"`)
+  }
+
+  // Date and time combined naturally (no labels)
+  const dateTimeParts: string[] = []
+  if (data.date?.trim()) dateTimeParts.push(data.date.trim())
+  if (data.time?.trim()) dateTimeParts.push(data.time.trim())
+  if (dateTimeParts.length > 0) {
+    textValues.push(`"${dateTimeParts.join(' | ')}"`)
+  }
+
+  // Venue (no label)
+  if (data.venue?.trim()) {
+    textValues.push(`"${data.venue.trim()}"`)
+  }
+
+  // Speaker info - natural combination (no labels)
+  if (data.speakerName?.trim()) {
+    let speakerText = data.speakerName.trim()
+    if (data.speakerDesignation?.trim()) {
+      speakerText += `, ${data.speakerDesignation.trim()}`
+    }
+    textValues.push(`"${speakerText}"`)
+  }
+
+  // Organization (no label)
+  if (data.organizationName?.trim()) {
+    textValues.push(`"${data.organizationName.trim()}"`)
+  }
+
+  // Custom fields - VALUES ONLY, no field names
+  for (const value of Object.values(data.customFields)) {
+    if (value?.trim()) {
+      textValues.push(`"${value.trim()}"`)
+    }
+  }
+
+  // Build the brief as a simple list of quoted strings
+  // This tells the AI "these are the exact texts to render"
+  return textValues.join('\n')
+}
+
+/**
+ * Builds a narrative description of the event for scene context.
+ * This describes the IMAGE SCENE, not what text to render.
+ * Safe to include in prompts as it uses prose, not labels.
+ */
+export function buildSceneNarrative(data: CompiledFormData): string {
   const parts: string[] = []
 
-  // Event info
-  if (data.eventName) {
-    parts.push(`Event Name: "${data.eventName}"`)
-  }
-  if (data.eventType) {
-    parts.push(`Event Type: ${data.eventType}`)
-  }
+  // Event type context
+  const eventType = data.eventType || 'professional event'
+  parts.push(`A ${eventType} poster design`)
 
-  // Date/Time/Venue
-  const dateTimeParts: string[] = []
-  if (data.date) dateTimeParts.push(`Date: ${data.date}`)
-  if (data.time) dateTimeParts.push(`Time: ${data.time}`)
-  if (data.venue) dateTimeParts.push(`Venue: ${data.venue}`)
-  if (dateTimeParts.length > 0) {
-    parts.push(dateTimeParts.join(' | '))
-  }
-
-  // Speaker/Guest
-  if (data.speakerName) {
-    let speakerInfo = `Guest/Speaker: ${data.speakerName}`
-    if (data.speakerDesignation) {
-      speakerInfo += `, ${data.speakerDesignation}`
-    }
-    parts.push(speakerInfo)
-  }
-
-  // Organization
-  if (data.organizationName) {
-    parts.push(`Organization: ${data.organizationName}`)
-  }
-
-  // Tagline
-  if (data.tagline) {
-    parts.push(`Tagline: "${data.tagline}"`)
-  }
-
-  // Description
-  if (data.description) {
-    parts.push(`Description: ${data.description}`)
-  }
-
-  // Custom fields - CRITICAL FIX: Only include values, not field labels
-  // The AI was rendering labels like "Post Title:" literally in images
-  for (const [key, value] of Object.entries(data.customFields)) {
-    if (value && String(value).trim()) {
-      parts.push(`Text: "${String(value).trim()}"`)
-    }
-  }
-
-  // Format info
+  // Format context
   if (data.format) {
-    parts.push(`Output Format: ${data.format.name}`)
+    parts.push(`in ${data.format.name} format`)
   }
 
-  return parts.join('\n')
+  // Speaker context (affects composition)
+  if (data.speakerName?.trim()) {
+    parts.push('featuring a speaker presentation')
+  }
+
+  // Venue context (affects mood/atmosphere)
+  if (data.venue?.trim()) {
+    const venue = data.venue.toLowerCase()
+    if (venue.includes('hotel') || venue.includes('convention')) {
+      parts.push('with an elegant corporate atmosphere')
+    } else if (venue.includes('university') || venue.includes('college')) {
+      parts.push('with an academic ambiance')
+    } else if (venue.includes('outdoor') || venue.includes('garden')) {
+      parts.push('with a fresh natural setting')
+    }
+  }
+
+  return parts.join(' ')
 }
 
 /**

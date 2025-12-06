@@ -8,7 +8,6 @@ import { useAuthStore } from '@/stores/auth-store'
 import { Logo } from './logo'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
@@ -22,10 +21,8 @@ import {
   Image as ImageIcon,
   Users,
   CreditCard,
-  Settings,
   HelpCircle,
   ChevronLeft,
-  Plus,
   BarChart3,
   Library,
   Layers,
@@ -103,7 +100,7 @@ const settingsNavItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed, createModeActive } = useUIStore()
+  const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed, createModeActive, analyticsModeActive } = useUIStore()
   const { canManage } = useAuthStore()
 
   const isAdmin = canManage()
@@ -112,19 +109,20 @@ export function Sidebar() {
     (item) => !item.adminOnly || isAdmin
   )
 
-  // Hide sidebar when closed or when Create mode is active (child sidebar takes over)
-  if (!sidebarOpen || createModeActive) return null
+  // Hide sidebar when closed or when Create/Analytics mode is active (child sidebar takes over)
+  if (!sidebarOpen || createModeActive || analyticsModeActive) return null
 
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r border-sidebar-border shadow-sm transition-all duration-300',
-        'bg-white',
+        'hidden md:flex flex-col h-screen shadow-sm transition-all duration-300',
+        'fixed top-0 left-0 z-40',
+        'glass-sidebar',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Header */}
-      <div className="flex h-16 items-center border-b border-sidebar-border px-4">
+      <div className="flex h-16 items-center px-4">
         <Logo showText={!sidebarCollapsed} size="sm" />
         <Button
           variant="ghost"
@@ -138,29 +136,6 @@ export function Sidebar() {
           <ChevronLeft className="h-4 w-4" />
           <span className="sr-only">Toggle sidebar</span>
         </Button>
-      </div>
-
-      {/* Create Button */}
-      <div className="p-4">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              asChild
-              className={cn(
-                'w-full gap-2 btn-premium',
-                sidebarCollapsed && 'px-2'
-              )}
-            >
-              <Link href={ROUTES.create}>
-                <Plus className="h-4 w-4" />
-                {!sidebarCollapsed && <span>Create New</span>}
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          {sidebarCollapsed && (
-            <TooltipContent side="right">Create New</TooltipContent>
-          )}
-        </Tooltip>
       </div>
 
       {/* Navigation */}
@@ -179,7 +154,8 @@ export function Sidebar() {
           {/* Settings Section */}
           {filteredSettingsItems.length > 0 && (
             <>
-              <Separator className="my-4 bg-sidebar-border" />
+              {/* Spacer instead of divider line */}
+              <div className="my-4" />
               {!sidebarCollapsed && (
                 <span className="px-3 text-xs font-semibold text-sidebar-muted uppercase tracking-wider mb-2">
                   Settings
@@ -199,7 +175,7 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-4">
+      <div className="p-4 mt-auto">
         <NavLink
           item={{
             title: 'Help & Support',

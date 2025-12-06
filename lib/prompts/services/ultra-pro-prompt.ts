@@ -213,7 +213,7 @@ export async function generateUltraProPromptSafe(
 
 async function callClaude(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const modelName = 'claude-3-5-haiku-latest'
+  const modelName = 'claude-haiku-4-5-20251001'
 
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not configured')
@@ -221,7 +221,7 @@ async function callClaude(prompt: string): Promise<LLMResponse> {
 
   const client = new Anthropic({ apiKey })
 
-  console.log('[Ultra-Pro Prompt] Calling Claude 3.5 Haiku...')
+  console.log('[Ultra-Pro Prompt] Calling Claude Haiku 4.5...')
   const startTime = Date.now()
 
   const response = await client.messages.create({
@@ -383,57 +383,70 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
   }
 }
 
+/**
+ * Builds a fallback enhanced prompt using NARRATIVE descriptions.
+ *
+ * IMPORTANT: This function avoids instruction language that Gemini
+ * might render as visible text. Instead of "Include X", "Feature Y",
+ * it uses descriptive prose about the design.
+ *
+ * Anti-patterns AVOIDED:
+ * - "Include these details: date: X, time: Y" (labels leak)
+ * - "Feature the guest/speaker: X" (instruction language)
+ * - "Create a design with..." (command language)
+ */
 function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
   const parts: string[] = []
 
-  // Format type
+  // Format type - use narrative, not command
   const formatName = compiledData.format?.name || 'poster'
-  parts.push(`Create a professional ${formatName} design.`)
+  const eventType = compiledData.eventType || 'professional event'
+  parts.push(`A ${eventType} ${formatName} with clean, modern typography.`)
 
-  // Event name - MUST be prominent
+  // Event name - describe the headline, don't command
   if (compiledData.eventName) {
-    parts.push(`The main headline text "${compiledData.eventName}" must appear prominently and be clearly readable.`)
+    parts.push(`The prominent headline reads "${compiledData.eventName}".`)
   }
 
-  // Date, time, venue
-  const detailParts: string[] = []
-  if (compiledData.date) detailParts.push(`date: ${compiledData.date}`)
-  if (compiledData.time) detailParts.push(`time: ${compiledData.time}`)
-  if (compiledData.venue) detailParts.push(`venue: ${compiledData.venue}`)
-  if (detailParts.length > 0) {
-    parts.push(`Include these details in the design: ${detailParts.join(', ')}.`)
+  // Date, time, venue - list as supporting text, no labels
+  const supportingText: string[] = []
+  if (compiledData.date?.trim()) supportingText.push(`"${compiledData.date.trim()}"`)
+  if (compiledData.time?.trim()) supportingText.push(`"${compiledData.time.trim()}"`)
+  if (compiledData.venue?.trim()) supportingText.push(`"${compiledData.venue.trim()}"`)
+  if (supportingText.length > 0) {
+    parts.push(`Supporting text elements: ${supportingText.join(', ')}.`)
   }
 
-  // Speaker/Guest
-  if (compiledData.speakerName) {
-    const speakerInfo = compiledData.speakerDesignation
-      ? `${compiledData.speakerName} (${compiledData.speakerDesignation})`
-      : compiledData.speakerName
-    parts.push(`Feature the guest/speaker: ${speakerInfo}.`)
+  // Speaker/Guest - describe naturally, no "Feature" command
+  if (compiledData.speakerName?.trim()) {
+    const speakerText = compiledData.speakerDesignation?.trim()
+      ? `"${compiledData.speakerName.trim()}, ${compiledData.speakerDesignation.trim()}"`
+      : `"${compiledData.speakerName.trim()}"`
+    parts.push(`Speaker attribution: ${speakerText}.`)
   }
 
-  // Organization
-  if (compiledData.organizationName) {
-    parts.push(`Include organization branding for: ${compiledData.organizationName}.`)
+  // Organization - describe as part of branding, no command
+  if (compiledData.organizationName?.trim()) {
+    parts.push(`Branding for "${compiledData.organizationName.trim()}".`)
   }
 
-  // Custom fields - CRITICAL FIX: Only include values, not field names
-  // The AI was rendering "postTitle: Monthly YI Gathering" literally
-  for (const [key, value] of Object.entries(compiledData.customFields)) {
-    if (value && String(value).trim()) {
-      parts.push(`Also include this text element: "${value}".`)
+  // Custom fields - VALUES ONLY, wrapped in quotes
+  for (const value of Object.values(compiledData.customFields)) {
+    if (value?.trim()) {
+      parts.push(`Additional text: "${value.trim()}".`)
     }
   }
 
-  // Style/Theme
-  if (compiledData.theme) {
-    parts.push(`Use a ${compiledData.theme} theme.`)
-  }
-  if (compiledData.style) {
-    parts.push(`Apply a ${compiledData.style} style.`)
+  // Style/Theme - describe the aesthetic, don't command
+  const styleDescriptors: string[] = []
+  if (compiledData.theme) styleDescriptors.push(compiledData.theme)
+  if (compiledData.style) styleDescriptors.push(compiledData.style)
+  if (styleDescriptors.length > 0) {
+    parts.push(`${styleDescriptors.join(', ')} aesthetic with professional layout.`)
   }
 
-  parts.push('Ensure all text is clearly readable and professionally laid out.')
+  // Quality note - describe outcome, not instruction
+  parts.push('Crisp, legible typography throughout.')
 
   return parts.join(' ')
 }

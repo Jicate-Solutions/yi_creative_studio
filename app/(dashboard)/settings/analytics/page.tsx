@@ -93,8 +93,11 @@ function getModelDisplayName(model: string): string {
     'gemini-2.5-flash-image': 'Gemini 2.5 Flash (Image)',
     'gemini-2.5-flash': 'Gemini 2.5 Flash',
     'gemini-2.5-pro': 'Gemini 2.5 Pro',
-    'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
-    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku',
+    'gemini-3-pro-image-preview': 'Nano Banana Pro Preview',
+    'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+    'claude-haiku-4-5': 'Claude Haiku 4.5',
+    'claude-3-5-haiku-latest': 'Claude 3.5 Haiku (Legacy)',
+    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku (Legacy)',
     'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
     'claude-sonnet-4-20250514': 'Claude Sonnet 4',
     'claude-opus-4-20250514': 'Claude Opus 4',
@@ -337,14 +340,8 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Usage Analytics</h1>
-          <p className="text-muted-foreground">
-            Track your creative generation and credit usage
-          </p>
-        </div>
+      {/* Time Range Filter */}
+      <div className="flex justify-end">
         <Select value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
           <SelectTrigger className="w-[180px]">
             <Calendar className="h-4 w-4 mr-2" />

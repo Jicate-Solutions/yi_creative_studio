@@ -1,12 +1,31 @@
 /**
- * Certificate Prompt Builder v3.0
+ * Certificate Prompt Builder v3.1
  * Generates XML-structured prompts for certificate designs
- * Enhanced with logo awareness, brand context, and quality context
+ * Enhanced with:
+ * - Logo awareness, brand context, and quality context
+ * - Professional design architecture (borders, zones, typography)
+ * - Instruction/content separation for cleaner AI generation
  */
 
 import type { CertificateFormData, EnhancedBuildOptions, BrandContextPrompt } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLayoutZoneContext,
+  buildLanguageContext,
+} from '../context-helpers'
 import { CERTIFICATE_EXAMPLES } from '../examples'
+
+// Import design architecture for ultra-pro quality
+import {
+  getBorderStylePromptFragment,
+  getCertificateZonePromptFragment,
+  getTypographyPromptFragment,
+  normalizeStyleId,
+} from '../../../knowledge-base/design-architecture'
 
 // ============================================================
 // STYLE HELPERS
@@ -96,10 +115,22 @@ export function buildCertificatePrompt(
   const style = data.style || 'classic'
   const isModern = style === 'modern'
 
-  // Build context sections
+  // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, 'certificate')
+
+  // NEW v3.1: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+  const langContext = buildLanguageContext(options.language)
+
+  // Get enhanced design architecture
+  const normalizedStyle = normalizeStyleId(style)
+  const borderArchitecture = getBorderStylePromptFragment(normalizedStyle)
+  const zoneArchitecture = getCertificateZonePromptFragment()
+  const typographyRules = getTypographyPromptFragment('certificate')
 
   return `
 <task>Generate a prestigious, professional certificate design</task>
@@ -116,6 +147,22 @@ ${logoContext}
 ${brandContext}
 
 ${qualityContext}
+
+${themeContext}
+
+${orgContext}
+
+${layoutContext}
+
+${langContext}
+
+<design_architecture>
+${borderArchitecture}
+
+${zoneArchitecture}
+
+${typographyRules}
+</design_architecture>
 
 <subject>
 A formal certificate of ${data.certificateTitle || 'achievement'}${data.issuingAuthority ? ` issued by ${data.issuingAuthority}` : ''}.
@@ -183,6 +230,16 @@ ${options.brandContext ? '- Brand colors subtly integrated' : ''}
 Avoid: Blurry or pixelated elements, clipart, cartoon graphics, casual or playful fonts (Comic Sans, etc.), neon or overly bright colors, busy patterns, crowded layout, poor text hierarchy, stock photo elements, modern casual aesthetic (unless modern style selected), low resolution output
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex patterns or important content in ${options.logoAwareness.logoPosition} area (logo overlay zone)` : ''}
 </constraints>
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Design terminology (hierarchy, prominence, focal point)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+- Any text from design_architecture or quality_markers sections
+</render_constraints>
 `.trim()
 }
 

@@ -176,6 +176,7 @@ export function createUsageTracker(params: {
         promptLength?: number
         success?: boolean
         errorMessage?: string
+        resolution?: '1K' | '2K' | '4K'  // For resolution-based pricing (Gemini 3 Pro)
       }
     ) => {
       // Calculate cost
@@ -187,9 +188,9 @@ export function createUsageTracker(params: {
         usage.cachedTokens || 0
       )
 
-      // Add image cost if applicable
+      // Add image cost if applicable (supports resolution-based pricing)
       if (usage.imageCount && usage.imageCount > 0) {
-        costUsd += calculateImageCost(provider, model, usage.imageCount)
+        costUsd += calculateImageCost(provider, model, usage.imageCount, usage.resolution)
       }
 
       const record: ApiUsageRecord = {

@@ -8,6 +8,9 @@ interface UIState {
   // Create mode - hides parent sidebar for child sidebar
   createModeActive: boolean
 
+  // Analytics mode - hides parent sidebar for analytics sidebar
+  analyticsModeActive: boolean
+
   // Mobile navigation
   mobileNavOpen: boolean
 
@@ -25,6 +28,8 @@ interface UIState {
   setSidebarCollapsed: (collapsed: boolean) => void
   enterCreateMode: () => void
   exitCreateMode: () => void
+  enterAnalyticsMode: () => void
+  exitAnalyticsMode: () => void
   toggleMobileNav: () => void
   setMobileNavOpen: (open: boolean) => void
   openModal: (modalId: string, data?: Record<string, unknown>) => void
@@ -37,6 +42,7 @@ export const useUIStore = create<UIState>()((set) => ({
   sidebarOpen: true,
   sidebarCollapsed: false,
   createModeActive: false,
+  analyticsModeActive: false,
   mobileNavOpen: false,
   activeModal: null,
   modalData: null,
@@ -53,6 +59,10 @@ export const useUIStore = create<UIState>()((set) => ({
   enterCreateMode: () => set({ createModeActive: true }),
 
   exitCreateMode: () => set({ createModeActive: false }),
+
+  enterAnalyticsMode: () => set({ analyticsModeActive: true }),
+
+  exitAnalyticsMode: () => set({ analyticsModeActive: false }),
 
   toggleMobileNav: () => set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
 

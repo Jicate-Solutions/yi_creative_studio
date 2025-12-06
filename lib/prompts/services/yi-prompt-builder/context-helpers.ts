@@ -1,9 +1,16 @@
 /**
- * Context Helper Functions for Yi Prompt Builder v3.0
- * Provides logo awareness, brand context, and quality context injection
+ * Context Helper Functions for Yi Prompt Builder v3.1
+ * Provides logo awareness, brand context, quality context,
+ * and NEW: theme, organization, layout zone, and language context injection
  */
 
-import type { LogoAwarenessContext, BrandContextPrompt } from './types'
+import type {
+  LogoAwarenessContext,
+  BrandContextPrompt,
+  OrganizationContext,
+  LayoutZoneConfig,
+  SpeakerPhotoConfig,
+} from './types'
 
 // ============================================================
 // LOGO AWARENESS CONTEXT
@@ -191,6 +198,201 @@ Quality Requirements:
 }
 
 // ============================================================
+// THEME CONTEXT (v3.1)
+// ============================================================
+
+const THEME_DESCRIPTIONS: Record<string, string> = {
+  professional: 'Clean, business-appropriate, trustworthy appearance with refined aesthetics',
+  creative: 'Bold, artistic, innovative visual language with unique design choices',
+  elegant: 'Sophisticated, refined, premium aesthetic with subtle luxury touches',
+  dynamic: 'Energetic, bold, high-impact visuals with movement and excitement',
+  cultural: 'Traditional elements thoughtfully integrated with modern interpretation',
+  nature: 'Organic, natural, earthy visual elements with environmental harmony',
+  academic: 'Scholarly, prestigious, institutional with classic authority',
+  minimalist: 'Clean, uncluttered, focused design with intentional whitespace',
+  vibrant: 'Colorful, energetic, eye-catching with saturated hues',
+  corporate: 'Formal, structured, business-focused with clear hierarchy',
+}
+
+/**
+ * Build theme context section for prompt
+ * Provides visual direction based on user's theme preference
+ */
+export function buildThemeContext(
+  theme?: string,
+  style?: string
+): string {
+  if (!theme && !style) return ''
+
+  const themeDesc = THEME_DESCRIPTIONS[theme || 'professional'] || THEME_DESCRIPTIONS.professional
+
+  return `
+<theme_context>
+Design Theme: ${theme || 'professional'}
+${style ? `Style Direction: ${style}` : ''}
+Visual Character: ${themeDesc}
+Apply this theme consistently across all visual elements, typography, and color choices.
+</theme_context>
+`.trim()
+}
+
+// ============================================================
+// ORGANIZATION CONTEXT (v3.1)
+// ============================================================
+
+/**
+ * Build organization context section for prompt
+ * Provides branding and identity context beyond just colors
+ */
+export function buildOrganizationContext(
+  org?: OrganizationContext
+): string {
+  if (!org?.name) return ''
+
+  const lines: string[] = []
+  lines.push(`Organization: ${org.name}`)
+
+  if (org.tagline) {
+    lines.push(`Tagline: "${org.tagline}"`)
+  }
+
+  if (org.industry) {
+    lines.push(`Industry/Vertical: ${org.industry}`)
+  }
+
+  return `
+<organization_context>
+${lines.join('\n')}
+Incorporate organization identity subtly through professional design choices.
+Ensure the design feels authentic to this organization's character.
+</organization_context>
+`.trim()
+}
+
+// ============================================================
+// LAYOUT ZONE CONTEXT (v3.1)
+// ============================================================
+
+/**
+ * Build layout zone context for reserved header/footer areas
+ * Instructs AI to keep these zones simple for post-processing overlays
+ */
+export function buildLayoutZoneContext(
+  layout?: LayoutZoneConfig
+): string {
+  if (!layout?.headerHeight && !layout?.footerHeight) return ''
+
+  const zones: string[] = []
+
+  if (layout.headerHeight && layout.headerHeight > 0) {
+    zones.push(`- HEADER ZONE (top ${layout.headerHeight}%): Reserved for logo/branding overlay - use simple, uncluttered background`)
+  }
+
+  if (layout.footerHeight && layout.footerHeight > 0) {
+    zones.push(`- FOOTER ZONE (bottom ${layout.footerHeight}%): Reserved for footer elements - use simple, uncluttered background`)
+  }
+
+  return `
+<layout_zones>
+Reserved Zones for Post-Processing:
+${zones.join('\n')}
+Ensure these zones have simple backgrounds (solid, subtle gradient, or minimal pattern) suitable for overlay elements.
+Avoid placing critical design elements, faces, or important text in these zones.
+</layout_zones>
+`.trim()
+}
+
+// ============================================================
+// LANGUAGE CONTEXT (v3.1)
+// ============================================================
+
+const LANGUAGE_GUIDANCE: Record<string, { name: string; typography: string }> = {
+  en: { name: 'English', typography: 'Standard Latin typography' },
+  ta: {
+    name: 'Tamil',
+    typography: 'Tamil script - ensure proper rendering, adequate line height (1.6-1.8) for complex characters and ligatures',
+  },
+  hi: {
+    name: 'Hindi/Devanagari',
+    typography: 'Hindi script - ensure proper rendering, adequate spacing for conjuncts and matras',
+  },
+}
+
+/**
+ * Build language context for non-English content
+ * Provides typography and rendering guidance for different scripts
+ */
+export function buildLanguageContext(
+  language?: 'en' | 'ta' | 'hi'
+): string {
+  if (!language || language === 'en') return ''
+
+  const langInfo = LANGUAGE_GUIDANCE[language]
+  if (!langInfo) return ''
+
+  return `
+<language_context>
+Text Language: ${langInfo.name}
+Typography Note: ${langInfo.typography}
+Ensure all text in this language is rendered clearly and correctly.
+</language_context>
+`.trim()
+}
+
+// ============================================================
+// SPEAKER PHOTO ZONE CONTEXT (v3.1)
+// ============================================================
+
+const SPEAKER_POSITION_DESCRIPTIONS: Record<string, string> = {
+  left: 'LEFT 35-40% of the design',
+  right: 'RIGHT 35-40% of the design',
+  center: 'CENTER of the design (circular overlay area)',
+}
+
+const SPEAKER_SIZE_DIMENSIONS: Record<string, string> = {
+  small: '20-25% of design width',
+  medium: '30-35% of design width',
+  large: '40-45% of design width',
+}
+
+const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
+  circle: 'circular photo frame area - keep background suitable for round cutout',
+  rounded: 'rounded rectangle photo frame - keep background suitable for rounded corners',
+  square: 'square photo frame - keep background suitable for rectangular cutout',
+}
+
+/**
+ * Build speaker photo zone context
+ * Reserves area for speaker photo overlay in event posters
+ */
+export function buildSpeakerPhotoZoneContext(
+  config?: SpeakerPhotoConfig
+): string {
+  if (!config?.enabled) return ''
+
+  const position = config.position || 'left'
+  const size = config.size || 'large'
+  const shape = config.shape || 'circle'
+
+  return `
+<speaker_photo_zone>
+IMPORTANT: A speaker photo will be overlaid on this design after generation.
+
+Speaker Photo Zone:
+- Position: ${SPEAKER_POSITION_DESCRIPTIONS[position] || position}
+- Size: ${SPEAKER_SIZE_DIMENSIONS[size] || size}
+- Shape: ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}
+
+Zone Requirements:
+- Keep this area clean with simple background (solid color, subtle gradient)
+- DO NOT generate faces, people, or human figures in this zone
+- Ensure good contrast between the photo zone and surrounding design
+- Leave breathing room around the zone for the photo to stand out
+</speaker_photo_zone>
+`.trim()
+}
+
+// ============================================================
 // COMBINED CONTEXT BUILDER
 // ============================================================
 
@@ -199,15 +401,24 @@ export interface ContextOptions {
   brandContext?: BrandContextPrompt
   resolution?: string
   formatId?: string
+  // NEW v3.1 options
+  theme?: string
+  style?: string
+  organizationContext?: OrganizationContext
+  layout?: LayoutZoneConfig
+  language?: 'en' | 'ta' | 'hi'
+  speakerPhotoConfig?: SpeakerPhotoConfig
 }
 
 /**
  * Build all context sections at once
- * Convenience function that combines logo, brand, and quality contexts
+ * Convenience function that combines all context types
+ * v3.1: Now includes theme, organization, layout, language, and speaker photo contexts
  */
 export function buildAllContexts(options: ContextOptions): string {
   const parts: string[] = []
 
+  // Core contexts (v3.0)
   const logoContext = buildLogoContext(options.logoAwareness)
   if (logoContext) parts.push(logoContext)
 
@@ -216,6 +427,22 @@ export function buildAllContexts(options: ContextOptions): string {
 
   const qualityContext = buildQualityContext(options.resolution, options.formatId)
   if (qualityContext) parts.push(qualityContext)
+
+  // NEW v3.1 contexts
+  const themeContext = buildThemeContext(options.theme, options.style)
+  if (themeContext) parts.push(themeContext)
+
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  if (orgContext) parts.push(orgContext)
+
+  const layoutContext = buildLayoutZoneContext(options.layout)
+  if (layoutContext) parts.push(layoutContext)
+
+  const langContext = buildLanguageContext(options.language)
+  if (langContext) parts.push(langContext)
+
+  const speakerContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
+  if (speakerContext) parts.push(speakerContext)
 
   return parts.join('\n\n')
 }

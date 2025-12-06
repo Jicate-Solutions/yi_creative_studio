@@ -38,7 +38,12 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        // Base overlay with enhanced glassmorphism
+        "fixed inset-0 z-50 bg-black/40 backdrop-blur-md",
+        // Animations
+        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "duration-200",
         className
       )}
       {...props}
@@ -46,21 +51,43 @@ function DialogOverlay({
   )
 }
 
+interface DialogContentProps extends React.ComponentProps<typeof DialogPrimitive.Content> {
+  showCloseButton?: boolean
+  fullScreenMobile?: boolean
+  /** Use solid background instead of glass effect - better for modals with lots of content */
+  solidBackground?: boolean
+}
+
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  fullScreenMobile = false,
+  solidBackground = false,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean
-}) {
+}: DialogContentProps) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+          // Background - solid or premium glassmorphism (borderless)
+          solidBackground
+            ? "bg-background fixed z-50 grid gap-4 shadow-[var(--shadow-dialog)]"
+            : "glass-premium fixed z-50 grid gap-4 shadow-[var(--shadow-dialog)]",
+          // Animations with spring effect
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:slide-out-to-top-[2%] data-[state=open]:slide-in-from-top-[2%]",
+          "duration-300 ease-out",
+          // Mobile: full screen or nearly full
+          fullScreenMobile
+            ? "inset-0 rounded-none p-4 sm:inset-auto sm:top-[50%] sm:left-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:w-full sm:max-h-[90vh] sm:rounded-xl sm:p-6"
+            : "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 sm:max-w-lg",
+          // Safe area for notched devices
+          "safe-area-inset-top safe-area-inset-bottom",
           className
         )}
         {...props}
@@ -69,7 +96,15 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "absolute top-4 right-4 rounded-full p-2",
+              "opacity-70 transition-all hover:opacity-100 hover:bg-muted",
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              "disabled:pointer-events-none",
+              // Touch-friendly size
+              "touch-target",
+              "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-5"
+            )}
           >
             <XIcon />
             <span className="sr-only">Close</span>

@@ -70,9 +70,30 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
       outputPerMillion: 12.00,
       cachedInputPerMillion: 0.50,
     },
+    // Gemini 3 Pro Image Preview - 4K capable image generation
+    // Pricing: $120/M output tokens
+    // 1K/2K = 1,120 tokens → $0.1344 per image
+    // 4K = 2,000 tokens → $0.24 per image
+    'gemini-3-pro-image-preview': {
+      inputPerMillion: 2.00,
+      outputPerMillion: 120.00,
+      imageGeneration: 0.1344,  // Default 1K/2K price
+      cachedInputPerMillion: 0.50,
+    },
   },
   claude: {
-    // Haiku - Fast & cheap (used for Design Intelligence, Ultra-Pro Prompt)
+    // Haiku 4.5 - Latest fast & cheap model (recommended)
+    'claude-haiku-4-5-20251001': {
+      inputPerMillion: 0.80,
+      outputPerMillion: 4.00,
+      cachedInputPerMillion: 0.08,
+    },
+    'claude-haiku-4-5': {
+      inputPerMillion: 0.80,
+      outputPerMillion: 4.00,
+      cachedInputPerMillion: 0.08,
+    },
+    // Haiku 3.5 - Legacy (deprecated, kept for backwards compatibility)
     'claude-3-5-haiku-latest': {
       inputPerMillion: 0.80,
       outputPerMillion: 4.00,
@@ -174,16 +195,26 @@ export function calculateTokenCost(
 
 /**
  * Calculate cost for image generation
+ * Supports resolution-based pricing for Gemini 3 Pro Image Preview
  */
 export function calculateImageCost(
   provider: AIProvider,
   model: string,
-  imageCount: number = 1
+  imageCount: number = 1,
+  resolution: '1K' | '2K' | '4K' = '1K'
 ): number {
   const pricing = getModelPricing(provider, model)
   if (!pricing?.imageGeneration) {
     console.warn(`[AI Pricing] No image pricing for: ${provider}/${model}`)
     return 0.039 * imageCount // Default to Gemini Flash image pricing
+  }
+
+  // Resolution-based pricing for Gemini 3 Pro Image Preview
+  // Based on output tokens: 1K/2K = 1,120 tokens, 4K = 2,000 tokens
+  // At $120/M tokens: 1K/2K = $0.1344, 4K = $0.24
+  if (model === 'gemini-3-pro-image-preview') {
+    const cost = resolution === '4K' ? 0.24 : 0.1344
+    return cost * imageCount
   }
 
   return pricing.imageGeneration * imageCount
@@ -257,6 +288,7 @@ export type RequestType =
   | 'field_suggestion'
   | 'template_adaptation'
   | 'resize_template'
+  | 'feedback_analysis'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   design_intelligence: 'Design Intelligence',
@@ -265,4 +297,5 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   field_suggestion: 'Field Suggestions',
   template_adaptation: 'Template Adaptation',
   resize_template: 'Template Resize',
+  feedback_analysis: 'Feedback Analysis',
 }

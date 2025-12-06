@@ -560,11 +560,11 @@ async function callGemini(prompt: string): Promise<LLMResponse> {
 
 /**
  * Call Claude for design intelligence
- * Using Claude 3.5 Haiku - fast, cost-effective, and excellent reasoning
+ * Using Claude Haiku 4.5 - fast, cost-effective, and excellent reasoning
  */
 async function callClaude(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const modelName = 'claude-3-5-haiku-latest'
+  const modelName = 'claude-haiku-4-5-20251001'
 
   console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
 
@@ -574,7 +574,7 @@ async function callClaude(prompt: string): Promise<LLMResponse> {
 
   const client = new Anthropic({ apiKey })
 
-  console.log('[Design Intelligence] Calling Claude 3.5 Haiku...')
+  console.log('[Design Intelligence] Calling Claude Haiku 4.5...')
   const startTime = Date.now()
 
   const response = await client.messages.create({

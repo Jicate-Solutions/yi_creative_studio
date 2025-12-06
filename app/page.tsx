@@ -93,7 +93,7 @@ export default function LandingPage() {
                 <Button variant="ghost">Login</Button>
               </Link>
               <Link href={ROUTES.signup}>
-                <Button className="bg-[#005B96] hover:bg-[#004a7c]">
+                <Button className="bg-primary hover:bg-primary/90">
                   Get Started Free
                 </Button>
               </Link>
@@ -122,7 +122,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href={ROUTES.signup}>
-                <Button size="lg" className="bg-[#005B96] hover:bg-[#004a7c] text-lg px-8 py-6">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-6">
                   Start Creating Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
@@ -171,7 +171,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-[#005B96]">
+      <section className="py-16 bg-primary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat) => (

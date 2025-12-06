@@ -15,6 +15,11 @@ import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate
 // Re-export for convenience
 export type { GeneratedSchema, DynamicSchemaField }
 
+// PERMANENT FIX: Race condition protection for dynamic schema generation
+// This counter tracks the latest request to prevent stale updates
+let dynamicSchemaRequestId = 0
+let dynamicSchemaAbortController: AbortController | null = null
+
 // Dynamic Schema State for AI-generated form fields
 export interface DynamicSchemaState {
   schema: GeneratedSchema | null
@@ -874,6 +879,15 @@ export const useCreativeStore = create<CreativeState>()(
           return // Already have valid schema
         }
 
+        // PERMANENT FIX: Race condition protection
+        // Cancel any previous request and increment request ID
+        if (dynamicSchemaAbortController) {
+          dynamicSchemaAbortController.abort()
+        }
+        dynamicSchemaAbortController = new AbortController()
+        const currentRequestId = ++dynamicSchemaRequestId
+        const signal = dynamicSchemaAbortController.signal
+
         // Set loading state
         set({
           dynamicSchema: {
@@ -888,6 +902,12 @@ export const useCreativeStore = create<CreativeState>()(
         const baseDelay = 1000 // 1 second
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          // PERMANENT FIX: Check if this request is still the latest
+          if (currentRequestId !== dynamicSchemaRequestId) {
+            console.log(`[DynamicSchema] Request ${currentRequestId} superseded by ${dynamicSchemaRequestId}, aborting`)
+            return
+          }
+
           try {
             const response = await fetch('/api/generate-fields', {
               method: 'POST',
@@ -897,9 +917,22 @@ export const useCreativeStore = create<CreativeState>()(
                 verticalSlug,
                 organizationId,
               }),
+              signal, // Pass abort signal to fetch
             })
 
+            // PERMANENT FIX: Check again after await
+            if (currentRequestId !== dynamicSchemaRequestId) {
+              console.log(`[DynamicSchema] Request ${currentRequestId} superseded after fetch, discarding`)
+              return
+            }
+
             const data = await response.json()
+
+            // PERMANENT FIX: Final check before state update
+            if (currentRequestId !== dynamicSchemaRequestId) {
+              console.log(`[DynamicSchema] Request ${currentRequestId} superseded before update, discarding`)
+              return
+            }
 
             if (data.success) {
               set({
@@ -947,6 +980,17 @@ export const useCreativeStore = create<CreativeState>()(
             })
             return
           } catch (error) {
+            // PERMANENT FIX: Handle abort errors gracefully
+            if (error instanceof Error && error.name === 'AbortError') {
+              console.log(`[DynamicSchema] Request ${currentRequestId} aborted`)
+              return
+            }
+
+            // PERMANENT FIX: Check if still latest before error handling
+            if (currentRequestId !== dynamicSchemaRequestId) {
+              return
+            }
+
             if (attempt < maxRetries) {
               console.log(`[DynamicSchema] Network error on attempt ${attempt + 1}, retrying...`)
               await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)))
@@ -1119,12 +1163,14 @@ export const useCreativeStore = create<CreativeState>()(
     {
       name: 'creative-store',
       // Persist format selection state for better UX
+      // IMPORTANT: Never persist loading states - they should always start as false
       partialize: (state) => ({
         recentFormats: state.recentFormats,
         // Persist format ID to restore on load
         selectedFormatId: state.selectedFormat?.id || null,
       }),
       // Rehydrate selectedFormat from persisted ID
+      // CRITICAL: Reset all loading states to prevent infinite loading on page reload
       onRehydrateStorage: () => (state) => {
         if (state) {
           const persistedState = state as CreativeState & { selectedFormatId?: CreativeFormatId | null }
@@ -1133,6 +1179,44 @@ export const useCreativeStore = create<CreativeState>()(
             if (format) {
               state.selectedFormat = format
             }
+          }
+
+          // PERMANENT FIX: Reset all loading states to prevent infinite loading
+          // This ensures loading states never persist across page reloads
+          state.isGenerating = false
+          state.generationProgress = 0
+          state.generationError = null
+
+          // Reset AI form loading states
+          state.aiForm = {
+            ...state.aiForm,
+            isLoadingSuggestions: false,
+            suggestionError: null,
+          }
+
+          // Reset dynamic schema loading states
+          state.dynamicSchema = {
+            ...state.dynamicSchema,
+            isLoading: false,
+            error: null,
+          }
+
+          // Reset template resize loading states
+          state.templateResize = {
+            ...state.templateResize,
+            isResizing: false,
+            resizeError: null,
+          }
+
+          // Reset AI design suggestions loading states
+          state.aiDesignSuggestions = {
+            ...state.aiDesignSuggestions,
+            isGeneratingThemes: false,
+            isGeneratingStyles: false,
+            isGeneratingColors: false,
+            themeError: null,
+            styleError: null,
+            colorError: null,
           }
         }
       },

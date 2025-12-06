@@ -113,6 +113,8 @@ export const ROUTES = {
   team: '/settings/team',
   billing: '/settings/billing',
   analytics: '/settings/analytics',
+  analyticsCosts: '/settings/analytics/costs',
+  analyticsFeedback: '/settings/analytics/feedback',
   profile: '/settings/profile',
 } as const
 

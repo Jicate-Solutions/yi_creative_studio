@@ -1,12 +1,30 @@
 /**
- * Event Poster Prompt Builder v3.0
+ * Event Poster Prompt Builder v3.1
  * Generates XML-structured prompts for event poster designs
- * Enhanced with logo awareness, brand context, and quality context
+ * Enhanced with:
+ * - Logo awareness, brand context, and quality context
+ * - Speaker photo integration zones
+ * - Typography hierarchy with visual weight
+ * - Instruction/content separation for cleaner AI generation
  */
 
 import type { EventPosterFormData, EnhancedBuildOptions } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLayoutZoneContext,
+  buildLanguageContext,
+  buildSpeakerPhotoZoneContext,
+} from '../context-helpers'
 import { EVENT_POSTER_EXAMPLES } from '../examples'
+
+// Import design architecture for ultra-pro quality
+import {
+  getTypographyPromptFragment,
+} from '../../../knowledge-base/design-architecture'
 
 // ============================================================
 // EVENT CONTEXT TYPES
@@ -196,10 +214,24 @@ export function buildEventPosterPrompt(
 ): string {
   const eventContext = getEventContext(data.eventType)
 
-  // Build context sections
+  // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, 'event_poster')
+
+  // NEW v3.1: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+  const langContext = buildLanguageContext(options.language)
+
+  // Build speaker zone context from options.speakerPhotoConfig (v3.1)
+  // This uses the config passed from API route, which preserves the zone even when user has own photo
+  const speakerZoneContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
+  const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+
+  // Get typography hierarchy rules
+  const typographyRules = getTypographyPromptFragment('event_poster')
 
   // Determine colors - use brand colors if available
   const colors = options.brandContext?.primaryColor
@@ -222,42 +254,54 @@ ${brandContext}
 
 ${qualityContext}
 
+${themeContext}
+
+${orgContext}
+
+${layoutContext}
+
+${langContext}
+
+${speakerZoneContext}
+
+<typography_hierarchy>
+${typographyRules}
+</typography_hierarchy>
+
 <subject>
 A dynamic, eye-catching event poster for "${data.eventName}".
 Target Audience: ${data.targetAudience || eventContext.defaultAudience}
 The poster must pass the 3-SECOND TEST: viewer immediately understands WHAT (event name), WHEN (date/time), WHERE (venue).
 This will be used for: print posters, social media sharing, digital displays.
+${hasSpeakerPhoto ? 'NOTE: This poster will have a speaker photo overlaid via post-processing. Generate clean background in the designated photo zone.' : ''}
 </subject>
 
 <composition>
 Layout: Clear vertical hierarchy optimized for quick scanning
 
 Structure from top to bottom:
-- TOP (5-10%): Organization logo ${options.logoAwareness?.logoPosition === 'top-left' ? 'in TOP-LEFT (keep area clear for overlay)' : options.logoAwareness?.logoPosition === 'top-right' ? 'in TOP-RIGHT (keep area clear for overlay)' : 'positioned appropriately'}
-- HEADLINE ZONE (25-30%): Event name "${data.eventName}" - DOMINANT, LARGEST, MOST IMPACTFUL
-${data.eventDescription ? `- TAGLINE (5-10%): "${data.eventDescription}" - supporting message below headline` : ''}
-- DETAILS ZONE (25-30%): Event information with clear iconography
-  - Date: "${formatEventDate(data.eventDate)}"
-  - Time: "${data.eventTime || 'Time TBA'}"
-  - Venue: "${data.venue || 'Venue TBA'}"
-  ${data.entryFee ? `- Entry: "${data.entryFee}"` : ''}
-${data.speakerName ? `- SPEAKER ZONE (15-20%): Featured speaker "${data.speakerName}${data.speakerDesignation ? ', ' + data.speakerDesignation : ''}" with circular photo placeholder area` : ''}
-- CTA ZONE (10-15%): Strong call-to-action "${data.registrationInfo || 'Register Now'}" button
-- FOOTER (5%): Additional info, sponsor logos if any
+- TOP (5-10%): Organization logo zone ${options.logoAwareness?.logoPosition === 'top-left' ? 'on left' : options.logoAwareness?.logoPosition === 'top-right' ? 'on right' : ''}
+- HEADLINE ZONE (25-30%): Main event title as the largest text element
+${data.eventDescription ? `- TAGLINE (5-10%): Supporting message below headline` : ''}
+- DETAILS ZONE (25-30%): Event information with clear iconography showing date, time, location
+${data.speakerName ? `- SPEAKER ZONE (15-20%): Featured speaker section with circular photo area` : ''}
+- CTA ZONE (10-15%): Strong call-to-action button
+- FOOTER (5%): Additional info area
 
 Background: ${eventContext.background}
-${options.brandContext ? `Brand Integration: Incorporate ${options.brandContext.primaryColor} and ${options.brandContext.secondaryColor || 'white'} into design` : ''}
+${options.brandContext ? `Brand colors: ${options.brandContext.primaryColor} and ${options.brandContext.secondaryColor || 'white'}` : ''}
 </composition>
 
 <text_content>
-<text role="headline" prominence="LARGEST" style="bold impactful ${eventContext.headlineFont}, ${eventContext.headlineColor}">${data.eventName}</text>
-${data.eventDescription ? `<text role="tagline" prominence="prominent" style="clean sans-serif, lighter weight">${data.eventDescription}</text>` : ''}
-<text role="date" prominence="medium" style="bold with calendar icon, high visibility">${formatEventDate(data.eventDate)}</text>
-<text role="time" prominence="medium" style="bold with clock icon, high visibility">${data.eventTime || 'Time TBA'}</text>
-<text role="venue" prominence="medium" style="clear with location icon">${data.venue || 'Venue TBA'}</text>
-${data.entryFee ? `<text role="price" prominence="medium" style="highlighted, possibly in badge or tag format">${data.entryFee}</text>` : ''}
-${data.speakerName ? `<text role="speaker" prominence="medium" style="featured section">Featuring: ${data.speakerName}${data.speakerDesignation ? ', ' + data.speakerDesignation : ''}</text>` : ''}
-<text role="cta" prominence="prominent" style="bold button-style, ${eventContext.ctaStyle}">${data.registrationInfo || 'REGISTER NOW'}</text>
+<!-- TEXT TO RENDER: Only the quoted values should appear as text in the image -->
+<text role="headline">"${data.eventName}"</text>
+${data.eventDescription ? `<text role="tagline">"${data.eventDescription}"</text>` : ''}
+<text role="date">"${formatEventDate(data.eventDate)}"</text>
+<text role="time">"${data.eventTime || ''}"</text>
+<text role="venue">"${data.venue || ''}"</text>
+${data.entryFee ? `<text role="price">"${data.entryFee}"</text>` : ''}
+${data.speakerName ? `<text role="speaker">"${data.speakerName}${data.speakerDesignation ? ', ' + data.speakerDesignation : ''}"</text>` : ''}
+<text role="cta">"${data.registrationInfo || 'REGISTER NOW'}"</text>
 </text_content>
 
 <style>
@@ -288,7 +332,19 @@ ${options.logoAwareness?.hasLogo ? '- Logo area kept clear with appropriate back
 <constraints>
 Avoid: Cluttered layout, tiny unreadable text, poor hierarchy (event name not dominant), generic stock photo feel, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy background, landscape orientation
 ${options.logoAwareness?.hasLogo ? `Avoid: Busy patterns or critical content in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${hasSpeakerPhoto ? `Avoid: Illustrated faces, people, or human figures in the speaker photo zone - keep it clean for photo overlay` : ''}
 </constraints>
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Design terminology (hierarchy, prominence, focal point)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+- Any text from typography_hierarchy or design_architecture sections
+${hasSpeakerPhoto ? '- Speaker zone instructions - generate clean background only' : ''}
+</render_constraints>
 `.trim()
 }
 

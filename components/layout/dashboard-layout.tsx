@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
 import { OfflineBanner } from '@/components/ui/offline-banner'
+import { FloatingActionButton } from '@/components/ui/floating-action-button'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { UserProfile, Organization, OrganizationMember } from '@/types/database.types'
@@ -28,7 +29,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, className, initialAuthData }: DashboardLayoutProps) {
   const { setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated } = useAuthStore()
-  const { createModeActive } = useUIStore()
+  const { createModeActive, analyticsModeActive, sidebarOpen, sidebarCollapsed } = useUIStore()
 
   // Hydrate auth store with server-fetched data
   useEffect(() => {
@@ -62,7 +63,11 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
           <MobileNav />
 
           {/* Main Content Area */}
-          <div className="flex flex-1 flex-col">
+          <div className={cn(
+            "flex flex-1 flex-col",
+            // Add margin for fixed sidebar on desktop (when not in create/analytics mode)
+            !createModeActive && !analyticsModeActive && sidebarOpen && (sidebarCollapsed ? "md:ml-16" : "md:ml-64")
+          )}>
             {/* Role Simulation Banner */}
             <SimulationBanner />
 
@@ -75,12 +80,26 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             {/* Page Content */}
             <main className={cn(
               'flex-1',
-              !createModeActive && 'p-4 md:p-6',
+              'overflow-x-hidden',
+              !createModeActive && 'p-3 sm:p-4 md:p-6',
+              // Add padding for mobile bottom navigation
+              'pb-20 md:pb-6',
               className
             )}>
               {children}
             </main>
+
+            {/* Application Footer - No border for seamless look */}
+            <footer className="hidden md:flex items-center justify-center py-3 bg-muted/20">
+              <p className="text-[11px] text-muted-foreground/70">
+                Developed by <span className="font-medium text-muted-foreground">Roja</span> • Powered by{" "}
+                <span className="font-medium text-muted-foreground">JICATE Solutions Private Limited</span>
+              </p>
+            </footer>
           </div>
+
+          {/* Floating Action Button */}
+          <FloatingActionButton />
         </div>
       </TooltipProvider>
     </RoleProvider>

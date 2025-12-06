@@ -13,7 +13,7 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
   // This eliminates redundant onAuthStateChange subscriptions
   const { user } = useAuthStore()
 
-  // Reposition bug reporter button to left side
+  // Reposition bug reporter button above the FAB (right side, consistent on mobile & desktop)
   useEffect(() => {
     const adjustPosition = () => {
       // Target all possible bug reporter button selectors
@@ -27,8 +27,10 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
       for (const selector of selectors) {
         const btn = document.querySelector(selector) as HTMLElement
         if (btn) {
-          btn.style.right = 'auto'
-          btn.style.left = '16px'
+          // Position on right side, above the FAB
+          btn.style.left = 'auto'
+          btn.style.right = '16px'
+          btn.style.bottom = '148px' // Above FAB (76px + 56px FAB height + 16px gap)
           break
         }
       }

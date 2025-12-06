@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCredits, useOrganization } from '@/hooks'
 import { useAuthStore } from '@/stores/auth-store'
 import {
@@ -74,7 +74,15 @@ export default function BillingPage() {
   const { balance, transactions, isLoading, addCredits, fetchTransactions } = useCredits()
   const { organization } = useOrganization()
   const { canManage, profile, user } = useAuthStore()
-  const isAdmin = canManage()
+
+  // Fix hydration mismatch: canManage() returns different values on server vs client
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Only check admin status after mount to prevent hydration mismatch
+  const isAdmin = isMounted ? canManage() : false
 
   const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null)
 

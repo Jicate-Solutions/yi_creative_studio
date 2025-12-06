@@ -285,7 +285,7 @@ export async function generateDesignSuggestions(
 
   try {
     const response = await client.messages.create({
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,  // Increased for detailed responses
       temperature: 0.7,  // Slight creativity boost for better suggestions
       system: SYSTEM_PROMPT,  // Claude best practice: separate system message

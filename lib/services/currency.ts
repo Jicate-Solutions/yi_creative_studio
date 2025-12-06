@@ -102,6 +102,16 @@ export function formatCurrencyCompact(usd: number): string {
   return `${usdStr} (${inrStr})`
 }
 
+/**
+ * Format USD cost as INR only (no USD shown)
+ * Converts USD to INR internally and formats with ₹ symbol
+ * Use this for INR-only displays in analytics
+ */
+export function formatCostAsINR(usd: number): string {
+  const inr = convertToINR(usd)
+  return formatINR(inr)
+}
+
 // ============================================================
 // SUMMARY HELPERS
 // ============================================================
