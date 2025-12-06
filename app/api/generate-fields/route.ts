@@ -1,6 +1,6 @@
 /**
  * Dynamic Field Generation API Route
- * Uses Gemini with context caching for cost-effective AI field generation
+ * Uses Claude Haiku with context caching for cost-effective AI field generation
  *
  * POST /api/generate-fields
  * Body: { formatId, verticalSlug, organizationId? }
@@ -10,9 +10,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
-  geminiCacheManager,
+  claudeCacheManager,
   getCacheKey,
-} from '@/lib/gemini/cache-manager'
+} from '@/lib/claude/cache-manager'
 import {
   FIELD_GENERATION_SYSTEM_PROMPT,
   buildFieldGenerationPrompt,
@@ -58,10 +58,30 @@ interface GenerateFieldsError {
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 30 // requests per minute per user
 const RATE_WINDOW = 60 * 1000 // 1 minute
+const CLEANUP_INTERVAL = 5 * 60 * 1000 // Clean up every 5 minutes
+
+// Cleanup expired entries to prevent memory leak
+let lastCleanup = Date.now()
+function cleanupExpiredEntries(): void {
+  const now = Date.now()
+  // Only run cleanup if enough time has passed
+  if (now - lastCleanup < CLEANUP_INTERVAL) return
+
+  lastCleanup = now
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (value.resetAt < now) {
+      rateLimitMap.delete(key)
+    }
+  }
+}
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
   const key = `generate-fields:${userId}`
+
+  // Periodically clean up expired entries
+  cleanupExpiredEntries()
+
   const rateLimit = rateLimitMap.get(key)
 
   if (rateLimit && rateLimit.resetAt > now) {
@@ -171,9 +191,9 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = buildFieldGenerationPrompt(input)
 
-    // 7. Generate with Gemini (with timeout and caching)
+    // 7. Generate with Claude Haiku (with timeout and caching)
     try {
-      const result = await geminiCacheManager.generateContentWithTimeout<GeneratedSchema>(
+      const result = await claudeCacheManager.generateContentWithTimeout<GeneratedSchema>(
         FIELD_GENERATION_SYSTEM_PROMPT,
         userPrompt,
         12000, // 12 second timeout (increased from 8s to handle cold starts)
@@ -207,7 +227,7 @@ export async function POST(request: NextRequest) {
         success: true,
         schema: validatedSchema,
         metadata: {
-          model: 'gemini-2.0-flash-001',
+          model: 'claude-3-5-haiku-latest',
           processingTimeMs: Date.now() - startTime,
           cached: result.cached,
           cacheKey,
@@ -281,12 +301,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Return cache stats
-    const stats = geminiCacheManager.getCacheStats()
+    const stats = claudeCacheManager.getCacheStats()
 
     return NextResponse.json({
       success: true,
       cacheStats: stats,
-      isInitialized: geminiCacheManager.isInitialized(),
+      isInitialized: claudeCacheManager.isInitialized(),
     })
   } catch (error) {
     console.error('Get cache stats error:', error)

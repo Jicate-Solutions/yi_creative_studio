@@ -59,6 +59,84 @@ export type Database = {
         }
         Relationships: []
       }
+      api_usage: {
+        Row: {
+          cached_tokens: number | null
+          created_at: string
+          creative_id: string | null
+          duration_ms: number | null
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          image_count: number | null
+          input_tokens: number | null
+          metadata: Json | null
+          model: string
+          organization_id: string | null
+          output_tokens: number | null
+          prompt_length: number | null
+          provider: string
+          request_type: string
+          success: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          cached_tokens?: number | null
+          created_at?: string
+          creative_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          image_count?: number | null
+          input_tokens?: number | null
+          metadata?: Json | null
+          model: string
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_length?: number | null
+          provider: string
+          request_type: string
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          cached_tokens?: number | null
+          created_at?: string
+          creative_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          image_count?: number | null
+          input_tokens?: number | null
+          metadata?: Json | null
+          model?: string
+          organization_id?: string | null
+          output_tokens?: number | null
+          prompt_length?: number | null
+          provider?: string
+          request_type?: string
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creatives: {
         Row: {
           ai_model: string
@@ -336,81 +414,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          full_name: string | null
-          id: string
-          phone: string | null
-          preferences: Json | null
-          updated_at: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          full_name?: string | null
-          id: string
-          phone?: string | null
-          preferences?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          preferences?: Json | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      vertical_presets: {
-        Row: {
-          created_at: string
-          description: string | null
-          display_order: number | null
-          form_fields: Json
-          icon: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          prompt_template: string
-          slug: string
-          theme_config: Json
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          display_order?: number | null
-          form_fields?: Json
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          prompt_template: string
-          slug: string
-          theme_config?: Json
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          display_order?: number | null
-          form_fields?: Json
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          prompt_template?: string
-          slug?: string
-          theme_config?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
       template_images: {
         Row: {
           created_at: string | null
@@ -555,6 +558,81 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          preferences: Json | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          preferences?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          preferences?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vertical_presets: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          form_fields: Json
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          prompt_template: string
+          slug: string
+          theme_config: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          form_fields?: Json
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          prompt_template: string
+          slug: string
+          theme_config?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          form_fields?: Json
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          prompt_template?: string
+          slug?: string
+          theme_config?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -575,6 +653,15 @@ export type Database = {
         }[]
       }
       can_edit_org: { Args: { org_id: string }; Returns: boolean }
+      check_org_has_no_members: { Args: { p_org_id: string }; Returns: boolean }
+      check_user_is_org_admin: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      check_user_is_org_member: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
       deduct_credits: {
         Args: {
           p_amount: number
@@ -705,23 +792,61 @@ export type TablesUpdate<
       : never
     : never
 
-// Convenience types for Yi CreativeStudio
-export type Organization = Tables<'organizations'>
-export type OrganizationInsert = TablesInsert<'organizations'>
-export type OrganizationUpdate = TablesUpdate<'organizations'>
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
-export type UserProfile = Tables<'user_profiles'>
-export type OrganizationMember = Tables<'organization_members'>
-export type OrganizationLogo = Tables<'organization_logos'>
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
+
+// Convenience type aliases for common tables
+export type Creative = Tables<'creatives'>
+export type Template = Tables<'templates'>
 export type VerticalPreset = Tables<'vertical_presets'>
 export type AIModel = Tables<'ai_models'>
-export type Creative = Tables<'creatives'>
+export type Organization = Tables<'organizations'>
+export type OrganizationMember = Tables<'organization_members'>
+export type OrganizationLogo = Tables<'organization_logos'>
 export type CreditTransaction = Tables<'credit_transactions'>
-export type Template = Tables<'templates'>
+export type UserProfile = Tables<'user_profiles'>
 export type TemplateImage = Tables<'template_images'>
+export type ApiUsage = Tables<'api_usage'>
 
-// Brand config type
-export type BrandConfig = {
+// Custom types for JSON columns
+export interface BrandConfig {
   primaryColor: string
   secondaryColor: string
   accentColor: string
@@ -733,30 +858,3 @@ export type BrandConfig = {
   footerEmail: string
   footerWebsite: string
 }
-
-// Logo position type
-export type LogoPosition =
-  | 'top-left' | 'top-center' | 'top-right'
-  | 'mid-left' | 'center' | 'mid-right'
-  | 'bottom-left' | 'bottom-center' | 'bottom-right'
-
-// Logo config for creatives
-export type LogoConfigItem = {
-  logoId: string
-  position: LogoPosition
-}
-
-// User role type
-export type UserRole = 'admin' | 'editor' | 'viewer'
-
-// Creative type
-export type CreativeType = 'event_poster' | 'social_post' | 'banner' | 'announcement'
-
-// Organization type
-export type OrganizationType = 'yi_chapter' | 'educational' | 'corporate' | 'ngo'
-
-// Logo category
-export type LogoCategory = 'primary' | 'secondary' | 'partner' | 'sponsor' | 'department'
-
-// AI provider
-export type AIProvider = 'google' | 'ideogram'

@@ -18,6 +18,39 @@ import Anthropic from '@anthropic-ai/sdk'
 export type LLMProvider = 'gemini' | 'claude' | 'openai'
 
 /**
+ * Token usage from AI API call
+ */
+export interface TokenUsage {
+  inputTokens: number
+  outputTokens: number
+  cachedTokens?: number
+  totalTokens: number
+}
+
+/**
+ * Response from LLM call including token usage
+ */
+interface LLMResponse {
+  text: string
+  tokenUsage: TokenUsage
+  model: string
+  durationMs: number
+}
+
+/**
+ * Result from design context generation including usage tracking
+ */
+export interface DesignContextResult {
+  context: DesignContext
+  usage: {
+    provider: 'gemini' | 'claude'
+    model: string
+    tokenUsage: TokenUsage
+    durationMs: number
+  }
+}
+
+/**
  * AI-generated design context
  * Contains everything the image generation AI needs to understand
  * the CORE PURPOSE and VISUAL REQUIREMENTS of the design
@@ -198,13 +231,13 @@ Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON o
  * Generate design context using AI analysis
  *
  * @param brief - The creative brief to analyze
- * @param provider - LLM provider to use (default: gemini)
- * @returns Structured design context for image generation
+ * @param provider - LLM provider to use (default: claude)
+ * @returns Structured design context for image generation with usage tracking
  */
 export async function generateDesignContext(
   brief: DesignBrief,
   provider: LLMProvider = 'claude'
-): Promise<DesignContext> {
+): Promise<DesignContextResult> {
   console.log('[Design Intelligence] === STAGE 1: GENERATING DESIGN CONTEXT ===')
   console.log('[Design Intelligence] FORMAT:', brief.formatId || 'event_poster (default)')
   console.log('[Design Intelligence] Format Name:', brief.formatName || 'not specified')
@@ -222,31 +255,44 @@ export async function generateDesignContext(
   const prompt = DESIGN_INTELLIGENCE_PROMPT.replace('{brief}', briefText)
 
   // Call the appropriate LLM provider
-  let response: string
+  let llmResponse: LLMResponse
+  let effectiveProvider: 'gemini' | 'claude' = provider === 'gemini' ? 'gemini' : 'claude'
   console.log('[Design Intelligence] Provider:', provider)
 
   switch (provider) {
     case 'gemini':
-      response = await callGemini(prompt)
+      llmResponse = await callGemini(prompt)
+      effectiveProvider = 'gemini'
       break
     case 'claude':
-      response = await callClaude(prompt)
+      llmResponse = await callClaude(prompt)
+      effectiveProvider = 'claude'
       break
     case 'openai':
-      response = await callOpenAI(prompt)
+      llmResponse = await callOpenAI(prompt)
+      effectiveProvider = 'claude' // OpenAI not implemented, would fallback
       break
     default:
-      response = await callGemini(prompt)
+      llmResponse = await callGemini(prompt)
+      effectiveProvider = 'gemini'
   }
 
   // Parse and validate the response
-  const context = parseDesignContext(response)
+  const context = parseDesignContext(llmResponse.text)
   console.log('[Design Intelligence] === CONTEXT GENERATED SUCCESSFULLY ===')
   console.log('[Design Intelligence] Core Purpose:', context.corePurpose)
   console.log('[Design Intelligence] Visual Elements:', context.visualElements.join(', '))
   console.log('[Design Intelligence] Background:', context.backgroundSetting.substring(0, 100) + '...')
 
-  return context
+  return {
+    context,
+    usage: {
+      provider: effectiveProvider,
+      model: llmResponse.model,
+      tokenUsage: llmResponse.tokenUsage,
+      durationMs: llmResponse.durationMs,
+    },
+  }
 }
 
 /**
@@ -459,9 +505,10 @@ function parseDesignContext(response: string): DesignContext {
  * Call Gemini Flash for design intelligence
  * Using Gemini 2.0 Flash - fast, cheap, and excellent for structured output
  */
-async function callGemini(prompt: string): Promise<string> {
+async function callGemini(prompt: string): Promise<LLMResponse> {
   // Support both GEMINI_API_KEY (primary) and GOOGLE_AI_API_KEY (fallback)
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
+  const modelName = 'gemini-2.0-flash-exp'
 
   console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
 
@@ -473,7 +520,7 @@ async function callGemini(prompt: string): Promise<string> {
 
   // Use Gemini 2.0 Flash for fast, cost-effective analysis
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: modelName,
     generationConfig: {
       temperature: 0.7, // Some creativity but mostly focused
       topP: 0.9,
@@ -485,21 +532,39 @@ async function callGemini(prompt: string): Promise<string> {
   const startTime = Date.now()
 
   const result = await model.generateContent(prompt)
-  const response = result.response.text()
+  const response = result.response
 
-  const duration = Date.now() - startTime
-  console.log(`[Design Intelligence] Response received in ${duration}ms`)
-  console.log('[Design Intelligence] Response length:', response.length, 'chars')
+  const durationMs = Date.now() - startTime
+  const text = response.text()
 
-  return response
+  // Extract token usage from response metadata
+  const usageMetadata = response.usageMetadata
+  const tokenUsage: TokenUsage = {
+    inputTokens: usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4),
+    outputTokens: usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 4),
+    cachedTokens: usageMetadata?.cachedContentTokenCount || 0,
+    totalTokens: usageMetadata?.totalTokenCount || Math.ceil((prompt.length + text.length) / 4),
+  }
+
+  console.log(`[Design Intelligence] Response received in ${durationMs}ms`)
+  console.log('[Design Intelligence] Response length:', text.length, 'chars')
+  console.log('[Design Intelligence] Token usage:', JSON.stringify(tokenUsage))
+
+  return {
+    text,
+    tokenUsage,
+    model: modelName,
+    durationMs,
+  }
 }
 
 /**
  * Call Claude for design intelligence
  * Using Claude 3.5 Haiku - fast, cost-effective, and excellent reasoning
  */
-async function callClaude(prompt: string): Promise<string> {
+async function callClaude(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
+  const modelName = 'claude-3-5-haiku-latest'
 
   console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
 
@@ -513,7 +578,7 @@ async function callClaude(prompt: string): Promise<string> {
   const startTime = Date.now()
 
   const response = await client.messages.create({
-    model: 'claude-3-5-haiku-latest',
+    model: modelName,
     max_tokens: 1024,
     messages: [
       {
@@ -523,8 +588,8 @@ async function callClaude(prompt: string): Promise<string> {
     ]
   })
 
-  const duration = Date.now() - startTime
-  console.log(`[Design Intelligence] Response received in ${duration}ms`)
+  const durationMs = Date.now() - startTime
+  console.log(`[Design Intelligence] Response received in ${durationMs}ms`)
 
   // Extract text from response
   const textBlock = response.content.find(block => block.type === 'text')
@@ -532,19 +597,35 @@ async function callClaude(prompt: string): Promise<string> {
     throw new Error('No text response from Claude')
   }
 
-  console.log('[Design Intelligence] Response length:', textBlock.text.length, 'chars')
+  const text = textBlock.text
 
-  return textBlock.text
+  // Extract token usage from Claude's response
+  const tokenUsage: TokenUsage = {
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    cachedTokens: 0, // Claude doesn't report cached tokens the same way
+    totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+  }
+
+  console.log('[Design Intelligence] Response length:', text.length, 'chars')
+  console.log('[Design Intelligence] Token usage:', JSON.stringify(tokenUsage))
+
+  return {
+    text,
+    tokenUsage,
+    model: modelName,
+    durationMs,
+  }
 }
 
 /**
  * Call OpenAI for design intelligence
  * @placeholder - To be implemented when needed
  */
-async function callOpenAI(prompt: string): Promise<string> {
+async function callOpenAI(prompt: string): Promise<LLMResponse> {
   // Future implementation for OpenAI API
   // Would use openai package with gpt-4o-mini for cost efficiency
-  throw new Error('OpenAI provider not yet implemented. Use gemini for now.')
+  throw new Error('OpenAI provider not yet implemented. Use gemini or claude for now.')
 }
 
 // ============================================================
@@ -854,11 +935,12 @@ export function generateFallbackContext(brief: DesignBrief): DesignContext {
 
 /**
  * Safe wrapper that returns fallback on error
+ * Returns DesignContextResult with zero usage for fallback cases
  */
 export async function generateDesignContextSafe(
   brief: DesignBrief,
   provider: LLMProvider = 'claude'
-): Promise<DesignContext> {
+): Promise<DesignContextResult> {
   try {
     return await generateDesignContext(brief, provider)
   } catch (error) {
@@ -866,6 +948,21 @@ export async function generateDesignContextSafe(
     console.error('[Design Intelligence] Error:', error instanceof Error ? error.message : error)
     console.warn('[Design Intelligence] WARNING: AI context generation failed, using generic fallback!')
     console.warn('[Design Intelligence] This will result in less contextual designs.')
-    return generateFallbackContext(brief)
+
+    // Return fallback with zero usage
+    return {
+      context: generateFallbackContext(brief),
+      usage: {
+        provider: provider === 'gemini' ? 'gemini' : 'claude',
+        model: 'fallback',
+        tokenUsage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedTokens: 0,
+          totalTokens: 0,
+        },
+        durationMs: 0,
+      },
+    }
   }
 }

@@ -20,19 +20,40 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
+import {
   BarChart3,
-  TrendingUp,
-  TrendingDown,
   Sparkles,
   Coins,
   Download,
-  Users,
   Calendar,
-  Image,
   Clock,
+  DollarSign,
+  Cpu,
+  Zap,
+  Brain,
+  Image as ImageIcon,
+  MessageSquare,
+  TrendingUp,
+  Info,
 } from 'lucide-react'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
-import type { Creative, CreditTransaction } from '@/types/database.types'
+import type { Creative } from '@/types/database.types'
+import { type UsageAnalytics } from '@/lib/services/api-usage'
+import { formatUSD, formatINR, USD_TO_INR, convertToINR } from '@/lib/services/currency'
+import { REQUEST_TYPE_LABELS, type AIProvider, type RequestType } from '@/lib/config/ai-pricing'
 
 interface AnalyticsData {
   totalCreatives: number
@@ -45,16 +66,57 @@ interface AnalyticsData {
   topPerformingCreatives: Creative[]
 }
 
+// Helper function to get icon for request type
+function getStageIcon(requestType: string) {
+  switch (requestType) {
+    case 'design_intelligence':
+      return <Brain className="h-4 w-4 text-purple-500" />
+    case 'ultra_pro_prompt':
+      return <MessageSquare className="h-4 w-4 text-blue-500" />
+    case 'image_generation':
+      return <ImageIcon className="h-4 w-4 text-green-500" />
+    case 'field_suggestion':
+      return <Sparkles className="h-4 w-4 text-yellow-500" />
+    default:
+      return <Zap className="h-4 w-4 text-gray-500" />
+  }
+}
+
+// Helper to get friendly stage label
+function getStageLabel(requestType: string): string {
+  return REQUEST_TYPE_LABELS[requestType as RequestType] || requestType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+// Helper to get model display name
+function getModelDisplayName(model: string): string {
+  const modelNames: Record<string, string> = {
+    'gemini-2.5-flash-image': 'Gemini 2.5 Flash (Image)',
+    'gemini-2.5-flash': 'Gemini 2.5 Flash',
+    'gemini-2.5-pro': 'Gemini 2.5 Pro',
+    'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
+    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku',
+    'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
+    'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+    'claude-opus-4-20250514': 'Claude Opus 4',
+  }
+  return modelNames[model] || model
+}
+
+
 export default function AnalyticsPage() {
   const supabase = useMemo(() => createClient(), [])
-  const { currentOrganization, isLoading: authLoading, serverHydrated } = useAuthStore()
+  const { currentOrganization, isLoading: authLoading } = useAuthStore()
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d')
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [apiUsage, setApiUsage] = useState<UsageAnalytics | null>(null)
 
   const fetchAnalytics = useCallback(async () => {
-    // Don't fetch if organization isn't ready yet - but keep loading state
-    if (!currentOrganization?.id) return
+    // Don't fetch if organization isn't ready yet
+    if (!currentOrganization?.id) {
+      setIsLoading(false)  // Clear loading state when org not ready
+      return
+    }
 
     setIsLoading(true)
 
@@ -88,9 +150,119 @@ export default function AnalyticsPage() {
       transactionsQuery = transactionsQuery.gte('created_at', startDate.toISOString())
     }
 
-    const { data: transactions } = await transactionsQuery
+    // Legacy: transactions fetched for potential future credit-based analytics
+    const { data: _transactions } = await transactionsQuery
+
+    // Fetch API usage analytics
+    let apiUsageQuery = supabase
+      .from('api_usage')
+      .select('*')
+      .eq('organization_id', currentOrganization.id)
+      .order('created_at', { ascending: false })
+
+    if (startDate) {
+      apiUsageQuery = apiUsageQuery.gte('created_at', startDate.toISOString())
+    }
+
+    const { data: apiUsageRecords } = await apiUsageQuery
 
     setIsLoading(false)
+
+    // Process API usage data
+    if (apiUsageRecords && apiUsageRecords.length > 0) {
+      const usageAnalytics: UsageAnalytics = {
+        totalCostUsd: 0,
+        totalCostInr: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCachedTokens: 0,
+        totalImages: 0,
+        byProvider: {} as UsageAnalytics['byProvider'],
+        byRequestType: {},
+        byModel: {},
+        dailyTrend: [],
+        recentRecords: [],
+      }
+
+      const dailyMap = new Map<string, { costUsd: number; requestCount: number; inputTokens: number; outputTokens: number }>()
+
+      for (const record of apiUsageRecords) {
+        const cost = Number(record.estimated_cost_usd) || 0
+        const inputTokens = record.input_tokens || 0
+        const outputTokens = record.output_tokens || 0
+        const cachedTokens = record.cached_tokens || 0
+        const imageCount = record.image_count || 0
+
+        // Totals
+        usageAnalytics.totalCostUsd += cost
+        usageAnalytics.totalInputTokens += inputTokens
+        usageAnalytics.totalOutputTokens += outputTokens
+        usageAnalytics.totalCachedTokens += cachedTokens
+        usageAnalytics.totalImages += imageCount
+
+        // By provider
+        const provider = record.provider as AIProvider
+        if (!usageAnalytics.byProvider[provider]) {
+          usageAnalytics.byProvider[provider] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
+        }
+        usageAnalytics.byProvider[provider].costUsd += cost
+        usageAnalytics.byProvider[provider].inputTokens += inputTokens
+        usageAnalytics.byProvider[provider].outputTokens += outputTokens
+        usageAnalytics.byProvider[provider].requestCount += 1
+
+        // By request type
+        const requestType = record.request_type
+        if (!usageAnalytics.byRequestType[requestType]) {
+          usageAnalytics.byRequestType[requestType] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
+        }
+        usageAnalytics.byRequestType[requestType].costUsd += cost
+        usageAnalytics.byRequestType[requestType].inputTokens += inputTokens
+        usageAnalytics.byRequestType[requestType].outputTokens += outputTokens
+        usageAnalytics.byRequestType[requestType].requestCount += 1
+
+        // By model
+        const model = record.model
+        if (!usageAnalytics.byModel[model]) {
+          usageAnalytics.byModel[model] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
+        }
+        usageAnalytics.byModel[model].costUsd += cost
+        usageAnalytics.byModel[model].inputTokens += inputTokens
+        usageAnalytics.byModel[model].outputTokens += outputTokens
+        usageAnalytics.byModel[model].requestCount += 1
+
+        // Daily trend
+        const date = new Date(record.created_at).toISOString().split('T')[0]
+        if (!dailyMap.has(date)) {
+          dailyMap.set(date, { costUsd: 0, requestCount: 0, inputTokens: 0, outputTokens: 0 })
+        }
+        const daily = dailyMap.get(date)!
+        daily.costUsd += cost
+        daily.requestCount += 1
+        daily.inputTokens += inputTokens
+        daily.outputTokens += outputTokens
+      }
+
+      usageAnalytics.dailyTrend = Array.from(dailyMap.entries())
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      usageAnalytics.recentRecords = apiUsageRecords.slice(0, 10).map((r) => ({
+        id: r.id,
+        createdAt: r.created_at,
+        requestType: r.request_type,
+        provider: r.provider,
+        model: r.model,
+        costUsd: Number(r.estimated_cost_usd) || 0,
+        inputTokens: r.input_tokens || 0,
+        outputTokens: r.output_tokens || 0,
+      }))
+
+      usageAnalytics.totalCostInr = convertToINR(usageAnalytics.totalCostUsd)
+
+      setApiUsage(usageAnalytics)
+    } else {
+      setApiUsage(null)
+    }
 
     if (!creatives) {
       setAnalytics(null)
@@ -195,15 +367,138 @@ export default function AnalyticsPage() {
           ))}
         </div>
       ) : !analytics ? (
-        <Card className="py-12">
-          <CardContent className="text-center">
-            <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <h3 className="text-lg font-medium mb-2">No data available</h3>
-            <p className="text-muted-foreground">
-              Start generating creatives to see analytics
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {/* No Data State with Pricing Info */}
+          <Card className="py-12">
+            <CardContent className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <h3 className="text-lg font-medium mb-2">No usage data yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Generate your first creative to start tracking API usage and costs
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Show AI Pricing Reference */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-500" />
+                AI Pricing Reference
+              </CardTitle>
+              <CardDescription>
+                Current pricing for AI models used in creative generation (USD per 1M tokens)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="generation" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="generation">Generation Pipeline</TabsTrigger>
+                  <TabsTrigger value="models">All Models</TabsTrigger>
+                </TabsList>
+                <TabsContent value="generation" className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {/* Stage 1: Ultra-Pro Prompt */}
+                    <Card className="border-blue-200 dark:border-blue-800">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-blue-500" />
+                          <CardTitle className="text-sm">Stage 1: Ultra-Pro Prompt</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm space-y-1">
+                        <p className="text-muted-foreground">Claude 3.5 Haiku</p>
+                        <p>Input: <span className="font-medium">$0.80</span>/1M tokens</p>
+                        <p>Output: <span className="font-medium">$4.00</span>/1M tokens</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Stage 2: Design Intelligence */}
+                    <Card className="border-purple-200 dark:border-purple-800">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2">
+                          <Brain className="h-4 w-4 text-purple-500" />
+                          <CardTitle className="text-sm">Stage 2: Design Intelligence</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm space-y-1">
+                        <p className="text-muted-foreground">Claude 3.5 Haiku</p>
+                        <p>Input: <span className="font-medium">$0.80</span>/1M tokens</p>
+                        <p>Output: <span className="font-medium">$4.00</span>/1M tokens</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Stage 3: Image Generation */}
+                    <Card className="border-green-200 dark:border-green-800">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-green-500" />
+                          <CardTitle className="text-sm">Stage 3: Image Generation</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="text-sm space-y-1">
+                        <p className="text-muted-foreground">Gemini 2.5 Flash</p>
+                        <p>Per Image: <span className="font-medium">$0.039</span></p>
+                        <p className="text-xs text-muted-foreground">(~₹3.29 per image)</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                    <p className="font-medium mb-2">Estimated Cost per Creative</p>
+                    <p className="text-muted-foreground">
+                      A typical creative generation costs approximately <span className="font-medium text-foreground">$0.04 - $0.06</span> (₹3.38 - ₹5.07 INR) depending on prompt complexity.
+                    </p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="models">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Provider</TableHead>
+                        <TableHead>Model</TableHead>
+                        <TableHead className="text-right">Input/1M</TableHead>
+                        <TableHead className="text-right">Output/1M</TableHead>
+                        <TableHead className="text-right">Image Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
+                        <TableCell>Gemini 2.5 Flash (Image)</TableCell>
+                        <TableCell className="text-right">$0.30</TableCell>
+                        <TableCell className="text-right">$2.50</TableCell>
+                        <TableCell className="text-right font-medium">$0.039</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
+                        <TableCell>Gemini 2.5 Pro</TableCell>
+                        <TableCell className="text-right">$1.25</TableCell>
+                        <TableCell className="text-right">$10.00</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                        <TableCell>Claude 3.5 Haiku</TableCell>
+                        <TableCell className="text-right">$0.80</TableCell>
+                        <TableCell className="text-right">$4.00</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                        <TableCell>Claude 3.5 Sonnet</TableCell>
+                        <TableCell className="text-right">$3.00</TableCell>
+                        <TableCell className="text-right">$15.00</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
           {/* Key Metrics */}
@@ -262,6 +557,286 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* API Cost Metrics */}
+          {apiUsage && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <h2 className="text-xl font-semibold">API Cost Analytics</h2>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card className="border-green-200 dark:border-green-800">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total API Cost (USD)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-green-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatUSD(apiUsage.totalCostUsd, 2)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {apiUsage.totalInputTokens.toLocaleString()} input / {apiUsage.totalOutputTokens.toLocaleString()} output tokens
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-orange-200 dark:border-orange-800">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total API Cost (INR)</CardTitle>
+                    <span className="text-orange-500 font-medium">₹</span>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {formatINR(apiUsage.totalCostInr)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Exchange rate: ₹{USD_TO_INR}/USD
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
+                    <Cpu className="h-4 w-4 text-blue-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {(apiUsage.totalInputTokens + apiUsage.totalOutputTokens).toLocaleString()}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {apiUsage.totalCachedTokens > 0 && `${apiUsage.totalCachedTokens.toLocaleString()} cached`}
+                      {apiUsage.totalImages > 0 && ` • ${apiUsage.totalImages} images`}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Cost per Creative</CardTitle>
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {analytics.totalCreatives > 0
+                        ? formatUSD(apiUsage.totalCostUsd / analytics.totalCreatives, 4)
+                        : '$0.00'}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {analytics.totalCreatives > 0
+                        ? `${formatINR(apiUsage.totalCostInr / analytics.totalCreatives)} INR avg`
+                        : 'No creatives yet'}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* By Provider */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cost by Provider</CardTitle>
+                    <CardDescription>Spending breakdown by AI provider</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(apiUsage.byProvider)
+                        .sort((a, b) => b[1].costUsd - a[1].costUsd)
+                        .map(([provider, data]) => (
+                          <div key={provider} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={provider === 'gemini' ? 'default' : 'secondary'}>
+                                  {provider}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {data.requestCount} requests
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-medium">{formatUSD(data.costUsd)}</span>
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({formatINR(convertToINR(data.costUsd))})
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  provider === 'gemini' ? 'bg-blue-500' : 'bg-purple-500'
+                                }`}
+                                style={{
+                                  width: `${(data.costUsd / apiUsage.totalCostUsd) * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* By Request Type - Enhanced with Token Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Cost by Generation Stage</CardTitle>
+                    <CardDescription>Detailed breakdown by each stage in the pipeline</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(apiUsage.byRequestType)
+                        .sort((a, b) => b[1].costUsd - a[1].costUsd)
+                        .map(([type, data]) => {
+                          const label = getStageLabel(type)
+                          const icon = getStageIcon(type)
+                          return (
+                            <div key={type} className="space-y-2 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {icon}
+                                  <span className="text-sm font-medium">{label}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {data.requestCount} calls
+                                  </Badge>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-green-600">{formatUSD(data.costUsd)}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">
+                                    ({formatINR(convertToINR(data.costUsd))})
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <div className="flex gap-4">
+                                  <span>Input: <span className="font-medium text-foreground">{data.inputTokens.toLocaleString()}</span> tokens</span>
+                                  <span>Output: <span className="font-medium text-foreground">{data.outputTokens.toLocaleString()}</span> tokens</span>
+                                </div>
+                                <span className="text-xs">
+                                  {((data.costUsd / apiUsage.totalCostUsd) * 100).toFixed(1)}% of total
+                                </span>
+                              </div>
+                              <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
+                                  style={{
+                                    width: `${(data.costUsd / apiUsage.totalCostUsd) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Model Usage Breakdown */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Cpu className="h-5 w-5 text-blue-500" />
+                    Token Usage by Model
+                  </CardTitle>
+                  <CardDescription>Detailed token consumption and costs per AI model</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Model</TableHead>
+                        <TableHead className="text-right">Calls</TableHead>
+                        <TableHead className="text-right">Input Tokens</TableHead>
+                        <TableHead className="text-right">Output Tokens</TableHead>
+                        <TableHead className="text-right">Cost (USD)</TableHead>
+                        <TableHead className="text-right">Cost (INR)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(apiUsage.byModel)
+                        .sort((a, b) => b[1].costUsd - a[1].costUsd)
+                        .map(([model, data]) => (
+                          <TableRow key={model}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${model.includes('gemini') ? 'bg-blue-500' : 'bg-purple-500'}`} />
+                                <span className="font-medium">{getModelDisplayName(model)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{data.requestCount}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{data.inputTokens.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{data.outputTokens.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-medium text-green-600">{formatUSD(data.costUsd)}</TableCell>
+                            <TableCell className="text-right text-orange-600">{formatINR(convertToINR(data.costUsd))}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Recent API Calls - Enhanced Table View */}
+              {apiUsage.recentRecords.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      Recent API Calls
+                    </CardTitle>
+                    <CardDescription>Last 10 API requests with detailed cost breakdown</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Stage</TableHead>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="text-right">Input</TableHead>
+                          <TableHead className="text-right">Output</TableHead>
+                          <TableHead className="text-right">Cost</TableHead>
+                          <TableHead className="text-right">Time</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {apiUsage.recentRecords.map((record) => (
+                          <TableRow key={record.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getStageIcon(record.requestType)}
+                                <span className="font-medium">{getStageLabel(record.requestType)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={record.provider === 'gemini' ? 'default' : 'secondary'} className="text-xs">
+                                  {record.provider}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{getModelDisplayName(record.model)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">{record.inputTokens.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{record.outputTokens.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">
+                              <div>
+                                <span className="font-medium text-green-600">{formatUSD(record.costUsd)}</span>
+                                <p className="text-xs text-muted-foreground">{formatINR(convertToINR(record.costUsd))}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground">
+                              {format(new Date(record.createdAt), 'MMM d, h:mm a')}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* Charts */}
           <div className="grid gap-6 md:grid-cols-2">
@@ -363,7 +938,7 @@ export default function AnalyticsPage() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {analytics.topPerformingCreatives.map((creative, i) => (
+                    {analytics.topPerformingCreatives.map((creative) => (
                       <div key={creative.id} className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
                           <img

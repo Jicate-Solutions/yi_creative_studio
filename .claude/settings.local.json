@@ -36,7 +36,21 @@
       "mcp__supabase__get_logs",
       "mcp__supabase__get_advisors",
       "mcp__supabase__get_project_url",
-      "mcp__supabase__list_tables"
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__generate_typescript_types",
+      "mcp__filesystem__list_directory",
+      "Bash(claude config --help:*)",
+      "Bash(claude config:*)",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__press_key",
+      "mcp__plugin_compounding-engineering_playwright__browser_fill_form",
+      "Bash(netstat:*)",
+      "Bash(where:*)",
+      "Bash(cmd /c \"where gh\")",
+      "Bash(cmd /c \"gh pr list --repo JKKN-Institutions/Yi-CreativeStudio --state open --limit 10 --json number,title,state,isDraft,author\")"
     ],
     "deny": [],
     "ask": [],
@@ -52,5 +66,17 @@
     "shadcn",
     "mui-mcp",
     "memory"
-  ]
+  ],
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -c \"[console]::beep(800,300)\""
+          }
+        ]
+      }
+    ]
+  }
 }

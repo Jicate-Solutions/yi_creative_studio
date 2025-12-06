@@ -237,9 +237,12 @@ export function buildTextBriefFromCompiled(data: CompiledFormData): string {
     parts.push(`Description: ${data.description}`)
   }
 
-  // Custom fields
+  // Custom fields - CRITICAL FIX: Only include values, not field labels
+  // The AI was rendering labels like "Post Title:" literally in images
   for (const [key, value] of Object.entries(data.customFields)) {
-    parts.push(`${formatFieldName(key)}: ${value}`)
+    if (value && String(value).trim()) {
+      parts.push(`Text: "${String(value).trim()}"`)
+    }
   }
 
   // Format info

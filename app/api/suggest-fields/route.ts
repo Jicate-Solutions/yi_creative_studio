@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   FIELD_SUGGESTION_SYSTEM_PROMPT,
   buildFieldSuggestionPrompt,
@@ -16,6 +17,7 @@ import type {
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 20 // requests per minute per user
 const RATE_WINDOW = 60 * 1000 // 1 minute
+const CLEANUP_INTERVAL = 5 * 60 * 1000 // Clean up every 5 minutes
 
 // Simple in-memory cache for suggestions
 const suggestionCache = new Map<
@@ -24,12 +26,36 @@ const suggestionCache = new Map<
 >()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
+// Cleanup expired entries to prevent memory leak
+let lastCleanup = Date.now()
+function cleanupExpiredEntries(): void {
+  const now = Date.now()
+  if (now - lastCleanup < CLEANUP_INTERVAL) return
+
+  lastCleanup = now
+  // Clean up rate limit entries
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (value.resetAt < now) {
+      rateLimitMap.delete(key)
+    }
+  }
+  // Clean up cache entries
+  for (const [key, value] of suggestionCache.entries()) {
+    if (value.expiresAt < now) {
+      suggestionCache.delete(key)
+    }
+  }
+}
+
 function getCacheKey(title: string, verticalSlug: string): string {
   const normalizedTitle = title.toLowerCase().trim().replace(/\s+/g, ' ')
   return `${verticalSlug}:${normalizedTitle}`
 }
 
 function getCachedSuggestion(key: string) {
+  // Periodically clean up expired entries
+  cleanupExpiredEntries()
+
   const cached = suggestionCache.get(key)
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data
@@ -124,7 +150,7 @@ export async function POST(request: NextRequest) {
         success: true,
         suggestions: cachedSuggestions,
         metadata: {
-          model: 'gemini-2.0-flash',
+          model: 'claude-3-5-haiku-latest',
           processingTimeMs: Date.now() - startTime,
           cached: true,
         },
@@ -180,8 +206,8 @@ export async function POST(request: NextRequest) {
       existingFields: body.existingFields,
     })
 
-    // 9. Call Gemini API with timeout
-    const suggestions = await callGeminiWithTimeout(prompt, 8000)
+    // 9. Call Claude API with timeout
+    const suggestions = await callClaudeWithTimeout(prompt, 8000)
 
     // 10. Cache the result
     setCachedSuggestion(cacheKey, suggestions)
@@ -191,7 +217,7 @@ export async function POST(request: NextRequest) {
       success: true,
       suggestions,
       metadata: {
-        model: 'gemini-2.0-flash',
+        model: 'claude-3-5-haiku-latest',
         processingTimeMs: Date.now() - startTime,
         cached: false,
       },
@@ -227,59 +253,53 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function callGeminiWithTimeout(
+async function callClaudeWithTimeout(
   prompt: string,
   timeoutMs: number
 ): Promise<SuggestFieldsResponse['suggestions']> {
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    throw new Error('Gemini API key not configured')
+    throw new Error('Anthropic API key not configured')
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: FIELD_SUGGESTION_SYSTEM_PROMPT + '\n\n' + prompt },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.8,
-            topK: 40,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    )
+    const client = new Anthropic({ apiKey })
+
+    const responsePromise = client.messages.create({
+      model: 'claude-3-5-haiku-latest',
+      max_tokens: 1024,
+      temperature: 0.7,
+      system: FIELD_SUGGESTION_SYSTEM_PROMPT + '\n\nIMPORTANT: Respond with valid JSON only. No markdown, no code blocks, just raw JSON.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    })
+
+    // Race between API call and timeout
+    const response = await Promise.race([
+      responsePromise,
+      new Promise<never>((_, reject) => {
+        controller.signal.addEventListener('abort', () => {
+          reject(new Error('AI_TIMEOUT'))
+        })
+      }),
+    ])
 
     clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Gemini API error:', errorText)
-      throw new Error('Gemini API request failed')
+    // Extract text content from response
+    const textBlock = response.content.find((block) => block.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('No text content in Claude response')
     }
 
-    const data = await response.json()
-    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-    if (!textContent) {
-      throw new Error('No text content in Gemini response')
-    }
+    const textContent = textBlock.text
 
     // Parse JSON response - handle potential markdown wrapping
     let jsonText = textContent.trim()
@@ -313,8 +333,8 @@ async function callGeminiWithTimeout(
     return suggestions
   } catch (error) {
     clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('AI_TIMEOUT')
+    if (error instanceof Error && error.message === 'AI_TIMEOUT') {
+      throw error
     }
     throw error
   }

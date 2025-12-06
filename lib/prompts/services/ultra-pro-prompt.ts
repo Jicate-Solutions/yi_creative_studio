@@ -14,6 +14,26 @@ import { buildTextBriefFromCompiled } from './form-data-compiler'
 // TYPES
 // ============================================================
 
+/**
+ * Token usage from AI API call
+ */
+export interface TokenUsage {
+  inputTokens: number
+  outputTokens: number
+  cachedTokens?: number
+  totalTokens: number
+}
+
+/**
+ * Response from LLM call including token usage
+ */
+interface LLMResponse {
+  text: string
+  tokenUsage: TokenUsage
+  model: string
+  durationMs: number
+}
+
 export interface UltraProPrompt {
   /** The main headline text that MUST appear prominently in the image */
   primaryText: string
@@ -31,6 +51,19 @@ export interface UltraProPrompt {
   mustIncludeElements: string[]
   /** The complete enhanced prompt for image generation */
   enhancedPrompt: string
+}
+
+/**
+ * Result from ultra-pro prompt generation including usage tracking
+ */
+export interface UltraProPromptResult {
+  prompt: UltraProPrompt
+  usage: {
+    provider: 'gemini' | 'claude'
+    model: string
+    tokenUsage: TokenUsage
+    durationMs: number
+  }
 }
 
 // ============================================================
@@ -76,11 +109,12 @@ IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
 /**
  * Generate an ultra-pro prompt using Claude AI.
  * Transforms compiled form data into an optimized image generation prompt.
+ * Returns the prompt along with usage tracking information.
  */
 export async function generateUltraProPrompt(
   compiledData: CompiledFormData,
   provider: 'claude' | 'gemini' = 'claude'
-): Promise<UltraProPrompt> {
+): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
   console.log('[Ultra-Pro Prompt] Format:', compiledData.format?.name || 'default')
@@ -99,45 +133,77 @@ ${userBrief}
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
   // Call the appropriate AI provider
-  let response: string
-  const startTime = Date.now()
+  let llmResponse: LLMResponse
 
   try {
     if (provider === 'gemini') {
-      response = await callGemini(prompt)
+      llmResponse = await callGemini(prompt)
     } else {
-      response = await callClaude(prompt)
+      llmResponse = await callClaude(prompt)
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] AI call failed:', error)
-    // Return a fallback prompt if AI fails
-    return generateFallbackPrompt(compiledData)
+    // Return a fallback prompt if AI fails with zero usage
+    return {
+      prompt: generateFallbackPrompt(compiledData),
+      usage: {
+        provider,
+        model: 'fallback',
+        tokenUsage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedTokens: 0,
+          totalTokens: 0,
+        },
+        durationMs: 0,
+      },
+    }
   }
 
-  const duration = Date.now() - startTime
-  console.log(`[Ultra-Pro Prompt] Response received in ${duration}ms`)
+  console.log(`[Ultra-Pro Prompt] Response received in ${llmResponse.durationMs}ms`)
 
   // Parse the response
-  const ultraProPrompt = parseUltraProPrompt(response, compiledData)
+  const ultraProPrompt = parseUltraProPrompt(llmResponse.text, compiledData)
   console.log('[Ultra-Pro Prompt] === PROMPT GENERATED ===')
   console.log('[Ultra-Pro Prompt] Primary Text:', ultraProPrompt.primaryText)
   console.log('[Ultra-Pro Prompt] Enhanced Prompt:', ultraProPrompt.enhancedPrompt.substring(0, 200) + '...')
 
-  return ultraProPrompt
+  return {
+    prompt: ultraProPrompt,
+    usage: {
+      provider,
+      model: llmResponse.model,
+      tokenUsage: llmResponse.tokenUsage,
+      durationMs: llmResponse.durationMs,
+    },
+  }
 }
 
 /**
- * Safe version that returns fallback on error
+ * Safe version that returns fallback on error with zero usage
  */
 export async function generateUltraProPromptSafe(
   compiledData: CompiledFormData,
   provider: 'claude' | 'gemini' = 'claude'
-): Promise<UltraProPrompt> {
+): Promise<UltraProPromptResult> {
   try {
     return await generateUltraProPrompt(compiledData, provider)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
-    return generateFallbackPrompt(compiledData)
+    return {
+      prompt: generateFallbackPrompt(compiledData),
+      usage: {
+        provider,
+        model: 'fallback',
+        tokenUsage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedTokens: 0,
+          totalTokens: 0,
+        },
+        durationMs: 0,
+      },
+    }
   }
 }
 
@@ -145,8 +211,9 @@ export async function generateUltraProPromptSafe(
 // AI PROVIDER IMPLEMENTATIONS
 // ============================================================
 
-async function callClaude(prompt: string): Promise<string> {
+async function callClaude(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
+  const modelName = 'claude-3-5-haiku-latest'
 
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not configured')
@@ -155,9 +222,10 @@ async function callClaude(prompt: string): Promise<string> {
   const client = new Anthropic({ apiKey })
 
   console.log('[Ultra-Pro Prompt] Calling Claude 3.5 Haiku...')
+  const startTime = Date.now()
 
   const response = await client.messages.create({
-    model: 'claude-3-5-haiku-latest',
+    model: modelName,
     max_tokens: 1500,
     messages: [
       {
@@ -167,16 +235,36 @@ async function callClaude(prompt: string): Promise<string> {
     ]
   })
 
+  const durationMs = Date.now() - startTime
+
   const textBlock = response.content.find(block => block.type === 'text')
   if (!textBlock || textBlock.type !== 'text') {
     throw new Error('No text response from Claude')
   }
 
-  return textBlock.text
+  const text = textBlock.text
+
+  // Extract token usage from Claude's response
+  const tokenUsage: TokenUsage = {
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    cachedTokens: 0,
+    totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+  }
+
+  console.log('[Ultra-Pro Prompt] Token usage:', JSON.stringify(tokenUsage))
+
+  return {
+    text,
+    tokenUsage,
+    model: modelName,
+    durationMs,
+  }
 }
 
-async function callGemini(prompt: string): Promise<string> {
+async function callGemini(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
+  const modelName = 'gemini-2.0-flash-exp'
 
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured')
@@ -184,7 +272,7 @@ async function callGemini(prompt: string): Promise<string> {
 
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: modelName,
     generationConfig: {
       temperature: 0.7,
       maxOutputTokens: 1500,
@@ -192,9 +280,31 @@ async function callGemini(prompt: string): Promise<string> {
   })
 
   console.log('[Ultra-Pro Prompt] Calling Gemini 2.0 Flash...')
+  const startTime = Date.now()
 
   const result = await model.generateContent(prompt)
-  return result.response.text()
+  const response = result.response
+
+  const durationMs = Date.now() - startTime
+  const text = response.text()
+
+  // Extract token usage from response metadata
+  const usageMetadata = response.usageMetadata
+  const tokenUsage: TokenUsage = {
+    inputTokens: usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4),
+    outputTokens: usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 4),
+    cachedTokens: usageMetadata?.cachedContentTokenCount || 0,
+    totalTokens: usageMetadata?.totalTokenCount || Math.ceil((prompt.length + text.length) / 4),
+  }
+
+  console.log('[Ultra-Pro Prompt] Token usage:', JSON.stringify(tokenUsage))
+
+  return {
+    text,
+    tokenUsage,
+    model: modelName,
+    durationMs,
+  }
 }
 
 // ============================================================
@@ -307,9 +417,12 @@ function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
     parts.push(`Include organization branding for: ${compiledData.organizationName}.`)
   }
 
-  // Custom fields
+  // Custom fields - CRITICAL FIX: Only include values, not field names
+  // The AI was rendering "postTitle: Monthly YI Gathering" literally
   for (const [key, value] of Object.entries(compiledData.customFields)) {
-    parts.push(`Also include: ${key}: ${value}.`)
+    if (value && String(value).trim()) {
+      parts.push(`Also include this text element: "${value}".`)
+    }
   }
 
   // Style/Theme

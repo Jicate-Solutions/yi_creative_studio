@@ -46,7 +46,7 @@ export function useOrganization() {
       return false
     }
 
-    const currentConfig = (currentOrganization.brand_config as BrandConfig) || {}
+    const currentConfig = (currentOrganization.brand_config as unknown as BrandConfig) || {}
     const newConfig = { ...currentConfig, ...config }
 
     const { error } = await supabase
@@ -86,7 +86,7 @@ export function useOrganization() {
   }, [currentOrganization, supabase, refreshOrganization])
 
   const getBrandConfig = useCallback((): BrandConfig | null => {
-    return currentOrganization?.brand_config as BrandConfig | null
+    return currentOrganization?.brand_config as unknown as BrandConfig | null
   }, [currentOrganization])
 
   const creditsBalance = currentOrganization?.credits_balance ?? 0

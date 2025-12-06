@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type sharp from 'sharp'
+import { createUsageTracker } from '@/lib/services/api-usage'
+import { convertToINR } from '@/lib/services/currency'
+import {
+  estimateGenerationCost,
+  checkCostLimits,
+  calculateTokenCost,
+  calculateImageCost,
+  type AIProvider,
+} from '@/lib/config/ai-pricing'
 // Lazy load sharp to reduce cold start time (40-60MB native binary)
 // Only loaded when actually needed for template processing
 let sharpInstance: typeof sharp | null = null
@@ -110,6 +119,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ========================================================
+    // API USAGE TRACKING - Track token usage and costs
+    // ========================================================
+    const usageTracker = createUsageTracker({
+      organizationId,
+      userId: user.id,
+      // creativeId will be set after creation if needed
+    })
+
     // Validate logo positions (PRD Section 8.4 - Brand Rules)
     // Yi logo MUST be top-left, CII logo MUST be top-right
     if (logosPlacements && logosPlacements.length > 0) {
@@ -209,7 +227,25 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
 
       // Generate ultra-pro prompt using Claude AI
-      const ultraProPrompt = await generateUltraProPromptSafe(compiledData, 'claude')
+      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'claude')
+      const ultraProPrompt = ultraProResult.prompt
+
+      // Track Ultra-Pro Prompt API usage
+      if (ultraProResult.usage.model !== 'fallback') {
+        await usageTracker.track(
+          'ultra_pro_prompt',
+          ultraProResult.usage.provider as AIProvider,
+          ultraProResult.usage.model,
+          {
+            inputTokens: ultraProResult.usage.tokenUsage.inputTokens,
+            outputTokens: ultraProResult.usage.tokenUsage.outputTokens,
+            cachedTokens: ultraProResult.usage.tokenUsage.cachedTokens,
+            durationMs: ultraProResult.usage.durationMs,
+            promptLength: compiledData.eventName?.length || 0,
+          }
+        )
+      }
+
       console.log('[Generate] === ULTRA-PRO PROMPT ===')
       console.log('[Generate] Primary Text:', ultraProPrompt.primaryText)
       console.log('[Generate] Secondary Text:', ultraProPrompt.secondaryText.join(', '))
@@ -279,7 +315,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Generate AI-powered design context
-      const designContext = await generateDesignContextSafe(designBrief)
+      const designContextResult = await generateDesignContextSafe(designBrief)
+      const designContext = designContextResult.context
+
+      // Track Design Intelligence API usage
+      if (designContextResult.usage.model !== 'fallback') {
+        await usageTracker.track(
+          'design_intelligence',
+          designContextResult.usage.provider as AIProvider,
+          designContextResult.usage.model,
+          {
+            inputTokens: designContextResult.usage.tokenUsage.inputTokens,
+            outputTokens: designContextResult.usage.tokenUsage.outputTokens,
+            cachedTokens: designContextResult.usage.tokenUsage.cachedTokens,
+            durationMs: designContextResult.usage.durationMs,
+            promptLength: prompt.length,
+          }
+        )
+      }
 
       // Check if fallback was used (generic fallback starts with "Create an engaging")
       const usedFallback = designContext.corePurpose.startsWith('Create an engaging')
@@ -511,9 +564,63 @@ export async function POST(request: NextRequest) {
       imageUrl = await processImageWithSpeakerPhoto(imageUrl, speakerPhoto)
     }
 
+    // Track image generation (estimated tokens for Gemini)
+    // Gemini image generation has fixed cost per image + token cost for prompt
+    if (creationMode === 'scratch' || templateUrl) {
+      const imageProvider: AIProvider = provider === 'google' ? 'gemini' : 'gemini' // All image gen uses Gemini now
+      const imageModel = 'gemini-2.5-flash-image'
+      const estimatedInputTokens = Math.ceil(prompt.length / 4)
+      const estimatedOutputTokens = 100 // Minimal text output for image gen
+
+      await usageTracker.track(
+        'image_generation',
+        imageProvider,
+        imageModel,
+        {
+          inputTokens: estimatedInputTokens,
+          outputTokens: estimatedOutputTokens,
+          imageCount: 1, // Always 1 image per generation
+          durationMs: 0, // We don't have duration here
+          promptLength: prompt.length,
+        }
+      )
+    }
+
+    // Get cost summary
+    const costSummary = usageTracker.getSummary()
+    console.log('[Generate] === API USAGE SUMMARY ===')
+    console.log('[Generate] Total Cost:', costSummary.formatted.usd, '|', costSummary.formatted.inr)
+    console.log('[Generate] Total Input Tokens:', costSummary.totalInputTokens)
+    console.log('[Generate] Total Output Tokens:', costSummary.totalOutputTokens)
+    console.log('[Generate] Request Count:', costSummary.requestCount)
+
+    // Build stage-by-stage breakdown for frontend display
+    const stages = costSummary.records.map((record) => ({
+      stage: record.requestType,
+      provider: record.provider,
+      model: record.model,
+      inputTokens: record.inputTokens,
+      outputTokens: record.outputTokens,
+      cachedTokens: record.cachedTokens || 0,
+      imageCount: record.imageCount || 0,
+      costUsd: record.estimatedCostUsd,
+      costInr: convertToINR(record.estimatedCostUsd),
+      durationMs: record.durationMs || 0,
+    }))
+
     return NextResponse.json({
       success: true,
       imageUrl,
+      usage: {
+        costUsd: costSummary.totalCostUsd,
+        costInr: costSummary.totalCostInr,
+        formatted: costSummary.formatted,
+        inputTokens: costSummary.totalInputTokens,
+        outputTokens: costSummary.totalOutputTokens,
+        requestCount: costSummary.requestCount,
+        // Stage-by-stage breakdown for detailed analytics
+        stages,
+      },
     })
   } catch (error) {
     console.error('Generation error:', error)
@@ -995,13 +1102,10 @@ This is OUTPAINTING (extend/add background), NOT cropping, NOT zooming, NOT stre
         continue
       }
 
-      // Convert camelCase to readable label: "videoTitle" → "Video Title"
-      const label = key
-        .replace(/([A-Z])/g, ' $1')  // Add space before capitals
-        .replace(/^./, str => str.toUpperCase())  // Capitalize first letter
-        .trim()
-
-      textLines.push(`- ${label}: "${String(value).trim()}"`)
+      // CRITICAL FIX: Only pass the VALUE, not the field name/label
+      // The AI was rendering "Post Title: Monthly YI Gathering" literally
+      // We want ONLY "Monthly YI Gathering" to appear in the image
+      textLines.push(`- "${String(value).trim()}"`)
     }
 
     console.log('[Template Mode] === BUILT TEXT LINES ===')
@@ -1011,15 +1115,16 @@ This is OUTPAINTING (extend/add background), NOT cropping, NOT zooming, NOT stre
     if (textLines.length > 0) {
       exactTextSection = `
 
-=== EXACT TEXT TO RENDER (MANDATORY - DO NOT MODIFY) ===
+=== TEXT CONTENT TO RENDER (VALUES ONLY) ===
 ${textLines.join('\n')}
 
-CRITICAL INSTRUCTIONS:
-1. Render EXACTLY the text shown above - character for character
-2. DO NOT generate placeholder text like "[Insert Date]" or "Insert Time"
-3. DO NOT use any text from the template image - ONLY use text from this list
-4. If a field is missing from my list, leave it blank - do NOT invent content
-5. Copy my exact spelling, capitalization, and punctuation
+CRITICAL TEXT RENDERING INSTRUCTIONS:
+1. Render ONLY the quoted text content shown above - no labels or field names
+2. Each quoted string is a separate text element to place in the design
+3. DO NOT include words like "Title:", "Type:", or any field identifiers
+4. DO NOT generate placeholder text like "[Insert Date]" or "Insert Time"
+5. DO NOT use any text from the template image - ONLY use my provided values
+6. Copy exact spelling, capitalization, and punctuation from inside the quotes
 ===============================================`
     }
   }
