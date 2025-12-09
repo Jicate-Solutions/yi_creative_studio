@@ -9,6 +9,11 @@
  * - Claude: https://www.anthropic.com/pricing
  *
  * Last updated: December 2025
+ *
+ * IMPORTANT: For image generation models:
+ * - outputPerMillion is for TEXT output only
+ * - imageOutputPerMillion is for IMAGE output ($30/1M for Gemini 2.5 Flash Image)
+ * - imageGeneration is a convenience flat rate per image
  */
 
 // ============================================================
@@ -18,36 +23,49 @@
 export type AIProvider = 'gemini' | 'claude'
 
 export interface ModelPricing {
-  inputPerMillion: number      // USD per 1M input tokens
-  outputPerMillion: number     // USD per 1M output tokens
-  imageGeneration?: number     // USD per image (for image models)
-  cachedInputPerMillion?: number // USD per 1M cached tokens
+  inputPerMillion: number           // USD per 1M input tokens
+  outputPerMillion: number          // USD per 1M output tokens (text)
+  imageOutputPerMillion?: number    // USD per 1M output tokens (images) - NEW
+  imageGeneration?: number          // USD per image (flat rate convenience)
+  cachedInputPerMillion?: number    // USD per 1M cached tokens
 }
 
 export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
   gemini: {
-    // Image Generation Model
+    // ============================================================
+    // Image Generation Models
+    // ============================================================
+    // Gemini 2.5 Flash Image - Primary image generation model
+    // Official pricing: Input $0.30/1M, Image output $30/1M (1290 tokens = $0.039)
     'gemini-2.5-flash-image': {
       inputPerMillion: 0.30,
-      outputPerMillion: 2.50,
-      imageGeneration: 0.039,  // $0.039 per image (1024x1024)
-      cachedInputPerMillion: 0.075,
+      outputPerMillion: 2.50,          // Text output (thinking tokens)
+      imageOutputPerMillion: 30.00,    // Image output tokens
+      imageGeneration: 0.039,          // $0.039 per image (1290 tokens @ $30/1M)
+      cachedInputPerMillion: 0.03,     // Fixed: was 0.075, official is $0.03
     },
-    // Text Models
+
+    // ============================================================
+    // Text Models (Gemini 2.5 Flash family)
+    // ============================================================
     'gemini-2.5-flash': {
       inputPerMillion: 0.30,
-      outputPerMillion: 2.50,
-      cachedInputPerMillion: 0.075,
+      outputPerMillion: 2.50,          // Includes thinking tokens
+      cachedInputPerMillion: 0.03,     // Fixed: was 0.075, official is $0.03
     },
     'gemini-2.5-flash-lite': {
       inputPerMillion: 0.10,
       outputPerMillion: 0.40,
-      cachedInputPerMillion: 0.025,
+      cachedInputPerMillion: 0.01,     // Fixed: was 0.025, official is $0.01
     },
+
+    // ============================================================
+    // Text Models (Gemini 2.0 Flash family)
+    // ============================================================
     'gemini-2.0-flash': {
       inputPerMillion: 0.10,
       outputPerMillion: 0.40,
-      cachedInputPerMillion: 0.025,
+      cachedInputPerMillion: 0.025,    // Correct
     },
     'gemini-2.0-flash-exp': {
       inputPerMillion: 0.10,
@@ -59,26 +77,31 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
       outputPerMillion: 0.40,
       cachedInputPerMillion: 0.025,
     },
-    // Pro Models (more expensive)
+
+    // ============================================================
+    // Pro Models (more capable, more expensive)
+    // ============================================================
     'gemini-2.5-pro': {
-      inputPerMillion: 1.25,
-      outputPerMillion: 10.00,
-      cachedInputPerMillion: 0.3125,
+      inputPerMillion: 1.25,           // <= 200k tokens
+      outputPerMillion: 10.00,         // Includes thinking tokens
+      cachedInputPerMillion: 0.125,    // Fixed: was 0.3125, official is $0.125
     },
     'gemini-3-pro-preview': {
-      inputPerMillion: 2.00,
-      outputPerMillion: 12.00,
-      cachedInputPerMillion: 0.50,
+      inputPerMillion: 2.00,           // <= 200k tokens
+      outputPerMillion: 12.00,         // Text output (thinking tokens)
+      cachedInputPerMillion: 0.20,     // Fixed: was 0.50, official is $0.20
     },
+
     // Gemini 3 Pro Image Preview - 4K capable image generation
-    // Pricing: $120/M output tokens
+    // Official pricing: $120/M output tokens for images
     // 1K/2K = 1,120 tokens → $0.1344 per image
     // 4K = 2,000 tokens → $0.24 per image
     'gemini-3-pro-image-preview': {
       inputPerMillion: 2.00,
-      outputPerMillion: 120.00,
-      imageGeneration: 0.1344,  // Default 1K/2K price
-      cachedInputPerMillion: 0.50,
+      outputPerMillion: 12.00,         // Text output (thinking tokens)
+      imageOutputPerMillion: 120.00,   // Image output tokens
+      imageGeneration: 0.1344,         // Default 1K/2K price
+      cachedInputPerMillion: 0.20,     // Fixed: was 0.50, official is $0.20
     },
   },
   claude: {

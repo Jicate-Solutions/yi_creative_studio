@@ -665,15 +665,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Track image generation (estimated tokens for Gemini)
-    // Gemini image generation has fixed cost per image + token cost for prompt
+    // Cost calculation: Input tokens (text prompt) + flat image rate
+    // Image cost is NOT based on output tokens - it's a flat rate per image:
+    // - gemini-2.5-flash-image: $0.039/image (1290 tokens @ $30/1M)
+    // - gemini-3-pro-image-preview: $0.1344/image (1K/2K), $0.24/image (4K)
     if (creationMode === 'scratch' || templateUrl) {
       const imageProvider: AIProvider = provider === 'google' ? 'gemini' : 'gemini' // All image gen uses Gemini now
       // Use actual model from request, default to Flash
       const imageModel = model || 'gemini-2.5-flash-image'
+      // Estimate input tokens from prompt length (~4 chars per token)
       const estimatedInputTokens = Math.ceil(prompt.length / 4)
-      // Output tokens vary by resolution for Gemini 3 Pro Image Preview
       const requestedResolution = (designData?.resolution || '1K') as '1K' | '2K' | '4K'
-      const estimatedOutputTokens = imageModel === 'gemini-3-pro-image-preview' && requestedResolution === '4K' ? 2000 : imageModel === 'gemini-3-pro-image-preview' ? 1120 : 100
 
       await usageTracker.track(
         'image_generation',
@@ -681,7 +683,7 @@ export async function POST(request: NextRequest) {
         imageModel,
         {
           inputTokens: estimatedInputTokens,
-          outputTokens: estimatedOutputTokens,
+          outputTokens: 0, // Image output uses flat rate, not token-based pricing
           imageCount: 1, // Always 1 image per generation
           durationMs: 0, // We don't have duration here
           promptLength: prompt.length,

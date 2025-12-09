@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   calculateTokenCost,
   calculateImageCost,
+  getModelPricing,
   type AIProvider,
   type RequestType,
 } from '@/lib/config/ai-pricing'
@@ -179,18 +180,32 @@ export function createUsageTracker(params: {
         resolution?: '1K' | '2K' | '4K'  // For resolution-based pricing (Gemini 3 Pro)
       }
     ) => {
-      // Calculate cost
-      let costUsd = calculateTokenCost(
-        provider,
-        model,
-        usage.inputTokens,
-        usage.outputTokens,
-        usage.cachedTokens || 0
-      )
+      // Calculate cost based on whether this is image or text generation
+      let costUsd = 0
+      const pricing = getModelPricing(provider, model)
 
-      // Add image cost if applicable (supports resolution-based pricing)
-      if (usage.imageCount && usage.imageCount > 0) {
-        costUsd += calculateImageCost(provider, model, usage.imageCount, usage.resolution)
+      if (usage.imageCount && usage.imageCount > 0 && pricing?.imageGeneration) {
+        // IMAGE GENERATION: Calculate input cost + image cost (not text output cost)
+        // The imageGeneration flat rate already accounts for output tokens at image rate
+        // (e.g., $0.039 = 1290 tokens @ $30/1M for gemini-2.5-flash-image)
+        const inputCost = pricing
+          ? (usage.inputTokens / 1_000_000) * pricing.inputPerMillion
+          : 0
+        const cachedCost = pricing?.cachedInputPerMillion
+          ? (usage.cachedTokens || 0) / 1_000_000 * pricing.cachedInputPerMillion
+          : 0
+        const imageCost = calculateImageCost(provider, model, usage.imageCount, usage.resolution)
+
+        costUsd = inputCost + cachedCost + imageCost
+      } else {
+        // TEXT GENERATION: Use standard token calculation
+        costUsd = calculateTokenCost(
+          provider,
+          model,
+          usage.inputTokens,
+          usage.outputTokens,
+          usage.cachedTokens || 0
+        )
       }
 
       const record: ApiUsageRecord = {

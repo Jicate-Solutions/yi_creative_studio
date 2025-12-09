@@ -112,7 +112,8 @@
       "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul\")",
       "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && rmdir /s /q .next 2>nul\")",
       "Bash(cmd /c \"taskkill /F /PID 38328 2>nul & del C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.next\\dev\\lock 2>nul\")",
-      "Bash(cmd /c \"taskkill /F /PID 38328\")"
+      "Bash(cmd /c \"taskkill /F /PID 38328\")",
+      "mcp__fetch__imageFetch"
     ],
     "deny": [],
     "ask": [],
