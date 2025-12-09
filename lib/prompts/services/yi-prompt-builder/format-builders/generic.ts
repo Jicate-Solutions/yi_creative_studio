@@ -1,11 +1,135 @@
 /**
- * Generic Prompt Builder v3.0
+ * Generic Prompt Builder v4.0
  * Fallback for unknown or custom formats
  * Enhanced with logo awareness, brand context, and quality context
+ *
+ * v4.0: Now extracts ALL form fields dynamically instead of hardcoded patterns
+ * This ensures format-specific fields (videoTitle, hookText, recipientName, etc.)
+ * are properly passed to the image generation AI.
  */
 
 import type { EnhancedBuildOptions } from '../types'
 import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+
+// ============================================================
+// FIELD EXTRACTION HELPERS
+// ============================================================
+
+// Fields to skip (internal/meta fields)
+const SKIP_FIELDS = new Set([
+  '_id', '_timestamp', '_version', '_cache',
+  'language', 'style', 'colorScheme', 'theme',
+  'formatId', 'format', 'organizationId', 'verticalSlug'
+])
+
+// Priority fields that should appear first in text content
+const PRIORITY_FIELDS = [
+  'title', 'headline', 'eventName', 'name', 'videoTitle', 'postTitle',
+  'recipientName', 'certificateTitle', 'fullName'
+]
+
+// Fields that are typically secondary/supporting text
+const SECONDARY_FIELDS = [
+  'description', 'caption', 'body', 'details', 'message',
+  'hookText', 'tagline', 'subheadline', 'subtitle'
+]
+
+interface ExtractedField {
+  role: string
+  value: string
+  prominence: 'primary' | 'secondary' | 'tertiary'
+}
+
+/**
+ * Convert camelCase or snake_case field names to human-readable roles
+ */
+function fieldToRole(fieldName: string): string {
+  return fieldName
+    .replace(/([A-Z])/g, ' $1') // camelCase to spaces
+    .replace(/_/g, ' ')         // snake_case to spaces
+    .trim()
+    .toLowerCase()
+}
+
+/**
+ * Extract all text-like fields from form data
+ * Preserves field semantics for better AI prompting
+ */
+function extractAllFields(formData: Record<string, unknown>): ExtractedField[] {
+  const fields: ExtractedField[] = []
+  const processedKeys = new Set<string>()
+
+  // First pass: Extract priority fields (titles, headlines)
+  for (const key of PRIORITY_FIELDS) {
+    const value = formData[key]
+    if (typeof value === 'string' && value.trim() && !processedKeys.has(key)) {
+      fields.push({
+        role: fieldToRole(key),
+        value: value.trim(),
+        prominence: 'primary'
+      })
+      processedKeys.add(key)
+    }
+  }
+
+  // Second pass: Extract secondary fields (descriptions, captions)
+  for (const key of SECONDARY_FIELDS) {
+    const value = formData[key]
+    if (typeof value === 'string' && value.trim() && !processedKeys.has(key)) {
+      fields.push({
+        role: fieldToRole(key),
+        value: value.trim(),
+        prominence: 'secondary'
+      })
+      processedKeys.add(key)
+    }
+  }
+
+  // Third pass: Extract all remaining string fields
+  for (const [key, value] of Object.entries(formData)) {
+    if (
+      typeof value === 'string' &&
+      value.trim() &&
+      !processedKeys.has(key) &&
+      !SKIP_FIELDS.has(key) &&
+      !key.startsWith('_')
+    ) {
+      fields.push({
+        role: fieldToRole(key),
+        value: value.trim(),
+        prominence: 'tertiary'
+      })
+      processedKeys.add(key)
+    }
+  }
+
+  return fields
+}
+
+/**
+ * Build text content section from extracted fields
+ */
+function buildTextContentSection(fields: ExtractedField[]): string {
+  if (fields.length === 0) {
+    return '<text_content>\n<text role="headline" prominence="LARGEST">Professional Design</text>\n</text_content>'
+  }
+
+  const lines: string[] = ['<text_content>']
+
+  for (const field of fields) {
+    const prominence = field.prominence === 'primary' ? 'LARGEST'
+      : field.prominence === 'secondary' ? 'medium'
+      : 'small'
+    const style = field.prominence === 'primary' ? 'bold, clear, high contrast'
+      : field.prominence === 'secondary' ? 'clean, readable'
+      : 'subtle, supporting'
+
+    lines.push(`<text role="${field.role}" prominence="${prominence}" style="${style}">${field.value}</text>`)
+  }
+
+  lines.push('</text_content>')
+  return lines.join('\n')
+}
 
 // ============================================================
 // MAIN BUILDER
@@ -16,9 +140,21 @@ export function buildGenericPrompt(
   formData: Record<string, unknown>,
   options: EnhancedBuildOptions = {}
 ): string {
-  // Extract common fields with defaults
-  const title = (formData.title || formData.headline || formData.name || formatId) as string
-  const description = (formData.description || formData.caption || formData.body || '') as string
+  // Extract ALL text fields from form data dynamically
+  const extractedFields = extractAllFields(formData)
+
+  // Get primary title for subject line (fallback to formatId)
+  const primaryField = extractedFields.find(f => f.prominence === 'primary')
+  const title = primaryField?.value || formatId
+
+  // Get description for subject details
+  const secondaryField = extractedFields.find(f => f.prominence === 'secondary')
+  const description = secondaryField?.value || ''
+
+  // Build text content section from ALL fields
+  const textContentSection = buildTextContentSection(extractedFields)
+
+  // Style and color scheme (these are meta, not content)
   const style = (formData.style || 'modern professional') as string
   const colorScheme = (formData.colorScheme || 'brand-appropriate colors') as string
 
@@ -84,10 +220,7 @@ Background: ${style} background ${options.brandContext ? `using brand colors (${
 Visual Treatment: Professional, clean, purposeful
 </composition>
 
-<text_content>
-<text role="headline" prominence="LARGEST" style="bold, clear, high contrast">${title}</text>
-${description ? `<text role="body" prominence="medium" style="clean, readable">${description}</text>` : ''}
-</text_content>
+${textContentSection}
 
 <style>
 Visual Style: ${style}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -392,9 +392,8 @@ export default function TokenCostsPage() {
               </TableHeader>
               <TableBody>
                 {sortedData.map((creative) => (
-                  <>
+                  <Fragment key={creative.id}>
                     <TableRow
-                      key={creative.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => toggleRowExpand(creative.id)}
                     >
@@ -475,9 +474,9 @@ export default function TokenCostsPage() {
                               Cost Breakdown by Stage
                             </p>
                             <div className="grid gap-2">
-                              {creative.stages.map((stage, idx) => (
+                              {creative.stages.map((stage) => (
                                 <div
-                                  key={idx}
+                                  key={`${creative.id}-${stage.request_type}-${stage.provider}-${stage.model}`}
                                   className="flex items-center justify-between p-2 bg-background rounded border"
                                 >
                                   <div className="flex items-center gap-3">
@@ -511,7 +510,7 @@ export default function TokenCostsPage() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

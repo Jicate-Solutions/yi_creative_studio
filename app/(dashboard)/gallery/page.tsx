@@ -61,7 +61,7 @@ import { cn } from '@/lib/utils'
 
 export default function GalleryPage() {
   const supabase = useMemo(() => createClient(), [])
-  const { currentOrganization, user } = useAuthStore()
+  const { currentOrganization, user, _hasHydrated } = useAuthStore()
   const [creatives, setCreatives] = useState<Creative[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -71,6 +71,8 @@ export default function GalleryPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest')
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   const [selectedCreative, setSelectedCreative] = useState<Creative | null>(null)
+  const [selectedCreativeImageUrl, setSelectedCreativeImageUrl] = useState<string | null>(null)
+  const [isLoadingFullImage, setIsLoadingFullImage] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [creativeForExport, setCreativeForExport] = useState<Creative | null>(null)
@@ -95,13 +97,25 @@ export default function GalleryPage() {
   }, [searchQuery])
 
   const fetchCreatives = useCallback(async () => {
-    if (!currentOrganization?.id) return
+    // Wait for Zustand store to rehydrate from localStorage before fetching
+    if (!_hasHydrated) {
+      return
+    }
+
+    if (!currentOrganization?.id) {
+      // No organization available - show empty state
+      setIsLoading(false)
+      setCreatives([])
+      return
+    }
 
     setIsLoading(true)
 
+    // PERFORMANCE: Select only columns needed for list view
+    // Exclude image_url (1MB+ base64 per row) - fetch separately for detail view
     let query = supabase
       .from('creatives')
-      .select('*')
+      .select('id, organization_id, created_by, creative_type, vertical, title, form_data, logo_config, ai_model, ai_model_id, prompt_used, thumbnail_url, image_url, credits_used, generation_time_ms, download_count, is_favorite, created_at, expires_at')
       .eq('organization_id', currentOrganization.id)
       .order('created_at', { ascending: sortBy === 'oldest' })
 
@@ -127,11 +141,54 @@ export default function GalleryPage() {
     }
 
     setCreatives(data || [])
-  }, [currentOrganization?.id, supabase, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
+  }, [_hasHydrated, currentOrganization?.id, supabase, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
 
   useEffect(() => {
     fetchCreatives()
   }, [fetchCreatives])
+
+  // PERFORMANCE: Fetch full image_url only when detail view is opened
+  useEffect(() => {
+    if (!selectedCreative) {
+      setSelectedCreativeImageUrl(null)
+      return
+    }
+
+    // If creative already has image_url in state (from previous fetch), use it
+    if (selectedCreative.image_url) {
+      setSelectedCreativeImageUrl(selectedCreative.image_url)
+      return
+    }
+
+    // Fetch the full image_url for the selected creative
+    const fetchFullImage = async () => {
+      setIsLoadingFullImage(true)
+      const { data, error } = await supabase
+        .from('creatives')
+        .select('image_url')
+        .eq('id', selectedCreative.id)
+        .single()
+
+      setIsLoadingFullImage(false)
+
+      if (error) {
+        toast.error('Failed to load full image')
+        return
+      }
+
+      if (data?.image_url) {
+        setSelectedCreativeImageUrl(data.image_url)
+        // Update the creative in state with the fetched image_url
+        setCreatives(prev =>
+          prev.map(c =>
+            c.id === selectedCreative.id ? { ...c, image_url: data.image_url } : c
+          )
+        )
+      }
+    }
+
+    fetchFullImage()
+  }, [selectedCreative, supabase])
 
   const toggleFavorite = async (creative: Creative) => {
     const newValue = !creative.is_favorite
@@ -192,7 +249,7 @@ export default function GalleryPage() {
       vertical: creative.vertical,
       form_data: creative.form_data,
       logo_config: creative.logo_config,
-      preview_image_url: creative.thumbnail_url || creative.image_url,
+      preview_image_url: creative.thumbnail_url,
       source_creative_id: creative.id,
     })
 
@@ -317,16 +374,22 @@ export default function GalleryPage() {
             >
               {/* Image Container - Natural Height */}
               <div className="relative overflow-hidden rounded-t-xl">
-                <Image
-                  src={creative.thumbnail_url || creative.image_url}
-                  alt={creative.title || 'Creative'}
-                  width={400}
-                  height={0}
-                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-                  style={{ height: 'auto' }}
-                  loading="lazy"
-                />
+                {(creative.thumbnail_url || creative.image_url) ? (
+                  <Image
+                    src={creative.thumbnail_url || creative.image_url}
+                    alt={creative.title || 'Creative'}
+                    width={400}
+                    height={0}
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                    style={{ height: 'auto' }}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-muted flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-muted-foreground/50" />
+                  </div>
+                )}
 
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
@@ -469,15 +532,37 @@ export default function GalleryPage() {
             <div className="flex flex-col h-full">
               {/* Image Hero Section */}
               <div className={cn("creative-hero-container", isFullScreen && "h-full")}>
-                <Image
-                  src={selectedCreative.image_url}
-                  alt={selectedCreative.title || 'Creative'}
-                  width={1200}
-                  height={1500}
-                  sizes="(max-width: 768px) 95vw, 70vw"
-                  className="object-contain max-w-full max-h-full"
-                  priority
-                />
+                {isLoadingFullImage ? (
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+                    <span className="text-white/60 text-sm">Loading full image...</span>
+                  </div>
+                ) : selectedCreativeImageUrl ? (
+                  <Image
+                    src={selectedCreativeImageUrl}
+                    alt={selectedCreative.title || 'Creative'}
+                    width={1200}
+                    height={1500}
+                    sizes="(max-width: 768px) 95vw, 70vw"
+                    className="object-contain max-w-full max-h-full"
+                    priority
+                  />
+                ) : selectedCreative.thumbnail_url ? (
+                  <Image
+                    src={selectedCreative.thumbnail_url}
+                    alt={selectedCreative.title || 'Creative'}
+                    width={1200}
+                    height={1500}
+                    sizes="(max-width: 768px) 95vw, 70vw"
+                    className="object-contain max-w-full max-h-full"
+                    priority
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    <Sparkles className="h-12 w-12 text-white/40" />
+                    <span className="text-white/60 text-sm">Image not available</span>
+                  </div>
+                )}
 
                 {/* Floating action buttons - top left */}
                 <div className="absolute top-4 left-4 flex gap-2 z-10">
@@ -623,6 +708,10 @@ export default function GalleryPage() {
           creativeId={creativeForExport.id}
           creativeName={creativeForExport.title || 'Creative'}
           previewUrl={creativeForExport.image_url}
+          // Feedback context from creative record
+          creativeType={creativeForExport.creative_type}
+          promptUsed={creativeForExport.prompt_used || undefined}
+          formData={creativeForExport.form_data as Record<string, unknown> | undefined}
         />
       )}
     </div>

@@ -48,6 +48,7 @@ import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
 import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
 import { sanitizeForGemini, detectLabelLeaks } from '@/lib/prompts/services/prompt-sanitizer'
+import { getFormatEnhancement } from '@/lib/config/format-enhancements'
 
 export async function POST(request: NextRequest) {
   try {
@@ -219,6 +220,10 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] Extracted Event Name:', formDataContent.eventName || '(not found)')
       console.log('[Generate] Extracted Guest Name:', formDataContent.guestName || '(not found)')
       console.log('[Generate] Fallback (parsed) Event Name:', parsedContent.eventName || '(not found)')
+      // v4.0: Log custom fields to verify format-specific fields are captured
+      if (formDataContent.customFields && Object.keys(formDataContent.customFields).length > 0) {
+        console.log('[Generate] Custom Fields:', Object.keys(formDataContent.customFields).join(', '))
+      }
 
       // ========================================================
       // STAGE 0.5: COMPILE FORM DATA & GENERATE ULTRA-PRO PROMPT
@@ -616,7 +621,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Template mode uses '1K' resolution since Gemini Vision only supports 1K
-      imageUrl = await generateFromTemplate(templatePrompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined, selectedFormat, '1K')
+      imageUrl = await generateFromTemplate(templatePrompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined, selectedFormat, '1K', formatId)
 
       // Increment template use count
       if (templateId) {
@@ -733,53 +738,81 @@ export async function POST(request: NextRequest) {
 /**
  * Extract event content from user form data with multiple field name fallbacks.
  * This is more reliable than parsing prompt text with regex since it uses the actual user input.
+ *
+ * v4.0: Now captures ALL form fields, not just the standard 8.
+ * Format-specific fields (videoTitle, hookText, recipientName, etc.) are stored in customFields.
  */
 function extractFromFormData(formData: Record<string, unknown> | undefined): Partial<CreativeContent> {
   if (!formData) return {}
 
-  return {
+  // Track which keys we've already extracted to standard fields
+  const extractedKeys = new Set<string>()
+
+  // Helper to extract first matching value and track the key
+  const extractFirst = (keys: string[]): string | undefined => {
+    for (const key of keys) {
+      const value = formData[key]
+      if (value !== undefined && value !== null && value !== '') {
+        extractedKeys.add(key)
+        return String(value).trim() || undefined
+      }
+    }
+    return undefined
+  }
+
+  // Standard field extractions (for backwards compatibility)
+  const result: Partial<CreativeContent> = {
     // Event name: check multiple possible field names
-    eventName: String(
-      formData.title ||
-      formData.eventName ||
-      formData.eventTitle ||
-      formData.name ||
-      ''
-    ).trim() || undefined,
+    eventName: extractFirst(['title', 'eventName', 'eventTitle', 'name']),
 
     // Event type: infer from explicit field
-    eventType: String(formData.eventType || formData.type || '').trim() || undefined,
+    eventType: extractFirst(['eventType', 'type']),
 
     // Date/Time (CreativeContent uses 'date' and 'time', not 'eventDate')
-    date: String(formData.date || formData.eventDate || '').trim() || undefined,
-    time: String(formData.time || formData.eventTime || '').trim() || undefined,
+    date: extractFirst(['date', 'eventDate']),
+    time: extractFirst(['time', 'eventTime']),
 
     // Venue
-    venue: String(formData.venue || formData.location || formData.venueName || '').trim() || undefined,
+    venue: extractFirst(['venue', 'location', 'venueName']),
 
     // Speaker/Guest
-    guestName: String(
-      formData.speaker ||
-      formData.guestName ||
-      formData.speakerName ||
-      formData.guest ||
-      ''
-    ).trim() || undefined,
-    guestDesignation: String(
-      formData.designation ||
-      formData.guestDesignation ||
-      formData.speakerDesignation ||
-      ''
-    ).trim() || undefined,
+    guestName: extractFirst(['speaker', 'guestName', 'speakerName', 'guest']),
+    guestDesignation: extractFirst(['designation', 'guestDesignation', 'speakerDesignation']),
 
     // Description
-    additionalText: String(
-      formData.description ||
-      formData.additionalInfo ||
-      formData.details ||
-      ''
-    ).trim() || undefined,
+    additionalText: extractFirst(['description', 'additionalInfo', 'details']),
   }
+
+  // v4.0: Capture ALL remaining fields in customFields
+  // This ensures format-specific fields like videoTitle, hookText, recipientName, etc. are preserved
+  const customFields: Record<string, string> = {}
+  const skipFields = new Set([
+    '_id', '_timestamp', '_version', '_cache',
+    'language', 'style', 'colorScheme', 'theme',
+    'formatId', 'format', 'organizationId', 'verticalSlug'
+  ])
+
+  for (const [key, value] of Object.entries(formData)) {
+    // Skip already extracted fields, internal fields, and non-string values
+    if (
+      extractedKeys.has(key) ||
+      skipFields.has(key) ||
+      key.startsWith('_') ||
+      typeof value !== 'string' ||
+      !value.trim()
+    ) {
+      continue
+    }
+    customFields[key] = value.trim()
+  }
+
+  // Only add customFields if there are any
+  if (Object.keys(customFields).length > 0) {
+    result.customFields = customFields
+    console.log('[extractFromFormData] Captured custom fields:', Object.keys(customFields))
+  }
+
+  return result
 }
 
 // Parse event content from the prompt text
@@ -1099,7 +1132,8 @@ async function generateFromTemplate(
   rawFormData?: Record<string, unknown>,  // Accept ANY fields - not just predefined ones
   targetDimensions?: { width: number; height: number },  // Target format dimensions for outpainting
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,  // For fallback generation
-  resolution?: string  // For fallback generation
+  resolution?: string,  // For fallback generation
+  formatId?: string  // Format ID for smart decorative enhancements
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -1223,17 +1257,32 @@ ${textLines.join('\n')}
   }
 
   // Build the template adaptation prompt
-  // FIXED: Removed instruction language like "STRICT REQUIREMENTS", "DO NOT", etc.
-  // that Gemini was rendering as visible text in images.
-  // Now using narrative descriptions of the desired poster.
-  const adaptationPrompt = `A professional poster design based on this template's visual style.
+  // CRITICAL: This is an IMAGE EDITING task - keep template exactly, only swap text
+  // The prompt instructs Gemini to preserve the template pixel-perfect and only change text content
+
+  // Get format-specific decorative enhancements (e.g., borders for certificates)
+  const formatEnhancement = formatId ? getFormatEnhancement(formatId) : ''
+  if (formatEnhancement) {
+    console.log('[Template Mode] Format enhancement enabled for:', formatId)
+  }
+
+  const adaptationPrompt = `Edit this template image. This is an image editing task, not generation.
+
+Keep this template exactly as it is:
+- Same background, colors, gradients, patterns
+- Same existing decorative elements, shapes, borders, frames
+- Same layout structure and composition
+- Same photos and images in the template
 ${aspectRatioGuidance}
+
+Only replace the text content with these new values:
 ${exactTextSection}
 
-The poster maintains the template's color palette, typography style, decorative elements, backgrounds, and design structure.
-The text shown in the poster is exclusively from the provided text elements list.
-Clean, professional layout with all text clearly readable.
-
+The output should look identical to the input template except for the text content.
+Match the existing text styling, fonts, sizes, and positions.
+${formatEnhancement ? `
+${formatEnhancement}
+` : ''}
 ${prompt}`
 
   // Use the latest Gemini 2.5 Flash Image model for image generation

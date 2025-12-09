@@ -51,7 +51,7 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
       apiKey={process.env.NEXT_PUBLIC_BUG_REPORTER_API_KEY!}
       apiUrl={process.env.NEXT_PUBLIC_BUG_REPORTER_API_URL!}
       enabled={true}
-      debug={process.env.NODE_ENV === 'development'}
+      debug={false}
       userContext={
         user
           ? {

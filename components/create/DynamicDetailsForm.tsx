@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
+import { TimePicker } from '@/components/ui/time-picker'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, Sparkles, Check, X, AlertCircle } from 'lucide-react'
@@ -168,7 +170,7 @@ function DynamicField({
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </Label>
-        {suggestion && showSuggestion && field.suggestable && (
+        {suggestion && showSuggestion && (
           <div className="flex items-center gap-1 text-xs">
             <Sparkles className="h-3 w-3 text-purple-500" />
             <span className={confidenceColor}>
@@ -181,7 +183,7 @@ function DynamicField({
       {/* Field Input */}
       <div className="relative">
         {/* Ghost text suggestion layer */}
-        {showSuggestion && suggestion && !value && field.suggestable && (
+        {showSuggestion && suggestion && !value && (
           <div
             className={cn(
               'absolute inset-0 pointer-events-none px-3 py-2 text-muted-foreground/50 italic',
@@ -227,24 +229,20 @@ function DynamicField({
         )}
 
         {field.type === 'date' && (
-          <Input
-            id={field.id}
-            type="date"
+          <DatePicker
             value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            className={cn(error ? 'border-destructive' : '')}
+            onChange={handleChange}
+            placeholder={field.placeholder || 'Select date'}
+            error={!!error}
             disabled={isLoading}
           />
         )}
 
         {field.type === 'time' && (
-          <Input
-            id={field.id}
-            type="time"
+          <TimePicker
             value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            placeholder={field.placeholder}
-            className={cn(error ? 'border-destructive' : '')}
+            onChange={handleChange}
+            error={!!error}
             disabled={isLoading}
           />
         )}
@@ -298,7 +296,7 @@ function DynamicField({
       )}
 
       {/* Accept/Dismiss buttons for suggestions */}
-      {showSuggestion && suggestion && !value && field.suggestable && (
+      {showSuggestion && suggestion && !value && (
         <div className="flex items-center gap-2 pt-1">
           <Button
             type="button"
@@ -420,7 +418,24 @@ export function DynamicDetailsForm({
 
     // 1. AI-generated schema merges WITH format-specific fields
     if (dynamicSchema?.fields && dynamicSchema.fields.length > 0) {
-      const aiFields = dynamicSchema.fields.map(dynamicToSchemaField)
+      // Create a map of base fields by ID for type lookup
+      const baseFieldMap = new Map(baseFields.map(f => [f.id, f]))
+
+      // Convert AI fields, but prefer base field types for date/time fields
+      // This fixes AI generating "text" type for time fields
+      const aiFields = dynamicSchema.fields.map(field => {
+        const converted = dynamicToSchemaField(field)
+        const baseField = baseFieldMap.get(field.id)
+
+        // If base field exists and has date/time type, use that type
+        // This ensures proper date/time picker rendering
+        if (baseField && (baseField.type === 'date' || baseField.type === 'time')) {
+          converted.type = baseField.type
+        }
+
+        return converted
+      })
+
       const aiFieldIds = new Set(aiFields.map(f => f.id))
 
       // Append any base fields that are NOT in the AI schema

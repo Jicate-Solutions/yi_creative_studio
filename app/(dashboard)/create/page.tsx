@@ -273,6 +273,12 @@ export default function CreatePage() {
     return () => exitCreateMode()
   }, [enterCreateMode, exitCreateMode])
 
+  // Reset form when entering create page for a fresh start
+  // This clears previous session data (logos, vertical, form fields)
+  useEffect(() => {
+    resetForm()
+  }, [])
+
   // Always start at step 1 (format selection) when visiting create page
   const [step, setStep] = useState(1)
   const [exportModalOpen, setExportModalOpen] = useState(false)
@@ -304,13 +310,26 @@ export default function CreatePage() {
     organizationType: currentOrganization?.type || 'yi_chapter',
   })
 
-  // Get the title field ID dynamically (same logic as DynamicDetailsForm)
+  // Get the title field ID dynamically - prioritize AI-generated schema
   const getTitleFieldId = useCallback(() => {
-    if (!selectedFormat?.id) return 'title'
-    const fields = getFormatFields(selectedFormat.id, selectedVertical?.slug)
-    const titleField = fields.find(f => f.suggestable && f.type === 'text' && f.required)
-    return titleField?.id || 'title'
-  }, [selectedFormat?.id, selectedVertical?.slug])
+    // Priority 1: Use AI-generated dynamic schema (if available)
+    if (dynamicSchema.schema?.fields && dynamicSchema.schema.fields.length > 0) {
+      const aiTitleField = dynamicSchema.schema.fields.find(
+        f => f.suggestable && f.type === 'text' && f.required
+      )
+      if (aiTitleField) return aiTitleField.id
+    }
+
+    // Priority 2: Use format-specific fields
+    if (selectedFormat?.id) {
+      const fields = getFormatFields(selectedFormat.id, selectedVertical?.slug)
+      const titleField = fields.find(f => f.suggestable && f.type === 'text' && f.required)
+      if (titleField) return titleField.id
+    }
+
+    // Fallback
+    return 'title'
+  }, [selectedFormat?.id, selectedVertical?.slug, dynamicSchema.schema])
 
   // Handle AI suggestion trigger
   const handleRequestSuggestions = useCallback(async () => {
@@ -521,6 +540,15 @@ export default function CreatePage() {
 
       setGeneratedImage(data.imageUrl)
 
+      // Generate thumbnail for gallery preview (compressed JPEG for faster loading)
+      let thumbnailUrl: string | null = null
+      try {
+        const { generateThumbnail } = await import('@/lib/utils/thumbnail')
+        thumbnailUrl = await generateThumbnail(data.imageUrl, 400, 0.7)
+      } catch (err) {
+        console.warn('Thumbnail generation failed, gallery will use full image:', err)
+      }
+
       // Save creative to database
       const creativeInsert: TablesInsert<'creatives'> = {
         organization_id: currentOrganization.id,
@@ -530,6 +558,7 @@ export default function CreatePage() {
         vertical: selectedVertical.slug,
         credits_used: creditCost,
         image_url: data.imageUrl,
+        thumbnail_url: thumbnailUrl,
         form_data: formData.formData as Json,
         prompt_used: prompt,
         title: (formData.formData as { title?: string }).title || `${selectedVertical.name} Creative`,
@@ -546,15 +575,22 @@ export default function CreatePage() {
 
         // Backfill api_usage records with the new creative_id
         // This links token consumption to the specific creative
-        // Note: Using type assertion as the function may not be in generated types yet
         if (user?.id) {
-          await (supabase.rpc as Function)('backfill_api_usage_creative_id', {
-            p_creative_id: creativeData.id,
-            p_organization_id: currentOrganization.id,
-            p_user_id: user.id,
-            p_created_at: new Date().toISOString(),
-            p_window_seconds: 120,
-          })
+          try {
+            const { error: backfillError } = await supabase.rpc('backfill_api_usage_creative_id', {
+              p_creative_id: creativeData.id,
+              p_organization_id: currentOrganization.id,
+              p_user_id: user.id,
+              p_created_at: new Date().toISOString(),
+              p_window_seconds: 120,
+            })
+
+            if (backfillError) {
+              console.error('[API Usage] Failed to backfill creative_id:', backfillError)
+            }
+          } catch (err) {
+            console.error('[API Usage] Backfill error:', err)
+          }
         }
 
         // Show feedback dialog after a brief delay
@@ -915,17 +951,36 @@ export default function CreatePage() {
                     isDynamicSchemaFallback={dynamicSchema.isFallback}
                     suggestions={(() => {
                       // Convert suggestions to the format expected by DynamicDetailsForm
+                      // Map API suggestion field IDs to AI-generated schema field IDs
                       const suggestionMap: Record<string, { value: string; confidence: number }> = {}
-                      const suggestableFields = ['title', 'date', 'time', 'venue', 'speaker', 'description',
-                        'postTitle', 'postDescription', 'callToAction', 'hashtags',
-                        'certificateTitle', 'achievementDescription', 'subjectLine', 'brandMessage',
-                        'articleTitle', 'articleSummary', 'campaignName', 'campaignMessage']
-                      suggestableFields.forEach(field => {
-                        const suggestion = getSuggestion(field as SuggestableField)
+
+                      // API returns: date, time, venue, speaker, description
+                      // AI schema may use: eventDate, eventTime, venue, eventDescription, etc.
+                      // We need to map based on actual schema field IDs
+
+                      const apiToSchemaMap: Record<string, string[]> = {
+                        // API field -> possible schema field IDs (check in order)
+                        'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
+                        'time': ['eventTime', 'time'],
+                        'venue': ['venue', 'eventVenue', 'location'],
+                        'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
+                        'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+                        'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
+                      }
+
+                      // Get all field IDs from the dynamic schema
+                      const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
+
+                      // Map each API suggestion to the matching schema field ID
+                      Object.entries(apiToSchemaMap).forEach(([apiField, possibleIds]) => {
+                        const suggestion = getSuggestion(apiField as SuggestableField)
                         if (suggestion) {
-                          suggestionMap[field] = suggestion
+                          // Find matching schema field ID
+                          const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
+                          suggestionMap[matchingId] = suggestion
                         }
                       })
+
                       return suggestionMap
                     })()}
                     isSuggestionsLoading={isSuggestionsLoading}
@@ -934,7 +989,34 @@ export default function CreatePage() {
                     onRequestSuggestions={handleRequestSuggestions}
                     onAcceptSuggestion={(fieldId) => acceptSuggestion(fieldId as SuggestableField)}
                     onDismissSuggestion={(fieldId) => dismissSuggestion(fieldId as SuggestableField)}
-                    onAcceptAllSuggestions={acceptAllSuggestions}
+                    onAcceptAllSuggestions={() => {
+                      // Custom handler that maps API field IDs to schema field IDs before accepting
+                      const apiToSchemaMap: Record<string, string[]> = {
+                        'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
+                        'time': ['eventTime', 'time'],
+                        'venue': ['venue', 'eventVenue', 'location'],
+                        'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
+                        'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+                        'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
+                      }
+                      const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
+                      const updates: Record<string, string> = {}
+
+                      Object.entries(apiToSchemaMap).forEach(([apiField, possibleIds]) => {
+                        const suggestion = getSuggestion(apiField as SuggestableField)
+                        if (suggestion?.value) {
+                          const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
+                          updates[matchingId] = suggestion.value
+                        }
+                      })
+
+                      // Update form data with mapped field IDs
+                      if (Object.keys(updates).length > 0) {
+                        updateFormData(updates)
+                      }
+                      // Clear suggestions from store
+                      dismissAllSuggestions()
+                    }}
                     onDismissAllSuggestions={dismissAllSuggestions}
                     languageValue={(formData.formData?.language as string) || 'en'}
                     onLanguageChange={(value) => updateFormData({ language: value })}
@@ -1396,6 +1478,10 @@ export default function CreatePage() {
               'Creative'
             }
             previewUrl={generatedImage}
+            // Feedback context
+            creativeType={selectedFormat?.type || 'creative'}
+            vertical={selectedVertical?.slug}
+            formData={formData.formData as Record<string, unknown>}
           />
         )}
 

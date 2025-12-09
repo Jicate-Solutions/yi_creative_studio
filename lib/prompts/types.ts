@@ -23,6 +23,12 @@ export interface CreativeContent {
   hall?: string
   additionalText?: string
   description?: string
+  /**
+   * Dynamic fields not in the standard set above.
+   * Captures format-specific fields like videoTitle, hookText, recipientName, etc.
+   * v4.0: Added to support all 37 creative formats with their unique field requirements.
+   */
+  customFields?: Record<string, string>
 }
 
 // Re-export for convenience

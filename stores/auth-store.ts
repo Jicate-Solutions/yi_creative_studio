@@ -12,6 +12,7 @@ interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   serverHydrated: boolean // Flag to prevent double data fetching
+  _hasHydrated: boolean // Flag to track Zustand store rehydration from localStorage
 
   // Organization state
   currentOrganization: Organization | null
@@ -24,6 +25,7 @@ interface AuthState {
   setProfile: (profile: UserProfile | null) => void
   setLoading: (loading: boolean) => void
   setServerHydrated: (hydrated: boolean) => void
+  setHasHydrated: (hydrated: boolean) => void
   setCurrentOrganization: (org: Organization | null) => void
   setMembership: (membership: OrganizationMember | null) => void
   setOrganizations: (orgs: Organization[]) => void
@@ -43,6 +45,7 @@ const initialState = {
   isLoading: true,
   isAuthenticated: false,
   serverHydrated: false,
+  _hasHydrated: false,
   currentOrganization: null,
   membership: null,
   organizations: [],
@@ -65,6 +68,8 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (isLoading) => set({ isLoading }),
 
       setServerHydrated: (serverHydrated) => set({ serverHydrated }),
+
+      setHasHydrated: (_hasHydrated) => set({ _hasHydrated }),
 
       setCurrentOrganization: (currentOrganization) => set({ currentOrganization }),
 
@@ -102,6 +107,12 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         currentOrganization: state.currentOrganization,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Mark store as hydrated after localStorage data is restored
+        if (state) {
+          state._hasHydrated = true
+        }
+      },
     }
   )
 )

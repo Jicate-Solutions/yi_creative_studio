@@ -181,6 +181,13 @@ export const FIELD_GENERATION_SYSTEM_PROMPT = `You are an expert creative design
 - Be descriptive but concise
 - Don't use generic IDs like field1, field2
 
+### Field Type Rules
+- Use "text" for short single-line inputs (titles, names, etc.)
+- Use "textarea" for long multi-line content (descriptions, messages)
+- Use "date" for date fields (eventDate, publishDate, etc.)
+- Use "time" for time fields (eventTime, startTime, etc.) - NEVER use "text" for time
+- Use "select" for dropdown choices with predefined options
+
 ### Required vs Optional
 - Title/headline: Always required
 - Date: Required for events, optional otherwise
@@ -240,7 +247,7 @@ Return ONLY valid JSON with no additional text. Use this exact structure:
     {"id": "eventTitle", "label": "Event Title", "type": "text", "required": true, "placeholder": "e.g., Free Health Check-up Camp", "maxLength": 80, "suggestable": true},
     {"id": "eventDescription", "label": "Event Description", "type": "textarea", "required": false, "placeholder": "Describe the health services offered...", "rows": 3, "suggestable": true},
     {"id": "eventDate", "label": "Event Date", "type": "date", "required": true, "placeholder": "", "suggestable": false},
-    {"id": "eventTime", "label": "Event Time", "type": "text", "required": false, "placeholder": "e.g., 9:00 AM - 5:00 PM", "maxLength": 50, "suggestable": false},
+    {"id": "eventTime", "label": "Event Time", "type": "time", "required": false, "suggestable": false},
     {"id": "venue", "label": "Venue", "type": "text", "required": true, "placeholder": "e.g., Community Hall, Main Street", "maxLength": 100, "suggestable": false},
     {"id": "healthServices", "label": "Health Services", "type": "textarea", "required": false, "placeholder": "e.g., Blood pressure, Diabetes screening, Eye check-up", "rows": 2, "suggestable": true},
     {"id": "registrationInfo", "label": "Registration / Contact", "type": "text", "required": false, "placeholder": "e.g., Call 1800-XXX-XXXX or visit yi.org", "maxLength": 100, "suggestable": false}

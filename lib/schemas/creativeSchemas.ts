@@ -25,6 +25,9 @@ export type CreativeSchemaType =
   | 'instagramStory'
   | 'linkedinPost'
   | 'announcement'
+  // v4.0: Document-specific schemas
+  | 'document'
+  | 'banner'
 
 export type FieldType = 'text' | 'textarea' | 'date' | 'select' | 'time'
 
@@ -343,11 +346,9 @@ export const CREATIVE_SCHEMAS: Record<CreativeSchemaType, CreativeSchema> = {
       {
         id: 'time',
         label: 'Event Time',
-        type: 'text',
+        type: 'time',
         required: false,
-        placeholder: 'e.g., 6:00 PM onwards',
-        maxLength: 50,
-        suggestable: true,
+        suggestable: false,
       },
       {
         id: 'venue',
@@ -454,10 +455,9 @@ export const CREATIVE_SCHEMAS: Record<CreativeSchemaType, CreativeSchema> = {
       {
         id: 'time',
         label: 'Event Time',
-        type: 'text',
+        type: 'time',
         required: true,
-        placeholder: 'e.g., 7:00 PM onwards',
-        maxLength: 50,
+        suggestable: false,
       },
       {
         id: 'venue',
@@ -794,6 +794,108 @@ export const CREATIVE_SCHEMAS: Record<CreativeSchemaType, CreativeSchema> = {
       },
     ],
   },
+
+  // v4.0: Document-specific schema for letterhead, resume, report cover, book cover
+  document: {
+    type: 'document',
+    displayName: 'Document',
+    description: 'Professional document (letterhead, resume, report cover, book cover)',
+    fields: [
+      {
+        id: 'documentTitle',
+        label: 'Document Title',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Annual Report 2024, Project Proposal',
+        maxLength: 100,
+        suggestable: true,
+      },
+      {
+        id: 'subtitle',
+        label: 'Subtitle (Optional)',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Quarterly Review, Executive Summary',
+        maxLength: 80,
+        suggestable: true,
+      },
+      {
+        id: 'authorName',
+        label: 'Author / Organization Name',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., John Smith, Yi Organization',
+        maxLength: 100,
+      },
+      {
+        id: 'department',
+        label: 'Department / Division (Optional)',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Marketing, Human Resources',
+        maxLength: 80,
+      },
+      {
+        id: 'date',
+        label: 'Date',
+        type: 'date',
+        required: false,
+      },
+      {
+        id: 'contactInfo',
+        label: 'Contact Information (Optional)',
+        type: 'textarea',
+        required: false,
+        rows: 2,
+        placeholder: 'Address, phone, email, website...',
+      },
+    ],
+  },
+
+  // v4.0: Banner-specific schema for banners and covers (21:9 aspect ratio)
+  banner: {
+    type: 'banner',
+    displayName: 'Banner / Cover',
+    description: 'Wide format banner or cover image',
+    fields: [
+      {
+        id: 'headline',
+        label: 'Main Headline',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Welcome to Yi, Join Our Community',
+        maxLength: 60,
+        suggestable: true,
+      },
+      {
+        id: 'tagline',
+        label: 'Tagline / Subtitle',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Empowering Youth Leaders',
+        maxLength: 80,
+        suggestable: true,
+      },
+      {
+        id: 'callToAction',
+        label: 'Call to Action (Optional)',
+        type: 'text',
+        required: false,
+        placeholder: 'e.g., Learn More, Join Now',
+        maxLength: 30,
+        suggestable: true,
+      },
+      {
+        id: 'brandMessage',
+        label: 'Brand Message (Optional)',
+        type: 'textarea',
+        required: false,
+        rows: 2,
+        placeholder: 'Short message or description...',
+        suggestable: true,
+      },
+    ],
+  },
 }
 
 // ============================================================================
@@ -809,29 +911,29 @@ const FORMAT_TO_SCHEMA_MAP: Partial<Record<CreativeFormatId, CreativeSchemaType>
   instagram_story: 'instagramStory',      // Vertical story format
   instagram_reel: 'instagramStory',       // Vertical story format
   facebook_post: 'socialMediaPost',
-  facebook_cover: 'socialMediaPost',
+  facebook_cover: 'banner',           // v4.0: Banner schema for covers
   facebook_ad: 'marketingMaterial',       // Ads need offer/CTA fields
   linkedin_post: 'linkedinPost',          // Professional post format
-  linkedin_banner: 'linkedinPost',        // Professional format
+  linkedin_banner: 'banner',              // v4.0: Banner schema for wide banners
   twitter_post: 'socialMediaPost',
-  twitter_header: 'socialMediaPost',
+  twitter_header: 'banner',              // v4.0: Banner schema for headers
   pinterest_pin: 'socialMediaPost',
   tiktok_cover: 'instagramStory',         // Vertical story format
   whatsapp_status: 'instagramStory',      // Vertical story format
 
   // Video thumbnails
   youtube_thumbnail: 'youtubeThumbnail',  // Video thumbnail format
-  youtube_banner: 'socialMediaPost',
+  youtube_banner: 'banner',              // v4.0: Banner schema for channel banners
   video_cover: 'youtubeThumbnail',        // Video thumbnail format
 
   // Email schema
   email_header: 'emailHeader',
 
-  // Blog/Document schema
-  letterhead: 'blogPost',
-  resume: 'blogPost',
-  report_cover: 'blogPost',
-  book_cover: 'blogPost',
+  // v4.0: Document schema (replaces incorrect blogPost mapping)
+  letterhead: 'document',
+  resume: 'document',
+  report_cover: 'document',
+  book_cover: 'document',
 
   // Print formats
   event_poster: 'eventPoster',

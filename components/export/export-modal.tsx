@@ -35,6 +35,7 @@ import { ResolutionSelector } from "./resolution-selector";
 import { QualitySlider } from "./quality-slider";
 import { cn } from "@/lib/utils";
 import { estimateFileSize, formatFileSize } from "@/types/export";
+import { CreativeFeedbackDialog } from "@/components/feedback/creative-feedback-dialog";
 
 interface ExportModalProps {
   open: boolean;
@@ -42,6 +43,11 @@ interface ExportModalProps {
   creativeId: string;
   creativeName: string;
   previewUrl?: string;
+  // Feedback context - passed to feedback dialog after successful export
+  creativeType?: string;
+  vertical?: string;
+  promptUsed?: string;
+  formData?: Record<string, unknown>;
 }
 
 export function ExportModal({
@@ -50,6 +56,10 @@ export function ExportModal({
   creativeId,
   creativeName,
   previewUrl,
+  creativeType,
+  vertical,
+  promptUsed,
+  formData,
 }: ExportModalProps) {
   const {
     isExporting,
@@ -71,6 +81,9 @@ export function ExportModal({
   // State for full view image preview
   const [showFullPreview, setShowFullPreview] = useState(false);
 
+  // State for feedback dialog
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+
   // Progress stage messages for better UX
   const PROGRESS_MESSAGES: Record<string, string> = {
     preparing: "Preparing export...",
@@ -84,16 +97,26 @@ export function ExportModal({
   useEffect(() => {
     if (open) {
       reset();
+      setShowFeedbackDialog(false);
     }
   }, [open, reset]);
+
+  // Handle feedback dialog close
+  const handleFeedbackClose = (openState: boolean) => {
+    setShowFeedbackDialog(openState);
+    if (!openState) {
+      // When feedback dialog closes, close the export modal too
+      onOpenChange(false);
+    }
+  };
 
   const handleExport = async () => {
     const success = await exportCreative(creativeId, creativeName);
     if (success) {
-      // Close modal after successful export with longer delay for user to see success
+      // Show feedback dialog after successful export (after user sees success state)
       setTimeout(() => {
-        onOpenChange(false);
-      }, 3000);
+        setShowFeedbackDialog(true);
+      }, 2500);
     }
   };
 
@@ -423,6 +446,17 @@ export function ExportModal({
 
         </div>
       </DialogContent>
+
+      {/* Feedback Dialog - Shown after successful download */}
+      <CreativeFeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={handleFeedbackClose}
+        creativeId={creativeId}
+        creativeType={creativeType || 'creative'}
+        vertical={vertical}
+        promptUsed={promptUsed}
+        formData={formData}
+      />
     </Dialog>
   );
 }
