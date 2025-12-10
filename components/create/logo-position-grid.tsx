@@ -26,9 +26,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, Info } from 'lucide-react'
+import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, LockOpen, Info } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
-import { isPositionLocked } from '@/lib/config/logo-locks'
 import { type LogoSizePreset } from '@/lib/constants/logoConstants'
 
 const POSITION_LABELS: Record<LogoPosition, string> = {
@@ -51,6 +50,7 @@ export function LogoPositionGrid() {
     removeLogoPlacement,
     updateLogoPosition,
     updateLogoSize,
+    toggleLogoLock,
   } = useCreativeStore()
 
   // Category filter state
@@ -331,7 +331,7 @@ export function LogoPositionGrid() {
                 const logo = placement.logo || logos.find((l) => l.id === placement.logoId)
                 if (!logo) return null
 
-                const logoIsLocked = isPositionLocked(logo.name)
+                const isLocked = placement.isLocked // User-controlled lock
                 const currentSize = placement.size || 'medium'
 
                 return (
@@ -352,10 +352,30 @@ export function LogoPositionGrid() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{logo.name}</p>
                       <div className="flex items-center gap-1 mt-0.5">
+                        {/* Lock Toggle Button */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 p-0"
+                              onClick={() => toggleLogoLock(placement.logoId)}
+                            >
+                              {isLocked ? (
+                                <Lock className="h-3 w-3 text-primary" />
+                              ) : (
+                                <LockOpen className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>{isLocked ? 'Click to unlock position' : 'Click to lock position'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+
                         {/* Position Selector (compact) */}
-                        {logoIsLocked ? (
+                        {isLocked ? (
                           <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-                            <Lock className="h-2 w-2 mr-0.5" />
                             {POSITION_LABELS[placement.position].split(' ').map(w => w[0]).join('')}
                           </Badge>
                         ) : (

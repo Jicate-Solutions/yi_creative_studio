@@ -39,7 +39,7 @@ import {
   generateDesignContextSafe,
   type DesignBrief,
 } from '@/lib/prompts/services/design-intelligence'
-import { validateLogoPositions } from '@/lib/config/logo-locks'
+// validateLogoPositions removed - position locking is now user-controlled
 import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
 import { compileFormData, summarizeCompiledData } from '@/lib/prompts/services/form-data-compiler'
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
@@ -131,34 +131,8 @@ export async function POST(request: NextRequest) {
       // creativeId will be set after creation if needed
     })
 
-    // Validate logo positions (PRD Section 8.4 - Brand Rules)
-    // Yi logo MUST be top-left, CII logo MUST be top-right
-    if (logosPlacements && logosPlacements.length > 0) {
-      // Get logo names from database to validate positions
-      const logoIds = logosPlacements.map((p) => p.logoId)
-      const { data: logos } = await supabase
-        .from('organization_logos')
-        .select('id, name')
-        .in('id', logoIds)
-
-      if (logos && logos.length > 0) {
-        const placementsToValidate = logosPlacements.map((p) => {
-          const logo = logos.find((l) => l.id === p.logoId)
-          return {
-            logoName: logo?.name || p.logo?.name || '',
-            position: p.position as import('@/lib/config/constants').LogoPosition,
-          }
-        })
-
-        const validationErrors = validateLogoPositions(placementsToValidate)
-        if (validationErrors.length > 0) {
-          return NextResponse.json(
-            { error: `Logo position error: ${validationErrors[0]}` },
-            { status: 400 }
-          )
-        }
-      }
-    }
+    // Logo position validation removed - users can now place logos anywhere
+    // Position locking is now user-controlled via the UI
 
     let imageUrl: string
 

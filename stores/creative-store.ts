@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Creative, VerticalPreset, AIModel, OrganizationLogo, TemplateImage } from '@/types/database.types'
 import type { LogoPosition } from '@/lib/config/constants'
-import { getLockedPosition, isPositionLocked } from '@/lib/config/logo-locks'
+// Logo locks removed - position locking is now user-controlled via isLocked property
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
 import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors } from '@/lib/config/design-constants'
@@ -42,6 +42,7 @@ export interface LogoPlacement {
   position: LogoPosition
   size: LogoSizePreset | number // Size preset or custom pixel value
   logo?: OrganizationLogo
+  isLocked: boolean // User-controlled position lock
 }
 
 interface CreativeFormData {
@@ -191,6 +192,7 @@ interface CreativeState {
   removeLogoPlacement: (logoId: string) => void
   updateLogoPosition: (logoId: string, position: LogoPosition) => void
   updateLogoSize: (logoId: string, size: LogoSizePreset | number) => void
+  toggleLogoLock: (logoId: string) => void
   clearLogoPlacements: () => void
 
   setGenerating: (generating: boolean) => void
@@ -427,38 +429,26 @@ export const useCreativeStore = create<CreativeState>()(
         }
 
         if (!existing && logo) {
-          // Check if this logo has a locked position (Yi=top-left, CII=top-right)
-          const lockedPosition = getLockedPosition(logo.name)
-          const finalPosition = lockedPosition || position
-
-          // If locked position is already occupied by another logo, swap positions
-          let updatedPlacements = [...formData.logosPlacements]
-          if (lockedPosition) {
-            const occupyingPlacement = updatedPlacements.find(p => p.position === lockedPosition)
-            if (occupyingPlacement && occupyingPlacement.logo) {
-              // Only swap if the occupying logo is not also locked to that position
-              const occupyingLocked = getLockedPosition(occupyingPlacement.logo.name)
-              if (!occupyingLocked) {
-                // Move the occupying logo to a different available position
-                const availablePositions: LogoPosition[] = [
-                  'bottom-left', 'bottom-center', 'bottom-right',
-                  'mid-left', 'mid-right', 'center'
-                ]
-                const usedPositions = updatedPlacements.map(p => p.position)
-                const newPosition = availablePositions.find(p => !usedPositions.includes(p) && p !== lockedPosition)
-                if (newPosition) {
-                  updatedPlacements = updatedPlacements.map(p =>
-                    p.logoId === occupyingPlacement.logoId ? { ...p, position: newPosition } : p
-                  )
-                }
-              }
-            }
+          // Find available position if requested is taken
+          const isPositionTaken = formData.logosPlacements.some(p => p.position === position)
+          let finalPosition = position
+          if (isPositionTaken) {
+            const availablePositions: LogoPosition[] = [
+              'top-left', 'top-center', 'top-right',
+              'mid-left', 'center', 'mid-right',
+              'bottom-left', 'bottom-center', 'bottom-right',
+            ]
+            const usedPositions = formData.logosPlacements.map(p => p.position)
+            finalPosition = availablePositions.find(p => !usedPositions.includes(p)) || position
           }
 
           set({
             formData: {
               ...formData,
-              logosPlacements: [...updatedPlacements, { logoId, position: finalPosition, size, logo }],
+              logosPlacements: [
+                ...formData.logosPlacements,
+                { logoId, position: finalPosition, size, logo, isLocked: false }
+              ],
             },
           })
         } else if (!existing) {
@@ -466,7 +456,10 @@ export const useCreativeStore = create<CreativeState>()(
           set({
             formData: {
               ...formData,
-              logosPlacements: [...formData.logosPlacements, { logoId, position, size, logo }],
+              logosPlacements: [
+                ...formData.logosPlacements,
+                { logoId, position, size, logo, isLocked: false }
+              ],
             },
           })
         }
@@ -485,9 +478,9 @@ export const useCreativeStore = create<CreativeState>()(
           // Find the placement being updated
           const placement = state.formData.logosPlacements.find(p => p.logoId === logoId)
 
-          // If logo has a locked position, prevent position change
-          if (placement?.logo && isPositionLocked(placement.logo.name)) {
-            // Silently reject - locked logos cannot have their position changed
+          // If user has locked the position, prevent change
+          if (placement?.isLocked) {
+            // Silently reject - user-locked logos cannot have their position changed
             return state
           }
 
@@ -507,6 +500,16 @@ export const useCreativeStore = create<CreativeState>()(
             ...state.formData,
             logosPlacements: state.formData.logosPlacements.map((p) =>
               p.logoId === logoId ? { ...p, size } : p
+            ),
+          },
+        })),
+
+      toggleLogoLock: (logoId) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logosPlacements: state.formData.logosPlacements.map((p) =>
+              p.logoId === logoId ? { ...p, isLocked: !p.isLocked } : p
             ),
           },
         })),
@@ -1206,6 +1209,14 @@ export const useCreativeStore = create<CreativeState>()(
             ...state.templateResize,
             isResizing: false,
             resizeError: null,
+          }
+
+          // Migrate old placements without isLocked property
+          if (state.formData?.logosPlacements) {
+            state.formData.logosPlacements = state.formData.logosPlacements.map(p => ({
+              ...p,
+              isLocked: p.isLocked ?? false, // Default to unlocked for existing placements
+            }))
           }
 
           // Reset AI design suggestions loading states
