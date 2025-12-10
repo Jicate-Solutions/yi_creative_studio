@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Creative, VerticalPreset, AIModel, OrganizationLogo, TemplateImage } from '@/types/database.types'
 import type { LogoPosition } from '@/lib/config/constants'
-// Logo locks removed - position locking is now user-controlled via isLocked property
+import { detectLogoType, getSuggestedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
 import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors } from '@/lib/config/design-constants'
@@ -43,6 +43,7 @@ export interface LogoPlacement {
   size: LogoSizePreset | number // Size preset or custom pixel value
   logo?: OrganizationLogo
   isLocked: boolean // User-controlled position lock
+  logoType?: LogoType // Auto-detected from logo name (brand, vertical, sponsor, etc.)
 }
 
 interface CreativeFormData {
@@ -429,36 +430,33 @@ export const useCreativeStore = create<CreativeState>()(
         }
 
         if (!existing && logo) {
-          // Find available position if requested is taken
-          const isPositionTaken = formData.logosPlacements.some(p => p.position === position)
-          let finalPosition = position
-          if (isPositionTaken) {
-            const availablePositions: LogoPosition[] = [
-              'top-left', 'top-center', 'top-right',
-              'mid-left', 'center', 'mid-right',
-              'bottom-left', 'bottom-center', 'bottom-right',
-            ]
-            const usedPositions = formData.logosPlacements.map(p => p.position)
-            finalPosition = availablePositions.find(p => !usedPositions.includes(p)) || position
-          }
+          const usedPositions = formData.logosPlacements.map(p => p.position)
+          const logoType = detectLogoType(logo.name)
+
+          // Smart positioning: Use suggested position based on logo type if requested position is taken
+          const isPositionTaken = usedPositions.includes(position)
+          const finalPosition = isPositionTaken
+            ? getSuggestedPosition(logo.name, usedPositions)
+            : position
 
           set({
             formData: {
               ...formData,
               logosPlacements: [
                 ...formData.logosPlacements,
-                { logoId, position: finalPosition, size, logo, isLocked: false }
+                { logoId, position: finalPosition, size, logo, isLocked: false, logoType }
               ],
             },
           })
         } else if (!existing) {
           // Fallback if logo not found
+          const logoType = detectLogoType('')
           set({
             formData: {
               ...formData,
               logosPlacements: [
                 ...formData.logosPlacements,
-                { logoId, position, size, logo, isLocked: false }
+                { logoId, position, size, logo, isLocked: false, logoType }
               ],
             },
           })
@@ -1211,11 +1209,12 @@ export const useCreativeStore = create<CreativeState>()(
             resizeError: null,
           }
 
-          // Migrate old placements without isLocked property
+          // Migrate old placements without isLocked or logoType properties
           if (state.formData?.logosPlacements) {
             state.formData.logosPlacements = state.formData.logosPlacements.map(p => ({
               ...p,
               isLocked: p.isLocked ?? false, // Default to unlocked for existing placements
+              logoType: p.logoType ?? detectLogoType(p.logo?.name || ''), // Auto-detect type
             }))
           }
 

@@ -124,7 +124,8 @@
       "Bash(cmd /c \"rmdir /s /q C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.next 2>nul && npm run dev\")",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm install\")"
+      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm install\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm run build 2>&1\")"
     ],
     "deny": [],
     "ask": [],

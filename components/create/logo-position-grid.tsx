@@ -26,9 +26,10 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, LockOpen, Info } from 'lucide-react'
+import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, LockOpen, Info, AlertTriangle } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
 import { type LogoSizePreset } from '@/lib/constants/logoConstants'
+import { detectLogoType, getComplianceWarning } from '@/lib/config/logo-locks'
 
 const POSITION_LABELS: Record<LogoPosition, string> = {
   'top-left': 'Top Left',
@@ -350,7 +351,27 @@ export function LogoPositionGrid() {
 
                     {/* Info & Controls */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{logo.name}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs font-medium truncate">{logo.name}</p>
+                        {/* Logo Type Badge */}
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 shrink-0">
+                          {placement.logoType || detectLogoType(logo.name)}
+                        </Badge>
+                        {/* Compliance Warning */}
+                        {(() => {
+                          const warning = getComplianceWarning(logo.name, placement.position)
+                          return warning ? (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[200px]">
+                                <p className="text-xs">{warning}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null
+                        })()}
+                      </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         {/* Lock Toggle Button */}
                         <Tooltip>

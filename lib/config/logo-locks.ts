@@ -1,63 +1,276 @@
 /**
  * Logo Position Locking Configuration
- * PRD Section 8.4 - Brand Rules (Yi-Specific - CRITICAL)
+ * Yi Brand Guidelines 2025 - Logo Hierarchy System
  *
- * Non-negotiable position requirements:
+ * Brand logos (Yi, CII, Bharat Rising) have fixed positions:
  * - Yi logo: TOP-LEFT
+ * - Bharat Rising: TOP-CENTER (2025 theme)
  * - CII logo: TOP-RIGHT
+ *
+ * Vertical logos (Yi Learning, Yi Innovation, etc.) go to middle row
+ * Sponsor/Partner logos go to bottom row
  */
 
 import type { LogoPosition } from './constants'
 
-export interface LogoPositionLock {
-  /** The locked position for this logo type */
-  position: LogoPosition
-  /** Regex patterns to match logo names */
+// Logo Types based on Yi Brand Guidelines 2025
+export type LogoType = 'brand' | 'vertical' | 'sponsor' | 'partner' | 'other'
+
+export interface LogoTypeConfig {
+  type: LogoType
   patterns: RegExp[]
-  /** Display name for UI */
+  defaultPosition: LogoPosition | null
   displayName: string
-  /** Description for tooltips */
   description: string
 }
 
 /**
- * Logo position locks configuration
- * Logos matching these patterns will be automatically assigned to their locked positions
+ * Logo type configurations with pattern matching
+ * Order matters - more specific patterns should come first
+ */
+export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
+  // BRAND LOGOS - Top Row (mandatory fixed positions)
+  'yi-main': {
+    type: 'brand',
+    patterns: [
+      /^yi$/i,                    // Exact match "Yi" only
+      /^yi\s*logo$/i,             // "Yi Logo" or "YiLogo"
+      /^young\s*indians$/i,       // "Young Indians" (main org)
+    ],
+    defaultPosition: 'top-left',
+    displayName: 'Yi Logo',
+    description: 'Main Yi brand logo - always top-left per brand guidelines',
+  },
+  'bharat-rising': {
+    type: 'brand',
+    patterns: [
+      /bharat\s*rising/i,
+      /bharatrising/i,
+    ],
+    defaultPosition: 'top-center',
+    displayName: 'Bharat Rising',
+    description: '2025 theme logo - top-center per brand guidelines',
+  },
+  'cii-main': {
+    type: 'brand',
+    patterns: [
+      /^cii$/i,                   // Exact match "CII"
+      /^cii\s*logo$/i,            // "CII Logo"
+      /confederation.*india/i,    // "Confederation of Indian Industry"
+    ],
+    defaultPosition: 'top-right',
+    displayName: 'CII Logo',
+    description: 'CII brand logo - always top-right per brand guidelines',
+  },
+
+  // VERTICAL LOGOS - Middle Row (flexible positions within row)
+  'yi-vertical': {
+    type: 'vertical',
+    patterns: [
+      /yi\s+learning/i,           // "Yi Learning"
+      /yi\s+innovation/i,         // "Yi Innovation"
+      /yi\s+yuva/i,               // "Yi Yuva"
+      /yi\s+net/i,                // "Yi Net"
+      /yi\s+aspire/i,             // "Yi Aspire"
+      /yi[-_]?erode/i,            // "Yi Erode", "Yi-Erode" (chapter)
+      /yi[-_]?chapter/i,          // "Yi Chapter"
+      /climate\s*change/i,        // Climate Change logo (program)
+    ],
+    defaultPosition: null,        // No fixed position, use available in mid row
+    displayName: 'Yi Vertical',
+    description: 'Yi vertical program logo - second row per brand guidelines',
+  },
+
+  // SPONSOR LOGOS - Bottom Row
+  'sponsor': {
+    type: 'sponsor',
+    patterns: [
+      /sponsor/i,
+      /powered\s*by/i,
+      /presenting\s*partner/i,
+    ],
+    defaultPosition: null,
+    displayName: 'Sponsor',
+    description: 'Sponsor logo - footer/bottom row',
+  },
+
+  // PARTNER LOGOS - Bottom Row
+  'partner': {
+    type: 'partner',
+    patterns: [
+      /partner/i,
+      /associate/i,
+      /supporter/i,
+    ],
+    defaultPosition: null,
+    displayName: 'Partner',
+    description: 'Partner logo - footer/bottom row',
+  },
+}
+
+/**
+ * Recommended positions by logo type (row-based)
+ */
+export const LOGO_TYPE_ROWS: Record<LogoType, LogoPosition[]> = {
+  brand: ['top-left', 'top-center', 'top-right'],
+  vertical: ['mid-left', 'center', 'mid-right'],
+  sponsor: ['bottom-left', 'bottom-center', 'bottom-right'],
+  partner: ['bottom-left', 'bottom-center', 'bottom-right'],
+  other: ['mid-left', 'center', 'mid-right'],
+}
+
+/**
+ * Detect logo type from name
+ *
+ * @param logoName - Name of the logo to check
+ * @returns The detected logo type
+ */
+export function detectLogoType(logoName: string): LogoType {
+  if (!logoName) return 'other'
+
+  for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
+    if (config.patterns.some(pattern => pattern.test(logoName))) {
+      return config.type
+    }
+  }
+  return 'other'
+}
+
+/**
+ * Get suggested default position for a logo based on its type
+ *
+ * @param logoName - Name of the logo
+ * @param usedPositions - Positions already taken
+ * @returns Best available position for this logo type
+ */
+export function getSuggestedPosition(
+  logoName: string,
+  usedPositions: LogoPosition[]
+): LogoPosition {
+  if (!logoName) {
+    const midRow = LOGO_TYPE_ROWS.other
+    return midRow.find(p => !usedPositions.includes(p)) || 'center'
+  }
+
+  for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
+    if (config.patterns.some(pattern => pattern.test(logoName))) {
+      // If has fixed default position and it's available, use it
+      if (config.defaultPosition && !usedPositions.includes(config.defaultPosition)) {
+        return config.defaultPosition
+      }
+      // Otherwise find first available in this type's row
+      const row = LOGO_TYPE_ROWS[config.type]
+      const available = row.find(p => !usedPositions.includes(p))
+      if (available) return available
+    }
+  }
+
+  // Fallback: first available position in any row
+  const allPositions: LogoPosition[] = [
+    'top-left', 'top-center', 'top-right',
+    'mid-left', 'center', 'mid-right',
+    'bottom-left', 'bottom-center', 'bottom-right',
+  ]
+  return allPositions.find(p => !usedPositions.includes(p)) || 'center'
+}
+
+/**
+ * Check if position is brand-compliant for a logo
+ *
+ * @param logoName - Name of the logo
+ * @param position - Current position
+ * @returns true if position follows brand guidelines
+ */
+export function isPositionCompliant(logoName: string, position: LogoPosition): boolean {
+  if (!logoName) return true
+
+  for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
+    if (config.patterns.some(pattern => pattern.test(logoName))) {
+      // Brand logos must be in their exact position
+      if (config.defaultPosition) {
+        return position === config.defaultPosition
+      }
+      // Other logos should be in their type's row
+      return LOGO_TYPE_ROWS[config.type].includes(position)
+    }
+  }
+  return true // Uncategorized logos are always compliant
+}
+
+/**
+ * Get compliance warning for a logo placement
+ *
+ * @param logoName - Name of the logo
+ * @param position - Current position
+ * @returns Warning message or null if compliant
+ */
+export function getComplianceWarning(logoName: string, position: LogoPosition): string | null {
+  if (!logoName) return null
+
+  for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
+    if (config.patterns.some(pattern => pattern.test(logoName))) {
+      // Brand logos have strict position requirements
+      if (config.defaultPosition && position !== config.defaultPosition) {
+        return `${config.displayName} should be in ${config.defaultPosition} per brand guidelines`
+      }
+      // Other logos should be in appropriate row
+      if (!LOGO_TYPE_ROWS[config.type].includes(position)) {
+        const rowName = config.type === 'vertical' ? 'middle' : config.type === 'sponsor' ? 'bottom' : config.type
+        return `${config.displayName} typically goes in ${rowName} row`
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Get the type config for a logo
+ *
+ * @param logoName - Name of the logo to check
+ * @returns Type configuration or null if not matched
+ */
+export function getLogoTypeConfig(logoName: string): LogoTypeConfig | null {
+  if (!logoName) return null
+
+  for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
+    if (config.patterns.some(pattern => pattern.test(logoName))) {
+      return config
+    }
+  }
+  return null
+}
+
+// ============================================================================
+// LEGACY EXPORTS (kept for backward compatibility, may be deprecated)
+// ============================================================================
+
+export interface LogoPositionLock {
+  position: LogoPosition
+  patterns: RegExp[]
+  displayName: string
+  description: string
+}
+
+/**
+ * @deprecated Use LOGO_TYPE_CONFIGS instead
  */
 export const LOGO_POSITION_LOCKS: Record<string, LogoPositionLock> = {
   'yi-logo': {
     position: 'top-left',
-    patterns: [
-      /^yi$/i,                    // Exact match "Yi"
-      /^yi\s/i,                   // Starts with "Yi "
-      /\syi$/i,                   // Ends with " Yi"
-      /yi\s*logo/i,               // "Yi Logo" or "YiLogo"
-      /young\s*indians/i,         // "Young Indians"
-      /yi[-_]?erode/i,            // "Yi Erode", "Yi-Erode", "Yi_Erode"
-      /yi[-_]?chapter/i,          // "Yi Chapter"
-    ],
+    patterns: LOGO_TYPE_CONFIGS['yi-main'].patterns,
     displayName: 'Yi Logo',
     description: 'Yi logo must be positioned in top-left (brand requirement)',
   },
   'cii-logo': {
     position: 'top-right',
-    patterns: [
-      /^cii$/i,                   // Exact match "CII"
-      /^cii\s/i,                  // Starts with "CII "
-      /\scii$/i,                  // Ends with " CII"
-      /cii\s*logo/i,              // "CII Logo" or "CIILogo"
-      /confederation.*india/i,    // "Confederation of Indian Industry"
-    ],
+    patterns: LOGO_TYPE_CONFIGS['cii-main'].patterns,
     displayName: 'CII Logo',
     description: 'CII logo must be positioned in top-right (brand requirement)',
   },
 }
 
 /**
- * Check if a logo name matches any locked position pattern
- *
- * @param logoName - Name of the logo to check
- * @returns The locked position if logo matches a lock pattern, null otherwise
+ * @deprecated Use getSuggestedPosition instead
  */
 export function getLockedPosition(logoName: string): LogoPosition | null {
   if (!logoName) return null
@@ -71,20 +284,14 @@ export function getLockedPosition(logoName: string): LogoPosition | null {
 }
 
 /**
- * Check if a logo has a locked position
- *
- * @param logoName - Name of the logo to check
- * @returns true if logo has a locked position
+ * @deprecated Use getComplianceWarning instead
  */
 export function isPositionLocked(logoName: string): boolean {
   return getLockedPosition(logoName) !== null
 }
 
 /**
- * Get the lock configuration for a logo
- *
- * @param logoName - Name of the logo to check
- * @returns Lock configuration or null if not locked
+ * @deprecated Use getLogoTypeConfig instead
  */
 export function getLogoLockConfig(logoName: string): LogoPositionLock | null {
   if (!logoName) return null
@@ -98,10 +305,7 @@ export function getLogoLockConfig(logoName: string): LogoPositionLock | null {
 }
 
 /**
- * Get the lock key (yi-logo, cii-logo) for a logo name
- *
- * @param logoName - Name of the logo to check
- * @returns Lock key or null if not locked
+ * @deprecated
  */
 export function getLogoLockKey(logoName: string): string | null {
   if (!logoName) return null
@@ -115,10 +319,7 @@ export function getLogoLockKey(logoName: string): string | null {
 }
 
 /**
- * Validate logo placements against lock requirements
- *
- * @param placements - Array of logo placements with name and position
- * @returns Array of validation errors, empty if all valid
+ * @deprecated Validation is now soft (warnings only)
  */
 export function validateLogoPositions(
   placements: Array<{ logoName: string; position: LogoPosition }>
@@ -126,12 +327,9 @@ export function validateLogoPositions(
   const errors: string[] = []
 
   for (const placement of placements) {
-    const lockedPosition = getLockedPosition(placement.logoName)
-    if (lockedPosition && placement.position !== lockedPosition) {
-      const lockConfig = getLogoLockConfig(placement.logoName)
-      errors.push(
-        `${lockConfig?.displayName || placement.logoName} must be in ${lockedPosition} position (currently in ${placement.position})`
-      )
+    const warning = getComplianceWarning(placement.logoName, placement.position)
+    if (warning) {
+      errors.push(warning)
     }
   }
 
