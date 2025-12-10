@@ -83,6 +83,10 @@
       "env": {
         "MEMORY_FILE_PATH": "C:\\Users\\Admin\\Documents\\GitHub\\genposterai\\memory.jsonl"
       }
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com/JKKN-Institutions/yicreatives-studio"
     }
   }
 }

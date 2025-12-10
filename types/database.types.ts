@@ -699,6 +699,16 @@ export type Database = {
         Args: { org_id: string }
         Returns: boolean
       }
+      backfill_api_usage_creative_id: {
+        Args: {
+          p_creative_id: string
+          p_organization_id: string
+          p_user_id: string
+          p_created_at: string
+          p_window_seconds?: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

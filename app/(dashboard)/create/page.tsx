@@ -186,7 +186,7 @@ import { cn } from '@/lib/utils'
 const getModelDisplayName = (provider: string) => {
   const displayNames: Record<string, string> = {
     'ideogram': 'Smart Design',
-    'google': 'Poster Perfect',
+    'google': 'Creative Poster',
   }
   return displayNames[provider] || provider
 }
@@ -1479,7 +1479,7 @@ export default function CreatePage() {
             }
             previewUrl={generatedImage}
             // Feedback context
-            creativeType={selectedFormat?.type || 'creative'}
+            creativeType={selectedFormat?.id || 'creative'}
             vertical={selectedVertical?.slug}
             formData={formData.formData as Record<string, unknown>}
           />
