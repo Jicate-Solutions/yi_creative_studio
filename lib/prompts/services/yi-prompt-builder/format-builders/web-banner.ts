@@ -155,6 +155,7 @@ ${options.brandContext ? `Brand Integration: Use ${options.brandContext.primaryC
 ${data.valueProposition ? `<text role="value" prominence="medium" style="supporting, clean">${data.valueProposition}</text>` : ''}
 ${data.offerDetails ? `<text role="offer" prominence="prominent" style="highlighted, badge or special treatment">${data.offerDetails}</text>` : ''}
 <text role="cta" prominence="prominent" style="BUTTON style, contrasting color, obviously clickable, hover-inviting">${data.callToAction || 'Learn More'}</text>
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

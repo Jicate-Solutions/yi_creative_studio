@@ -155,6 +155,7 @@ ${data.emailAddress ? `<text role="contact" prominence="small" style="clean, rea
 ${data.websiteUrl ? `<text role="contact" prominence="small" style="clean, readable">${data.websiteUrl}</text>` : ''}
 ${data.address ? `<text role="contact" prominence="small" style="clean, readable">${data.address}</text>` : ''}
 ${data.socialHandle ? `<text role="contact" prominence="small" style="clean, readable, with social icon">${data.socialHandle}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, edge area">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

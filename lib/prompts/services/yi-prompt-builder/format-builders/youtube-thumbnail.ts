@@ -130,6 +130,7 @@ Subject Treatment: Well-lit, high contrast, pops from background
 <text role="hook" prominence="LARGEST" style="BOLD thick sans-serif, ALL CAPS, thick black outline for contrast">${data.hookText || extractHook(data.videoTitle)}</text>
 Note: Maximum 5 words. Must be readable when thumbnail is 160 pixels wide.
 Text Color: ${data.textColor || 'Bright yellow or white'} with thick black outline
+${data.eventNote ? `<text role="note" prominence="small" style="compact footer, bottom corner">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

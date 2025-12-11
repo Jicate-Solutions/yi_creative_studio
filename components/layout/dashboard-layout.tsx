@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
 import { TopNav } from './top-nav'
@@ -30,10 +30,16 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, className, initialAuthData }: DashboardLayoutProps) {
   const { setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated } = useAuthStore()
   const { createModeActive, analyticsModeActive, sidebarOpen, sidebarCollapsed } = useUIStore()
+  const hydrationDone = useRef(false)
 
-  // Hydrate auth store with server-fetched data
-  useEffect(() => {
-    if (initialAuthData) {
+  // CRITICAL: Hydrate auth store SYNCHRONOUSLY on first render to prevent
+  // auth-provider from making duplicate API calls. useLayoutEffect runs
+  // before useEffect, ensuring hydration happens before auth-provider checks.
+  useLayoutEffect(() => {
+    if (initialAuthData && !hydrationDone.current) {
+      hydrationDone.current = true
+
+      // Batch all state updates together
       if (initialAuthData.profile) {
         setProfile(initialAuthData.profile)
       }
@@ -46,9 +52,11 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
       if (initialAuthData.organizations) {
         setOrganizations(initialAuthData.organizations)
       }
-      // Clear loading state and mark as server-hydrated to prevent double fetching
-      setLoading(false)
+      // Mark as server-hydrated FIRST to prevent auth-provider from fetching
       setServerHydrated(true)
+      setLoading(false)
+
+      console.log('[DashboardLayout] Server data hydrated - auth-provider will skip fetch')
     }
   }, [initialAuthData, setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated])
 

@@ -31,7 +31,7 @@ const PRIORITY_FIELDS = [
 // Fields that are typically secondary/supporting text
 const SECONDARY_FIELDS = [
   'description', 'caption', 'body', 'details', 'message',
-  'hookText', 'tagline', 'subheadline', 'subtitle'
+  'hookText', 'tagline', 'subheadline', 'subtitle', 'eventNote'
 ]
 
 interface ExtractedField {

@@ -39,6 +39,7 @@ import {
 } from '@/lib/config/design-constants'
 
 const CATEGORY_ICONS: Record<ThemeCategoryId, React.ElementType> = {
+  smart: Sparkles,
   professional: Briefcase,
   creative: Palette,
   elegant: Crown,
@@ -83,6 +84,8 @@ function ThemeCard({
   isAISuggested?: boolean
   onClick: () => void
 }) {
+  const isAIAutoTheme = theme.value === 'ai'
+
   return (
     <HoverCard openDelay={400}>
       <HoverCardTrigger asChild>
@@ -93,7 +96,9 @@ function ThemeCard({
             'hover:shadow-md hover:-translate-y-0.5',
             isSelected
               ? 'border-primary ring-2 ring-primary/20 shadow-md'
-              : 'border-border hover:border-primary/50 bg-card'
+              : isAIAutoTheme
+                ? 'border-blue-400 dark:border-blue-500 hover:border-blue-500 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50'
+                : 'border-border hover:border-primary/50 bg-card'
           )}
         >
           {/* Thumbnail Preview */}
@@ -123,15 +128,22 @@ function ThemeCard({
               <span className="text-xs text-white/80 drop-shadow">{theme.mood}</span>
             </div>
 
+            {/* AI Auto Theme Badge - Always show for AI theme */}
+            {isAIAutoTheme && (
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 backdrop-blur-sm flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-white animate-pulse" />
+                <span className="text-[10px] font-bold text-white">SMART</span>
+              </div>
+            )}
             {/* AI Suggested Badge */}
-            {isAISuggested && (
+            {isAISuggested && !isAIAutoTheme && (
               <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-blue-500/90 backdrop-blur-sm flex items-center gap-0.5">
                 <Sparkles className="h-3 w-3 text-white" />
                 <span className="text-[10px] font-medium text-white">AI</span>
               </div>
             )}
             {/* Suggested Star (event-type based) */}
-            {isSuggested && !isAISuggested && (
+            {isSuggested && !isAISuggested && !isAIAutoTheme && (
               <div className="absolute top-2 right-2 p-1 rounded-full bg-black/30 backdrop-blur-sm">
                 <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
               </div>

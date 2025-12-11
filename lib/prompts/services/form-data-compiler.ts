@@ -33,6 +33,9 @@ export interface CompiledFormData {
   description: string | null
   tagline: string | null
 
+  // Additional note (footer content)
+  eventNote: string | null
+
   // All other custom fields (dynamic)
   customFields: Record<string, string>
 
@@ -69,6 +72,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   organizationName: ['organization', 'organizationName', 'org', 'company', 'institution', 'organization_name'],
   description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message'],
   tagline: ['tagline', 'slogan', 'subtitle', 'subheading', 'motto'],
+  eventNote: ['eventNote', 'note', 'additionalNote', 'footerNote', 'extraInfo', 'announcement'],
 }
 
 // ============================================================
@@ -139,6 +143,9 @@ export function compileFormData(
     // Description
     description: extractedFields.description,
     tagline: extractedFields.tagline,
+
+    // Additional note (footer content)
+    eventNote: extractedFields.eventNote,
 
     // Custom fields
     customFields,
@@ -249,6 +256,11 @@ export function buildTextBriefFromCompiled(data: CompiledFormData): string {
     if (value?.trim()) {
       textValues.push(`"${value.trim()}"`)
     }
+  }
+
+  // Event note / additional note (footer content)
+  if (data.eventNote?.trim()) {
+    textValues.push(`"${data.eventNote.trim()}"`)
   }
 
   // Build the brief as a simple list of quoted strings

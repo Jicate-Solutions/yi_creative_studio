@@ -26,6 +26,12 @@ import {
   getTypographyPromptFragment,
 } from '../../../knowledge-base/design-architecture'
 
+// Import decorative elements helper (v3.2)
+import {
+  buildDecorativeElementsSection,
+  buildBackgroundSettingSection,
+} from '../helpers/decorative-elements-injector'
+
 // ============================================================
 // EVENT CONTEXT TYPES
 // ============================================================
@@ -230,6 +236,16 @@ export function buildEventPosterPrompt(
   const speakerZoneContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
   const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
 
+  // NEW v3.2: Build decorative elements section from Design Intelligence context
+  // This ensures event-type specific visual elements (neural networks for tech, etc.) reach the AI
+  const decorativeElementsContext = buildDecorativeElementsSection({
+    eventType: data.eventType,
+    designContext: options.designContext,
+    maxElements: 4,
+    includeIconicImagery: true,
+  })
+  const backgroundSettingContext = buildBackgroundSettingSection(options.designContext)
+
   // Get typography hierarchy rules
   const typographyRules = getTypographyPromptFragment('event_poster')
 
@@ -239,7 +255,7 @@ export function buildEventPosterPrompt(
     : eventContext.colors
 
   return `
-<task>Generate a professional event poster that captures attention and communicates essential details</task>
+<task>Generate a VISUALLY STUNNING event poster with rich, atmospheric design that immediately communicates the event type through visual language</task>
 
 <format>
 Type: Event Promotional Poster
@@ -264,23 +280,32 @@ ${langContext}
 
 ${speakerZoneContext}
 
+${decorativeElementsContext}
+
+${backgroundSettingContext}
+
 <typography_hierarchy>
 ${typographyRules}
 </typography_hierarchy>
 
 <subject>
-A dynamic, eye-catching event poster for "${data.eventName}".
+A VISUALLY RICH, IMMERSIVE event poster for "${data.eventName}".
 Target Audience: ${data.targetAudience || eventContext.defaultAudience}
-The poster must pass the 3-SECOND TEST: viewer immediately understands WHAT (event name), WHEN (date/time), WHERE (venue).
-This will be used for: print posters, social media sharing, digital displays.
-${hasSpeakerPhoto ? 'NOTE: This poster will have a speaker photo overlaid via post-processing. Generate clean background in the designated photo zone.' : ''}
+
+VISUAL STORYTELLING GOAL:
+- The poster must LOOK AND FEEL like a ${data.eventType || 'professional'} event through its visual design
+- Use the visual_design_elements to create an atmospheric, contextually-rich background
+- The design should rival Google AI Studio quality - layered, dimensional, professional
+- Must pass 3-SECOND TEST: viewer understands WHAT, WHEN, WHERE instantly
+
+${hasSpeakerPhoto ? 'NOTE: Speaker photo will be overlaid via post-processing. Keep that zone clean but make the REST of the poster visually rich.' : ''}
 </subject>
 
 <composition>
 Layout: Clear vertical hierarchy optimized for quick scanning
 
 Structure from top to bottom:
-- TOP (5-10%): Organization logo zone ${options.logoAwareness?.logoPosition === 'top-left' ? 'on left' : options.logoAwareness?.logoPosition === 'top-right' ? 'on right' : ''}
+- TOP (5-10%): Clean header area with simple background
 - HEADLINE ZONE (25-30%): Main event title as the largest text element
 ${data.eventDescription ? `- TAGLINE (5-10%): Supporting message below headline` : ''}
 - DETAILS ZONE (25-30%): Event information with clear iconography showing date, time, location
@@ -302,6 +327,7 @@ ${data.eventDescription ? `<text role="tagline">"${data.eventDescription}"</text
 ${data.entryFee ? `<text role="price">"${data.entryFee}"</text>` : ''}
 ${data.speakerName ? `<text role="speaker">"${data.speakerName}${data.speakerDesignation ? ', ' + data.speakerDesignation : ''}"</text>` : ''}
 <text role="cta">"${data.registrationInfo || 'REGISTER NOW'}"</text>
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>
@@ -326,12 +352,11 @@ ${EVENT_POSTER_EXAMPLES}
 - Clear visual hierarchy guiding eye from top to bottom
 - CTA stands out and drives action
 - All text clearly legible
-${options.logoAwareness?.hasLogo ? '- Logo area kept clear with appropriate background' : ''}
+- Clean header area with simple background suitable for branding
 </quality_markers>
 
 <constraints>
-Avoid: Cluttered layout, tiny unreadable text, poor hierarchy (event name not dominant), generic stock photo feel, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy background, landscape orientation
-${options.logoAwareness?.hasLogo ? `Avoid: Busy patterns or critical content in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+Avoid: Cluttered layout, tiny unreadable text, poor hierarchy (event name not dominant), generic stock photo feel, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy background, landscape orientation, busy patterns in header area
 ${hasSpeakerPhoto ? `Avoid: Illustrated faces, people, or human figures in the speaker photo zone - keep it clean for photo overlay` : ''}
 </constraints>
 
@@ -345,6 +370,26 @@ DO NOT render as visible text:
 - Any text from typography_hierarchy or design_architecture sections
 ${hasSpeakerPhoto ? '- Speaker zone instructions - generate clean background only' : ''}
 </render_constraints>
+
+<ai_creative_freedom>
+AI HAS FULL CREATIVE CONTROL OVER (BE BOLD AND CREATIVE!):
+- BACKGROUNDS: Create RICH, LAYERED, ATMOSPHERIC backgrounds - not plain colors!
+  * Use multiple layers of visual elements at different opacities
+  * Add depth with gradients, glows, ambient lighting effects
+  * Integrate event-type elements (neural networks for tech, medical symbols for health) THROUGHOUT the design
+  * Make the background TELL THE STORY of what kind of event this is
+- Style: Visual mood, color harmony, lighting effects, professional finish
+- Composition: Dynamic element positioning, visual flow, dimensional arrangements
+- Typography Styling: Font sizes, weights, effects, glow/shadow (NOT font family if specified)
+- Visual Elements: ALL items from visual_design_elements should be INTEGRATED into the design
+
+AI STRICT BOUNDARIES (do not cross):
+- NO human faces or figures (speaker photos overlaid separately)
+- NO logos (added via Sharp post-processing)
+- ONLY render text from <text role="..."> tags
+
+The goal is a VISUALLY STUNNING poster that immediately communicates "${data.eventType || 'professional event'}" through rich visual language.
+</ai_creative_freedom>
 `.trim()
 }
 

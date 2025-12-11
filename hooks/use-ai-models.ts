@@ -1,17 +1,33 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCreativeStore } from '@/stores/creative-store'
 import type { AIModel } from '@/types/database.types'
+
+// Cache duration: 5 minutes - AI models rarely change
+const CACHE_DURATION_MS = 5 * 60 * 1000
+// Global cache timestamp to prevent refetch across component instances
+let lastFetchTimestamp = 0
 
 export function useAIModels() {
   // Memoize supabase client to prevent infinite refetch loops
   const supabase = useMemo(() => createClient(), [])
   const { models, setModels, selectedModel, selectModel } = useCreativeStore()
   const [isLoading, setIsLoading] = useState(false)
+  const isFetching = useRef(false)
 
-  const fetchModels = useCallback(async () => {
+  const fetchModels = useCallback(async (force = false) => {
+    // Skip if another instance is already fetching
+    if (isFetching.current) return
+
+    // Skip if cache is still valid (unless forced)
+    const now = Date.now()
+    if (!force && models.length > 0 && (now - lastFetchTimestamp) < CACHE_DURATION_MS) {
+      return
+    }
+
+    isFetching.current = true
     setIsLoading(true)
 
     const { data, error } = await supabase
@@ -20,6 +36,7 @@ export function useAIModels() {
       .eq('is_active', true)
       .order('display_order', { ascending: true })
 
+    isFetching.current = false
     setIsLoading(false)
 
     if (error) {
@@ -27,8 +44,9 @@ export function useAIModels() {
       return
     }
 
+    lastFetchTimestamp = Date.now()
     setModels(data || [])
-  }, [supabase, setModels])
+  }, [supabase, setModels, models.length])
 
   const getModelBySlug = useCallback((slug: string): AIModel | undefined => {
     return models.find(m => m.slug === slug)
@@ -44,9 +62,11 @@ export function useAIModels() {
     return model?.credits_cost ?? 0
   }, [selectedModel, getModelById])
 
-  // Fetch on mount
+  // Fetch on mount only if cache is stale or empty
   useEffect(() => {
-    if (models.length === 0) {
+    const now = Date.now()
+    const cacheStale = (now - lastFetchTimestamp) >= CACHE_DURATION_MS
+    if (models.length === 0 || cacheStale) {
       fetchModels()
     }
   }, [fetchModels, models.length])

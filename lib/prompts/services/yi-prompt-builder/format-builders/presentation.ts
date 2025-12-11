@@ -184,6 +184,7 @@ Contrast: HIGH - must be readable on various projectors and screens
 ${data.subtitle ? `<text role="subheadline" prominence="medium" style="lighter weight, below title, 24pt+ equivalent">${data.subtitle}</text>` : ''}
 ${data.presenterName ? `<text role="speaker" prominence="small" style="professional, lower section">${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}</text>` : ''}
 ${data.eventName ? `<text role="venue" prominence="small" style="bottom area">${data.eventName}${data.presentationDate ? ' | ' + data.presentationDate : ''}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom margin">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

@@ -32,48 +32,18 @@ const SIZE_DESCRIPTIONS: Record<string, string> = {
 
 /**
  * Build logo context section for prompt
- * Instructs AI to keep logo zone(s) clear for overlay
- * Supports both single logo (backward compatible) and multiple logos
+ *
+ * NOTE: Logo context is intentionally disabled to prevent logo-related
+ * instructions from leaking into AI-generated images. Logos are handled
+ * entirely by Sharp post-processing overlay - the AI does not need to
+ * know about logos at all.
+ *
+ * @deprecated Logo awareness is now handled only in post-processing
  */
 export function buildLogoContext(logoAwareness?: LogoAwarenessContext): string {
-  if (!logoAwareness?.hasLogo) return ''
-
-  // Determine which logos to process
-  const logos = logoAwareness.logos?.length
-    ? logoAwareness.logos
-    : [{ position: logoAwareness.logoPosition, size: logoAwareness.logoSize }]
-
-  const isMultiLogo = logos.length > 1
-
-  // Build logo positions list
-  const logoDescriptions = logos.map((logo, index) => {
-    const position = POSITION_DESCRIPTIONS[logo.position] || logo.position
-    const size = SIZE_DESCRIPTIONS[logo.size] || logo.size
-    return isMultiLogo
-      ? `Logo ${index + 1}: ${position}, ${size}`
-      : `Logo Position: ${position}\nLogo Size: ${size}`
-  }).join('\n')
-
-  // Build clear zone instructions
-  const clearZoneAreas = logos.map(logo => logo.position).join(', ')
-  const clearZone = logoAwareness.clearZone || `Keep ${clearZoneAreas} area(s) free of important text, faces, or critical visual elements`
-
-  // Build design instructions for each logo position
-  const designInstructions = logos.map(logo => {
-    return `- ${logo.position} area: solid/simple gradient background, no text/faces, sufficient contrast`
-  }).join('\n')
-
-  return `
-<logo_context>
-IMPORTANT: ${isMultiLogo ? `${logos.length} logos` : 'A logo'} will be overlaid on this image after generation.
-${logoDescriptions}
-Clear Zone Required: ${clearZone}
-
-Design Instructions for Logo Zones:
-${designInstructions}
-- Ensure clear breathing room around all logo placement areas
-</logo_context>
-`.trim()
+  // Logo overlay is handled by Sharp post-processing
+  // DO NOT send any logo-related information to the AI
+  return ''
 }
 
 // ============================================================
@@ -84,6 +54,7 @@ ${designInstructions}
  * Build brand context section for prompt
  * Injects organization brand awareness and optionally colors
  * Colors are only applied when useBrandColors flag is true
+ * Font preference is ALWAYS applied when provided (v3.2 - hybrid approach)
  */
 export function buildBrandContext(brandContext?: BrandContextPrompt): string {
   if (!brandContext) return ''
@@ -97,9 +68,20 @@ export function buildBrandContext(brandContext?: BrandContextPrompt): string {
     lines.push(`- Organization: ${brandName}`)
   }
 
+  // NEW v3.2: Font preference is ALWAYS applied when provided (independent of color settings)
+  // This implements the hybrid approach: font family from org settings, AI controls sizing/effects
+  if (brandContext.fontPreference) {
+    lines.push('')
+    lines.push('Typography Constraint:')
+    lines.push(`- Font Family: "${brandContext.fontPreference}" for all text`)
+    lines.push('- AI controls: font sizes, weights, effects, and layout')
+    lines.push('- DO NOT substitute a different font family')
+  }
+
   // Include colors only when useBrandColors is enabled
   if (useBrandColors) {
-    lines.push('\nBrand Colors to Apply:')
+    lines.push('')
+    lines.push('Brand Colors to Apply:')
 
     if (brandContext.primaryColor) {
       lines.push(`- Primary Color: ${brandContext.primaryColor} (use for main elements, headers)`)
@@ -113,10 +95,6 @@ export function buildBrandContext(brandContext?: BrandContextPrompt): string {
       lines.push(`- Accent Color: ${brandContext.accentColor} (use for CTAs, highlights)`)
     }
 
-    if (brandContext.fontPreference) {
-      lines.push(`- Typography Preference: ${brandContext.fontPreference}`)
-    }
-
     // Color application guidance only when using brand colors
     lines.push(`
 Color Application:
@@ -126,7 +104,8 @@ Color Application:
 - Supporting text: Secondary color or neutral`)
   } else {
     // When brand colors are not applied, use professional defaults
-    lines.push('\nColor Guidance: Use professional, harmonious colors appropriate for the content')
+    lines.push('')
+    lines.push('Color Guidance: Use professional, harmonious colors appropriate for the content')
   }
 
   return `
@@ -364,6 +343,10 @@ const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
 /**
  * Build speaker photo zone context
  * Reserves area for speaker photo overlay in event posters
+ *
+ * v3.2: Now differentiates between:
+ * - hasUserPhoto=true: User has uploaded photo, will be overlaid (keep zone clean)
+ * - hasUserPhoto=false: Placeholder only, user will add photo later (create clean placeholder, NO AI face)
  */
 export function buildSpeakerPhotoZoneContext(
   config?: SpeakerPhotoConfig
@@ -373,21 +356,43 @@ export function buildSpeakerPhotoZoneContext(
   const position = config.position || 'left'
   const size = config.size || 'large'
   const shape = config.shape || 'circle'
+  const hasUserPhoto = config.hasUserPhoto ?? false
+
+  // Different instructions based on whether user has uploaded their own photo
+  const zoneInstructions = hasUserPhoto
+    ? `Zone Status: USER PHOTO WILL BE OVERLAID
+A speaker photo will be composited onto this zone via post-processing.
+
+Zone Requirements:
+- Keep this area CLEAN with simple background (solid color, subtle gradient, or matching design)
+- DO NOT generate any faces, people, or human figures in this zone
+- DO NOT generate placeholder shapes or frames - the photo will be added automatically
+- Ensure good contrast between the photo zone and surrounding design
+- Leave breathing room around the zone for the photo to stand out`
+    : `Zone Status: PLACEHOLDER ONLY - No photo uploaded yet
+The user has enabled speaker photo but has NOT uploaded their photo yet.
+
+CRITICAL INSTRUCTION - AI MUST NOT GENERATE ANY HUMAN FACE OR FIGURE:
+- NO illustrated faces, portraits, silhouettes, or human figures
+- NO AI-generated people, avatars, or cartoon faces
+- NO photorealistic human faces or body parts
+
+Instead, create a CLEAN PLACEHOLDER using ONE of these options:
+1. A subtle ${shape} frame outline (use brand accent color at 20-30% opacity)
+2. A soft gradient background area that suggests "photo placement zone"
+3. A simple geometric shape matching the ${shape} configuration
+4. Just clean background that's ready for photo overlay later
+
+The placeholder should look INTENTIONALLY DESIGNED as a reserved space for a photo.`
 
   return `
 <speaker_photo_zone>
-IMPORTANT: A speaker photo will be overlaid on this design after generation.
-
-Speaker Photo Zone:
+Speaker Photo Zone Configuration:
 - Position: ${SPEAKER_POSITION_DESCRIPTIONS[position] || position}
 - Size: ${SPEAKER_SIZE_DIMENSIONS[size] || size}
 - Shape: ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}
 
-Zone Requirements:
-- Keep this area clean with simple background (solid color, subtle gradient)
-- DO NOT generate faces, people, or human figures in this zone
-- Ensure good contrast between the photo zone and surrounding design
-- Leave breathing room around the zone for the photo to stand out
+${zoneInstructions}
 </speaker_photo_zone>
 `.trim()
 }

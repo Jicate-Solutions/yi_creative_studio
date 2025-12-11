@@ -8,7 +8,7 @@
 // ============================================================
 
 export interface TextElement {
-  role: 'headline' | 'subheadline' | 'body' | 'cta' | 'date' | 'time' | 'venue' | 'name' | 'title' | 'description' | 'speaker' | 'price' | 'contact' | 'reference' | 'preface' | 'signatory' | 'hook' | 'supporting' | 'insight' | 'value' | 'company' | 'offer'
+  role: 'headline' | 'subheadline' | 'body' | 'cta' | 'date' | 'time' | 'venue' | 'name' | 'title' | 'description' | 'speaker' | 'price' | 'contact' | 'reference' | 'preface' | 'signatory' | 'hook' | 'supporting' | 'insight' | 'value' | 'company' | 'offer' | 'note'
   text: string
   prominence: 'largest' | 'prominent' | 'medium' | 'small'
   style?: string
@@ -89,6 +89,12 @@ export interface SpeakerPhotoConfig {
   position?: 'left' | 'right' | 'center'
   size?: 'small' | 'medium' | 'large'
   shape?: 'circle' | 'rounded' | 'square'
+  /**
+   * Indicates if user has uploaded their own photo
+   * - true: Photo will be overlaid via post-processing (keep zone clean)
+   * - false/undefined: Placeholder zone only (no photo yet, create clean placeholder)
+   */
+  hasUserPhoto?: boolean
 }
 
 /**
@@ -106,6 +112,19 @@ export interface OrganizationContext {
   name: string
   tagline?: string
   industry?: string
+}
+
+/**
+ * Design context from Design Intelligence stage
+ * Contains AI-generated visual elements and mood for the creative
+ */
+export interface DesignContextForPrompt {
+  corePurpose?: string
+  visualElements?: string[]
+  backgroundSetting?: string
+  iconicImagery?: string[]
+  colorStrategy?: string
+  moodDirection?: string
 }
 
 export interface EnhancedBuildOptions {
@@ -126,6 +145,9 @@ export interface EnhancedBuildOptions {
   organizationContext?: OrganizationContext // Organization branding context
   contentType?: string                  // Format-specific content type (e.g., LinkedIn article/announcement)
   formatSize?: string                   // Format-specific size (e.g., A4/A5 for flyers, banner sizes)
+
+  // NEW v3.2: Design context for decorative elements injection
+  designContext?: DesignContextForPrompt  // AI-generated visual context from Design Intelligence
 }
 
 // ============================================================
@@ -157,6 +179,7 @@ export interface CertificateFormData {
   dateIssued?: string
   certificateNumber?: string
   style?: 'classic' | 'modern' | 'corporate' | 'academic'
+  eventNote?: string
 }
 
 export interface EventPosterFormData {
@@ -171,6 +194,7 @@ export interface EventPosterFormData {
   registrationInfo?: string
   eventType?: string
   targetAudience?: string
+  eventNote?: string
 }
 
 export interface InstagramFormData {
@@ -178,6 +202,7 @@ export interface InstagramFormData {
   postCaption?: string
   callToAction?: string
   postType?: 'announcement' | 'quote' | 'educational' | 'promotional' | 'motivational'
+  eventNote?: string
 }
 
 export interface StoryFormData {
@@ -186,6 +211,7 @@ export interface StoryFormData {
   backgroundStyle?: string
   colorScheme?: string
   platform?: 'instagram' | 'whatsapp'
+  eventNote?: string
 }
 
 export interface YouTubeThumbnailFormData {
@@ -197,6 +223,7 @@ export interface YouTubeThumbnailFormData {
   backgroundColor?: string
   textColor?: string
   accentColor?: string
+  eventNote?: string
 }
 
 export interface LinkedInFormData {
@@ -206,6 +233,7 @@ export interface LinkedInFormData {
   contentType?: string
   backgroundStyle?: string
   colorScheme?: string
+  eventNote?: string
 }
 
 export interface FlyerFormData {
@@ -222,6 +250,9 @@ export interface FlyerFormData {
   size?: 'A4' | 'A5'
   backgroundStyle?: string
   colorScheme?: string
+  /** Optional explicit event type (auto-inferred from title/description if not provided) */
+  eventType?: string
+  eventNote?: string
 }
 
 export interface BusinessCardFormData {
@@ -237,6 +268,7 @@ export interface BusinessCardFormData {
   style?: string
   backgroundStyle?: string
   colorScheme?: string
+  eventNote?: string
 }
 
 export interface PresentationFormData {
@@ -249,6 +281,7 @@ export interface PresentationFormData {
   aspectRatio?: '16:9' | '4:3'
   backgroundStyle?: string
   colorScheme?: string
+  eventNote?: string
 }
 
 export interface WebBannerFormData {
@@ -259,6 +292,7 @@ export interface WebBannerFormData {
   size?: string
   backgroundStyle?: string
   colorScheme?: string
+  eventNote?: string
 }
 
 export interface SocialPostFormData {
@@ -267,6 +301,7 @@ export interface SocialPostFormData {
   callToAction?: string
   postType?: string
   platform?: 'facebook' | 'twitter'
+  eventNote?: string
 }
 
 // Generic form data type for any format

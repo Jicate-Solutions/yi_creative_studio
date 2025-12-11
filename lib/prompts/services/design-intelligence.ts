@@ -809,15 +809,21 @@ const FORMAT_DESIGN_CONTEXTS: Record<string, Partial<DesignContext>> = {
 
   // === MARKETING FORMATS ===
   flyer: {
-    corePurpose: 'Create an attention-grabbing promotional flyer that can be distributed physically or digitally',
-    visualElements: ['bold headline', 'event details', 'call to action', 'promotional imagery'],
-    backgroundSetting: 'Eye-catching background appropriate for promotional material',
-    iconicImagery: ['promotional graphics', 'action-oriented imagery', 'event visuals'],
-    colorMood: 'Vibrant, attention-grabbing colors that stand out when distributed',
-    designStrategy: 'Clear hierarchy with headline, details, and CTA - designed for quick scanning',
-    desiredAction: 'Read details and take action (attend, sign up, buy)',
-    emotionalJob: 'Excited, interested, motivated to act',
-    successMetric: 'Viewer gets the key message quickly and knows what action to take',
+    corePurpose: 'Create an attention-grabbing promotional flyer with contextual decorative elements that reinforce the event message and visual appeal',
+    visualElements: [
+      'bold headline area with event-appropriate styling',
+      'contextual decorative elements based on event type (e.g., medical icons for health events, tech patterns for workshops)',
+      'clear information hierarchy with date/venue/CTA',
+      'prominent call-to-action button or banner',
+      'subtle corner and edge decorations that enhance without overwhelming',
+    ],
+    backgroundSetting: 'Eye-catching gradient background with event-appropriate decorative elements - medical gradients with health symbols for health events, warm orange with hands-on icons for workshops, corporate blue with networking elements for conferences, festive colors with celebration motifs for festivals',
+    iconicImagery: ['event-specific symbols in corners', 'thematic visual elements that reinforce the message', 'subtle decorative patterns along edges'],
+    colorMood: 'Vibrant, attention-grabbing colors appropriate to the event type - medical colors for health events, warm energetic colors for workshops, corporate palette for business, festive for celebrations - all CMYK print-safe',
+    designStrategy: 'Clear hierarchy with headline dominating, contextual decorative elements SUBTLY enhancing mood in corners and edges without overwhelming, details organized for 5-second scanning, prominent CTA',
+    desiredAction: 'Read details quickly and take action (attend, sign up, contact, register)',
+    emotionalJob: 'Interested, informed about the event context through visual cues, and motivated to act',
+    successMetric: 'Viewer immediately understands the event type through contextual visual elements, gets key information in 5 seconds, and knows exactly what action to take',
   },
   billboard: {
     corePurpose: 'Create a high-impact design readable at a glance from distance',

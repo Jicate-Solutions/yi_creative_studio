@@ -48,6 +48,55 @@ import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
 import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
 import { sanitizeForGemini, detectLabelLeaks } from '@/lib/prompts/services/prompt-sanitizer'
+import { randomUUID } from 'crypto'
+
+/**
+ * Upload base64 image data to Supabase Storage and return the public URL.
+ * This prevents storing massive base64 strings in the database, which was
+ * causing database bloat (181 MB for ~40 images) and resource exhaustion.
+ *
+ * @param base64Data - Raw base64 image data (without data URL prefix)
+ * @param mimeType - Image MIME type (e.g., 'image/png')
+ * @param organizationId - Organization ID for folder structure
+ * @param supabase - Supabase client instance
+ * @returns Public URL of the uploaded image
+ */
+async function uploadImageToStorage(
+  base64Data: string,
+  mimeType: string,
+  organizationId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string> {
+  // Convert base64 to buffer
+  const buffer = Buffer.from(base64Data, 'base64')
+
+  // Generate unique filename with organization folder structure
+  const extension = mimeType.split('/')[1] || 'png'
+  const filename = `${organizationId}/${randomUUID()}.${extension}`
+
+  // Upload to Supabase Storage 'creatives' bucket
+  const { error: uploadError } = await supabase.storage
+    .from('creatives')
+    .upload(filename, buffer, {
+      contentType: mimeType,
+      cacheControl: '31536000', // 1 year cache
+      upsert: false,
+    })
+
+  if (uploadError) {
+    console.error('[uploadImageToStorage] Upload error:', uploadError)
+    throw new Error(`Failed to upload image to storage: ${uploadError.message}`)
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('creatives')
+    .getPublicUrl(filename)
+
+  console.log('[uploadImageToStorage] Uploaded image:', filename, '-> URL:', urlData.publicUrl.substring(0, 80) + '...')
+
+  return urlData.publicUrl
+}
 import { getFormatEnhancement } from '@/lib/config/format-enhancements'
 
 export async function POST(request: NextRequest) {
@@ -121,6 +170,18 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
+
+    // NEW v3.2: Fetch organization brand_config to get font preference
+    // This implements the hybrid approach: font family from org settings, AI controls sizing
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('brand_config')
+      .eq('id', organizationId)
+      .single()
+
+    // Extract font preference from brand_config (JSON column)
+    const brandConfig = orgData?.brand_config as { fontPrimary?: string; fontSecondary?: string } | null
+    const fontPreference = brandConfig?.fontPrimary || undefined
 
     // ========================================================
     // API USAGE TRACKING - Track token usage and costs
@@ -430,6 +491,7 @@ export async function POST(request: NextRequest) {
 
           // Brand context - always include organization info for awareness
           // useBrandColors flag determines if colors should be applied
+          // fontPreference is ALWAYS applied when available (v3.2 - hybrid approach)
           brandContext: {
             organizationName: designBrief.organizationName || 'Yi Creatives',
             brandName: designBrief.organizationName,
@@ -439,6 +501,8 @@ export async function POST(request: NextRequest) {
             accentColor: promptDesignData?.customization?.title?.color,
             // Flag to control color application
             useBrandColors: promptDesignData?.colorConfig?.useBrandColors ?? false,
+            // NEW v3.2: Font preference from organization settings (always applied when available)
+            fontPreference: fontPreference,
           },
 
           // NEW v3.1: Theme & style preferences
@@ -459,6 +523,10 @@ export async function POST(request: NextRequest) {
             // Convert numeric size (percentage) to string literal
             size: (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large') as 'small' | 'medium' | 'large',
             shape: originalSpeakerPhotoConfig.shape as 'circle' | 'rounded' | 'square',
+            // NEW v3.2: Indicate if user has uploaded their own photo
+            // - true: Photo will be overlaid (AI keeps zone clean for overlay)
+            // - false: Placeholder only (AI creates clean placeholder zone, NO human face)
+            hasUserPhoto: !!originalSpeakerPhotoConfig.photoUrl,
           } : undefined,
 
           // NEW v3.1: Organization context for branding identity
@@ -473,6 +541,18 @@ export async function POST(request: NextRequest) {
 
           // NEW v3.1: Format-specific size (e.g., A4/A5 for flyers, banner dimensions)
           formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
+
+          // NEW v3.2: Design context from Design Intelligence stage
+          // Contains AI-generated visual elements, background setting, and iconic imagery
+          // Used by format builders to inject decorative elements into prompts
+          designContext: designContext ? {
+            corePurpose: designContext.corePurpose,
+            visualElements: designContext.visualElements,
+            backgroundSetting: designContext.backgroundSetting,
+            iconicImagery: designContext.iconicImagery,
+            colorStrategy: designContext.colorStrategy,
+            moodDirection: designContext.moodDirection,
+          } : undefined,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
@@ -636,6 +716,26 @@ export async function POST(request: NextRequest) {
     if (userHasSpeakerPhoto && speakerPhoto) {
       console.log('Processing speaker photo overlay')
       imageUrl = await processImageWithSpeakerPhoto(imageUrl, speakerPhoto)
+    }
+
+    // ========================================================
+    // CRITICAL FIX: Upload to Supabase Storage instead of storing base64
+    // This prevents database bloat (was 181 MB for ~40 images)
+    // Only upload if the image is a data URL (base64)
+    // ========================================================
+    if (imageUrl.startsWith('data:')) {
+      console.log('[Generate] Uploading generated image to Supabase Storage...')
+      const [header, base64Data] = imageUrl.split(',')
+      const mimeMatch = header.match(/data:([^;]+);/)
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/png'
+
+      try {
+        imageUrl = await uploadImageToStorage(base64Data, mimeType, organizationId, supabase)
+        console.log('[Generate] Image uploaded successfully to Storage')
+      } catch (uploadError) {
+        console.error('[Generate] Failed to upload to Storage, falling back to base64:', uploadError)
+        // Keep base64 as fallback - don't fail generation due to storage issues
+      }
     }
 
     // Track image generation (estimated tokens for Gemini)
@@ -1336,10 +1436,12 @@ async function generateWithGemini(
   const geminiAspectRatio = format?.aspectRatio || '1:1'
 
   // Model capability constraints with their API endpoints
-  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[]; endpoint: string }> = {
-    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image' },
-    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation' },
-    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'], endpoint: 'gemini-3-pro-image-preview' },
+  // Note: Only gemini-3-pro-image-preview supports generationConfig.imageConfig
+  // Flash models require simple request structure without imageConfig
+  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[]; endpoint: string; supportsImageConfig: boolean }> = {
+    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image', supportsImageConfig: false },
+    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation', supportsImageConfig: false },
+    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'], endpoint: 'gemini-3-pro-image-preview', supportsImageConfig: true },
   }
 
   // Validate and constrain resolution based on model capabilities
@@ -1404,26 +1506,43 @@ async function generateWithGemini(
   console.log(sanitizedPrompt.substring(0, 800))
   console.log('[Generate] ... (truncated)')
 
-  // Build request body with proper Gemini API structure
-  // System instruction is sent as a separate field, not concatenated with user prompt
-  // Use sanitizedPrompt to prevent field labels from being rendered as text
-  const requestBody: Record<string, unknown> = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: sanitizedPrompt }],
+  // Build request body based on model capabilities
+  // Flash models (gemini-2.5-flash-image): Simple request without generationConfig.imageConfig
+  // Pro model (gemini-3-pro-image-preview): Full request with imageConfig for aspect ratio and resolution
+  let requestBody: Record<string, unknown>
+
+  if (GEMINI_MODEL_CAPABILITIES[currentModel]?.supportsImageConfig) {
+    // gemini-3-pro-image-preview: Use full generationConfig with imageConfig
+    console.log('[Generate] Using Pro model with imageConfig - aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
+    requestBody = {
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: sanitizedPrompt }],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: {
+          aspectRatio: geminiAspectRatio,
+          imageSize: geminiImageSize,
+        },
       },
-    ],
-    generationConfig: {
-      responseModalities: ['TEXT', 'IMAGE'],
-      imageConfig: {
-        aspect_ratio: geminiAspectRatio,
-        image_size: geminiImageSize,
-      },
-    },
+    }
+  } else {
+    // gemini-2.5-flash-image: Simple request without imageConfig (model generates images by default)
+    console.log('[Generate] Using Flash model with simple request structure (no imageConfig)')
+    requestBody = {
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: sanitizedPrompt }],
+        },
+      ],
+    }
   }
 
-  // Add system instruction if provided (proper Gemini API format)
+  // Add system instruction if provided (works for both model types)
   if (systemPrompt) {
     requestBody.systemInstruction = {
       parts: [{ text: systemPrompt }],

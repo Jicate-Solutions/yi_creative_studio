@@ -175,8 +175,8 @@ Layout: Centered, symmetrical, formal arrangement
 
 Structure:
 - BORDER: ${getCertificateBorder(style)} framing entire document
-- TOP LEFT: Space reserved for organization logo overlay ${options.logoAwareness?.logoPosition === 'top-left' ? '(PRIMARY LOGO ZONE - keep simple background)' : ''}
-- TOP RIGHT: Official seal or emblem ${options.logoAwareness?.logoPosition === 'top-right' ? '(may have logo overlay - ensure compatibility)' : ''}
+- TOP LEFT: Clean header area with simple background
+- TOP RIGHT: Official seal or emblem area
 - TOP CENTER: Certificate title ("${data.certificateTitle || 'CERTIFICATE OF ACHIEVEMENT'}")
 - CENTER: "This is to certify that" lead-in text (small, elegant)
 - CENTER PROMINENT: Recipient name "${data.recipientName}" - THIS IS THE LARGEST TEXT ELEMENT
@@ -199,6 +199,7 @@ ${data.signatoryName ? `<text role="signatory1" prominence="small" style="signat
 ${data.signatoryName2 ? `<text role="signatory2" prominence="small" style="signature line with printed name below">${data.signatoryName2}${data.signatoryDesignation2 ? ', ' + data.signatoryDesignation2 : ''}</text>` : ''}
 <text role="date" prominence="small" style="small caps, bottom of document">${data.dateIssued ? formatDate(data.dateIssued) : 'Date'}</text>
 ${data.certificateNumber ? `<text role="reference" prominence="small" style="small monospace or serif">Certificate No: ${data.certificateNumber}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5%">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>
@@ -222,13 +223,12 @@ ${CERTIFICATE_EXAMPLES}
 - Clear visual hierarchy with recipient name MOST PROMINENT
 - All text clearly legible (especially recipient name and achievement)
 - Balanced, symmetrical composition
-${options.logoAwareness?.hasLogo ? '- Logo area kept clear with simple background for overlay' : ''}
+- Clean header areas with simple background suitable for branding
 ${options.brandContext ? '- Brand colors subtly integrated' : ''}
 </quality_markers>
 
 <constraints>
-Avoid: Blurry or pixelated elements, clipart, cartoon graphics, casual or playful fonts (Comic Sans, etc.), neon or overly bright colors, busy patterns, crowded layout, poor text hierarchy, stock photo elements, modern casual aesthetic (unless modern style selected), low resolution output
-${options.logoAwareness?.hasLogo ? `Avoid: Complex patterns or important content in ${options.logoAwareness.logoPosition} area (logo overlay zone)` : ''}
+Avoid: Blurry or pixelated elements, clipart, cartoon graphics, casual or playful fonts (Comic Sans, etc.), neon or overly bright colors, busy patterns, crowded layout, poor text hierarchy, stock photo elements, modern casual aesthetic (unless modern style selected), low resolution output, complex patterns in header areas
 </constraints>
 
 <render_constraints>

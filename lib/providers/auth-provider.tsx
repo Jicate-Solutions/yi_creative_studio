@@ -53,10 +53,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Skip if already hydrated from server-side data in dashboard layout
     // This prevents duplicate API calls when the dashboard layout has already fetched the data
     const currentState = useAuthStore.getState()
-    if (currentState.serverHydrated && currentState.profile && currentState.currentOrganization) {
-      console.log('[Auth] Skipping fetchUserData - already hydrated from server')
+
+    // Check multiple conditions - any of these means we have valid data
+    const hasProfile = !!currentState.profile
+    const hasOrganization = !!currentState.currentOrganization
+    const isServerHydrated = currentState.serverHydrated
+
+    // Skip fetch if we have both profile AND organization from any source
+    // This covers both server hydration AND localStorage rehydration
+    if ((isServerHydrated || (hasProfile && hasOrganization)) && hasProfile && hasOrganization) {
+      console.log('[Auth] Skipping fetchUserData - data already available:', {
+        serverHydrated: isServerHydrated,
+        hasProfile,
+        hasOrganization
+      })
       return
     }
+
+    console.log('[Auth] Fetching user data - no cached data available')
 
     try {
       // Create timeout promise - client-side Supabase queries can hang
@@ -157,6 +171,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let timeoutId: NodeJS.Timeout | null = null
 
     const initializeAuth = async () => {
+      // OPTIMIZATION: Check if we already have valid data from server hydration
+      // This prevents unnecessary auth API calls when dashboard layout already fetched data
+      const currentState = useAuthStore.getState()
+      if (currentState.serverHydrated && currentState.profile && currentState.currentOrganization) {
+        console.log('[Auth] Skipping initializeAuth - already server-hydrated')
+        setLoading(false)
+        setInitialized(true)
+        return
+      }
+
       setLoading(true)
 
       try {

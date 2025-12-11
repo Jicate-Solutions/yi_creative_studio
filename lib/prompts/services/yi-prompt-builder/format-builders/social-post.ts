@@ -106,6 +106,7 @@ Text Sizing: All text must be readable on mobile phone without zooming
 <text role="headline" prominence="LARGEST" style="bold thick sans-serif, maximum contrast">${data.postTitle}</text>
 ${data.postCaption ? `<text role="supporting" prominence="medium" style="clean sans-serif, readable on mobile">${data.postCaption}</text>` : ''}
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="button-style, contrasting accent color">${data.callToAction}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

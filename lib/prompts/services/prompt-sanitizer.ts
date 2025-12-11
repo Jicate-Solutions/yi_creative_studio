@@ -101,6 +101,15 @@ const DESIGN_TERMINOLOGY_PATTERNS = [
   /\bsafe\s+zone\b/gi,
   /\bclear\s+zone\b/gi,
   /\boverlay\s+zone\b/gi,
+  // Logo leak prevention patterns
+  /\blogo\s*zone\b/gi,
+  /\blogo\s+area\b/gi,
+  /\blogo\s+overlay\b/gi,
+  /\blogo\s+will\s+be\b/gi,
+  /\bbranding\s+element[s]?\b/gi,
+  /\borganization\s+logo\b/gi,
+  /\bPRIMARY\s+LOGO\s+ZONE\b/gi,
+  /\blogo\s+placement\b/gi,
 ]
 
 /**

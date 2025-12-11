@@ -10,20 +10,22 @@
  * Generate a compressed thumbnail from a base64 data URL
  * Uses browser canvas for client-side compression
  *
- * @param dataUrl - The source image as a data URL (e.g., data:image/png;base64,...)
+ * @param imageUrl - The source image URL (data URL or HTTP/HTTPS URL)
  * @param maxWidth - Maximum width of the thumbnail (default: 400px)
  * @param quality - JPEG compression quality 0-1 (default: 0.7)
  * @returns Promise resolving to a compressed JPEG data URL
  */
 export async function generateThumbnail(
-  dataUrl: string,
+  imageUrl: string,
   maxWidth: number = 400,
   quality: number = 0.7
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Validate input
-    if (!dataUrl || !dataUrl.startsWith('data:image/')) {
-      reject(new Error('Invalid data URL: must be a valid image data URL'));
+    // Validate input - accept both data URLs and HTTP(S) URLs
+    const isDataUrl = imageUrl?.startsWith('data:image/');
+    const isHttpUrl = imageUrl?.startsWith('http://') || imageUrl?.startsWith('https://');
+    if (!imageUrl || (!isDataUrl && !isHttpUrl)) {
+      reject(new Error('Invalid image URL: must be a data URL or HTTP(S) URL'));
       return;
     }
 
@@ -66,7 +68,7 @@ export async function generateThumbnail(
       reject(new Error('Failed to load image for thumbnail generation'));
     };
 
-    img.src = dataUrl;
+    img.src = imageUrl;
   });
 }
 

@@ -148,6 +148,7 @@ Visual Treatment: ${contentContext.visualStyle}
 <text role="headline" prominence="LARGEST" style="professional sans-serif, bold but elegant, not aggressive">${data.headline}</text>
 ${data.keyInsight ? `<text role="insight" prominence="prominent" style="highlighted, possibly larger number or statistic">${data.keyInsight}</text>` : ''}
 ${data.professionalMessage ? `<text role="body" prominence="medium" style="clean sans-serif, lighter weight">${data.professionalMessage}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

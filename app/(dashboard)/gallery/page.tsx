@@ -96,7 +96,7 @@ export default function GalleryPage() {
     }
   }, [searchQuery])
 
-  const fetchCreatives = useCallback(async () => {
+  const fetchCreatives = useCallback(async (retryCount = 0) => {
     // Wait for Zustand store to rehydrate from localStorage before fetching
     if (!_hasHydrated) {
       return
@@ -111,37 +111,51 @@ export default function GalleryPage() {
 
     setIsLoading(true)
 
-    // PERFORMANCE: Select only columns needed for list view
-    // Exclude image_url (1MB+ base64 per row) - fetch separately for detail view
-    let query = supabase
-      .from('creatives')
-      .select('id, organization_id, created_by, creative_type, vertical, title, form_data, logo_config, ai_model, ai_model_id, prompt_used, thumbnail_url, image_url, credits_used, generation_time_ms, download_count, is_favorite, created_at, expires_at')
-      .eq('organization_id', currentOrganization.id)
-      .order('created_at', { ascending: sortBy === 'oldest' })
+    try {
+      // Use API route instead of direct Supabase client
+      // This avoids the race condition where browser client tokens aren't synced yet
+      const params = new URLSearchParams({
+        organizationId: currentOrganization.id,
+        sortBy,
+        ...(verticalFilter !== 'all' && { vertical: verticalFilter }),
+        ...(favoritesOnly && { favoritesOnly: 'true' }),
+        ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
+      })
 
-    if (verticalFilter !== 'all') {
-      query = query.eq('vertical', verticalFilter)
-    }
+      const response = await fetch(`/api/gallery/creatives?${params}`)
+      const data = await response.json()
 
-    if (favoritesOnly) {
-      query = query.eq('is_favorite', true)
-    }
+      // Handle auth errors with retry - auth cookies may not be ready yet
+      if (response.status === 401 || response.status === 500) {
+        if (retryCount < 3) {
+          // Wait progressively longer before retrying (500ms, 1000ms, 1500ms)
+          const delay = (retryCount + 1) * 500
+          console.log(`Gallery fetch failed (${response.status}), retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          return fetchCreatives(retryCount + 1)
+        }
+        // After 3 retries, show error
+        console.error('Gallery API error after retries:', data.error, data.details)
+        setIsLoading(false)
+        toast.error('Failed to load creatives')
+        return
+      }
 
-    if (debouncedSearchQuery) {
-      query = query.or(`title.ilike.%${debouncedSearchQuery}%,prompt_used.ilike.%${debouncedSearchQuery}%`)
-    }
+      setIsLoading(false)
 
-    const { data, error } = await query
+      if (!response.ok) {
+        console.error('Gallery API error:', data.error, data.details)
+        toast.error('Failed to load creatives')
+        return
+      }
 
-    setIsLoading(false)
-
-    if (error) {
+      setCreatives(data.creatives || [])
+    } catch (error) {
+      console.error('Error fetching creatives:', error)
+      setIsLoading(false)
       toast.error('Failed to load creatives')
-      return
     }
-
-    setCreatives(data || [])
-  }, [_hasHydrated, currentOrganization?.id, supabase, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
+  }, [_hasHydrated, currentOrganization?.id, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
 
   useEffect(() => {
     fetchCreatives()

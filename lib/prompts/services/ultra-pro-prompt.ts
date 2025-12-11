@@ -371,6 +371,11 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
     secondaryText.push(speakerLine)
   }
 
+  // Event note (footer content)
+  if (compiledData.eventNote?.trim()) {
+    secondaryText.push(compiledData.eventNote.trim())
+  }
+
   return {
     primaryText: eventName,
     secondaryText,
@@ -435,6 +440,11 @@ function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
     if (value?.trim()) {
       parts.push(`Additional text: "${value.trim()}".`)
     }
+  }
+
+  // Event note (footer content) - describe as footer text
+  if (compiledData.eventNote?.trim()) {
+    parts.push(`Footer note: "${compiledData.eventNote.trim()}".`)
   }
 
   // Style/Theme - describe the aesthetic, don't command

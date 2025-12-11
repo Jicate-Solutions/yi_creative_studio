@@ -182,6 +182,7 @@ Visual Treatment: ${typeContext.visualStyle}
 <text_content>
 <text role="headline" prominence="LARGEST" style="${typeContext.textTreatment}, centered in safe zone, high contrast">${data.storyHeadline}</text>
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="swipe-up indicator style, near bottom of safe zone (NOT in bottom UI zone)">${data.callToAction}</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="footer text, above bottom UI zone">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

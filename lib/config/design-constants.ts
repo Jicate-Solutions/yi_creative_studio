@@ -85,7 +85,7 @@ export const RESOLUTIONS = {
 // THEME SYSTEM
 // ============================================================
 
-export type ThemeCategoryId = 'professional' | 'creative' | 'elegant' | 'dynamic' | 'cultural' | 'nature' | 'academic'
+export type ThemeCategoryId = 'smart' | 'professional' | 'creative' | 'elegant' | 'dynamic' | 'cultural' | 'nature' | 'academic'
 export type ColorTendency = 'cool' | 'warm' | 'neutral' | 'vibrant'
 
 export interface Theme {
@@ -106,6 +106,14 @@ export interface ThemeCategory {
 }
 
 export const THEME_CATEGORIES: ThemeCategory[] = [
+  {
+    id: 'smart',
+    label: 'Smart',
+    icon: 'Sparkles',
+    themes: [
+      { value: 'ai', label: 'AI Auto', keywords: ['auto', 'intelligent', 'contextual', 'smart', 'ai'], colorTendency: 'neutral', description: 'AI analyzes your event and creates contextual backgrounds - detects workshop, conference, health camp, etc.', thumbnail: '/images/themes/ai-auto.svg', mood: 'Contextual' },
+    ],
+  },
   {
     id: 'professional',
     label: 'Professional',

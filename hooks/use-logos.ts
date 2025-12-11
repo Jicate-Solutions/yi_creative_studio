@@ -8,6 +8,11 @@ import type { OrganizationLogo } from '@/types/database.types'
 import { LOGO_CATEGORIES, type LogoCategory } from '@/lib/config/constants'
 import { toast } from 'sonner'
 
+// Cache duration: 2 minutes - logos may change more frequently than models
+const CACHE_DURATION_MS = 2 * 60 * 1000
+// Global cache tracking per organization to prevent refetch across component instances
+const logosCacheMap = new Map<string, number>()
+
 export function useLogos() {
   // Memoize supabase client to prevent infinite refetch loops
   // Without this, createClient() creates new reference each render,
@@ -21,17 +26,31 @@ export function useLogos() {
     total: number
     fileName: string
   } | null>(null)
+  const isFetching = useRef(false)
 
-  const fetchLogos = useCallback(async () => {
+  const fetchLogos = useCallback(async (force = false) => {
     if (!currentOrganization?.id) return
 
+    // Skip if another instance is already fetching
+    if (isFetching.current) return
+
+    // Skip if cache is still valid for this organization (unless forced)
+    const now = Date.now()
+    const lastFetch = logosCacheMap.get(currentOrganization.id) || 0
+    if (!force && logos.length > 0 && (now - lastFetch) < CACHE_DURATION_MS) {
+      return
+    }
+
+    isFetching.current = true
     setIsLoading(true)
+
     const { data, error } = await supabase
       .from('organization_logos')
       .select('*')
       .eq('organization_id', currentOrganization.id)
       .order('created_at', { ascending: false })
 
+    isFetching.current = false
     setIsLoading(false)
 
     if (error) {
@@ -39,8 +58,9 @@ export function useLogos() {
       return
     }
 
+    logosCacheMap.set(currentOrganization.id, Date.now())
     setLogos(data || [])
-  }, [currentOrganization?.id, supabase, setLogos])
+  }, [currentOrganization?.id, supabase, setLogos, logos.length])
 
   const uploadLogo = useCallback(async (
     file: File,
@@ -267,13 +287,16 @@ export function useLogos() {
     return { success, failed }
   }, [currentOrganization?.id, supabase, fetchLogos])
 
-  // Fetch logos on mount only if not already loaded
+  // Fetch logos on mount only if cache is stale or empty
   // This prevents duplicate fetches when multiple components use this hook
   useEffect(() => {
-    if (logos.length === 0) {
+    const now = Date.now()
+    const lastFetch = currentOrganization?.id ? logosCacheMap.get(currentOrganization.id) || 0 : 0
+    const cacheStale = (now - lastFetch) >= CACHE_DURATION_MS
+    if (logos.length === 0 || cacheStale) {
       fetchLogos()
     }
-  }, [fetchLogos, logos.length])
+  }, [fetchLogos, logos.length, currentOrganization?.id])
 
   return {
     logos,
