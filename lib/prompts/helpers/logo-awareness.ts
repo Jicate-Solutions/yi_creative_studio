@@ -91,6 +91,14 @@ function getHorizontalPositions(zones: LogoSafeZone[]): string {
  * IMPORTANT: Avoid using technical keywords, pixel values, or instruction-like
  * text that AI image models might render as actual text in the design.
  * Use natural, descriptive language about spatial composition instead.
+ *
+ * Yi Brand Guidelines 2025 - Two-Strip Layout:
+ * - HEADER STRIP (top): Brand logos (Yi, Bharat Rising, CII)
+ * - SECOND STRIP (just below header): Vertical logos (Yi Learning, etc.)
+ * - FOOTER STRIP (bottom): Sponsor/Partner logos
+ *
+ * The "middle" positions (mid-left, center, mid-right) are rendered
+ * JUST BELOW the header strip, not at the vertical center of the image.
  */
 export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   if (safeZones.length === 0) {
@@ -103,11 +111,29 @@ export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   // Use natural composition language, not technical instructions
   lines.push('Reserve clear space for branding elements:')
 
-  // Top region guidance - semantic description only
-  if (top.length > 0) {
+  // Yi Brand Guidelines: Two-strip logo band at top of design
+  // Header strip (brand logos) + Second strip (vertical logos) form a combined "logo band"
+  if (top.length > 0 && middle.length > 0) {
+    // Both header and second strip are used - describe as combined logo band
+    const topHorizontal = getHorizontalPositions(top)
+    const middleHorizontal = getHorizontalPositions(middle)
+    lines.push(
+      `The upper portion has a two-row logo band: main branding in the top ${topHorizontal}, with secondary branding directly below it on the ${middleHorizontal}.`
+    )
+    lines.push(
+      `Keep this entire upper header area clean with simple, uncluttered background.`
+    )
+  } else if (top.length > 0) {
+    // Only header strip
     const horizontalPos = getHorizontalPositions(top)
     lines.push(
       `Use simple, uncluttered background in the upper ${horizontalPos} area.`
+    )
+  } else if (middle.length > 0) {
+    // Only second strip (positioned just below where header would be)
+    const horizontalPos = getHorizontalPositions(middle)
+    lines.push(
+      `Reserve the upper ${horizontalPos} area just below the top edge for secondary branding.`
     )
   }
 
@@ -117,21 +143,6 @@ export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
     lines.push(
       `Keep the lower ${horizontalPos} area clean with minimal elements.`
     )
-  }
-
-  // Middle region guidance - semantic description only
-  if (middle.length > 0) {
-    const hasCenter = middle.some((z) => z.position === 'center')
-    if (hasCenter) {
-      lines.push(
-        `Design with breathing room at the center for branding.`
-      )
-    } else {
-      const horizontalPos = getHorizontalPositions(middle)
-      lines.push(
-        `Maintain clear space on the ${horizontalPos} side at mid-height.`
-      )
-    }
   }
 
   // General composition guidance - natural language

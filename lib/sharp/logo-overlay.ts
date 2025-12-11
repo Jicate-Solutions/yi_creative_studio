@@ -38,6 +38,15 @@ interface OverlayConfig {
 
 /**
  * Calculate the x,y position for a logo based on the grid position
+ *
+ * Yi Brand Guidelines 2025 - Two-Strip Layout:
+ * - HEADER STRIP (top row): Brand logos at top with padding
+ * - SECOND STRIP (mid row): Vertical logos positioned JUST BELOW header (like subtitle)
+ *   NOT in the actual middle of the image
+ * - FOOTER STRIP (bottom row): Sponsor/Partner logos at bottom
+ *
+ * The second strip Y position = header logo bottom + small gap
+ * This creates the "title + subtitle" visual hierarchy
  */
 function calculatePosition(
   position: LogoPosition,
@@ -46,19 +55,31 @@ function calculatePosition(
   logoSize: number,
   padding: number
 ): { x: number; y: number } {
+  // Yi Brand Guidelines: Second strip is positioned just below header strip
+  // Header logos sit at Y = padding
+  // Second strip logos sit at Y = padding + logoSize + stripGap (small gap between strips)
+  const stripGap = Math.floor(padding * 0.5) // Half padding as gap between strips
+  const secondStripY = padding + logoSize + stripGap // Just below header logos
+
   const positions: Record<LogoPosition, { x: number; y: number }> = {
+    // HEADER STRIP - Top row (Brand logos: Yi, Bharat Rising, CII)
     'top-left': { x: padding, y: padding },
     'top-center': { x: Math.floor((imageWidth - logoSize) / 2), y: padding },
     'top-right': { x: imageWidth - logoSize - padding, y: padding },
-    'mid-left': { x: padding, y: Math.floor((imageHeight - logoSize) / 2) },
+
+    // SECOND STRIP - Just below header (Vertical logos: Yi Learning, Yi Innovation, etc.)
+    // Positioned as subtitle row, not at vertical center
+    'mid-left': { x: padding, y: secondStripY },
     'center': {
       x: Math.floor((imageWidth - logoSize) / 2),
-      y: Math.floor((imageHeight - logoSize) / 2),
+      y: secondStripY,
     },
     'mid-right': {
       x: imageWidth - logoSize - padding,
-      y: Math.floor((imageHeight - logoSize) / 2),
+      y: secondStripY,
     },
+
+    // FOOTER STRIP - Bottom row (Sponsors/Partners)
     'bottom-left': { x: padding, y: imageHeight - logoSize - padding },
     'bottom-center': {
       x: Math.floor((imageWidth - logoSize) / 2),

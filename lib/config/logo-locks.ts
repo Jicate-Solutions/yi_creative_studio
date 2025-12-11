@@ -2,13 +2,22 @@
  * Logo Position Locking Configuration
  * Yi Brand Guidelines 2025 - Logo Hierarchy System
  *
- * Brand logos (Yi, CII, Bharat Rising) have fixed positions:
- * - Yi logo: TOP-LEFT
- * - Bharat Rising: TOP-CENTER (2025 theme)
- * - CII logo: TOP-RIGHT
+ * Layout: TWO-STRIP SYSTEM (per brand guidelines pages 15-16)
  *
- * Vertical logos (Yi Learning, Yi Innovation, etc.) go to middle row
- * Sponsor/Partner logos go to bottom row
+ * HEADER STRIP (Brand Logos - Fixed & Auto-Locked):
+ * - LEFT: Yi Logo (Young Indians) - MANDATORY
+ * - CENTER: Bharat Rising (2025 theme) - MANDATORY
+ * - RIGHT: CII Logo - MANDATORY
+ *
+ * SECOND STRIP (Vertical Logos - Flexible):
+ * - Yi Learning, Yi Innovation, Yi Yuva, etc.
+ * - Positioned JUST BELOW the header strip (like subtitle)
+ * - Default: below Yi logo (left position)
+ *
+ * FOOTER (Sponsors/Partners):
+ * - Bottom section for sponsor/partner logos
+ *
+ * Maximum 9 logos per creative (3 per strip × 3 strips)
  */
 
 import type { LogoPosition } from './constants'
@@ -16,20 +25,30 @@ import type { LogoPosition } from './constants'
 // Logo Types based on Yi Brand Guidelines 2025
 export type LogoType = 'brand' | 'vertical' | 'sponsor' | 'partner' | 'other'
 
+// Logo strip/row for the two-strip layout system
+export type LogoStrip = 'header' | 'second' | 'footer'
+
 export interface LogoTypeConfig {
   type: LogoType
   patterns: RegExp[]
   defaultPosition: LogoPosition | null
   displayName: string
   description: string
+  strip: LogoStrip           // Which strip this logo type belongs to
+  isAutoLocked: boolean      // Brand logos are auto-locked, others are not
 }
 
 /**
  * Logo type configurations with pattern matching
  * Order matters - more specific patterns should come first
+ *
+ * Yi Brand Guidelines 2025:
+ * - Brand logos (Yi, Bharat Rising, CII) are AUTO-LOCKED to header strip
+ * - Vertical logos go to second strip (below header)
+ * - Sponsor/Partner logos go to footer
  */
 export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
-  // BRAND LOGOS - Top Row (mandatory fixed positions)
+  // BRAND LOGOS - Header Strip (mandatory fixed positions - AUTO-LOCKED)
   'yi-main': {
     type: 'brand',
     patterns: [
@@ -40,6 +59,8 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
     defaultPosition: 'top-left',
     displayName: 'Yi Logo',
     description: 'Main Yi brand logo - always top-left per brand guidelines',
+    strip: 'header',
+    isAutoLocked: true,           // Brand logos are auto-locked
   },
   'bharat-rising': {
     type: 'brand',
@@ -50,6 +71,8 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
     defaultPosition: 'top-center',
     displayName: 'Bharat Rising',
     description: '2025 theme logo - top-center per brand guidelines',
+    strip: 'header',
+    isAutoLocked: true,           // Brand logos are auto-locked
   },
   'cii-main': {
     type: 'brand',
@@ -61,9 +84,11 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
     defaultPosition: 'top-right',
     displayName: 'CII Logo',
     description: 'CII brand logo - always top-right per brand guidelines',
+    strip: 'header',
+    isAutoLocked: true,           // Brand logos are auto-locked
   },
 
-  // VERTICAL LOGOS - Middle Row (flexible positions within row)
+  // VERTICAL LOGOS - Second Strip (below header, flexible positions)
   'yi-vertical': {
     type: 'vertical',
     patterns: [
@@ -72,51 +97,78 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /yi\s+yuva/i,               // "Yi Yuva"
       /yi\s+net/i,                // "Yi Net"
       /yi\s+aspire/i,             // "Yi Aspire"
+      /yi\s+entrepreneurship/i,   // "Yi Entrepreneurship"
+      /yi\s+health/i,             // "Yi Health"
+      /yi\s+accessibility/i,      // "Yi Accessibility"
+      /yi\s+road\s*safety/i,      // "Yi Road Safety"
       /yi[-_]?erode/i,            // "Yi Erode", "Yi-Erode" (chapter)
       /yi[-_]?chapter/i,          // "Yi Chapter"
       /climate\s*change/i,        // Climate Change logo (program)
+      /masoom/i,                  // MASOOM - Keeping Children Safe
+      /thalir/i,                  // Thalir - school students program
+      /yuva/i,                    // Yuva - college students program
+      /rural\s*initiatives/i,    // Rural Initiatives
+      /leadership\s*academy/i,   // Leadership Academy
     ],
-    defaultPosition: null,        // No fixed position, use available in mid row
+    defaultPosition: 'mid-left',  // Below Yi logo by default (per brand guidelines)
     displayName: 'Yi Vertical',
-    description: 'Yi vertical program logo - second row per brand guidelines',
+    description: 'Yi vertical program logo - second strip below header',
+    strip: 'second',
+    isAutoLocked: false,          // Users can adjust position within strip
   },
 
-  // SPONSOR LOGOS - Bottom Row
+  // SPONSOR LOGOS - Footer Strip
   'sponsor': {
     type: 'sponsor',
     patterns: [
       /sponsor/i,
       /powered\s*by/i,
       /presenting\s*partner/i,
+      /title\s*sponsor/i,
     ],
-    defaultPosition: null,
+    defaultPosition: 'bottom-center',
     displayName: 'Sponsor',
-    description: 'Sponsor logo - footer/bottom row',
+    description: 'Sponsor logo - footer section',
+    strip: 'footer',
+    isAutoLocked: false,
   },
 
-  // PARTNER LOGOS - Bottom Row
+  // PARTNER LOGOS - Footer Strip
   'partner': {
     type: 'partner',
     patterns: [
       /partner/i,
       /associate/i,
       /supporter/i,
+      /collaborat/i,              // collaboration, collaborator
     ],
-    defaultPosition: null,
+    defaultPosition: 'bottom-left',
     displayName: 'Partner',
-    description: 'Partner logo - footer/bottom row',
+    description: 'Partner logo - footer section',
+    strip: 'footer',
+    isAutoLocked: false,
   },
 }
 
 /**
- * Recommended positions by logo type (row-based)
+ * Positions available for each strip in the two-strip layout
+ * Yi Brand Guidelines 2025: Header strip + Second strip for verticals
+ */
+export const STRIP_POSITIONS: Record<LogoStrip, LogoPosition[]> = {
+  header: ['top-left', 'top-center', 'top-right'],
+  second: ['mid-left', 'center', 'mid-right'],
+  footer: ['bottom-left', 'bottom-center', 'bottom-right'],
+}
+
+/**
+ * Recommended positions by logo type (maps to strip positions)
  */
 export const LOGO_TYPE_ROWS: Record<LogoType, LogoPosition[]> = {
-  brand: ['top-left', 'top-center', 'top-right'],
-  vertical: ['mid-left', 'center', 'mid-right'],
-  sponsor: ['bottom-left', 'bottom-center', 'bottom-right'],
-  partner: ['bottom-left', 'bottom-center', 'bottom-right'],
-  other: ['mid-left', 'center', 'mid-right'],
+  brand: STRIP_POSITIONS.header,
+  vertical: STRIP_POSITIONS.second,
+  sponsor: STRIP_POSITIONS.footer,
+  partner: STRIP_POSITIONS.footer,
+  other: STRIP_POSITIONS.second,  // Unrecognized logos go to second strip
 }
 
 /**
@@ -236,6 +288,50 @@ export function getLogoTypeConfig(logoName: string): LogoTypeConfig | null {
     if (config.patterns.some(pattern => pattern.test(logoName))) {
       return config
     }
+  }
+  return null
+}
+
+/**
+ * Check if a logo should be auto-locked to its position
+ * Brand logos (Yi, Bharat Rising, CII) are auto-locked per Yi Brand Guidelines 2025
+ *
+ * @param logoName - Name of the logo to check
+ * @returns true if logo should be auto-locked
+ */
+export function isLogoAutoLocked(logoName: string): boolean {
+  if (!logoName) return false
+
+  const config = getLogoTypeConfig(logoName)
+  return config?.isAutoLocked ?? false
+}
+
+/**
+ * Get the strip for a logo based on its type
+ *
+ * @param logoName - Name of the logo
+ * @returns The strip this logo belongs to
+ */
+export function getLogoStrip(logoName: string): LogoStrip {
+  if (!logoName) return 'second'
+
+  const config = getLogoTypeConfig(logoName)
+  return config?.strip ?? 'second'
+}
+
+/**
+ * Get the auto-locked position for a brand logo
+ * Returns null for non-auto-locked logos
+ *
+ * @param logoName - Name of the logo
+ * @returns Fixed position for auto-locked logos, null otherwise
+ */
+export function getAutoLockedPosition(logoName: string): LogoPosition | null {
+  if (!logoName) return null
+
+  const config = getLogoTypeConfig(logoName)
+  if (config?.isAutoLocked && config.defaultPosition) {
+    return config.defaultPosition
   }
   return null
 }

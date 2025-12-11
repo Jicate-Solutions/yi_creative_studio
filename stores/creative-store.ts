@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Creative, VerticalPreset, AIModel, OrganizationLogo, TemplateImage } from '@/types/database.types'
 import type { LogoPosition } from '@/lib/config/constants'
-import { detectLogoType, getSuggestedPosition, type LogoType } from '@/lib/config/logo-locks'
+import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
 import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors } from '@/lib/config/design-constants'
@@ -424,8 +424,10 @@ export const useCreativeStore = create<CreativeState>()(
         const logo = logos.find((l) => l.id === logoId)
         const existing = formData.logosPlacements.find((p) => p.logoId === logoId)
 
-        // PRD Edge Case E12: Maximum 4 logos per poster
-        if (formData.logosPlacements.length >= 4 && !existing) {
+        // Yi Brand Guidelines 2025: Support full two-strip layout system
+        // Header strip (3) + Second strip (3) + Footer strip (3) = 9 positions max
+        // Previously limited to 4, but this blocked footer/sponsor logos
+        if (formData.logosPlacements.length >= 9 && !existing) {
           return // Silently reject - UI should prevent this
         }
 
@@ -433,18 +435,38 @@ export const useCreativeStore = create<CreativeState>()(
           const usedPositions = formData.logosPlacements.map(p => p.position)
           const logoType = detectLogoType(logo.name)
 
-          // Smart positioning: Use suggested position based on logo type if requested position is taken
-          const isPositionTaken = usedPositions.includes(position)
-          const finalPosition = isPositionTaken
-            ? getSuggestedPosition(logo.name, usedPositions)
-            : position
+          // Yi Brand Guidelines 2025: Brand logos are auto-locked to their fixed positions
+          const autoLocked = isLogoAutoLocked(logo.name)
+          const autoLockedPosition = getAutoLockedPosition(logo.name)
+
+          // Determine final position:
+          // 1. If auto-locked (brand logo), use the locked position
+          // 2. If requested position is taken, use smart positioning
+          // 3. Otherwise use requested position
+          let finalPosition: LogoPosition
+          if (autoLocked && autoLockedPosition) {
+            // Brand logos always go to their fixed position (Yi=top-left, CII=top-right, etc.)
+            finalPosition = autoLockedPosition
+          } else {
+            const isPositionTaken = usedPositions.includes(position)
+            finalPosition = isPositionTaken
+              ? getSuggestedPosition(logo.name, usedPositions)
+              : position
+          }
 
           set({
             formData: {
               ...formData,
               logosPlacements: [
                 ...formData.logosPlacements,
-                { logoId, position: finalPosition, size, logo, isLocked: false, logoType }
+                {
+                  logoId,
+                  position: finalPosition,
+                  size,
+                  logo,
+                  isLocked: autoLocked, // Auto-lock brand logos, others start unlocked
+                  logoType
+                }
               ],
             },
           })
@@ -478,7 +500,13 @@ export const useCreativeStore = create<CreativeState>()(
 
           // If user has locked the position, prevent change
           if (placement?.isLocked) {
-            // Silently reject - user-locked logos cannot have their position changed
+            // Silently reject - locked logos cannot have their position changed
+            return state
+          }
+
+          // Yi Brand Guidelines 2025: Brand logos are auto-locked and cannot be moved
+          if (placement?.logo?.name && isLogoAutoLocked(placement.logo.name)) {
+            // Silently reject - brand logos cannot have their position changed
             return state
           }
 
@@ -503,14 +531,25 @@ export const useCreativeStore = create<CreativeState>()(
         })),
 
       toggleLogoLock: (logoId) =>
-        set((state) => ({
-          formData: {
-            ...state.formData,
-            logosPlacements: state.formData.logosPlacements.map((p) =>
-              p.logoId === logoId ? { ...p, isLocked: !p.isLocked } : p
-            ),
-          },
-        })),
+        set((state) => {
+          // Find the placement being toggled
+          const placement = state.formData.logosPlacements.find(p => p.logoId === logoId)
+
+          // Yi Brand Guidelines 2025: Brand logos are always locked and cannot be unlocked
+          if (placement?.logo?.name && isLogoAutoLocked(placement.logo.name)) {
+            // Silently reject - brand logos cannot have their lock toggled
+            return state
+          }
+
+          return {
+            formData: {
+              ...state.formData,
+              logosPlacements: state.formData.logosPlacements.map((p) =>
+                p.logoId === logoId ? { ...p, isLocked: !p.isLocked } : p
+              ),
+            },
+          }
+        }),
 
       clearLogoPlacements: () =>
         set((state) => ({
@@ -1210,12 +1249,23 @@ export const useCreativeStore = create<CreativeState>()(
           }
 
           // Migrate old placements without isLocked or logoType properties
+          // Yi Brand Guidelines 2025: Ensure brand logos are auto-locked
           if (state.formData?.logosPlacements) {
-            state.formData.logosPlacements = state.formData.logosPlacements.map(p => ({
-              ...p,
-              isLocked: p.isLocked ?? false, // Default to unlocked for existing placements
-              logoType: p.logoType ?? detectLogoType(p.logo?.name || ''), // Auto-detect type
-            }))
+            state.formData.logosPlacements = state.formData.logosPlacements.map(p => {
+              const logoName = p.logo?.name || ''
+              const logoType = p.logoType ?? detectLogoType(logoName)
+              const autoLocked = isLogoAutoLocked(logoName)
+              const autoLockedPosition = getAutoLockedPosition(logoName)
+
+              return {
+                ...p,
+                // Brand logos are always locked, others use their saved state or default to unlocked
+                isLocked: autoLocked || (p.isLocked ?? false),
+                logoType,
+                // Brand logos must be in their fixed position
+                position: (autoLocked && autoLockedPosition) ? autoLockedPosition : p.position,
+              }
+            })
           }
 
           // Reset AI design suggestions loading states

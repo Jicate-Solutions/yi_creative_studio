@@ -36,14 +36,21 @@ export interface LogoAwarenessContext {
 /**
  * Maps logo positions to natural language descriptions
  * Used to help AI understand where content should not be placed
+ *
+ * Yi Brand Guidelines 2025 - Two-Strip Layout:
+ * - mid-left, center, mid-right are positioned JUST BELOW the header strip
+ *   (like a subtitle row), not at the vertical center of the design
  */
 export const LOGO_POSITION_DESCRIPTIONS: Record<LogoPosition, string> = {
+  // HEADER STRIP - Top row (Brand logos)
   'top-left': 'upper left corner',
   'top-center': 'top center area',
   'top-right': 'upper right corner',
-  'mid-left': 'left side, vertically centered',
-  'center': 'center of the design',
-  'mid-right': 'right side, vertically centered',
+  // SECOND STRIP - Just below header (Vertical logos, like subtitle position)
+  'mid-left': 'left side, just below the top header area',
+  'center': 'center, just below the top header area',
+  'mid-right': 'right side, just below the top header area',
+  // FOOTER STRIP - Bottom row (Sponsors/Partners)
   'bottom-left': 'lower left corner',
   'bottom-center': 'bottom center area',
   'bottom-right': 'lower right corner',

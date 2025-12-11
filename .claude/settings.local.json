@@ -125,7 +125,8 @@
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm install\")",
-      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm run build 2>&1\")"
+      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm run build 2>&1\")",
+      "mcp__filesystem__list_allowed_directories"
     ],
     "deny": [],
     "ask": [],

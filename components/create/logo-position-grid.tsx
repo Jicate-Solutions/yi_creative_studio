@@ -29,7 +29,7 @@ import {
 import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, LockOpen, Info, AlertTriangle } from 'lucide-react'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
 import { type LogoSizePreset } from '@/lib/constants/logoConstants'
-import { detectLogoType, getComplianceWarning } from '@/lib/config/logo-locks'
+import { detectLogoType, getComplianceWarning, isLogoAutoLocked } from '@/lib/config/logo-locks'
 
 const POSITION_LABELS: Record<LogoPosition, string> = {
   'top-left': 'Top Left',
@@ -128,7 +128,7 @@ export function LogoPositionGrid() {
                 </TooltipContent>
               </Tooltip>
               <Badge variant="outline" className="ml-auto text-xs">
-                {formData.logosPlacements.length} / 4
+                {formData.logosPlacements.length} / 9
               </Badge>
             </div>
 
@@ -235,7 +235,7 @@ export function LogoPositionGrid() {
                       <HoverCardTrigger asChild>
                         <button
                           onClick={() => !isPlaced && handleAddLogo(logo.id)}
-                          disabled={isPlaced || placedPositions.length >= 4}
+                          disabled={isPlaced || placedPositions.length >= 9}
                           className={cn(
                             'relative aspect-square rounded-lg border-2 p-2 transition-all group',
                             isPlaced
@@ -275,8 +275,8 @@ export function LogoPositionGrid() {
                           )}
                           {isPlaced ? (
                             <p className="text-xs text-muted-foreground">Already placed</p>
-                          ) : placedPositions.length >= 4 ? (
-                            <p className="text-xs text-destructive">Maximum 4 logos allowed</p>
+                          ) : placedPositions.length >= 9 ? (
+                            <p className="text-xs text-destructive">Maximum 9 logos allowed</p>
                           ) : (
                             <p className="text-xs text-muted-foreground">Click to add</p>
                           )}
@@ -322,7 +322,7 @@ export function LogoPositionGrid() {
               <Move className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Placed Logos</span>
               <Badge variant="outline" className="text-xs ml-auto">
-                {formData.logosPlacements.length} / 4
+                {formData.logosPlacements.length} / 9
               </Badge>
             </div>
 
@@ -332,13 +332,17 @@ export function LogoPositionGrid() {
                 const logo = placement.logo || logos.find((l) => l.id === placement.logoId)
                 if (!logo) return null
 
-                const isLocked = placement.isLocked // User-controlled lock
+                const autoLocked = isLogoAutoLocked(logo.name) // Yi Brand Guidelines: Brand logos are auto-locked
+                const isLocked = autoLocked || placement.isLocked // Either auto-locked or user-locked
                 const currentSize = placement.size || 'medium'
 
                 return (
                   <div
                     key={placement.logoId}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border"
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg border",
+                      autoLocked ? "bg-primary/5 border-primary/30" : "bg-muted/50"
+                    )}
                   >
                     {/* Logo Thumbnail */}
                     <div className="w-8 h-8 rounded bg-background border p-0.5 flex-shrink-0">
@@ -353,12 +357,18 @@ export function LogoPositionGrid() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <p className="text-xs font-medium truncate">{logo.name}</p>
-                        {/* Logo Type Badge */}
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 shrink-0">
-                          {placement.logoType || detectLogoType(logo.name)}
+                        {/* Logo Type Badge - Highlight brand logos */}
+                        <Badge
+                          variant={autoLocked ? "default" : "outline"}
+                          className={cn(
+                            "text-[9px] px-1 py-0 h-3.5 shrink-0",
+                            autoLocked && "bg-primary text-primary-foreground"
+                          )}
+                        >
+                          {autoLocked ? "Brand" : (placement.logoType || detectLogoType(logo.name))}
                         </Badge>
-                        {/* Compliance Warning */}
-                        {(() => {
+                        {/* Compliance Warning - only show for non-auto-locked logos */}
+                        {!autoLocked && (() => {
                           const warning = getComplianceWarning(logo.name, placement.position)
                           return warning ? (
                             <Tooltip>
@@ -373,30 +383,47 @@ export function LogoPositionGrid() {
                         })()}
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
-                        {/* Lock Toggle Button */}
+                        {/* Lock Toggle Button - Disabled for auto-locked brand logos */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-5 w-5 p-0"
-                              onClick={() => toggleLogoLock(placement.logoId)}
+                              className={cn(
+                                "h-5 w-5 p-0",
+                                autoLocked && "cursor-not-allowed opacity-70"
+                              )}
+                              onClick={() => !autoLocked && toggleLogoLock(placement.logoId)}
+                              disabled={autoLocked}
                             >
                               {isLocked ? (
-                                <Lock className="h-3 w-3 text-primary" />
+                                <Lock className={cn("h-3 w-3", autoLocked ? "text-primary" : "text-primary")} />
                               ) : (
                                 <LockOpen className="h-3 w-3 text-muted-foreground" />
                               )}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            <p>{isLocked ? 'Click to unlock position' : 'Click to lock position'}</p>
+                            <p>
+                              {autoLocked
+                                ? 'Brand logo - Fixed position per Yi Brand Guidelines'
+                                : isLocked
+                                  ? 'Click to unlock position'
+                                  : 'Click to lock position'
+                              }
+                            </p>
                           </TooltipContent>
                         </Tooltip>
 
-                        {/* Position Selector (compact) */}
+                        {/* Position Selector (compact) - Always badge for locked/auto-locked */}
                         {isLocked ? (
-                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "text-[10px] px-1 py-0 h-4",
+                              autoLocked && "bg-primary/20 text-primary"
+                            )}
+                          >
                             {POSITION_LABELS[placement.position].split(' ').map(w => w[0]).join('')}
                           </Badge>
                         ) : (
