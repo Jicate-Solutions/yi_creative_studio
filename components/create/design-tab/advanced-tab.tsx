@@ -321,35 +321,17 @@ export function AdvancedTab({ customization, onCustomizationChange }: AdvancedTa
                 </Select>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Show Website</Label>
-                  <Switch
-                    checked={customization.footer.showWebsite}
-                    onCheckedChange={(checked: boolean) => handleFooterChange('showWebsite', checked)}
-                  />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Use Brand Info</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Include website, phone, email & social from brand settings
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label>Show Phone</Label>
-                  <Switch
-                    checked={customization.footer.showPhone}
-                    onCheckedChange={(checked: boolean) => handleFooterChange('showPhone', checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Show Email</Label>
-                  <Switch
-                    checked={customization.footer.showEmail}
-                    onCheckedChange={(checked: boolean) => handleFooterChange('showEmail', checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Show Social</Label>
-                  <Switch
-                    checked={customization.footer.showSocial}
-                    onCheckedChange={(checked: boolean) => handleFooterChange('showSocial', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={customization.footer.useBrandInfo}
+                  onCheckedChange={(checked: boolean) => handleFooterChange('useBrandInfo', checked)}
+                />
               </div>
 
               <div className="space-y-2">

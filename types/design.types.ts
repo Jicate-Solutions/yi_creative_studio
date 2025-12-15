@@ -31,7 +31,27 @@ export type {
 } from '@/lib/config/design-constants'
 
 // Creation mode type
-export type CreationMode = 'template' | 'scratch'
+export type CreationMode = 'template' | 'scratch' | string
+
+// Badge variant types for mode selector
+export type ModeBadgeVariant = 'success' | 'info' | 'warning' | 'gold' | 'default'
+
+// Mode configuration for scalable mode selector
+export interface ModeConfig {
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  badge?: {
+    text: string
+    variant: ModeBadgeVariant
+  }
+  description: string
+  workflow: string
+  features: Array<{
+    text: string
+    variant?: string
+  }>
+}
 
 // Event details for prompt generation
 export interface EventDetails {

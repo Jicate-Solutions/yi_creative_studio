@@ -21,6 +21,7 @@ async function getSharp(): Promise<typeof sharp> {
   return sharpInstance
 }
 import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
+import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
 import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
 import { ASPECT_RATIOS, DIMENSION_QUALITY } from '@/lib/config/design-constants'
@@ -116,6 +117,8 @@ export async function POST(request: NextRequest) {
       provider,
       verticalSlug,
       logosPlacements,
+      logoBackgroundColor, // Global background color for all logos
+      logoStripMode, // Unified strip layout mode
       organizationId,
       templateId,
       templateUrl,
@@ -132,6 +135,8 @@ export async function POST(request: NextRequest) {
       provider: string
       verticalSlug: string
       logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string; name?: string } }>
+      logoBackgroundColor?: string // Global background color for all logos (hex)
+      logoStripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] } // Strip layout mode
       organizationId: string
       templateId: string | null
       templateUrl: string | null
@@ -179,9 +184,59 @@ export async function POST(request: NextRequest) {
       .eq('id', organizationId)
       .single()
 
-    // Extract font preference from brand_config (JSON column)
-    const brandConfig = orgData?.brand_config as { fontPrimary?: string; fontSecondary?: string } | null
+    // Extract font preference AND brand colors from brand_config (JSON column)
+    // v3.3: Now includes colors for proper useBrandColors support
+    // v3.4: Now includes footer contact details for creative footers
+    const brandConfig = orgData?.brand_config as {
+      fontPrimary?: string
+      fontSecondary?: string
+      primaryColor?: string
+      secondaryColor?: string
+      accentColor?: string
+      footerWebsite?: string
+      footerPhone?: string
+      footerEmail?: string
+      footerAddress?: string
+      footerSocial?: {
+        instagram?: string
+        linkedin?: string
+        facebook?: string
+        twitter?: string
+      }
+    } | null
     const fontPreference = brandConfig?.fontPrimary || undefined
+
+    // Extract effective footer contact values based on useBrand* toggle:
+    // - useBrand* = true (or undefined/default) → use brand configured value
+    // - useBrand* = false → use custom per-creative value
+    const footerConfig = designData?.customization?.footer
+    const footerContext = {
+      website: (footerConfig?.useBrandWebsite ?? true)
+        ? (brandConfig?.footerWebsite || '')
+        : (footerConfig?.customWebsite || ''),
+      phone: (footerConfig?.useBrandPhone ?? true)
+        ? (brandConfig?.footerPhone || '')
+        : (footerConfig?.customPhone || ''),
+      email: (footerConfig?.useBrandEmail ?? true)
+        ? (brandConfig?.footerEmail || '')
+        : (footerConfig?.customEmail || ''),
+      address: (footerConfig?.useBrandAddress ?? true)
+        ? (brandConfig?.footerAddress || '')
+        : (footerConfig?.customAddress || ''),
+      social: (footerConfig?.useBrandSocial ?? true)
+        ? (brandConfig?.footerSocial ? {
+            instagram: brandConfig.footerSocial.instagram || '',
+            linkedin: brandConfig.footerSocial.linkedin || '',
+            facebook: brandConfig.footerSocial.facebook || '',
+            twitter: brandConfig.footerSocial.twitter || '',
+          } : null)
+        : (footerConfig?.customSocial ? {
+            instagram: footerConfig.customSocial.instagram || '',
+            linkedin: footerConfig.customSocial.linkedin || '',
+            facebook: footerConfig.customSocial.facebook || '',
+            twitter: footerConfig.customSocial.twitter || '',
+          } : null),
+    }
 
     // ========================================================
     // API USAGE TRACKING - Track token usage and costs
@@ -192,6 +247,89 @@ export async function POST(request: NextRequest) {
       // creativeId will be set after creation if needed
     })
 
+    // ========================================================
+    // PREVENTION CHECK - Pre-check against learned patterns
+    // ========================================================
+    // This uses the Feedback Learning Agent to detect potential issues
+    // before generation and apply adjustments to prevent known problems
+    let preventionActionId: string | null = null
+    let adjustedUserFormData = userFormData
+    let promptEnhancements: string[] = []  // Collect prompt enhancements from prevention
+    let configOverrides: Record<string, unknown> = {}  // Collect config overrides from prevention
+
+    // A/B Testing: 10% holdout group for measuring prevention effectiveness
+    const isHoldout = Math.random() < 0.10
+    let preventionApplied = false
+
+    // Skip prevention for holdout group (for A/B testing)
+    if (isHoldout) {
+      console.log('[Prevention] A/B Test: Creative is in holdout group, skipping prevention')
+    }
+
+    // Only run prevention for non-holdout group (A/B testing)
+    if (!isHoldout) {
+      try {
+        const { preventIssuesSafe } = await import('@/lib/agents/feedback-learning-agent')
+        const preventionResult = await preventIssuesSafe({
+          formatId: formatId || 'unknown',
+          formData: userFormData || {},
+          designData: designData as Record<string, unknown>,
+          logosPlacements: logosPlacements?.map((lp: { logoId: string; position: string }) => ({
+            type: lp.logoId as 'yi' | 'cii' | 'custom',
+            position: lp.position,
+            size: 'medium' as const,
+          })),
+          organizationId,
+          userId: user.id,
+        })
+
+        if (preventionResult.success && preventionResult.shouldAdjust) {
+          console.log('[Prevention] Applying', preventionResult.adjustments.length, 'adjustments')
+          console.log('[Prevention] Reasoning:', preventionResult.reasoning)
+
+          // Mark that prevention was applied for A/B testing tracking
+          preventionApplied = true
+
+          // Apply adjustments based on type
+          for (const adjustment of preventionResult.adjustments) {
+            if (adjustment.type === 'field_modification' && adjustment.target) {
+              // Direct field modification
+              adjustedUserFormData = {
+                ...adjustedUserFormData,
+                [adjustment.target]: adjustment.suggestedValue,
+              }
+            } else if (adjustment.type === 'prompt_enhancement' && adjustment.suggestedValue) {
+              // Collect prompt enhancements for injection into prompt building
+              promptEnhancements.push(adjustment.suggestedValue as string)
+              console.log('[Prevention] Collected prompt enhancement:', (adjustment.suggestedValue as string).substring(0, 100))
+            } else if (adjustment.type === 'config_override' && adjustment.target) {
+              // Collect config overrides to apply to designData
+              configOverrides[adjustment.target] = adjustment.suggestedValue
+              console.log('[Prevention] Collected config override:', adjustment.target, '=', adjustment.suggestedValue)
+            }
+          }
+
+          preventionActionId = preventionResult.preventionActionId || null
+        }
+      } catch (preventionError) {
+        // Prevention errors should not block generation
+        console.warn('[Prevention] Check failed, continuing without adjustments:', preventionError)
+      }
+    }
+
+    // Apply config overrides from prevention to designData
+    // This allows learned patterns to modify design configuration
+    // Create effectiveDesignData to avoid reassigning const
+    const effectiveDesignData: DesignData | null | undefined =
+      (Object.keys(configOverrides).length > 0 && designData)
+        ? { ...designData, ...configOverrides } as DesignData
+        : designData
+
+    // Log collected prompt enhancements for debugging
+    if (promptEnhancements.length > 0) {
+      console.log('[Prevention] Collected', promptEnhancements.length, 'prompt enhancements for injection')
+    }
+
     // Logo position validation removed - users can now place logos anywhere
     // Position locking is now user-controlled via the UI
 
@@ -199,7 +337,7 @@ export async function POST(request: NextRequest) {
 
     // Determine if user has their own speaker photo to overlay
     // If yes, we don't want AI to generate placeholder speaker in the design
-    const speakerPhoto = designData?.customization?.speakerPhoto
+    const speakerPhoto = effectiveDesignData?.customization?.speakerPhoto
     const userHasSpeakerPhoto = speakerPhoto?.enabled && speakerPhoto?.photoUrl
 
     // Enhance prompt with format context if a format is selected
@@ -221,16 +359,16 @@ export async function POST(request: NextRequest) {
       // If user has their own photo, disable speaker photo in prompt to avoid AI generating placeholder
       const promptDesignData = userHasSpeakerPhoto
         ? {
-            ...designData,
+            ...effectiveDesignData,
             customization: {
-              ...designData.customization,
+              ...effectiveDesignData.customization,
               speakerPhoto: {
-                ...designData.customization.speakerPhoto,
+                ...effectiveDesignData.customization.speakerPhoto,
                 enabled: false, // Don't tell AI about speaker photo if user will overlay their own
               },
             },
           }
-        : designData
+        : effectiveDesignData
 
       // ========================================================
       // STAGE 1: Design Intelligence (AI-Powered Context Generation)
@@ -247,11 +385,15 @@ export async function POST(request: NextRequest) {
       const parsedContent = parseEventContent(prompt)
 
       // Extract from user form data (PRIMARY - more reliable than parsing prompt)
-      const formDataContent = extractFromFormData(userFormData)
+      // Note: Using adjustedUserFormData which may have prevention adjustments applied
+      const formDataContent = extractFromFormData(adjustedUserFormData)
 
       // Log for debugging - helps verify form data is being received
       console.log('[Generate] === USER FORM DATA ===')
-      console.log('[Generate] Raw Form Data:', JSON.stringify(userFormData, null, 2))
+      console.log('[Generate] Raw Form Data:', JSON.stringify(adjustedUserFormData, null, 2))
+      if (preventionActionId) {
+        console.log('[Generate] Prevention Action ID:', preventionActionId)
+      }
       console.log('[Generate] Extracted Event Name:', formDataContent.eventName || '(not found)')
       console.log('[Generate] Extracted Guest Name:', formDataContent.guestName || '(not found)')
       console.log('[Generate] Fallback (parsed) Event Name:', parsedContent.eventName || '(not found)')
@@ -264,7 +406,10 @@ export async function POST(request: NextRequest) {
       // STAGE 0.5: COMPILE FORM DATA & GENERATE ULTRA-PRO PROMPT
       // Uses Claude AI to transform user values into optimized prompt
       // ========================================================
-      const compiledData = compileFormData(userFormData, formatId, designData, language)
+      // Pass speaker photo enabled flag to prevent speaker data leakage when disabled
+      // Note: Using adjustedUserFormData which may have prevention adjustments applied
+      const speakerPhotoEnabled = speakerPhoto?.enabled ?? false
+      const compiledData = compileFormData(adjustedUserFormData, formatId, effectiveDesignData, language, speakerPhotoEnabled)
       console.log('[Generate] === COMPILED FORM DATA ===')
       console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
 
@@ -299,8 +444,8 @@ export async function POST(request: NextRequest) {
       const cleanedPrompt = sanitizePlaceholders(cleanPromptInstructions(prompt), 'cleanedPrompt')
 
       // Extract visual layout context from customization
-      const speakerPhotoConfig = designData.customization?.speakerPhoto
-      const layoutConfig = designData.customization?.layout
+      const speakerPhotoConfig = effectiveDesignData.customization?.speakerPhoto
+      const layoutConfig = effectiveDesignData.customization?.layout
 
       // Get format info for format-aware design intelligence
       const formatTemplate = formatId ? getTemplateForFormat(formatId) : null
@@ -328,6 +473,7 @@ export async function POST(request: NextRequest) {
         title: formDataContent.eventName || compiledData.eventName || '',
         description: compiledData.description || cleanedPrompt || '',
         venue: formDataContent.venue || compiledData.venue || '',
+        // v4.3: Speaker data flows freely for TEXT rendering (reverted from v4.2 gating)
         speakerName: formDataContent.guestName || compiledData.speakerName || '',
         speakerDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || '',
         tagline: compiledData.tagline || '',
@@ -343,11 +489,11 @@ export async function POST(request: NextRequest) {
 
       // Determine final theme: User selection takes priority, but inference provides fallback/enhancement
       // If user hasn't explicitly selected a theme (default), use inferred theme
-      const finalTheme = designData.theme || themeInference.suggestedTheme
-      const finalStyle = designData.style || themeInference.inferredStyle
+      const finalTheme = effectiveDesignData.theme || themeInference.suggestedTheme
+      const finalStyle = effectiveDesignData.style || themeInference.inferredStyle
 
       console.log('[Generate] === THEME INFERENCE ===')
-      console.log('[Generate] User Selected Theme:', designData.theme || '(none)')
+      console.log('[Generate] User Selected Theme:', effectiveDesignData.theme || '(none)')
       console.log('[Generate] Inferred Theme:', themeInference.suggestedTheme, `(${themeInference.confidence})`)
       console.log('[Generate] Reason:', themeInference.reason)
       console.log('[Generate] Inferred Mood:', themeInference.inferredMood)
@@ -365,6 +511,8 @@ export async function POST(request: NextRequest) {
         details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt for visual guidance
         theme: finalTheme,
         style: finalStyle,
+        // Speaker/Guest data - flows freely for TEXT rendering
+        // v4.3: Reverted from v4.1 gating - speaker TEXT should render, only PHOTO PLACEHOLDER should be prevented
         guestName: formDataContent.guestName || compiledData.speakerName || parsedContent.guestName,
         guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
         venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
@@ -467,7 +615,7 @@ export async function POST(request: NextRequest) {
 
         // Store original speaker photo config BEFORE it was disabled for prompt
         // This allows builders to reserve the correct zone even when user overlays their own photo
-        const originalSpeakerPhotoConfig = designData.customization?.speakerPhoto
+        const originalSpeakerPhotoConfig = effectiveDesignData.customization?.speakerPhoto
 
         const buildOptions: EnhancedBuildOptions = {
           verticalId: verticalSlug,
@@ -490,24 +638,27 @@ export async function POST(request: NextRequest) {
           } : undefined,
 
           // Brand context - always include organization info for awareness
-          // useBrandColors flag determines if colors should be applied
+          // v3.3: useBrandColors now uses organization's brand_config colors (not design customization)
           // fontPreference is ALWAYS applied when available (v3.2 - hybrid approach)
-          brandContext: {
-            organizationName: designBrief.organizationName || 'Yi Creatives',
-            brandName: designBrief.organizationName,
-            // Include colors when available
-            primaryColor: promptDesignData?.customization?.background?.primaryColor,
-            secondaryColor: promptDesignData?.customization?.background?.secondaryColor,
-            accentColor: promptDesignData?.customization?.title?.color,
-            // Flag to control color application
-            useBrandColors: promptDesignData?.colorConfig?.useBrandColors ?? false,
-            // NEW v3.2: Font preference from organization settings (always applied when available)
-            fontPreference: fontPreference,
-          },
+          brandContext: (() => {
+            const useBrandColors = promptDesignData?.colorConfig?.useBrandColors ?? false
+            return {
+              organizationName: designBrief.organizationName || 'Yi Creatives',
+              brandName: designBrief.organizationName,
+              // v3.3: Use organization brand colors from brand_config when useBrandColors is enabled
+              primaryColor: useBrandColors ? brandConfig?.primaryColor : undefined,
+              secondaryColor: useBrandColors ? brandConfig?.secondaryColor : undefined,
+              accentColor: useBrandColors ? brandConfig?.accentColor : undefined,
+              // Flag to control color application
+              useBrandColors: useBrandColors,
+              // NEW v3.2: Font preference from organization settings (always applied when available)
+              fontPreference: fontPreference,
+            }
+          })(),
 
           // NEW v3.1: Theme & style preferences
-          theme: designData.theme,
-          style: designData.style,
+          theme: effectiveDesignData.theme,
+          style: effectiveDesignData.style,
 
           // NEW v3.1: Layout zone configuration (header/footer heights)
           layout: layoutConfig ? {
@@ -515,18 +666,15 @@ export async function POST(request: NextRequest) {
             footerHeight: layoutConfig.footerHeight,
           } : undefined,
 
-          // NEW v3.1: Speaker photo zone config (passed even when user has own photo)
-          // This allows builders to reserve the correct zone for overlay
-          speakerPhotoConfig: originalSpeakerPhotoConfig?.enabled ? {
-            enabled: true,  // Always true if user enabled speaker photo (we want zone reserved)
+          // v3.4: Only reserve speaker photo zone when user has ACTUALLY uploaded a photo
+          // If enabled but no photo, don't send zone instructions (prevents AI from drawing placeholder frame)
+          // Previous behavior: sent zone config with hasUserPhoto=false, causing AI to render a visible placeholder frame
+          speakerPhotoConfig: (originalSpeakerPhotoConfig?.enabled && originalSpeakerPhotoConfig?.photoUrl) ? {
+            enabled: true,
             position: originalSpeakerPhotoConfig.position as 'left' | 'right' | 'center',
-            // Convert numeric size (percentage) to string literal
             size: (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large') as 'small' | 'medium' | 'large',
             shape: originalSpeakerPhotoConfig.shape as 'circle' | 'rounded' | 'square',
-            // NEW v3.2: Indicate if user has uploaded their own photo
-            // - true: Photo will be overlaid (AI keeps zone clean for overlay)
-            // - false: Placeholder only (AI creates clean placeholder zone, NO human face)
-            hasUserPhoto: !!originalSpeakerPhotoConfig.photoUrl,
+            hasUserPhoto: true,  // Always true now since we only send config when photo exists
           } : undefined,
 
           // NEW v3.1: Organization context for branding identity
@@ -545,19 +693,32 @@ export async function POST(request: NextRequest) {
           // NEW v3.2: Design context from Design Intelligence stage
           // Contains AI-generated visual elements, background setting, and iconic imagery
           // Used by format builders to inject decorative elements into prompts
+          // v3.7: Skip AI color suggestions when brand colors are enabled to prevent conflict
           designContext: designContext ? {
             corePurpose: designContext.corePurpose,
             visualElements: designContext.visualElements,
             backgroundSetting: designContext.backgroundSetting,
             iconicImagery: designContext.iconicImagery,
-            colorStrategy: designContext.colorStrategy,
-            moodDirection: designContext.moodDirection,
+            // Skip AI color strategy when using brand colors to avoid color conflict
+            colorStrategy: (promptDesignData?.colorConfig?.useBrandColors) ? undefined : designContext.colorMood,
+            moodDirection: designContext.designStrategy,
           } : undefined,
+
+          // NEW v3.4: Footer contact information for creative footers
+          // Contains effective values (custom per-creative OR brand defaults)
+          footerContext: (footerContext.website || footerContext.phone || footerContext.email || footerContext.address || footerContext.social) ? footerContext : undefined,
+
+          // NEW v4.0: Prevention enhancements from Feedback Learning Agent
+          // Contains learned prompt improvements based on past user feedback
+          preventionEnhancements: promptEnhancements.length > 0 ? promptEnhancements : undefined,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
 
-        // Build XML-structured prompt using YiPromptBuilder with enhanced options
+        // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
+        // The "no placeholder" instruction is added in format builders instead
+
+        // Build XML-structured prompt using YiPromptBuilder
         const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, buildOptions)
 
         // Inject vertical context if applicable (redundant with buildOptions.verticalId but kept for compatibility)
@@ -635,6 +796,13 @@ export async function POST(request: NextRequest) {
         console.log('[Template Mode] Logo Awareness:', buildLogoSummary(logosPlacements as LogoPlacement[]))
       }
 
+      // v4.3: Speaker photo config for template mode (used for zone instructions, not data gating)
+      const templateSpeakerPhoto = effectiveDesignData?.customization?.speakerPhoto
+      const templateSpeakerPhotoEnabled = templateSpeakerPhoto?.enabled ?? false
+
+      // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
+      // The "no placeholder" instruction is added in format builders instead
+
       // Build v3.0 prompt if format is supported
       let templatePrompt = prompt
       if (formatId && YiPromptBuilder.isSupportedFormat(formatId)) {
@@ -669,12 +837,13 @@ export async function POST(request: NextRequest) {
           formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
         }
 
-        // Build v3.0 prompt for template adaptation
+        // Build v3.0 prompt for template adaptation (v4.3: using raw userFormData)
         templatePrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, templateBuildOptions)
         console.log('[Template Mode] v3.0 Prompt Preview:', templatePrompt.substring(0, 500))
       }
 
       // Template mode uses '1K' resolution since Gemini Vision only supports 1K
+      // v4.3: Using raw userFormData (sanitization removed - handled in format builders)
       imageUrl = await generateFromTemplate(templatePrompt, templateUrl, verticalSlug, userFormData, formatDimensions || undefined, selectedFormat, '1K', formatId)
 
       // Increment template use count
@@ -707,8 +876,9 @@ export async function POST(request: NextRequest) {
 
     // If logos need to be overlaid, process with Sharp
     if (logosPlacements && logosPlacements.length > 0) {
-      console.log(`Processing ${logosPlacements.length} logo placements`)
-      imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase)
+      console.log(`Processing ${logosPlacements.length} logo placements with background color: ${logoBackgroundColor || '#FFFFFF'}`)
+      console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}`)
+      imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode)
     }
 
     // If speaker photo is enabled and user has uploaded a photo, overlay it
@@ -738,6 +908,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ========================================================
+    // THUMBNAIL GENERATION: Create compressed preview for gallery
+    // This runs server-side to avoid CORS issues with client-side Canvas
+    // Thumbnails are ~20KB vs 1MB+ for full images
+    // ========================================================
+    let thumbnailUrl: string | null = null
+    if (imageUrl && !imageUrl.startsWith('data:')) {
+      try {
+        console.log('[Generate] Generating thumbnail for gallery preview...')
+        const sharp = await getSharp()
+
+        // Fetch the full image from storage URL
+        const imageResponse = await fetch(imageUrl)
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image: ${imageResponse.status}`)
+        }
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
+
+        // Generate thumbnail (400px width, maintain aspect ratio, 70% JPEG quality)
+        const thumbnailBuffer = await sharp(imageBuffer)
+          .resize(400, null, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 70 })
+          .toBuffer()
+
+        // Upload thumbnail to storage with thumb_ prefix
+        const thumbnailFilename = `${organizationId}/thumb_${randomUUID()}.jpg`
+        const { error: thumbUploadError } = await supabase.storage
+          .from('creatives')
+          .upload(thumbnailFilename, thumbnailBuffer, {
+            contentType: 'image/jpeg',
+            cacheControl: '31536000', // 1 year cache
+            upsert: false,
+          })
+
+        if (thumbUploadError) {
+          throw new Error(`Thumbnail upload failed: ${thumbUploadError.message}`)
+        }
+
+        // Get public URL for thumbnail
+        const { data: thumbUrlData } = supabase.storage
+          .from('creatives')
+          .getPublicUrl(thumbnailFilename)
+
+        thumbnailUrl = thumbUrlData.publicUrl
+        console.log('[Generate] Thumbnail generated successfully:', thumbnailUrl.substring(0, 80) + '...')
+      } catch (thumbError) {
+        console.warn('[Generate] Thumbnail generation failed (gallery will use full image):', thumbError)
+        // Don't fail generation - gallery will fall back to full image
+      }
+    }
+
     // Track image generation (estimated tokens for Gemini)
     // Cost calculation: Input tokens (text prompt) + flat image rate
     // Image cost is NOT based on output tokens - it's a flat rate per image:
@@ -749,7 +970,7 @@ export async function POST(request: NextRequest) {
       const imageModel = model || 'gemini-2.5-flash-image'
       // Estimate input tokens from prompt length (~4 chars per token)
       const estimatedInputTokens = Math.ceil(prompt.length / 4)
-      const requestedResolution = (designData?.resolution || '1K') as '1K' | '2K' | '4K'
+      const requestedResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
 
       await usageTracker.track(
         'image_generation',
@@ -791,6 +1012,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       imageUrl,
+      thumbnailUrl, // Server-generated thumbnail for gallery preview
+      // v4.0: Include prevention action ID for fix validation tracking
+      preventionActionId: preventionActionId || undefined,
+      // v4.1: A/B testing data for prevention effectiveness measurement
+      // These values should be stored with the creative for later analysis
+      preventionHoldout: isHoldout,
+      preventionApplied: preventionApplied,
       usage: {
         costUsd: costSummary.totalCostUsd,
         costInr: costSummary.totalCostInr,
@@ -1531,12 +1759,22 @@ async function generateWithGemini(
     }
   } else {
     // gemini-2.5-flash-image: Simple request without imageConfig (model generates images by default)
+    // CRITICAL FIX: Flash model doesn't support imageConfig.aspectRatio, so we embed
+    // aspect ratio instructions directly in the prompt to prevent gaps/distortion
     console.log('[Generate] Using Flash model with simple request structure (no imageConfig)')
+
+    // Build aspect ratio instruction for Flash model
+    const aspectRatioInstruction = format
+      ? `\n\nCRITICAL ASPECT RATIO REQUIREMENT: Generate this image at EXACTLY ${format.aspectRatio} aspect ratio (${format.width}x${format.height} pixels). The image MUST fill the entire canvas edge-to-edge with NO empty borders, NO letterboxing, NO white gaps, and NO padding. The design content should extend to ALL four edges of the image.`
+      : ''
+
+    console.log('[Generate] Flash model aspect ratio instruction:', format ? `${format.aspectRatio} (${format.width}x${format.height})` : 'none')
+
     requestBody = {
       contents: [
         {
           role: 'user',
-          parts: [{ text: sanitizedPrompt }],
+          parts: [{ text: sanitizedPrompt + aspectRatioInstruction }],
         },
       ],
     }
@@ -1672,8 +1910,17 @@ async function generateWithIdeogram(
 
 async function overlayLogos(
   imageUrl: string,
-  logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string } }>,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  logosPlacements: Array<{
+    logoId: string
+    position: string
+    size?: LogoSizePreset | number
+    backgroundShape?: LogoBackgroundShape
+    backgroundStyle?: LogoBackgroundStyle
+    logo?: { file_url: string }
+  }>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  backgroundColor?: string, // Global background color for all logos
+  stripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] } // Unified strip layout mode
 ): Promise<string> {
   try {
     console.log(`[overlayLogos] Received ${logosPlacements.length} logo placements`)
@@ -1714,6 +1961,9 @@ async function overlayLogos(
         return {
           logoId: p.logoId,
           position: p.position as LogoPosition,
+          size: p.size,                         // Preserve user's size selection
+          backgroundShape: p.backgroundShape,   // Preserve background shape
+          backgroundStyle: p.backgroundStyle,   // Preserve shadow/border settings
           logo: logo,
         }
       })
@@ -1726,8 +1976,8 @@ async function overlayLogos(
       return imageUrl
     }
 
-    // Process image with logo overlays using Sharp
-    const processedImageUrl = await processImageWithLogos(imageUrl, placementsWithLogos)
+    // Process image with logo overlays using Sharp (pass background color and strip mode)
+    const processedImageUrl = await processImageWithLogos(imageUrl, placementsWithLogos, backgroundColor, stripMode)
 
     return processedImageUrl
   } catch (error) {

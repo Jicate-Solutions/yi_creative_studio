@@ -49,6 +49,7 @@ export interface LogoTypeConfig {
  */
 export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   // BRAND LOGOS - Header Strip (mandatory fixed positions - AUTO-LOCKED)
+  // Updated for 6-column grid: top-1 (left), top-3/top-4 (center), top-6 (right)
   'yi-main': {
     type: 'brand',
     patterns: [
@@ -56,7 +57,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /^yi\s*logo$/i,             // "Yi Logo" or "YiLogo"
       /^young\s*indians$/i,       // "Young Indians" (main org)
     ],
-    defaultPosition: 'top-left',
+    defaultPosition: 'top-1',     // Left edge in 6-column grid
     displayName: 'Yi Logo',
     description: 'Main Yi brand logo - always top-left per brand guidelines',
     strip: 'header',
@@ -68,7 +69,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /bharat\s*rising/i,
       /bharatrising/i,
     ],
-    defaultPosition: 'top-center',
+    defaultPosition: 'top-3',     // Center-left in 6-column grid
     displayName: 'Bharat Rising',
     description: '2025 theme logo - top-center per brand guidelines',
     strip: 'header',
@@ -81,7 +82,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /^cii\s*logo$/i,            // "CII Logo"
       /confederation.*india/i,    // "Confederation of Indian Industry"
     ],
-    defaultPosition: 'top-right',
+    defaultPosition: 'top-6',     // Right edge in 6-column grid
     displayName: 'CII Logo',
     description: 'CII brand logo - always top-right per brand guidelines',
     strip: 'header',
@@ -89,6 +90,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   },
 
   // VERTICAL LOGOS - Second Strip (below header, flexible positions)
+  // Updated for 6-column grid
   'yi-vertical': {
     type: 'vertical',
     patterns: [
@@ -110,7 +112,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /rural\s*initiatives/i,    // Rural Initiatives
       /leadership\s*academy/i,   // Leadership Academy
     ],
-    defaultPosition: 'mid-left',  // Below Yi logo by default (per brand guidelines)
+    defaultPosition: 'mid-1',     // Left edge of second strip (below Yi logo)
     displayName: 'Yi Vertical',
     description: 'Yi vertical program logo - second strip below header',
     strip: 'second',
@@ -118,6 +120,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   },
 
   // SPONSOR LOGOS - Footer Strip
+  // Updated for 6-column grid
   'sponsor': {
     type: 'sponsor',
     patterns: [
@@ -126,7 +129,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /presenting\s*partner/i,
       /title\s*sponsor/i,
     ],
-    defaultPosition: 'bottom-center',
+    defaultPosition: 'bottom-3',  // Center-left of footer strip
     displayName: 'Sponsor',
     description: 'Sponsor logo - footer section',
     strip: 'footer',
@@ -134,6 +137,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   },
 
   // PARTNER LOGOS - Footer Strip
+  // Updated for 6-column grid
   'partner': {
     type: 'partner',
     patterns: [
@@ -142,7 +146,7 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
       /supporter/i,
       /collaborat/i,              // collaboration, collaborator
     ],
-    defaultPosition: 'bottom-left',
+    defaultPosition: 'bottom-1',  // Left edge of footer strip
     displayName: 'Partner',
     description: 'Partner logo - footer section',
     strip: 'footer',
@@ -151,13 +155,14 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
 }
 
 /**
- * Positions available for each strip in the two-strip layout
- * Yi Brand Guidelines 2025: Header strip + Second strip for verticals
+ * Positions available for each strip in the 6-column layout
+ * Yi Brand Guidelines 2025: Header strip + Second strip for verticals + Footer strip
+ * Updated to 6 columns per row (18 total positions)
  */
 export const STRIP_POSITIONS: Record<LogoStrip, LogoPosition[]> = {
-  header: ['top-left', 'top-center', 'top-right'],
-  second: ['mid-left', 'center', 'mid-right'],
-  footer: ['bottom-left', 'bottom-center', 'bottom-right'],
+  header: ['top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6'],
+  second: ['mid-1', 'mid-2', 'mid-3', 'mid-4', 'mid-5', 'mid-6'],
+  footer: ['bottom-1', 'bottom-2', 'bottom-3', 'bottom-4', 'bottom-5', 'bottom-6'],
 }
 
 /**
@@ -201,7 +206,7 @@ export function getSuggestedPosition(
 ): LogoPosition {
   if (!logoName) {
     const midRow = LOGO_TYPE_ROWS.other
-    return midRow.find(p => !usedPositions.includes(p)) || 'center'
+    return midRow.find(p => !usedPositions.includes(p)) || 'mid-3'
   }
 
   for (const config of Object.values(LOGO_TYPE_CONFIGS)) {
@@ -217,13 +222,13 @@ export function getSuggestedPosition(
     }
   }
 
-  // Fallback: first available position in any row
+  // Fallback: first available position in any row (6-column grid)
   const allPositions: LogoPosition[] = [
-    'top-left', 'top-center', 'top-right',
-    'mid-left', 'center', 'mid-right',
-    'bottom-left', 'bottom-center', 'bottom-right',
+    'top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6',
+    'mid-1', 'mid-2', 'mid-3', 'mid-4', 'mid-5', 'mid-6',
+    'bottom-1', 'bottom-2', 'bottom-3', 'bottom-4', 'bottom-5', 'bottom-6',
   ]
-  return allPositions.find(p => !usedPositions.includes(p)) || 'center'
+  return allPositions.find(p => !usedPositions.includes(p)) || 'mid-3'
 }
 
 /**
@@ -349,16 +354,17 @@ export interface LogoPositionLock {
 
 /**
  * @deprecated Use LOGO_TYPE_CONFIGS instead
+ * Updated for 6-column grid
  */
 export const LOGO_POSITION_LOCKS: Record<string, LogoPositionLock> = {
   'yi-logo': {
-    position: 'top-left',
+    position: 'top-1',  // Left edge in 6-column grid
     patterns: LOGO_TYPE_CONFIGS['yi-main'].patterns,
     displayName: 'Yi Logo',
     description: 'Yi logo must be positioned in top-left (brand requirement)',
   },
   'cii-logo': {
-    position: 'top-right',
+    position: 'top-6',  // Right edge in 6-column grid
     patterns: LOGO_TYPE_CONFIGS['cii-main'].patterns,
     displayName: 'CII Logo',
     description: 'CII logo must be positioned in top-right (brand requirement)',

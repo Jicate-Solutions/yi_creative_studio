@@ -41,9 +41,17 @@ export function CreateButton({ variant = 'default', className }: CreateButtonPro
         <Button
           onClick={() => setIsModalOpen(true)}
           size="lg"
-          className={cn('h-auto py-6 gradient-yi flex flex-col items-center gap-2', className)}
+          className={cn(
+            'h-auto py-6 gradient-yi flex flex-col items-center gap-2',
+            'rounded-xl shadow-[0_4px_14px_rgba(0,91,150,0.3)]',
+            'hover:shadow-[0_8px_24px_rgba(0,91,150,0.4)] hover:-translate-y-1',
+            'active:scale-[0.98] transition-all duration-300',
+            className
+          )}
         >
-          <Sparkles className="h-8 w-8" />
+          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+            <Sparkles className="h-6 w-6" />
+          </div>
           <span className="font-semibold">Create New Creative</span>
           <span className="text-xs opacity-80">Generate with AI</span>
         </Button>
@@ -64,7 +72,10 @@ export function CreateButton({ variant = 'default', className }: CreateButtonPro
           onClick={() => setIsModalOpen(true)}
           size="lg"
           className={cn(
-            'h-16 px-8 text-lg font-semibold gradient-yi shadow-lg hover:shadow-xl transition-shadow',
+            'h-16 px-8 text-lg font-semibold gradient-yi',
+            'rounded-xl shadow-[0_4px_20px_rgba(0,91,150,0.35)]',
+            'hover:shadow-[0_8px_30px_rgba(0,91,150,0.45)] hover:-translate-y-1',
+            'active:scale-[0.98] transition-all duration-300',
             className
           )}
         >

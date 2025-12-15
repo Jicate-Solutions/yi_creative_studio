@@ -5,8 +5,19 @@
  */
 
 import type { SocialPostFormData, EnhancedBuildOptions } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLanguageContext,
+  buildLayoutZoneContext,
+} from '../context-helpers'
 import { INSTAGRAM_POST_EXAMPLES } from '../examples' // Social posts use similar patterns
+
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
 // ============================================================
 // PLATFORM CONTEXTS
@@ -59,6 +70,37 @@ export function buildSocialPostPrompt(
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, 'social_post')
 
+  // NEW v3.4: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const langContext = buildLanguageContext(options.language)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
+
   // Determine colors - use brand colors if available
   const colors = options.brandContext?.primaryColor
     ? `Brand social: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}`
@@ -80,6 +122,20 @@ ${logoContext}
 ${brandContext}
 
 ${qualityContext}
+
+${themeContext}
+
+${orgContext}
+
+${langContext}
+
+${layoutContext}
+
+${forbiddenZonesContext}
+
+${aiTypographySection}
+
+${aiDecorativeSection}
 
 <subject>
 An attention-grabbing social media graphic for: "${data.postTitle}"
@@ -132,6 +188,22 @@ ${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
 Avoid: Tiny text, cluttered composition, low contrast, boring/generic look that blends into feed, too much text (keep concise), thin fonts, busy background under text, hard to read on small screen, muted colors
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
 </constraints>
+
+${options?.preventionEnhancements?.length ? `
+LEARNED IMPROVEMENTS (from past feedback):
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+` : ''}
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Platform terminology (scroll-stop, engagement, mobile-first)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+</render_constraints>
+
+${zoneReminderContext}
 `.trim()
 }
 

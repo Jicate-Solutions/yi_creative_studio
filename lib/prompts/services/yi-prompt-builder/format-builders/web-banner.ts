@@ -15,8 +15,12 @@ import {
   buildThemeContext,
   buildOrganizationContext,
   buildLanguageContext,
+  buildLayoutZoneContext,
 } from '../context-helpers'
 import { WEB_BANNER_EXAMPLES } from '../examples'
+
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
 // ============================================================
 // SIZE VARIATIONS (v3.1)
@@ -99,6 +103,32 @@ export function buildWebBannerPrompt(
   const themeContext = buildThemeContext(options.theme, options.style)
   const orgContext = buildOrganizationContext(options.organizationContext)
   const langContext = buildLanguageContext(options.language)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
 
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
@@ -127,6 +157,14 @@ ${themeContext}
 ${orgContext}
 
 ${langContext}
+
+${layoutContext}
+
+${forbiddenZonesContext}
+
+${aiTypographySection}
+
+${aiDecorativeSection}
 
 <subject>
 A click-driving banner ad with message: "${data.headline}"
@@ -186,6 +224,11 @@ ${bannerSize === 'wide_skyscraper' ? 'For Skyscraper: Stack elements vertically,
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
 </constraints>
 
+${options?.preventionEnhancements?.length ? `
+LEARNED IMPROVEMENTS (from past feedback):
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+` : ''}
+
 <render_constraints>
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
 DO NOT render as visible text:
@@ -194,6 +237,8 @@ DO NOT render as visible text:
 - Advertising terminology (CTA, conversion, click-driving)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 </render_constraints>
+
+${zoneReminderContext}
 `.trim()
 }
 

@@ -115,6 +115,24 @@ export interface OrganizationContext {
 }
 
 /**
+ * Typography guidance from AI design analysis
+ */
+export interface TypographyGuidance {
+  headlineStyle?: string
+  bodyStyle?: string
+  hierarchy?: string
+}
+
+/**
+ * Decorative elements guidance from AI design analysis
+ */
+export interface DecorativeElements {
+  corners?: string
+  patterns?: string
+  accents?: string
+}
+
+/**
  * Design context from Design Intelligence stage
  * Contains AI-generated visual elements and mood for the creative
  */
@@ -125,6 +143,31 @@ export interface DesignContextForPrompt {
   iconicImagery?: string[]
   colorStrategy?: string
   moodDirection?: string
+  // v3.4: Typography and decorative element guidance
+  typographyGuidance?: TypographyGuidance
+  decorativeElements?: DecorativeElements
+  // v3.5: Extended design context for event posters
+  creativeTwist?: string
+  colorMood?: string
+  designStrategy?: string
+  emotionalJob?: string
+}
+
+/**
+ * Footer contact information for creative footers (v3.4)
+ * Contains effective values (custom per-creative OR brand defaults)
+ */
+export interface FooterContactContext {
+  website?: string
+  phone?: string
+  email?: string
+  address?: string
+  social?: {
+    instagram?: string
+    linkedin?: string
+    facebook?: string
+    twitter?: string
+  } | null
 }
 
 export interface EnhancedBuildOptions {
@@ -148,6 +191,13 @@ export interface EnhancedBuildOptions {
 
   // NEW v3.2: Design context for decorative elements injection
   designContext?: DesignContextForPrompt  // AI-generated visual context from Design Intelligence
+
+  // NEW v3.4: Footer contact information for creative footers
+  footerContext?: FooterContactContext  // Contact details for footer (custom per-creative OR brand defaults)
+
+  // NEW v4.0: Prevention enhancements from Feedback Learning Agent
+  // Contains learned prompt improvements based on past user feedback
+  preventionEnhancements?: string[]
 }
 
 // ============================================================

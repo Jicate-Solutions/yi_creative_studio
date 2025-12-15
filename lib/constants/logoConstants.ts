@@ -103,6 +103,57 @@ export const LOGO_PADDING_OPTIONS: Record<LogoPaddingPreset, LogoPaddingOption> 
 export const DEFAULT_LOGO_PADDING: LogoPaddingPreset = 'normal'
 
 // ============================================================================
+// Logo Background Constants
+// ============================================================================
+
+/**
+ * Background shape options for logos
+ * - none: Transparent background (default)
+ * - rectangle: White rectangle background
+ * - rounded: White rounded rectangle background
+ * - circle: White circular background
+ */
+export type LogoBackgroundShape = 'none' | 'rectangle' | 'rounded' | 'circle'
+
+/**
+ * Background style options (shadow and border)
+ */
+export interface LogoBackgroundStyle {
+  shadow: boolean
+  border: boolean
+}
+
+/**
+ * Default logo background color (hex)
+ */
+export const DEFAULT_LOGO_BACKGROUND_COLOR = '#FFFFFF'
+
+/**
+ * Default logo background configuration
+ */
+export const DEFAULT_LOGO_BACKGROUND: {
+  shape: LogoBackgroundShape
+  style: LogoBackgroundStyle
+} = {
+  shape: 'none',
+  style: { shadow: false, border: false },
+}
+
+/**
+ * Background shape options for UI display
+ */
+export const BACKGROUND_SHAPE_OPTIONS: ReadonlyArray<{
+  value: LogoBackgroundShape
+  label: string
+  description: string
+}> = [
+  { value: 'none', label: 'None', description: 'Transparent background' },
+  { value: 'rectangle', label: 'Rectangle', description: 'White square background' },
+  { value: 'rounded', label: 'Rounded', description: 'White rounded background' },
+  { value: 'circle', label: 'Circle', description: 'White circular background' },
+] as const
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

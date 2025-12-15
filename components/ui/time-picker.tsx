@@ -109,64 +109,58 @@ export function TimePicker({
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 w-full h-10 px-3 border rounded-md bg-background",
+        error && "border-destructive",
+        disabled && "opacity-50 cursor-not-allowed",
+        className
+      )}
+    >
       <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
 
-      {/* Hour Select (12-hour format: 12, 01-11) */}
-      <Select value={hour12} onValueChange={handleHourChange} disabled={disabled}>
-        <SelectTrigger
-          className={cn(
-            "w-[70px]",
-            error && "border-destructive"
-          )}
-        >
-          <SelectValue placeholder="HH" />
-        </SelectTrigger>
-        <SelectContent>
-          {hours12.map((h) => (
-            <SelectItem key={h} value={h}>
-              {h}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-1 flex-1">
+        {/* Hour Select (12-hour format: 12, 01-11) */}
+        <Select value={hour12} onValueChange={handleHourChange} disabled={disabled}>
+          <SelectTrigger className="w-[58px] border-0 shadow-none h-8 px-2 focus:ring-0">
+            <SelectValue placeholder="HH" />
+          </SelectTrigger>
+          <SelectContent>
+            {hours12.map((h) => (
+              <SelectItem key={h} value={h}>
+                {h}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <span className="text-muted-foreground font-medium">:</span>
+        <span className="text-muted-foreground font-medium">:</span>
 
-      {/* Minute Select (00, 05, 10, ... 55) */}
-      <Select value={minute} onValueChange={handleMinuteChange} disabled={disabled}>
-        <SelectTrigger
-          className={cn(
-            "w-[70px]",
-            error && "border-destructive"
-          )}
-        >
-          <SelectValue placeholder="MM" />
-        </SelectTrigger>
-        <SelectContent>
-          {minutes.map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        {/* Minute Select (00, 05, 10, ... 55) */}
+        <Select value={minute} onValueChange={handleMinuteChange} disabled={disabled}>
+          <SelectTrigger className="w-[58px] border-0 shadow-none h-8 px-2 focus:ring-0">
+            <SelectValue placeholder="MM" />
+          </SelectTrigger>
+          <SelectContent>
+            {minutes.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {/* AM/PM Select */}
-      <Select value={period} onValueChange={handlePeriodChange} disabled={disabled}>
-        <SelectTrigger
-          className={cn(
-            "w-[70px]",
-            error && "border-destructive"
-          )}
-        >
-          <SelectValue placeholder="AM" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="AM">AM</SelectItem>
-          <SelectItem value="PM">PM</SelectItem>
-        </SelectContent>
-      </Select>
+        {/* AM/PM Select */}
+        <Select value={period} onValueChange={handlePeriodChange} disabled={disabled}>
+          <SelectTrigger className="w-[58px] border-0 shadow-none h-8 px-2 focus:ring-0">
+            <SelectValue placeholder="AM" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="AM">AM</SelectItem>
+            <SelectItem value="PM">PM</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }

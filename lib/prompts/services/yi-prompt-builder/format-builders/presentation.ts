@@ -19,6 +19,9 @@ import {
 } from '../context-helpers'
 import { PRESENTATION_EXAMPLES } from '../examples'
 
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+
 // ============================================================
 // ASPECT RATIO CONTEXTS (v3.1)
 // ============================================================
@@ -124,6 +127,31 @@ export function buildPresentationPrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
+
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
     ? `Brand professional: ${options.brandContext.primaryColor} accent, ${options.brandContext.secondaryColor || 'white'} text on dark OR dark text on light`
@@ -154,6 +182,12 @@ ${layoutContext}
 
 ${langContext}
 
+${forbiddenZonesContext}
+
+${aiTypographySection}
+
+${aiDecorativeSection}
+
 <subject>
 A professional presentation title slide for: "${data.presentationTitle}"
 ${options.organizationContext?.name ? `Organization: ${options.organizationContext.name}` : ''}
@@ -169,7 +203,7 @@ Aspect Ratio Note: ${aspectContext.layoutAdvice}
 Structure:
 - TITLE: "${data.presentationTitle}" - dominant central element (LARGEST, readable from 30+ feet)
 ${data.subtitle ? `- SUBTITLE: "${data.subtitle}" - below title, lighter weight` : ''}
-${data.presenterName ? `- PRESENTER: "${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}" - lower section` : ''}
+${data.presenterName ? `- PRESENTER: "${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}" - lower section${options.speakerPhotoConfig?.enabled ? ' (with photo zone)' : ' (TEXT ONLY)'}` : ''}
 ${data.eventName ? `- EVENT: "${data.eventName}${data.presentationDate ? ' | ' + data.presentationDate : ''}" - bottom` : ''}
 - LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'Organization logo in corner'}
 - SAFE MARGINS: 5% on all sides (for projector cropping)
@@ -215,7 +249,13 @@ ${options.brandContext ? '- Brand colors properly integrated' : ''}
 <constraints>
 Avoid: Tiny text (under 24pt equivalent), low contrast (gray on gray, etc.), cluttered design, too much information on title slide, busy backgrounds, hard to read from distance, animation suggestions (static image only)
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${data.presenterName && !options.speakerPhotoConfig?.enabled ? `IMPORTANT - NO PRESENTER PLACEHOLDER: The presenter "${data.presenterName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person. Render only the name and title as text.` : ''}
 </constraints>
+
+${options?.preventionEnhancements?.length ? `
+LEARNED IMPROVEMENTS (from past feedback):
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+` : ''}
 
 <render_constraints>
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
@@ -225,6 +265,8 @@ DO NOT render as visible text:
 - Presentation terminology (projection, aspect ratio, distance)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 </render_constraints>
+
+${zoneReminderContext}
 `.trim()
 }
 

@@ -11,14 +11,38 @@ export const BRAND_COLORS = {
   border: '#E5E7EB',
 } as const
 
-// Logo Position Grid (9 positions)
+// Logo Position Grid (18 positions - 6 columns × 3 rows)
 export const LOGO_POSITIONS = [
-  'top-left', 'top-center', 'top-right',
-  'mid-left', 'center', 'mid-right',
-  'bottom-left', 'bottom-center', 'bottom-right',
+  // Header strip (Row 1)
+  'top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6',
+  // Second strip (Row 2)
+  'mid-1', 'mid-2', 'mid-3', 'mid-4', 'mid-5', 'mid-6',
+  // Footer strip (Row 3)
+  'bottom-1', 'bottom-2', 'bottom-3', 'bottom-4', 'bottom-5', 'bottom-6',
 ] as const
 
 export type LogoPosition = typeof LOGO_POSITIONS[number]
+
+// Backward compatibility mapping (old 3x3 positions → new 6x3 positions)
+export const LEGACY_POSITION_MAP: Record<string, LogoPosition> = {
+  'top-left': 'top-1',
+  'top-center': 'top-3',
+  'top-right': 'top-6',
+  'mid-left': 'mid-1',
+  'center': 'mid-3',
+  'mid-right': 'mid-6',
+  'bottom-left': 'bottom-1',
+  'bottom-center': 'bottom-3',
+  'bottom-right': 'bottom-6',
+}
+
+// Helper to migrate legacy positions
+export function migrateLogoPosition(position: string): LogoPosition {
+  if (LOGO_POSITIONS.includes(position as LogoPosition)) {
+    return position as LogoPosition
+  }
+  return LEGACY_POSITION_MAP[position] || 'top-1'
+}
 
 // Creative Types
 export const CREATIVE_TYPES = {
@@ -88,6 +112,14 @@ export const DEFAULT_BRAND_CONFIG = {
   footerText: '',
   footerEmail: '',
   footerWebsite: '',
+  footerPhone: '',
+  footerAddress: '',
+  footerSocial: {
+    instagram: '',
+    linkedin: '',
+    facebook: '',
+    twitter: '',
+  },
 } as const
 
 // Image Dimensions by Creative Type
@@ -115,6 +147,7 @@ export const ROUTES = {
   analytics: '/settings/analytics',
   analyticsCosts: '/settings/analytics/costs',
   analyticsFeedback: '/settings/analytics/feedback',
+  analyticsLearning: '/settings/analytics/learning',
   profile: '/settings/profile',
 } as const
 

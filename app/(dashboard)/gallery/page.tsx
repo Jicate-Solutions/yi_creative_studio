@@ -61,7 +61,7 @@ import { cn } from '@/lib/utils'
 
 export default function GalleryPage() {
   const supabase = useMemo(() => createClient(), [])
-  const { currentOrganization, user, _hasHydrated } = useAuthStore()
+  const { currentOrganization, user, _hasHydrated, serverHydrated } = useAuthStore()
   const [creatives, setCreatives] = useState<Creative[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -97,8 +97,8 @@ export default function GalleryPage() {
   }, [searchQuery])
 
   const fetchCreatives = useCallback(async (retryCount = 0) => {
-    // Wait for Zustand store to rehydrate from localStorage before fetching
-    if (!_hasHydrated) {
+    // Wait for auth store to be ready (either server hydration OR localStorage rehydration)
+    if (!_hasHydrated && !serverHydrated) {
       return
     }
 
@@ -155,7 +155,7 @@ export default function GalleryPage() {
       setIsLoading(false)
       toast.error('Failed to load creatives')
     }
-  }, [_hasHydrated, currentOrganization?.id, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
+  }, [_hasHydrated, serverHydrated, currentOrganization?.id, debouncedSearchQuery, verticalFilter, favoritesOnly, sortBy])
 
   useEffect(() => {
     fetchCreatives()
@@ -254,6 +254,27 @@ export default function GalleryPage() {
       return
     }
 
+    // Fetch form_data and logo_config on-demand (not included in list query to reduce payload)
+    let formData = creative.form_data
+    let logoConfig = creative.logo_config
+
+    if (!formData || !logoConfig) {
+      const { data, error: fetchError } = await supabase
+        .from('creatives')
+        .select('form_data, logo_config')
+        .eq('id', creative.id)
+        .single()
+
+      if (fetchError) {
+        setIsSavingTemplate(false)
+        toast.error('Failed to fetch creative data')
+        return
+      }
+
+      formData = data?.form_data
+      logoConfig = data?.logo_config
+    }
+
     const { error } = await supabase.from('templates').insert({
       organization_id: currentOrganization.id,
       created_by: user.id,
@@ -261,8 +282,8 @@ export default function GalleryPage() {
       description: `Template created from creative generated on ${format(new Date(creative.created_at), 'MMMM d, yyyy')}`,
       category: creative.creative_type,
       vertical: creative.vertical,
-      form_data: creative.form_data,
-      logo_config: creative.logo_config,
+      form_data: formData,
+      logo_config: logoConfig,
       preview_image_url: creative.thumbnail_url,
       source_creative_id: creative.id,
     })

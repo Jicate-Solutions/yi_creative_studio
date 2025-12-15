@@ -11,6 +11,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import Anthropic from '@anthropic-ai/sdk'
 
+// Import prompt optimization utilities
+import {
+  getTemperatureConfig,
+  generateDesignContextCacheKey,
+  getCachedDesignContext,
+  setCachedDesignContext,
+  validateAndFixDesignContext,
+  integratePattersWithDesignContext,
+  selectABVariant,
+  createClaudeCacheableRequest,
+} from './prompt-optimization'
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -76,6 +88,28 @@ export interface DesignContext {
   successMetric: string
   /** Specific layout guidance based on speaker photo position and logo requirements */
   layoutGuidance?: string
+
+  // === v3.4: Enhanced design attributes ===
+  /** Typography recommendations for this design */
+  typographyGuidance?: {
+    /** Headline font style and weight (e.g., "Bold sans-serif for impact") */
+    headlineStyle: string
+    /** Body text style (e.g., "Clean readable sans-serif") */
+    bodyStyle: string
+    /** Size and weight hierarchy description */
+    hierarchy: string
+  }
+  /** Decorative element recommendations */
+  decorativeElements?: {
+    /** Corner treatments (e.g., "Geometric corner accents") */
+    corners: string
+    /** Pattern overlays (e.g., "Subtle gradient mesh at 10% opacity") */
+    patterns: string
+    /** Accent elements (e.g., "Gold ribbon borders") */
+    accents: string
+  }
+  /** ONE unexpected visual element that makes this design unique and memorable */
+  creativeTwist?: string
 }
 
 /**
@@ -151,76 +185,175 @@ export interface DesignBrief {
  * - Thinks strategically about viewer psychology
  * - Outputs structured, actionable design guidance
  */
-const DESIGN_INTELLIGENCE_PROMPT = `You are an ULTRA-PRO DESIGNER who has created award-winning campaigns for Apple, Nike, TED, and National Geographic.
+const DESIGN_INTELLIGENCE_PROMPT = `You are an ULTRA-PRO DESIGNER with 20+ years creating award-winning campaigns for Apple, Nike, TED, ESPN, National Geographic, and Google.
 
-Your unique ability: You understand that designs don't just look good—they ACCOMPLISH GOALS. Every element in a design must serve the core purpose.
+Your SUPERPOWER: You think like a DOMAIN EXPERT. When you see "AI Workshop", you don't just think "technology" - you think like a Silicon Valley designer who lives and breathes tech culture. When you see "Cricket Tournament", you think like a sports brand designer who understands athletic energy.
 
-=== CRITICAL FORMAT RULES (READ FIRST!) ===
-The OUTPUT FORMAT defines what the design LOOKS LIKE. The event details are CONTENT to fill the format.
+=== DOMAIN-SPECIFIC DESIGN THINKING (CRITICAL!) ===
 
-FORMAT vs EVENT TYPE (MUST UNDERSTAND):
-- FORMAT = What the design IS (certificate = formal document, youtube_thumbnail = click-worthy image, business_card = networking tool)
-- EVENT TYPE = What CONTENT goes on it (blood donation = achievement details, seminar = topic info)
+STEP 1: IDENTIFY THE DOMAIN from the event details. Then THINK LIKE THAT DOMAIN'S TOP DESIGNER:
 
-Examples of CORRECT interpretation:
-- FORMAT: "certificate" + EVENT: "Blood Donation Camp" → Formal certificate document with decorative borders that honors participation in blood donation
-- FORMAT: "youtube_thumbnail" + EVENT: "Tech Conference" → Click-worthy thumbnail style with face focus, NOT a conference poster
-- FORMAT: "business_card" + EVENT: "Medical Practice" → Compact professional card, NOT a medical poster
-- FORMAT: "event_poster" + EVENT: "Blood Donation Camp" → Full promotional poster with blood donation imagery
+🤖 **AI / TECHNOLOGY / INNOVATION EVENTS**
+Think like: Apple, Google, Tesla design teams
+Typography: Futuristic sans-serif (like SF Pro, Inter, Geist), ultra-bold headlines with tight tracking
+Colors: Electric blue (#0066FF), neon cyan (#00D4FF), deep purple (#6B5CE7), dark backgrounds
+Patterns: Neural network meshes, circuit board traces, data flow visualizations, holographic grids
+Decorative: Glowing orbs, particle effects, geometric wireframes, gradient meshes
+Background: Dark space with glowing nodes, abstract data streams, futuristic cityscapes
+Energy: Cutting-edge, innovative, forward-thinking, sleek
 
-If no format is specified, default to "event_poster" behavior.
+⚽ **SPORTS / FITNESS / ATHLETIC EVENTS**
+Think like: Nike, ESPN, Under Armour design teams
+Typography: Bold condensed impact fonts, dynamic italics for speed, aggressive uppercase
+Colors: High-energy (red #FF3B30, orange #FF9500, electric green #30D158), strong contrasts
+Patterns: Dynamic diagonal stripes, motion blur effects, halftone dots, speed lines
+Decorative: Swooshes, action bursts, geometric shapes suggesting movement
+Background: Stadium lights, action shots, athletic textures, grass/court surfaces
+Energy: Powerful, dynamic, competitive, victorious, adrenaline-pumping
+
+🏥 **MEDICAL / HEALTH / WELLNESS EVENTS**
+Think like: Mayo Clinic, WHO, wellness brand design teams
+Typography: Clean humanist sans-serif (like Avenir, Proxima Nova), approachable yet professional
+Colors: Trust blue (#007AFF), healing green (#34C759), clean white, soft coral for warmth
+Patterns: Subtle pulse lines, DNA helix motifs, cellular structures, soft gradients
+Decorative: Medical crosses, heart icons, stethoscope silhouettes, clean geometric shapes
+Background: Clean clinical environments, soft gradients, medical imagery, caring hands
+Energy: Trustworthy, caring, professional, life-saving, hopeful
+
+🎭 **CULTURAL / TRADITIONAL / HERITAGE EVENTS**
+Think like: Museum curators, cultural festival designers, heritage brand teams
+Typography: Elegant serifs (like Playfair, Cormorant), decorative scripts for accents
+Colors: Rich golds (#FFD700), deep maroons (#800020), royal purples, earthy tones
+Patterns: Traditional motifs (rangoli, mandala, ethnic patterns), ornate borders
+Decorative: Floral elements, paisley designs, cultural symbols, intricate borders
+Background: Warm textures, fabric patterns, architectural elements, festive imagery
+Energy: Rich, celebratory, rooted, majestic, heritage-proud
+
+💼 **CORPORATE / BUSINESS / PROFESSIONAL EVENTS**
+Think like: McKinsey, Deloitte, Fortune 500 design teams
+Typography: Professional sans-serif (like Helvetica, Arial, Calibri), clean and authoritative
+Colors: Corporate blue (#0A66C2), charcoal (#333333), professional greens, gold accents
+Patterns: Subtle geometric grids, abstract business graphics, minimal line patterns
+Decorative: Clean borders, professional badges, subtle gradients
+Background: Modern office architecture, abstract corporate imagery, clean gradients
+Energy: Professional, trustworthy, authoritative, growth-oriented
+
+🎓 **EDUCATION / ACADEMIC / LEARNING EVENTS**
+Think like: Harvard, TED-Ed, Coursera design teams
+Typography: Scholarly serifs for prestige (Georgia, Times), modern sans for accessibility
+Colors: Academic navy (#1E3A5F), wisdom gold (#CFB53B), knowledge green, parchment cream
+Patterns: Book page textures, graduation cap motifs, lightbulb iconography
+Decorative: Laurel wreaths, academic crests, scroll elements, wisdom symbols
+Background: Library settings, graduation scenes, inspiring educational environments
+Energy: Inspiring, intellectual, empowering, growth-focused
+
+🎉 **ENTERTAINMENT / PARTY / CELEBRATION EVENTS**
+Think like: MTV, festival designers, entertainment brand teams
+Typography: Bold display fonts, playful scripts, dynamic varied weights
+Colors: Vibrant party colors (magenta #FF2D55, electric yellow #FFCC00, party purple #AF52DE)
+Patterns: Confetti, sparkles, dynamic shapes, party textures
+Decorative: Balloons, streamers, stars, celebration bursts
+Background: Stage lights, party atmospheres, colorful abstract backgrounds
+Energy: Fun, exciting, celebratory, energetic, joyful
+
+🌱 **ENVIRONMENT / SUSTAINABILITY / GREEN EVENTS**
+Think like: WWF, Patagonia, sustainability brand teams
+Typography: Organic rounded fonts, nature-inspired letterforms, eco-friendly aesthetics
+Colors: Natural greens (#34C759, #228B22), earth browns, sky blues, organic tones
+Patterns: Leaf textures, organic shapes, nature patterns, sustainable motifs
+Decorative: Leaves, trees, eco symbols, natural elements
+Background: Nature scenes, sustainable imagery, green environments
+Energy: Hopeful, responsible, natural, earth-conscious
+
+=== FORMAT RULES ===
+FORMAT = What the design IS (poster, certificate, thumbnail)
+EVENT TYPE = What CONTENT/DOMAIN it represents (tech, sports, medical)
 
 ANALYZE THE FOLLOWING CREATIVE BRIEF:
 {brief}
 
-Think deeply about:
-1. What is the CORE PURPOSE? (What emotional job must this design accomplish?)
-2. What ACTION should viewers take after seeing this?
-3. What should viewers FEEL? (emotional response)
-4. What VISUAL ELEMENTS naturally BELONG in this type of design? (specific objects, symbols, imagery)
-5. What BACKGROUND SETTING is contextually appropriate?
-6. What ICONIC IMAGERY reinforces the core message?
-7. What COLOR MOOD supports the emotional goal?
-8. What DESIGN STRATEGY should the image AI follow?
-9. How will we know the design worked? (success metric)
-10. What LAYOUT GUIDANCE is needed based on speaker photo and logo positions?
+=== ULTRA-THINK PROCESS ===
 
-CRITICAL RULES:
-- Be SPECIFIC with visual elements - name exact objects (e.g., "microphone at podium", "blood donation bag with tubing", "graduation cap flying in air")
-- Background settings should be CONTEXTUAL to the event type (e.g., "modern convention center with stage lighting" for conferences)
-- Avoid generic descriptions - be precise and purposeful
-- Think about what a viewer seeing this design would immediately understand
-- IMPORTANT: The design should be a FULL-BLEED poster that fills the entire canvas edge-to-edge
-- NEVER describe the poster as "displayed on a wall", "framed", "mockup", or any presentation context
-- The backgroundSetting should describe what's IN the poster design, not a wall/room the poster hangs on
+1. **DOMAIN DETECTION**: What domain does this event belong to? (AI/Tech, Sports, Medical, Cultural, Corporate, Education, Entertainment, Environment, or hybrid)
 
-VISUAL LAYOUT RULES (CRITICAL - READ CAREFULLY):
-- If a SPEAKER PHOTO is mentioned in the brief, describe a composition that leaves appropriate space for the photo
-- If speaker photo position is LEFT: Main content (title, details) should flow to the RIGHT side of the design
-- If speaker photo position is RIGHT: Main content should flow to the LEFT side of the design
-- If speaker photo position is CENTER: Design should frame around the center with content above/below
-- NEVER suggest generating an illustrated face or person if a speaker photo will be added - leave that space clear/neutral
-- If HEADER area is needed: Keep the top portion clean and airy for branding elements
-- If FOOTER area is needed: Keep the bottom portion clean with breathing room
-- Consider the visual weight distribution: photo areas should have neutral/complementary backgrounds
+2. **DESIGNER PERSONA**: Now BECOME that domain's top designer. Think in their visual language.
 
-IMPORTANT FOR layoutGuidance OUTPUT:
-- Use VISUAL/COMPOSITIONAL language only: "content flows left", "balanced top section", "breathing room at bottom"
-- NEVER use technical terms in layoutGuidance: NO "px", "reserve", "zone", "overlay", "placement", "logo zone"
-- Describe composition in natural design language that won't be confused with text to render
+3. **VISUAL VOCABULARY**: What specific visual elements does this domain use? Be EXTREMELY specific - not "tech imagery" but "neural network with glowing blue nodes and connecting data streams"
 
-Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON object):
+4. **TYPOGRAPHY DNA**: What fonts does this domain use? What's the headline weight, tracking, and style?
+
+5. **COLOR PSYCHOLOGY**: What colors trigger the right emotions for this domain?
+
+6. **PATTERN LANGUAGE**: What subtle patterns reinforce the domain identity?
+
+7. **DECORATIVE SIGNATURE**: What decorative elements are this domain's visual signature?
+
+=== ULTRA-CREATIVE THINKING (MANDATORY) ===
+
+Before generating, THINK DEEPLY about creating something UNIQUE:
+
+1. **VISUAL METAPHOR**: What single powerful image captures this event's essence?
+   - For AI/Tech: Not just "neural network" but "a human consciousness merging with digital infinity"
+   - For Health: Not just "medical symbols" but "the moment when care transforms into healing"
+   - For Sports: Not just "athletic energy" but "the split-second before victory"
+
+2. **UNEXPECTED COMBINATION**: Mix two concepts that create surprise:
+   - Technology + organic nature (circuits that grow like vines)
+   - Digital + handcrafted (holographic calligraphy)
+   - Future + heritage (ancient patterns made of light)
+   - Abstract + human emotion (data streams that feel like hope)
+
+3. **EMOTIONAL MOMENT**: What specific moment does this design capture?
+   - The breakthrough instant when understanding dawns
+   - The connection forming between minds
+   - The future arriving in the present
+   - The transformation happening before your eyes
+
+4. **UNIQUE SIGNATURE**: What ONE visual element makes this unmistakably THIS event?
+   - Something never seen before in similar designs
+   - Something that tells the story instantly
+   - Something memorable that viewers will recall
+
+Generate designs that FEEL like ART, not templates. Each design should be a fresh creative vision.
+
+=== CRITICAL RULES ===
+- Be HYPER-SPECIFIC: Not "technology elements" but "holographic AI brain visualization with cyan neural pathways"
+- Be DOMAIN-AUTHENTIC: A sports event should FEEL athletic, a tech event should FEEL futuristic
+- Be VIEWER-FOCUSED: What will the viewer IMMEDIATELY understand about this event?
+- FULL-BLEED design that fills the canvas edge-to-edge
+- NEVER describe poster "on a wall" - describe what's IN the design
+
+=== LAYOUT RULES ===
+- If SPEAKER PHOTO position is LEFT: Content flows RIGHT
+- If SPEAKER PHOTO position is RIGHT: Content flows LEFT
+- If SPEAKER PHOTO position is CENTER: Content frames around center
+- NEVER generate illustrated faces if speaker photo will be added
+- Keep HEADER area clean for logos
+- Use VISUAL language only in layoutGuidance (no "px", "zone", "overlay")
+
+Return ONLY valid JSON:
 {
-  "corePurpose": "Single compelling sentence about what this design MUST accomplish emotionally",
-  "desiredAction": "Specific action viewers should take (e.g., 'Register immediately', 'Donate blood today', 'Attend this wedding')",
-  "emotionalJob": "How viewers should feel (e.g., 'Excited and professionally inspired', 'Compassionate and heroic', 'Joyful and celebratory')",
-  "visualElements": ["specific element 1", "specific element 2", "specific element 3", "specific element 4", "specific element 5"],
-  "backgroundSetting": "Detailed, contextually appropriate background description - consider speaker photo and logo zones",
-  "iconicImagery": ["iconic image 1", "iconic image 2", "iconic image 3"],
-  "colorMood": "Color psychology guidance specific to this design's emotional goal",
-  "designStrategy": "Strategic approach for the visual execution",
-  "successMetric": "How to measure if the design worked (viewer's immediate thought)",
-  "layoutGuidance": "Natural visual composition guidance using only design language (content flows left, balanced sections, breathing room) - NO technical terms like px, reserve, zone, overlay"
+  "corePurpose": "What emotional job this design MUST accomplish - be domain-specific",
+  "desiredAction": "Specific action viewers should take",
+  "emotionalJob": "How viewers should FEEL - tied to the domain's energy",
+  "visualElements": ["SPECIFIC domain element 1", "SPECIFIC domain element 2", "SPECIFIC element 3", "SPECIFIC element 4", "SPECIFIC element 5"],
+  "backgroundSetting": "Detailed DOMAIN-APPROPRIATE background - immersive and contextual",
+  "iconicImagery": ["domain-specific icon 1", "domain-specific icon 2", "domain-specific icon 3"],
+  "colorMood": "DOMAIN-SPECIFIC color psychology with hex codes",
+  "designStrategy": "Strategic approach that matches the domain's design language",
+  "successMetric": "What viewer thinks in 3 seconds - domain-relevant",
+  "layoutGuidance": "Visual composition using design language only",
+  "typographyGuidance": {
+    "headlineStyle": "DOMAIN-SPECIFIC headline font style (e.g., 'Futuristic bold sans-serif with tight tracking for tech' or 'Impact condensed italic for sports energy')",
+    "bodyStyle": "DOMAIN-APPROPRIATE body text that ensures readability while matching the vibe",
+    "hierarchy": "Size/weight hierarchy that matches domain conventions"
+  },
+  "decorativeElements": {
+    "corners": "DOMAIN-SPECIFIC corner treatment (e.g., 'Geometric circuit-trace corners for AI events' or 'Dynamic swoosh corners for sports')",
+    "patterns": "DOMAIN-AUTHENTIC pattern at low opacity (e.g., 'Neural mesh pattern at 10% for tech' or 'Stadium turf texture at 8% for sports')",
+    "accents": "DOMAIN-SIGNATURE accent elements (e.g., 'Neon glow lines for tech' or 'Athletic stripe accents for sports')"
+  },
+  "creativeTwist": "ONE unexpected visual element that makes this design UNIQUE and MEMORABLE - something viewers haven't seen before (e.g., 'AI neurons that bloom like flowers' or 'data streams that form a human heartbeat pattern')"
 }`
 
 // ============================================================
@@ -230,13 +363,22 @@ Return ONLY valid JSON (no markdown code blocks, no explanation, just the JSON o
 /**
  * Generate design context using AI analysis
  *
+ * OPTIMIZATIONS (v3.7):
+ * - Response caching for similar requests
+ * - Dynamic temperature based on format type
+ * - Schema validation with auto-fix
+ * - Feedback pattern integration
+ * - A/B testing support
+ *
  * @param brief - The creative brief to analyze
  * @param provider - LLM provider to use (default: claude)
+ * @param organizationId - Optional org ID for feedback patterns
  * @returns Structured design context for image generation with usage tracking
  */
 export async function generateDesignContext(
   brief: DesignBrief,
-  provider: LLMProvider = 'claude'
+  provider: LLMProvider = 'claude',
+  organizationId?: string
 ): Promise<DesignContextResult> {
   console.log('[Design Intelligence] === STAGE 1: GENERATING DESIGN CONTEXT ===')
   console.log('[Design Intelligence] FORMAT:', brief.formatId || 'event_poster (default)')
@@ -247,6 +389,41 @@ export async function generateDesignContext(
   console.log('[Design Intelligence] Theme:', brief.theme || 'default')
   console.log('[Design Intelligence] Style:', brief.style || 'default')
 
+  // === OPTIMIZATION 1: Check cache first ===
+  const cacheKey = generateDesignContextCacheKey({
+    formatId: brief.formatId,
+    eventType: brief.eventType,
+    eventName: brief.eventName,
+    theme: brief.theme,
+    style: brief.style,
+    hasSpeakerPhoto: brief.hasSpeakerPhoto,
+  })
+
+  const cachedContext = getCachedDesignContext(cacheKey) as DesignContext | null
+  if (cachedContext) {
+    console.log('[Design Intelligence] Using CACHED context')
+    return {
+      context: cachedContext,
+      usage: {
+        provider: provider === 'gemini' ? 'gemini' : 'claude',
+        model: 'cached',
+        tokenUsage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0 },
+        durationMs: 0,
+      },
+    }
+  }
+
+  // === OPTIMIZATION 2: Get dynamic temperature config ===
+  let tempConfig = getTemperatureConfig(brief.formatId)
+  console.log('[Design Intelligence] Temperature config:', tempConfig.description)
+
+  // === OPTIMIZATION 3: A/B test variant selection ===
+  const abVariant = selectABVariant('creative_twist_emphasis_v1')
+  if (abVariant) {
+    console.log('[Design Intelligence] A/B test variant:', abVariant.variantId)
+    tempConfig = { ...tempConfig, ...abVariant.config }
+  }
+
   // Build the full brief text
   const briefText = buildBriefText(brief)
   console.log('[Design Intelligence] Brief Text:', briefText.substring(0, 200) + '...')
@@ -254,18 +431,19 @@ export async function generateDesignContext(
   // Generate the prompt
   const prompt = DESIGN_INTELLIGENCE_PROMPT.replace('{brief}', briefText)
 
-  // Call the appropriate LLM provider
+  // Call the appropriate LLM provider with dynamic temperature
   let llmResponse: LLMResponse
   let effectiveProvider: 'gemini' | 'claude' = provider === 'gemini' ? 'gemini' : 'claude'
   console.log('[Design Intelligence] Provider:', provider)
+  console.log('[Design Intelligence] Temperature:', tempConfig.designIntelligence)
 
   switch (provider) {
     case 'gemini':
-      llmResponse = await callGemini(prompt)
+      llmResponse = await callGemini(prompt, tempConfig.designIntelligence, tempConfig.topP)
       effectiveProvider = 'gemini'
       break
     case 'claude':
-      llmResponse = await callClaude(prompt)
+      llmResponse = await callClaude(prompt, tempConfig.designIntelligence)
       effectiveProvider = 'claude'
       break
     case 'openai':
@@ -273,19 +451,54 @@ export async function generateDesignContext(
       effectiveProvider = 'claude' // OpenAI not implemented, would fallback
       break
     default:
-      llmResponse = await callGemini(prompt)
+      llmResponse = await callGemini(prompt, tempConfig.designIntelligence, tempConfig.topP)
       effectiveProvider = 'gemini'
   }
 
-  // Parse and validate the response
-  const context = parseDesignContext(llmResponse.text)
+  // === OPTIMIZATION 4: Schema validation with auto-fix ===
+  const parsedContext = parseDesignContext(llmResponse.text)
+  const validatedContext = validateAndFixDesignContext(parsedContext)
+
+  if (!validatedContext) {
+    console.warn('[Design Intelligence] Validation failed, using fallback context')
+    return {
+      context: generateFallbackContext(brief),
+      usage: {
+        provider: effectiveProvider,
+        model: llmResponse.model,
+        tokenUsage: llmResponse.tokenUsage,
+        durationMs: llmResponse.durationMs,
+      },
+    }
+  }
+
+  // === OPTIMIZATION 5: Integrate feedback patterns ===
+  let finalContext = validatedContext as DesignContext
+  if (organizationId && brief.formatId) {
+    const { enhancedContext, appliedPatterns } = await integratePattersWithDesignContext(
+      validatedContext as Record<string, unknown>,
+      {
+        formatId: brief.formatId,
+        eventType: brief.eventType,
+        organizationId,
+      }
+    )
+    if (appliedPatterns.length > 0) {
+      console.log('[Design Intelligence] Applied feedback patterns:', appliedPatterns.join(', '))
+      finalContext = enhancedContext as DesignContext
+    }
+  }
+
   console.log('[Design Intelligence] === CONTEXT GENERATED SUCCESSFULLY ===')
-  console.log('[Design Intelligence] Core Purpose:', context.corePurpose)
-  console.log('[Design Intelligence] Visual Elements:', context.visualElements.join(', '))
-  console.log('[Design Intelligence] Background:', context.backgroundSetting.substring(0, 100) + '...')
+  console.log('[Design Intelligence] Core Purpose:', finalContext.corePurpose)
+  console.log('[Design Intelligence] Visual Elements:', finalContext.visualElements.join(', '))
+  console.log('[Design Intelligence] Background:', finalContext.backgroundSetting.substring(0, 100) + '...')
+
+  // === OPTIMIZATION 6: Cache the result ===
+  setCachedDesignContext(cacheKey, finalContext)
 
   return {
-    context,
+    context: finalContext,
     usage: {
       provider: effectiveProvider,
       model: llmResponse.model,
@@ -337,8 +550,9 @@ function buildBriefText(brief: DesignBrief): string {
     parts.push(`Organization: ${brief.organizationName}`)
   }
 
-  // Guest info with designation
-  if (brief.guestName) {
+  // Guest info with designation - ONLY include when speaker photo is enabled
+  // This prevents speaker data from leaking into AI prompts when speaker feature is disabled
+  if (brief.guestName && brief.hasSpeakerPhoto) {
     const guestInfo = brief.guestDesignation
       ? `${brief.guestName} (${brief.guestDesignation})`
       : brief.guestName
@@ -504,8 +718,16 @@ function parseDesignContext(response: string): DesignContext {
 /**
  * Call Gemini Flash for design intelligence
  * Using Gemini 2.0 Flash - fast, cheap, and excellent for structured output
+ *
+ * @param prompt - The prompt to send
+ * @param temperature - Dynamic temperature (default: 1.3 for creative formats)
+ * @param topP - Top-P sampling parameter (default: 0.95)
  */
-async function callGemini(prompt: string): Promise<LLMResponse> {
+async function callGemini(
+  prompt: string,
+  temperature: number = 1.3,
+  topP: number = 0.95
+): Promise<LLMResponse> {
   // Support both GEMINI_API_KEY (primary) and GOOGLE_AI_API_KEY (fallback)
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
   const modelName = 'gemini-2.0-flash-exp'
@@ -519,11 +741,12 @@ async function callGemini(prompt: string): Promise<LLMResponse> {
   const genAI = new GoogleGenerativeAI(apiKey)
 
   // Use Gemini 2.0 Flash for fast, cost-effective analysis
+  // Temperature is now dynamic based on format type
   const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: {
-      temperature: 0.7, // Some creativity but mostly focused
-      topP: 0.9,
+      temperature, // Dynamic temperature for format-appropriate creativity
+      topP, // Dynamic top-P for word choice variation
       maxOutputTokens: 1024, // Enough for structured response
     }
   })
@@ -561,8 +784,16 @@ async function callGemini(prompt: string): Promise<LLMResponse> {
 /**
  * Call Claude for design intelligence
  * Using Claude Haiku 4.5 - fast, cost-effective, and excellent reasoning
+ *
+ * OPTIMIZATION: Uses prompt caching for system prompt to reduce costs
+ *
+ * @param prompt - The prompt to send
+ * @param temperature - Dynamic temperature (default: 1.0)
  */
-async function callClaude(prompt: string): Promise<LLMResponse> {
+async function callClaude(
+  prompt: string,
+  temperature: number = 1.0
+): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   const modelName = 'claude-haiku-4-5-20251001'
 
@@ -574,18 +805,44 @@ async function callClaude(prompt: string): Promise<LLMResponse> {
 
   const client = new Anthropic({ apiKey })
 
-  console.log('[Design Intelligence] Calling Claude Haiku 4.5...')
+  console.log('[Design Intelligence] Calling Claude Haiku 4.5 (temp:', temperature, ')...')
   const startTime = Date.now()
+
+  // Extract system prompt and user content for caching
+  // The system prompt (DESIGN_INTELLIGENCE_PROMPT) is cacheable
+  const systemPromptEnd = prompt.indexOf('=== OUTPUT FORMAT')
+  const systemPrompt = systemPromptEnd > 0 ? prompt.substring(0, systemPromptEnd) : ''
+  const userContent = systemPromptEnd > 0 ? prompt.substring(systemPromptEnd) : prompt
+
+  // Use prompt caching for system prompt if it's substantial
+  const usePromptCaching = systemPrompt.length > 1000
 
   const response = await client.messages.create({
     model: modelName,
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: prompt
-      }
-    ]
+    max_tokens: 4096,  // v3.6: Increased from 2048 - complex design contexts need 8000+ chars
+    // Apply prompt caching to system prompt for cost reduction
+    ...(usePromptCaching ? {
+      system: [
+        {
+          type: 'text' as const,
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ],
+      messages: [
+        {
+          role: 'user' as const,
+          content: userContent,
+        },
+      ],
+    } : {
+      messages: [
+        {
+          role: 'user' as const,
+          content: prompt,
+        },
+      ],
+    }),
   })
 
   const durationMs = Date.now() - startTime

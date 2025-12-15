@@ -32,6 +32,12 @@ import {
   buildBackgroundSettingSection,
 } from '../helpers/decorative-elements-injector'
 
+// Import time formatter utility (v3.3)
+import { formatEventTime } from '@/lib/utils/time-formatter'
+
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+
 // ============================================================
 // EVENT CONTEXT TYPES
 // ============================================================
@@ -218,6 +224,17 @@ export function buildEventPosterPrompt(
   data: EventPosterFormData,
   options: EnhancedBuildOptions = {}
 ): string {
+  // v3.5: Normalize field names - form may use eventTitle but type expects eventName
+  // Also handle speakerName from various possible field names
+  const rawData = data as unknown as Record<string, unknown>
+  const eventName = data.eventName || (rawData.eventTitle as string) || (rawData.title as string) || 'Event'
+  const speakerName = data.speakerName || (rawData.speaker as string) || (rawData.guestName as string) || ''
+  const speakerDesignation = data.speakerDesignation || (rawData.designation as string) || (rawData.guestDesignation as string) || ''
+
+  // v3.6: Normalize tagline and additionalDetails field names
+  const eventDescription = data.eventDescription || (rawData.eventTagline as string) || (rawData.tagline as string) || ''
+  const eventNote = data.eventNote || (rawData.additionalDetails as string) || (rawData.additionalInfo as string) || ''
+
   const eventContext = getEventContext(data.eventType)
 
   // Build core context sections
@@ -230,6 +247,10 @@ export function buildEventPosterPrompt(
   const orgContext = buildOrganizationContext(options.organizationContext)
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
+
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
 
   // Build speaker zone context from options.speakerPhotoConfig (v3.1)
   // This uses the config passed from API route, which preserves the zone even when user has own photo
@@ -246,23 +267,52 @@ export function buildEventPosterPrompt(
   })
   const backgroundSettingContext = buildBackgroundSettingSection(options.designContext)
 
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
+
+  // NEW v3.5: Build creative twist section for unique visual signature
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+This ONE element should make this design immediately recognizable and memorable.
+Integrate this creative twist prominently into the background or decorative elements.
+</creative_twist>
+`
+    : ''
+
   // Get typography hierarchy rules
   const typographyRules = getTypographyPromptFragment('event_poster')
 
-  // Determine colors - use brand colors if available
+  // Determine colors - priority: user brand colors > AI-generated colors > hardcoded fallback
   const colors = options.brandContext?.primaryColor
     ? `Brand-adapted: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}, ${options.brandContext.accentColor || eventContext.ctaColor}`
-    : eventContext.colors
+    : options.designContext?.colorMood
+      ? `AI-suggested: ${options.designContext.colorMood}`
+      : eventContext.colors
 
   return `
-<task>Generate a VISUALLY STUNNING event poster with rich, atmospheric design that immediately communicates the event type through visual language</task>
+A VISUALLY STUNNING event poster with rich, atmospheric design that immediately communicates the event type through visual language.
 
-<format>
-Type: Event Promotional Poster
-Aspect Ratio: Portrait 4:5 (optimal for both print and social sharing)
-Purpose: Announce upcoming event, attract target audience, drive registrations
-Event Type: ${data.eventType || 'Professional event'}
-</format>
+FORMAT: Event Promotional Poster in Portrait 4:5 aspect ratio (optimal for both print and social sharing). Purpose is to announce the upcoming event, attract the target audience, and drive registrations. Event Type: ${data.eventType || 'Professional event'}.
 
 ${logoContext}
 
@@ -276,6 +326,8 @@ ${orgContext}
 
 ${layoutContext}
 
+${forbiddenZonesContext}
+
 ${langContext}
 
 ${speakerZoneContext}
@@ -284,112 +336,80 @@ ${decorativeElementsContext}
 
 ${backgroundSettingContext}
 
-<typography_hierarchy>
+${aiTypographySection}
+
+${aiDecorativeSection}
+
+${creativeTwistSection}
+
+TYPOGRAPHY GUIDELINES:
 ${typographyRules}
-</typography_hierarchy>
 
-<subject>
-A VISUALLY RICH, IMMERSIVE event poster for "${data.eventName}".
-Target Audience: ${data.targetAudience || eventContext.defaultAudience}
+POSTER DESCRIPTION:
+A visually rich, immersive event poster for "${eventName}". Target Audience: ${data.targetAudience || eventContext.defaultAudience}.
 
-VISUAL STORYTELLING GOAL:
-- The poster must LOOK AND FEEL like a ${data.eventType || 'professional'} event through its visual design
-- Use the visual_design_elements to create an atmospheric, contextually-rich background
-- The design should rival Google AI Studio quality - layered, dimensional, professional
-- Must pass 3-SECOND TEST: viewer understands WHAT, WHEN, WHERE instantly
+The poster achieves these visual storytelling goals: It looks and feels like a ${data.eventType || 'professional'} event through its visual design. The visual_design_elements create an atmospheric, contextually-rich background. The design quality rivals Google AI Studio - layered, dimensional, professional. It passes the 3-SECOND TEST where the viewer instantly understands WHAT, WHEN, WHERE.
 
-${hasSpeakerPhoto ? 'NOTE: Speaker photo will be overlaid via post-processing. Keep that zone clean but make the REST of the poster visually rich.' : ''}
-</subject>
+${hasSpeakerPhoto ? 'Speaker photo will be overlaid via post-processing. Keep that zone clean but make the REST of the poster visually rich.' : ''}
 
-<composition>
-Layout: Clear vertical hierarchy optimized for quick scanning
+POSTER LAYOUT AND COMPOSITION:
 
-Structure from top to bottom:
-- TOP (5-10%): Clean header area with simple background
-- HEADLINE ZONE (25-30%): Main event title as the largest text element
-${data.eventDescription ? `- TAGLINE (5-10%): Supporting message below headline` : ''}
-- DETAILS ZONE (25-30%): Event information with clear iconography showing date, time, location
-${data.speakerName ? `- SPEAKER ZONE (15-20%): Featured speaker section with circular photo area` : ''}
-- CTA ZONE (10-15%): Strong call-to-action button
-- FOOTER (5%): Additional info area
+This poster uses a clear vertical hierarchy optimized for quick scanning. The layout divides into distinct zones from top to bottom:
 
-Background: ${eventContext.background}
-${options.brandContext ? `Brand colors: ${options.brandContext.primaryColor} and ${options.brandContext.secondaryColor || 'white'}` : ''}
-</composition>
+The top 15% of the poster is a clean header band with only simple background colors or gradients - no text in this area. This header band has clean corners for branding elements.
 
-<text_content>
-<!-- TEXT TO RENDER: Only the quoted values should appear as text in the image -->
-<text role="headline">"${data.eventName}"</text>
-${data.eventDescription ? `<text role="tagline">"${data.eventDescription}"</text>` : ''}
-<text role="date">"${formatEventDate(data.eventDate)}"</text>
-<text role="time">"${data.eventTime || ''}"</text>
-<text role="venue">"${data.venue || ''}"</text>
-${data.entryFee ? `<text role="price">"${data.entryFee}"</text>` : ''}
-${data.speakerName ? `<text role="speaker">"${data.speakerName}${data.speakerDesignation ? ', ' + data.speakerDesignation : ''}"</text>` : ''}
-<text role="cta">"${data.registrationInfo || 'REGISTER NOW'}"</text>
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
-</text_content>
+Below the header band (starting at 15-20% from top), the main event title "${eventName}" appears as the largest, most prominent text. The title is centered horizontally in the middle portion of the poster width, not extending into the corner areas.
 
-<style>
-Visual Style: ${eventContext.style}
-Color Palette: ${colors}
-Mood: ${eventContext.mood}
-Typography:
-  - Headlines: Bold, modern sans-serif that commands attention
-  - Details: Clean, readable, with supportive icons
-  - CTA: Bold, high contrast, button-style
-Icons: Simple, modern iconography for date/time/venue
-Energy Level: ${eventContext.energy}
-</style>
+${eventDescription ? `The tagline "${eventDescription}" appears below the main title in a supporting role.` : ''}
+
+The middle section contains event details with clear iconography: the date and time "${formatEventDate(data.eventDate)} | ${formatEventTime(data.eventTime)}", and venue "${data.venue || ''}".
+
+${speakerName ? `The speaker section features "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}"${hasSpeakerPhoto ? ' with space for a photo' : ' as TEXT ONLY (no photo placeholder)'}.` : ''}
+
+${data.entryFee ? `Registration fee: "${data.entryFee}"` : ''}
+
+The call-to-action button reads "${data.registrationInfo || 'REGISTER NOW'}" and stands out with high contrast.
+
+${eventNote ? `Footer note: "${eventNote}"` : ''}
+
+${options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : ''}
+
+TEXT TO DISPLAY IN THE IMAGE (render these exact words):
+- Main headline: "${eventName}"
+${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
+- Date & Time: "${formatEventDate(data.eventDate)} | ${formatEventTime(data.eventTime)}"
+- Location: "${data.venue || ''}"
+${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
+${speakerName ? `- Speaker: "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}"` : ''}
+- Button: "${data.registrationInfo || 'REGISTER NOW'}"
+${eventNote ? `- Footer: "${eventNote}"` : ''}
+
+VISUAL STYLE:
+${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette. The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Headlines use bold, modern sans-serif typography that commands attention. Event details are clean and readable with supportive icons. The call-to-action button has bold, high contrast styling. Energy level: ${eventContext.energy}.
 
 ${EVENT_POSTER_EXAMPLES}
 
-<quality_markers>
-- Passes 3-SECOND TEST: What, When, Where are instantly visible
-- Event name is dominant and impossible to miss
-- Readable from both close-up (phone) and distance (printed poster)
-- Professional marketing quality
-- Clear visual hierarchy guiding eye from top to bottom
-- CTA stands out and drives action
-- All text clearly legible
-- Clean header area with simple background suitable for branding
-</quality_markers>
+QUALITY STANDARDS:
+This poster passes the 3-SECOND TEST where What, When, Where are instantly visible. The event name "${eventName}" is the dominant text element and impossible to miss. The design is readable from both close-up on a phone and at distance as a printed poster. Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom. The call-to-action stands out and drives action. All text is clearly legible against its background. The header band (top 15%) has a simple, clean background suitable for branding elements.
 
-<constraints>
-Avoid: Cluttered layout, tiny unreadable text, poor hierarchy (event name not dominant), generic stock photo feel, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy background, landscape orientation, busy patterns in header area
-${hasSpeakerPhoto ? `Avoid: Illustrated faces, people, or human figures in the speaker photo zone - keep it clean for photo overlay` : ''}
-</constraints>
+DESIGN CONSTRAINTS:
+The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.
+${hasSpeakerPhoto ? `The speaker photo zone has a clean background without illustrated faces, people, or human figures - real photos will be overlaid separately.` : ''}
+${speakerName && !hasSpeakerPhoto ? `IMPORTANT - NO SPEAKER PLACEHOLDER: The speaker "${speakerName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person. The speaker information is purely textual - render only the name and designation as text, no photo frame needed.` : ''}
 
-<render_constraints>
-CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
-DO NOT render as visible text:
-- XML tag names (task, format, composition, style, constraints)
-- Instruction phrases (Generate, Create, Include, Apply)
-- Design terminology (hierarchy, prominence, focal point)
-- Words: IMPORTANT, CRITICAL, NOTE, AVOID
-- Any text from typography_hierarchy or design_architecture sections
-${hasSpeakerPhoto ? '- Speaker zone instructions - generate clean background only' : ''}
-</render_constraints>
+${zoneReminderContext}
 
-<ai_creative_freedom>
-AI HAS FULL CREATIVE CONTROL OVER (BE BOLD AND CREATIVE!):
-- BACKGROUNDS: Create RICH, LAYERED, ATMOSPHERIC backgrounds - not plain colors!
-  * Use multiple layers of visual elements at different opacities
-  * Add depth with gradients, glows, ambient lighting effects
-  * Integrate event-type elements (neural networks for tech, medical symbols for health) THROUGHOUT the design
-  * Make the background TELL THE STORY of what kind of event this is
-- Style: Visual mood, color harmony, lighting effects, professional finish
-- Composition: Dynamic element positioning, visual flow, dimensional arrangements
-- Typography Styling: Font sizes, weights, effects, glow/shadow (NOT font family if specified)
-- Visual Elements: ALL items from visual_design_elements should be INTEGRATED into the design
+${options?.preventionEnhancements?.length ? `
+LEARNED IMPROVEMENTS (from past feedback):
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+` : ''}
 
-AI STRICT BOUNDARIES (do not cross):
-- NO human faces or figures (speaker photos overlaid separately)
-- NO logos (added via Sharp post-processing)
-- ONLY render text from <text role="..."> tags
+CREATIVE DIRECTION:
+The AI has full creative control over creating rich, layered, atmospheric backgrounds (not plain colors). Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType || 'professional event'}-themed visual elements throughout the design to tell the story of what kind of event this is. Control the visual mood, color harmony, lighting effects, and professional finish. Style the typography with appropriate sizes, weights, effects, and glow/shadow.
 
-The goal is a VISUALLY STUNNING poster that immediately communicates "${data.eventType || 'professional event'}" through rich visual language.
-</ai_creative_freedom>
+The image contains no human faces or figures (photos added separately) and no logos (added via post-processing). Only the exact text listed above appears in the image.
+
+The goal is a visually stunning poster that immediately communicates "${data.eventType || 'professional event'}" through rich visual language, while keeping the top header band clean for branding.
 `.trim()
 }
 

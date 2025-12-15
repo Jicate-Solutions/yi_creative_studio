@@ -10,6 +10,15 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { CompiledFormData } from './form-data-compiler'
 import { buildTextBriefFromCompiled } from './form-data-compiler'
 
+// Import prompt optimization utilities
+import {
+  getTemperatureConfig,
+  generateUltraProCacheKey,
+  getCachedUltraProPrompt,
+  setCachedUltraProPrompt,
+  validateAndFixUltraProPrompt,
+} from './prompt-optimization'
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -110,6 +119,11 @@ IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
  * Generate an ultra-pro prompt using Claude AI.
  * Transforms compiled form data into an optimized image generation prompt.
  * Returns the prompt along with usage tracking information.
+ *
+ * OPTIMIZATIONS (v3.7):
+ * - Response caching for similar requests
+ * - Dynamic temperature based on format type
+ * - Schema validation with auto-fix
  */
 export async function generateUltraProPrompt(
   compiledData: CompiledFormData,
@@ -119,6 +133,34 @@ export async function generateUltraProPrompt(
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
   console.log('[Ultra-Pro Prompt] Format:', compiledData.format?.name || 'default')
   console.log('[Ultra-Pro Prompt] Provider:', provider)
+
+  // === OPTIMIZATION 1: Check cache first ===
+  const formatId = compiledData.format?.id
+  const cacheKey = generateUltraProCacheKey({
+    formatId,
+    eventName: compiledData.eventName || undefined,
+    eventType: compiledData.eventType || undefined,
+    hasSpeaker: !!compiledData.speakerName,
+    hasVenue: !!compiledData.venue,
+  })
+
+  const cachedPrompt = getCachedUltraProPrompt(cacheKey) as UltraProPrompt | null
+  if (cachedPrompt) {
+    console.log('[Ultra-Pro Prompt] Using CACHED prompt')
+    return {
+      prompt: cachedPrompt,
+      usage: {
+        provider,
+        model: 'cached',
+        tokenUsage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0 },
+        durationMs: 0,
+      },
+    }
+  }
+
+  // === OPTIMIZATION 2: Get dynamic temperature config ===
+  const tempConfig = getTemperatureConfig(formatId)
+  console.log('[Ultra-Pro Prompt] Temperature config:', tempConfig.description)
 
   // Build the user brief from compiled data
   const userBrief = buildTextBriefFromCompiled(compiledData)
@@ -132,14 +174,14 @@ ${userBrief}
 
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
-  // Call the appropriate AI provider
+  // Call the appropriate AI provider with dynamic temperature
   let llmResponse: LLMResponse
 
   try {
     if (provider === 'gemini') {
-      llmResponse = await callGemini(prompt)
+      llmResponse = await callGemini(prompt, tempConfig.ultraProPrompt, tempConfig.topP)
     } else {
-      llmResponse = await callClaude(prompt)
+      llmResponse = await callClaude(prompt, tempConfig.ultraProPrompt)
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] AI call failed:', error)
@@ -162,11 +204,17 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
 
   console.log(`[Ultra-Pro Prompt] Response received in ${llmResponse.durationMs}ms`)
 
-  // Parse the response
-  const ultraProPrompt = parseUltraProPrompt(llmResponse.text, compiledData)
+  // === OPTIMIZATION 3: Schema validation with auto-fix ===
+  const parsedPrompt = parseUltraProPrompt(llmResponse.text, compiledData)
+  const validatedPrompt = validateAndFixUltraProPrompt(parsedPrompt)
+
+  const ultraProPrompt = validatedPrompt || parsedPrompt
   console.log('[Ultra-Pro Prompt] === PROMPT GENERATED ===')
   console.log('[Ultra-Pro Prompt] Primary Text:', ultraProPrompt.primaryText)
   console.log('[Ultra-Pro Prompt] Enhanced Prompt:', ultraProPrompt.enhancedPrompt.substring(0, 200) + '...')
+
+  // === OPTIMIZATION 4: Cache the result ===
+  setCachedUltraProPrompt(cacheKey, ultraProPrompt)
 
   return {
     prompt: ultraProPrompt,
@@ -211,7 +259,10 @@ export async function generateUltraProPromptSafe(
 // AI PROVIDER IMPLEMENTATIONS
 // ============================================================
 
-async function callClaude(prompt: string): Promise<LLMResponse> {
+async function callClaude(
+  prompt: string,
+  temperature: number = 0.9
+): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   const modelName = 'claude-haiku-4-5-20251001'
 
@@ -221,18 +272,41 @@ async function callClaude(prompt: string): Promise<LLMResponse> {
 
   const client = new Anthropic({ apiKey })
 
-  console.log('[Ultra-Pro Prompt] Calling Claude Haiku 4.5...')
+  console.log('[Ultra-Pro Prompt] Calling Claude Haiku 4.5 (temp:', temperature, ')...')
   const startTime = Date.now()
+
+  // Use prompt caching for the system prompt
+  const systemPromptEnd = prompt.indexOf("USER'S CREATIVE BRIEF")
+  const systemPrompt = systemPromptEnd > 0 ? prompt.substring(0, systemPromptEnd).trim() : ''
+  const userContent = systemPromptEnd > 0 ? prompt.substring(systemPromptEnd) : prompt
+
+  const usePromptCaching = systemPrompt.length > 500
 
   const response = await client.messages.create({
     model: modelName,
     max_tokens: 1500,
-    messages: [
-      {
-        role: 'user',
-        content: prompt
-      }
-    ]
+    ...(usePromptCaching ? {
+      system: [
+        {
+          type: 'text' as const,
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ],
+      messages: [
+        {
+          role: 'user' as const,
+          content: userContent,
+        },
+      ],
+    } : {
+      messages: [
+        {
+          role: 'user' as const,
+          content: prompt,
+        },
+      ],
+    }),
   })
 
   const durationMs = Date.now() - startTime
@@ -262,7 +336,11 @@ async function callClaude(prompt: string): Promise<LLMResponse> {
   }
 }
 
-async function callGemini(prompt: string): Promise<LLMResponse> {
+async function callGemini(
+  prompt: string,
+  temperature: number = 0.7,
+  topP: number = 0.9
+): Promise<LLMResponse> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
   const modelName = 'gemini-2.0-flash-exp'
 
@@ -274,7 +352,8 @@ async function callGemini(prompt: string): Promise<LLMResponse> {
   const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: {
-      temperature: 0.7,
+      temperature, // Dynamic temperature based on format type
+      topP, // Dynamic top-P for word choice variation
       maxOutputTokens: 1500,
     }
   })

@@ -42,6 +42,14 @@ const brandConfigSchema = z.object({
   footerText: z.string().optional(),
   footerEmail: z.string().email().optional().or(z.literal('')),
   footerWebsite: z.string().url().optional().or(z.literal('')),
+  footerPhone: z.string().optional(),
+  footerAddress: z.string().optional(),
+  footerSocial: z.object({
+    instagram: z.string().optional(),
+    linkedin: z.string().optional(),
+    facebook: z.string().optional(),
+    twitter: z.string().optional(),
+  }).optional(),
 })
 
 type BrandConfigForm = z.infer<typeof brandConfigSchema>
@@ -66,6 +74,9 @@ export default function BrandConfigPage() {
       footerText: DEFAULT_BRAND_CONFIG.footerText,
       footerEmail: DEFAULT_BRAND_CONFIG.footerEmail,
       footerWebsite: DEFAULT_BRAND_CONFIG.footerWebsite,
+      footerPhone: DEFAULT_BRAND_CONFIG.footerPhone,
+      footerAddress: DEFAULT_BRAND_CONFIG.footerAddress,
+      footerSocial: DEFAULT_BRAND_CONFIG.footerSocial,
     },
   })
 
@@ -83,6 +94,14 @@ export default function BrandConfigPage() {
         footerText: brandConfig.footerText || '',
         footerEmail: brandConfig.footerEmail || '',
         footerWebsite: brandConfig.footerWebsite || '',
+        footerPhone: brandConfig.footerPhone || '',
+        footerAddress: brandConfig.footerAddress || '',
+        footerSocial: brandConfig.footerSocial || {
+          instagram: '',
+          linkedin: '',
+          facebook: '',
+          twitter: '',
+        },
       })
     }
   }, [brandConfig, form])
@@ -436,6 +455,119 @@ export default function BrandConfigPage() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="footerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="tel"
+                          placeholder="+91 98765 43210"
+                          disabled={!isAdmin}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="footerAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Physical Address</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="123 Business Park, Chennai"
+                          disabled={!isAdmin}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Social Media Handles */}
+              <div className="space-y-4 pt-4 border-t">
+                <Label className="text-sm font-medium">Social Media Handles</Label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="footerSocial.instagram"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instagram</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="@yichennai"
+                            disabled={!isAdmin}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="footerSocial.linkedin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>LinkedIn</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="company/yi-chennai"
+                            disabled={!isAdmin}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="footerSocial.facebook"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Facebook</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="yichennai"
+                            disabled={!isAdmin}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="footerSocial.twitter"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>X (Twitter)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="@yichennai"
+                            disabled={!isAdmin}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

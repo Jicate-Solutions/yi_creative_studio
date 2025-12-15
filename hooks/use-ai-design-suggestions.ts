@@ -16,10 +16,9 @@ import { THEMES, POSTER_STYLES } from '@/lib/config/design-constants'
  * Each tab has its own enable/disable toggle and loading state.
  * Suggestions are fetched once and shared across tabs.
  *
- * @param eventType - The event type/vertical slug (e.g., "blood_donation", "conference")
- * @param eventName - The event name/title
+ * Reads eventType and eventName from store automatically.
  */
-export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
+export function useAIDesignSuggestions() {
   const {
     aiDesignSuggestions,
     formData,
@@ -51,6 +50,10 @@ export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
     description?: string
   }
 
+  // Derive eventType and eventName from store data
+  const eventType = eventData.eventType
+  const eventName = eventData.eventName || eventData.title
+
   const designData = formData.designData
   const hasSpeakerPhoto = designData.customization?.speakerPhoto?.enabled ?? false
 
@@ -68,8 +71,8 @@ export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventType: eventType,  // Use passed parameter
-          eventName: eventName || eventData.title,  // Use passed parameter with fallback
+          eventType,
+          eventName,
           currentTheme: designData.theme,
           currentStyle: designData.style,
           hasSpeakerPhoto,
@@ -112,6 +115,10 @@ export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
         creativeTips: suggestions.creativeTips || [],
         hasFetchedSuggestions: true,
       })
+
+      // When AI is enabled, select AI Auto mode (let AI decide at generation time)
+      updateTheme('ai')
+      updateStyle('ai')
     } catch (error) {
       console.error('[useAIDesignSuggestions] Error:', error)
       const errorMsg = error instanceof Error ? error.message : 'Failed to generate suggestions'
@@ -119,11 +126,15 @@ export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
       if (tab === 'theme') setAIThemeError(errorMsg)
       else if (tab === 'style') setAIStyleError(errorMsg)
       else setAIColorError(errorMsg)
+    } finally {
+      // Clear loading states
+      if (tab === 'theme') setAIThemeGenerating(false)
+      else if (tab === 'style') setAIStyleGenerating(false)
+      else setAIColorGenerating(false)
     }
   }, [
-    eventType,  // Use passed parameter
-    eventName,  // Use passed parameter
-    eventData.title,
+    eventType,
+    eventName,
     eventData.guestName,
     eventData.guestDesignation,
     eventData.description,
@@ -137,6 +148,8 @@ export function useAIDesignSuggestions(eventType?: string, eventName?: string) {
     setAIStyleError,
     setAIColorError,
     setAIDesignSuggestions,
+    updateTheme,
+    updateStyle,
   ])
 
   /**

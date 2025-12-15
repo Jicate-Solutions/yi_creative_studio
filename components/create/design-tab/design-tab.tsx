@@ -25,8 +25,6 @@ interface DesignTabProps {
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
   brandColors?: BrandColors
-  eventType?: string
-  eventName?: string
 }
 
 export function DesignTab({
@@ -38,11 +36,9 @@ export function DesignTab({
   onSelectPalette,
   onCustomColorChange,
   brandColors,
-  eventType,
-  eventName,
 }: DesignTabProps) {
-  // AI Design Suggestions hook (now per-tab) - pass eventType and eventName for context
-  const aiSuggestions = useAIDesignSuggestions(eventType, eventName)
+  // AI Design Suggestions hook - reads eventType and eventName from store
+  const aiSuggestions = useAIDesignSuggestions()
 
   return (
     <Card>
@@ -78,8 +74,6 @@ export function DesignTab({
             <ThemeTab
               selectedTheme={designData.theme}
               onThemeChange={onThemeChange}
-              eventType={eventType}
-              eventName={eventName}
               // AI props
               enableAI={aiSuggestions.theme.enableAI}
               isGenerating={aiSuggestions.theme.isGenerating}
@@ -96,7 +90,6 @@ export function DesignTab({
             <StyleTab
               selectedStyle={designData.style}
               onStyleChange={onStyleChange}
-              eventName={eventName}
               // AI props
               enableAI={aiSuggestions.style.enableAI}
               isGenerating={aiSuggestions.style.isGenerating}
@@ -115,7 +108,6 @@ export function DesignTab({
               onToggleBrandColors={onToggleBrandColors}
               onSelectPalette={onSelectPalette}
               onCustomColorChange={onCustomColorChange}
-              eventName={eventName}
               // AI props
               enableAI={aiSuggestions.color.enableAI}
               isGenerating={aiSuggestions.color.isGenerating}

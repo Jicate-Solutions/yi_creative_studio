@@ -273,19 +273,21 @@ export async function getUsageAnalytics(
 ): Promise<UsageAnalytics> {
   const supabase = await createClient()
 
-  let query = supabase
+  // Default to last 30 days if no date range specified to prevent unbounded queries
+  const defaultStart = new Date()
+  defaultStart.setDate(defaultStart.getDate() - 30)
+
+  const startDate = dateRange?.start || defaultStart
+  const endDate = dateRange?.end || new Date()
+
+  const { data: records, error } = await supabase
     .from('api_usage')
     .select('*')
     .eq('organization_id', organizationId)
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
     .order('created_at', { ascending: false })
-
-  if (dateRange) {
-    query = query
-      .gte('created_at', dateRange.start.toISOString())
-      .lte('created_at', dateRange.end.toISOString())
-  }
-
-  const { data: records, error } = await query
+    .limit(1000) // Cap at 1000 records to prevent excessive IO
 
   if (error) {
     console.error('[API Usage] Failed to fetch analytics:', error)
@@ -432,6 +434,7 @@ export async function getDailyCost(organizationId: string): Promise<number> {
     .select('estimated_cost_usd')
     .eq('organization_id', organizationId)
     .gte('created_at', today.toISOString())
+    .limit(500) // Daily limit - cap to prevent excessive IO
 
   if (error) {
     console.error('[API Usage] Failed to get daily cost:', error)
@@ -460,6 +463,7 @@ export async function getCreativeCost(creativeId: string): Promise<{
     .from('api_usage')
     .select('request_type, provider, model, estimated_cost_usd')
     .eq('creative_id', creativeId)
+    .limit(20) // A single creative typically has 3-5 API calls max
 
   if (error) {
     console.error('[API Usage] Failed to get creative cost:', error)

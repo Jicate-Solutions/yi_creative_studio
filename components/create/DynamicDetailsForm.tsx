@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,6 +34,27 @@ import {
   type DynamicField as FormatDynamicField,
 } from '@/lib/schemas/formatFieldSchemas'
 import type { CreativeFormatId } from '@/lib/config/creative-formats'
+import { FormSection } from '@/components/creative-form/FormSection'
+import {
+  FIELD_REGISTRY,
+  getField,
+  resolveFieldId,
+  type CanonicalField,
+} from '@/lib/config/field-registry'
+import {
+  getFormatSections,
+  getFormatFieldsBySection,
+  getDefaultExpandedSections,
+  type FormSection as FormSectionType,
+} from '@/lib/config/form-sections'
+import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
+import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
+
+// Lazy import for SpeakerPhotoUpload to avoid circular dependencies
+const SpeakerPhotoUpload = dynamic(
+  () => import('@/components/create/speaker-photo-upload').then(mod => ({ default: mod.SpeakerPhotoUpload })),
+  { ssr: false }
+)
 
 // ============================================================================
 // Helpers
@@ -61,6 +83,21 @@ function formatFieldToSchemaField(field: FormatDynamicField): SchemaField {
     suggestable: field.suggestable,
   }
 }
+
+// Convert CanonicalField to SchemaField for compatibility
+function canonicalToSchemaField(field: CanonicalField): SchemaField {
+  return {
+    id: field.id,
+    label: field.label,
+    type: field.type,
+    required: field.required || false,
+    placeholder: field.placeholder,
+    maxLength: field.maxLength,
+    rows: field.rows,
+    options: field.options,
+    suggestable: field.suggestable || false,
+  }
+}
 import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -71,6 +108,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 interface Suggestion {
   value: string
   confidence: number
+}
+
+/** Speaker photo configuration type matching create page */
+interface SpeakerPhotoValue {
+  enabled: boolean
+  photoUrl?: string
+  position?: 'left' | 'right' | 'center'
+  size?: number
+  shape?: 'circle' | 'rounded' | 'square'
+  verticalPosition?: 'top' | 'upper' | 'middle' | 'lower' | 'bottom'
+  border?: { width: number; color: string }
+  shadow?: boolean
 }
 
 interface DynamicDetailsFormProps {
@@ -94,6 +143,12 @@ interface DynamicDetailsFormProps {
   isDynamicSchemaLoading?: boolean
   dynamicSchemaError?: string | null
   isDynamicSchemaFallback?: boolean
+  /** Enable section-based layout with collapsible cards */
+  useSections?: boolean
+  /** Speaker photo configuration - for integration into Speaker Details section */
+  speakerPhotoValue?: SpeakerPhotoValue
+  /** Callback when speaker photo settings change */
+  onSpeakerPhotoChange?: (data: Partial<SpeakerPhotoValue>) => void
 }
 
 // ============================================================================
@@ -373,8 +428,12 @@ export function DynamicDetailsForm({
   isDynamicSchemaLoading = false,
   dynamicSchemaError,
   isDynamicSchemaFallback = false,
+  useSections = true, // Enable sections by default
+  speakerPhotoValue,
+  onSpeakerPhotoChange,
 }: DynamicDetailsFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const fallbackToastShownRef = useRef(false)
 
   // Show toast notification when fallback schema is used
@@ -571,22 +630,125 @@ export function DynamicDetailsForm({
   )
 
   // Get the first text field for AI trigger
+  // Priority: suggestable + required text > required text > first text field
   const titleField = useMemo(() => {
-    return effectiveFields.find(
+    // First try: required + suggestable text field
+    const suggestableField = effectiveFields.find(
       (f) => f.suggestable && f.type === 'text' && f.required
     )
+    if (suggestableField) return suggestableField
+
+    // Fallback: any required text field (AI-generated schemas may not set suggestable)
+    const requiredTextField = effectiveFields.find(
+      (f) => f.type === 'text' && f.required
+    )
+    if (requiredTextField) return requiredTextField
+
+    // Last resort: first text field
+    return effectiveFields.find((f) => f.type === 'text')
   }, [effectiveFields])
 
+  // For AI trigger message - find first text field that needs more input
+  const firstUnfilledTextField = useMemo(() => {
+    return effectiveFields.find((f) => {
+      if (f.type !== 'text') return false
+      const value = formData[f.id]
+      return !value || (typeof value === 'string' && value.length < 5)
+    })
+  }, [effectiveFields, formData])
+
   // Check if AI trigger button should be enabled
+  // Check ALL text fields (not just one) to handle field ID mismatches between AI and format schemas
   const canTriggerAI = useMemo(() => {
-    if (!titleField) return false
-    const titleValue = getFieldValue(titleField.id)
-    return titleValue.length >= 5
-  }, [titleField, getFieldValue])
+    // Get all required text fields
+    const requiredTextFields = effectiveFields.filter(
+      (f) => f.type === 'text' && f.required
+    )
+
+    // Fallback to any text field if no required ones
+    const textFieldsToCheck = requiredTextFields.length > 0
+      ? requiredTextFields
+      : effectiveFields.filter((f) => f.type === 'text')
+
+    // Enable AI if ANY of these fields has >= 5 chars
+    return textFieldsToCheck.some((field) => {
+      const value = formData[field.id]
+      return typeof value === 'string' && value.length >= 5
+    })
+  }, [effectiveFields, formData])
 
   // Is using AI-generated schema (for badge display)
   const isUsingAISchema = schemaSource === 'ai-generated'
   const isUsingFormatSchema = schemaSource === 'format-specific'
+
+  // ============================================================================
+  // Section-based rendering data
+  // ============================================================================
+
+  // Get sections for the current format
+  const sectionConfig = useMemo(() => {
+    if (!formatId || !useSections) return null
+    return getFormatFieldsBySection(formatId)
+  }, [formatId, useSections])
+
+  // Build field lookup map for quick access
+  const fieldMap = useMemo(() => {
+    const map = new Map<string, SchemaField>()
+    effectiveFields.forEach((field) => {
+      map.set(field.id, field)
+    })
+    return map
+  }, [effectiveFields])
+
+  // Calculate section completion data
+  const sectionData = useMemo(() => {
+    if (!sectionConfig) return []
+
+    return sectionConfig.map(({ section, fieldIds }) => {
+      // Get fields for this section from field registry (canonical) or effectiveFields (legacy)
+      const sectionFields: SchemaField[] = fieldIds
+        .map((id) => {
+          // First try to get from effective fields (includes AI-generated)
+          const effectiveField = fieldMap.get(id)
+          if (effectiveField) return effectiveField
+
+          // Fall back to canonical field registry
+          const canonicalField = getField(id)
+          if (canonicalField) return canonicalToSchemaField(canonicalField)
+
+          return null
+        })
+        .filter((f): f is SchemaField => f !== null)
+
+      // Count completed and required fields
+      const requiredFields = sectionFields.filter((f) => f.required).length
+      const completedFields = sectionFields.filter((f) => {
+        const value = formData[f.id]
+        return value && String(value).trim().length > 0
+      }).length
+
+      // Check for errors in this section
+      const hasErrors = sectionFields.some((f) => errors[f.id])
+
+      return {
+        section,
+        fields: sectionFields,
+        fieldIds,
+        requiredFields,
+        completedFields,
+        totalFields: sectionFields.length,
+        hasErrors,
+      }
+    }).filter((s) => s.fields.length > 0) // Only show sections with fields
+  }, [sectionConfig, fieldMap, formData, errors])
+
+  // Initialize expanded sections based on defaults
+  useEffect(() => {
+    if (formatId && useSections) {
+      const defaults = getDefaultExpandedSections(formatId)
+      setExpandedSections(new Set(defaults))
+    }
+  }, [formatId, useSections])
 
   return (
     <Card>
@@ -652,8 +814,8 @@ export function DynamicDetailsForm({
             <FormFieldSkeleton />
           </div>
         )}
-        {/* First field with AI trigger button */}
-        {!isDynamicSchemaLoading && titleField && (
+        {/* First field with AI trigger button - only show when NOT using sections */}
+        {!isDynamicSchemaLoading && titleField && !useSections && (
           <div className="space-y-2">
             <Label htmlFor={titleField.id}>
               {titleField.label}
@@ -715,6 +877,36 @@ export function DynamicDetailsForm({
           </div>
         )}
 
+        {/* AI Trigger Button for section mode - shown above sections */}
+        {!isDynamicSchemaLoading && useSections && onRequestSuggestions && (
+          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              <span className="text-sm text-purple-700">
+                {canTriggerAI
+                  ? 'Ready to generate AI suggestions'
+                  : `Enter ${firstUnfilledTextField?.label?.toLowerCase() || titleField?.label?.toLowerCase() || 'content'} to enable AI suggestions`}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRequestSuggestions}
+              disabled={!canTriggerAI || isSuggestionsLoading}
+              className="border-purple-200 hover:bg-purple-100 hover:border-purple-300 text-purple-700"
+            >
+              <Sparkles
+                className={cn(
+                  'h-4 w-4 mr-2',
+                  isSuggestionsLoading ? 'animate-spin' : ''
+                )}
+              />
+              {isSuggestionsLoading ? 'Generating...' : 'Get AI Suggestions'}
+            </Button>
+          </div>
+        )}
+
         {/* AI Suggestions Error */}
         {suggestionsError && (
           <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
@@ -752,61 +944,90 @@ export function DynamicDetailsForm({
           </div>
         )}
 
-        {/* Dynamic form fields (excluding the first title field which is handled above) */}
-        {!isDynamicSchemaLoading && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {effectiveFields
-            .filter((field) => field.id !== titleField?.id)
-            .map((field) => (
-              <div
-                key={field.id}
-                className={cn(
-                  field.type === 'textarea' ? 'md:col-span-2' : ''
-                )}
-              >
-                <DynamicField
-                  field={field}
-                  value={getFieldValue(field.id)}
-                  suggestion={getSuggestion(field.id)}
-                  isLoading={isSuggestionsLoading}
-                  onChange={(value) => handleFieldChange(field.id, value)}
-                  onAccept={() => onAcceptSuggestion?.(field.id)}
-                  onDismiss={() => onDismissSuggestion?.(field.id)}
-                  error={errors[field.id]}
-                />
-              </div>
-            ))}
-        </div>
-        )}
+        {/* Dynamic form fields - Section-based or Flat layout */}
+        {!isDynamicSchemaLoading && useSections && sectionData.length > 0 ? (
+          // Section-based layout with collapsible cards
+          <div className="space-y-4">
+            {sectionData.map(({ section, fields, requiredFields, completedFields, totalFields, hasErrors }) => {
+              // Check if this format supports speaker photo for the speaker section
+              const customizationOptions = getFormatCustomizationOptions(formatId || '')
+              const showSpeakerPhotoInSection = section.id === 'speaker' &&
+                customizationOptions.speakerPhoto &&
+                speakerPhotoValue &&
+                onSpeakerPhotoChange
 
-        {/* Language Selector */}
-        {showLanguageSelector && onLanguageChange && (
-          <div className="pt-4 border-t">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label htmlFor="language" className="text-sm font-medium">
-                  Language
-                </Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Text will be generated in this language
-                </p>
-              </div>
-              <Select value={languageValue} onValueChange={onLanguageChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
-                  <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
-                  <SelectItem value="es">Spanish (Español)</SelectItem>
-                  <SelectItem value="fr">French (Français)</SelectItem>
-                  <SelectItem value="ar">Arabic (العربية)</SelectItem>
-                  <SelectItem value="ja">Japanese (日本語)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              return (
+                <FormSection
+                  key={section.id}
+                  sectionId={section.id}
+                  title={section.title}
+                  icon={section.icon}
+                  description={section.description}
+                  defaultExpanded={section.defaultExpanded}
+                  completedFields={completedFields}
+                  requiredFields={requiredFields}
+                  totalFields={totalFields}
+                  hasErrors={hasErrors}
+                >
+                  {fields.map((field) => (
+                    <div
+                      key={field.id}
+                      className={cn(
+                        field.type === 'textarea' ? 'md:col-span-2' : ''
+                      )}
+                    >
+                      <DynamicField
+                        field={field}
+                        value={getFieldValue(field.id)}
+                        suggestion={getSuggestion(field.id)}
+                        isLoading={isSuggestionsLoading}
+                        onChange={(value) => handleFieldChange(field.id, value)}
+                        onAccept={() => onAcceptSuggestion?.(field.id)}
+                        onDismiss={() => onDismissSuggestion?.(field.id)}
+                        error={errors[field.id]}
+                      />
+                    </div>
+                  ))}
+                  {/* Speaker Photo Upload - Integrated into Speaker Details section */}
+                  {showSpeakerPhotoInSection && (
+                    <div className="md:col-span-2 mt-4 pt-4 border-t border-dashed border-border/50">
+                      <SpeakerPhotoUpload
+                        value={speakerPhotoValue as SpeakerPhotoCustomization}
+                        onChange={onSpeakerPhotoChange}
+                      />
+                    </div>
+                  )}
+                </FormSection>
+              )
+            })}
           </div>
+        ) : (
+          // Flat layout (legacy or when sections not available)
+          !isDynamicSchemaLoading && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {effectiveFields
+                .filter((field) => field.id !== titleField?.id)
+                .map((field) => (
+                  <div
+                    key={field.id}
+                    className={cn(
+                      field.type === 'textarea' ? 'md:col-span-2' : ''
+                    )}
+                  >
+                    <DynamicField
+                      field={field}
+                      value={getFieldValue(field.id)}
+                      suggestion={getSuggestion(field.id)}
+                      isLoading={isSuggestionsLoading}
+                      onChange={(value) => handleFieldChange(field.id, value)}
+                      onAccept={() => onAcceptSuggestion?.(field.id)}
+                      onDismiss={() => onDismissSuggestion?.(field.id)}
+                      error={errors[field.id]}
+                    />
+                  </div>
+                ))}
+            </div>
+          )
         )}
 
         {/* Schema badge */}
@@ -829,6 +1050,7 @@ export function DynamicDetailsForm({
           </Badge>
         </div>
         )}
+
       </CardContent>
     </Card>
   )

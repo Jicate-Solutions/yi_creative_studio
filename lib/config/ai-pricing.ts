@@ -105,18 +105,19 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
     },
   },
   claude: {
-    // Haiku 4.5 - Latest fast & cheap model (recommended)
+    // Haiku 4.5 - Latest fast model (recommended)
+    // Updated Dec 2025: $1.00/$5.00 per million tokens
     'claude-haiku-4-5-20251001': {
-      inputPerMillion: 0.80,
-      outputPerMillion: 4.00,
-      cachedInputPerMillion: 0.08,
+      inputPerMillion: 1.00,
+      outputPerMillion: 5.00,
+      cachedInputPerMillion: 0.10,  // 10% of input price
     },
     'claude-haiku-4-5': {
-      inputPerMillion: 0.80,
-      outputPerMillion: 4.00,
-      cachedInputPerMillion: 0.08,
+      inputPerMillion: 1.00,
+      outputPerMillion: 5.00,
+      cachedInputPerMillion: 0.10,
     },
-    // Haiku 3.5 - Legacy (deprecated, kept for backwards compatibility)
+    // Haiku 3.5 - Legacy (kept for backwards compatibility)
     'claude-3-5-haiku-latest': {
       inputPerMillion: 0.80,
       outputPerMillion: 4.00,
@@ -127,18 +128,32 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
       outputPerMillion: 4.00,
       cachedInputPerMillion: 0.08,
     },
-    // Sonnet - Balanced
-    'claude-3-5-sonnet-latest': {
+    // Sonnet 4.5 - Balanced (latest)
+    'claude-sonnet-4-5-20251022': {
       inputPerMillion: 3.00,
       outputPerMillion: 15.00,
       cachedInputPerMillion: 0.30,
     },
+    // Sonnet 4 - Balanced
     'claude-sonnet-4-20250514': {
       inputPerMillion: 3.00,
       outputPerMillion: 15.00,
       cachedInputPerMillion: 0.30,
     },
-    // Opus - Most capable (expensive)
+    // Sonnet 3.5 - Legacy
+    'claude-3-5-sonnet-latest': {
+      inputPerMillion: 3.00,
+      outputPerMillion: 15.00,
+      cachedInputPerMillion: 0.30,
+    },
+    // Opus 4.5 - Most capable (pricing dropped significantly Dec 2025!)
+    // Updated: $5.00/$25.00 (was $15/$75 for Opus 3)
+    'claude-opus-4-5-20251101': {
+      inputPerMillion: 5.00,
+      outputPerMillion: 25.00,
+      cachedInputPerMillion: 0.50,
+    },
+    // Opus 4 - Legacy
     'claude-opus-4-20250514': {
       inputPerMillion: 15.00,
       outputPerMillion: 75.00,
@@ -312,6 +327,8 @@ export type RequestType =
   | 'template_adaptation'
   | 'resize_template'
   | 'feedback_analysis'
+  | 'design_analysis_agent'
+  | 'ui_ux_ultra_agent'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   design_intelligence: 'Design Intelligence',
@@ -321,4 +338,6 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   template_adaptation: 'Template Adaptation',
   resize_template: 'Template Resize',
   feedback_analysis: 'Feedback Analysis',
+  design_analysis_agent: 'Design Analysis Agent',
+  ui_ux_ultra_agent: 'UI/UX Ultra Agent',
 }

@@ -107,11 +107,10 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         currentOrganization: state.currentOrganization,
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => () => {
         // Mark store as hydrated after localStorage data is restored
-        if (state) {
-          state._hasHydrated = true
-        }
+        // Use setState to properly trigger Zustand reactivity (direct mutation doesn't work)
+        useAuthStore.setState({ _hasHydrated: true })
       },
     }
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { ArrowLeft, BarChart3, Coins, MessageSquare } from 'lucide-react'
+import { ArrowLeft, BarChart3, Brain, Coins, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ROUTES } from '@/lib/config/constants'
@@ -27,6 +27,11 @@ const analyticsNavItems: NavItem[] = [
     title: 'Feedback',
     href: ROUTES.analyticsFeedback,
     icon: <MessageSquare className="h-4 w-4" />,
+  },
+  {
+    title: 'Learning',
+    href: ROUTES.analyticsLearning,
+    icon: <Brain className="h-4 w-4" />,
   },
 ]
 

@@ -10,6 +10,7 @@ import type {
   OrganizationContext,
   LayoutZoneConfig,
   SpeakerPhotoConfig,
+  FooterContactContext,
 } from './types'
 
 // ============================================================
@@ -81,38 +82,39 @@ export function buildBrandContext(brandContext?: BrandContextPrompt): string {
   // Include colors only when useBrandColors is enabled
   if (useBrandColors) {
     lines.push('')
-    lines.push('Brand Colors to Apply:')
+    // v3.7: Add MANDATORY override to ensure brand colors are used over AI-suggested colors
+    lines.push('=== MANDATORY BRAND COLOR REQUIREMENT ===')
+    lines.push('You MUST use ONLY these brand colors. IGNORE any other color suggestions in this prompt.')
+    lines.push('')
 
     if (brandContext.primaryColor) {
-      lines.push(`- Primary Color: ${brandContext.primaryColor} (use for main elements, headers)`)
+      lines.push(`- PRIMARY: ${brandContext.primaryColor} - Use for backgrounds, gradients, main visual areas`)
     }
 
     if (brandContext.secondaryColor) {
-      lines.push(`- Secondary Color: ${brandContext.secondaryColor} (use for supporting elements)`)
+      lines.push(`- SECONDARY: ${brandContext.secondaryColor} - Use for accents, highlights, supporting elements`)
     }
 
     if (brandContext.accentColor) {
-      lines.push(`- Accent Color: ${brandContext.accentColor} (use for CTAs, highlights)`)
+      lines.push(`- ACCENT: ${brandContext.accentColor} - Use for CTAs, buttons, call-to-action elements`)
     }
 
-    // Color application guidance only when using brand colors
+    // Stronger color application guidance
     lines.push(`
-Color Application:
-- Headlines/Titles: Primary color or high contrast with background
-- Backgrounds: Can incorporate brand colors as gradients or accents
-- CTAs/Buttons: Accent color for maximum visibility
-- Supporting text: Secondary color or neutral`)
+STRICT COLOR RULES:
+- Background MUST use Primary Color (${brandContext.primaryColor || 'as specified'}) as dominant color
+- Headlines MUST be high contrast (white/black) against primary background
+- CTAs/Buttons MUST use Accent Color (${brandContext.accentColor || 'as specified'})
+- DO NOT use navy, cyan, neon, or any colors not listed above
+- These brand colors are NON-NEGOTIABLE - override any AI color suggestions`)
   } else {
     // When brand colors are not applied, use professional defaults
     lines.push('')
     lines.push('Color Guidance: Use professional, harmonious colors appropriate for the content')
   }
 
-  return `
-<brand_context>
-${lines.join('\n')}
-</brand_context>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return lines.join('\n')
 }
 
 // ============================================================
@@ -160,20 +162,9 @@ export function buildQualityContext(resolution?: string, formatId?: string): str
   const spec = RESOLUTION_SPECS[res] || RESOLUTION_SPECS['2K']
   const formatQuality = (formatId && FORMAT_QUALITY[formatId]) || 'Professional quality, clear and crisp'
 
-  return `
-<quality>
-Resolution: ${res} (${spec.pixels} maximum dimension)
-DPI Equivalent: ${spec.dpi}
-Intended Use: ${spec.use}
-Format-Specific Quality: ${formatQuality}
-
-Quality Requirements:
-- Sharp, clear edges on all elements
-- Legible text at intended viewing size
-- No artifacts, blur, or pixelation
-- Professional finish suitable for ${spec.use.toLowerCase()}
-</quality>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `QUALITY SPECIFICATIONS:
+Resolution: ${res} (${spec.pixels} maximum dimension). DPI Equivalent: ${spec.dpi}. Intended Use: ${spec.use}. Format-Specific Quality: ${formatQuality}. The image has sharp, clear edges on all elements, legible text at intended viewing size, no artifacts, blur, or pixelation, and a professional finish suitable for ${spec.use.toLowerCase()}.`
 }
 
 // ============================================================
@@ -205,14 +196,8 @@ export function buildThemeContext(
 
   const themeDesc = THEME_DESCRIPTIONS[theme || 'professional'] || THEME_DESCRIPTIONS.professional
 
-  return `
-<theme_context>
-Design Theme: ${theme || 'professional'}
-${style ? `Style Direction: ${style}` : ''}
-Visual Character: ${themeDesc}
-Apply this theme consistently across all visual elements, typography, and color choices.
-</theme_context>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `DESIGN THEME: ${theme || 'professional'}${style ? `. Style Direction: ${style}` : ''}. Visual Character: ${themeDesc}. Apply this theme consistently across all visual elements, typography, and color choices.`
 }
 
 // ============================================================
@@ -239,13 +224,8 @@ export function buildOrganizationContext(
     lines.push(`Industry/Vertical: ${org.industry}`)
   }
 
-  return `
-<organization_context>
-${lines.join('\n')}
-Incorporate organization identity subtly through professional design choices.
-Ensure the design feels authentic to this organization's character.
-</organization_context>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `ORGANIZATION CONTEXT: ${lines.join('. ')}. Incorporate organization identity subtly through professional design choices. The design feels authentic to this organization's character.`
 }
 
 // ============================================================
@@ -271,14 +251,8 @@ export function buildLayoutZoneContext(
     zones.push(`- FOOTER ZONE (bottom ${layout.footerHeight}%): Reserved for footer elements - use simple, uncluttered background`)
   }
 
-  return `
-<layout_zones>
-Reserved Zones for Post-Processing:
-${zones.join('\n')}
-Ensure these zones have simple backgrounds (solid, subtle gradient, or minimal pattern) suitable for overlay elements.
-Avoid placing critical design elements, faces, or important text in these zones.
-</layout_zones>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `RESERVED LAYOUT ZONES: ${zones.join('. ')}. These zones have simple backgrounds (solid, subtle gradient, or minimal pattern) suitable for overlay elements. No critical design elements, faces, or important text in these zones.`
 }
 
 // ============================================================
@@ -309,13 +283,8 @@ export function buildLanguageContext(
   const langInfo = LANGUAGE_GUIDANCE[language]
   if (!langInfo) return ''
 
-  return `
-<language_context>
-Text Language: ${langInfo.name}
-Typography Note: ${langInfo.typography}
-Ensure all text in this language is rendered clearly and correctly.
-</language_context>
-`.trim()
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `TEXT LANGUAGE: ${langInfo.name}. Typography Note: ${langInfo.typography}. All text in this language is rendered clearly and correctly.`
 }
 
 // ============================================================
@@ -344,57 +313,67 @@ const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
  * Build speaker photo zone context
  * Reserves area for speaker photo overlay in event posters
  *
- * v3.2: Now differentiates between:
- * - hasUserPhoto=true: User has uploaded photo, will be overlaid (keep zone clean)
- * - hasUserPhoto=false: Placeholder only, user will add photo later (create clean placeholder, NO AI face)
+ * v3.6: CRITICAL FIX - Only generate context when user has ACTUALLY uploaded a photo
+ * When hasUserPhoto=false, we now return NOTHING to prevent AI from creating placeholder frames
+ * The placeholder frame issue was caused by instructions telling AI to create visible frames
  */
 export function buildSpeakerPhotoZoneContext(
   config?: SpeakerPhotoConfig
 ): string {
-  if (!config?.enabled) return ''
+  // v3.6: Only generate speaker zone context when:
+  // 1. Config exists AND enabled
+  // 2. User has ACTUALLY uploaded a photo (hasUserPhoto=true)
+  // If no photo uploaded, don't send any speaker zone instructions - this prevents AI from drawing placeholder frames
+  if (!config?.enabled || !config.hasUserPhoto) return ''
 
   const position = config.position || 'left'
   const size = config.size || 'large'
   const shape = config.shape || 'circle'
-  const hasUserPhoto = config.hasUserPhoto ?? false
 
-  // Different instructions based on whether user has uploaded their own photo
-  const zoneInstructions = hasUserPhoto
-    ? `Zone Status: USER PHOTO WILL BE OVERLAID
-A speaker photo will be composited onto this zone via post-processing.
+  // v3.6: Only one mode now - photo will be overlaid, keep zone clean
+  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
+  return `SPEAKER PHOTO ZONE: A speaker photo will be composited onto the ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size}, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) via post-processing. Keep this area clean with a simple background (solid color, subtle gradient, or matching design). No faces, people, human figures, placeholder shapes, or frames in this zone - the real photo will be added automatically.`
+}
 
-Zone Requirements:
-- Keep this area CLEAN with simple background (solid color, subtle gradient, or matching design)
-- DO NOT generate any faces, people, or human figures in this zone
-- DO NOT generate placeholder shapes or frames - the photo will be added automatically
-- Ensure good contrast between the photo zone and surrounding design
-- Leave breathing room around the zone for the photo to stand out`
-    : `Zone Status: PLACEHOLDER ONLY - No photo uploaded yet
-The user has enabled speaker photo but has NOT uploaded their photo yet.
+// ============================================================
+// FOOTER CONTACT CONTEXT (v3.4)
+// ============================================================
 
-CRITICAL INSTRUCTION - AI MUST NOT GENERATE ANY HUMAN FACE OR FIGURE:
-- NO illustrated faces, portraits, silhouettes, or human figures
-- NO AI-generated people, avatars, or cartoon faces
-- NO photorealistic human faces or body parts
+/**
+ * Build footer contact context for creative footers
+ * Formats contact information for display in the footer zone
+ */
+export function buildFooterContactContext(footerContext?: FooterContactContext): string {
+  if (!footerContext) return ''
 
-Instead, create a CLEAN PLACEHOLDER using ONE of these options:
-1. A subtle ${shape} frame outline (use brand accent color at 20-30% opacity)
-2. A soft gradient background area that suggests "photo placement zone"
-3. A simple geometric shape matching the ${shape} configuration
-4. Just clean background that's ready for photo overlay later
+  const contactLines: string[] = []
 
-The placeholder should look INTENTIONALLY DESIGNED as a reserved space for a photo.`
+  if (footerContext.website) {
+    contactLines.push(`Website: "${footerContext.website}"`)
+  }
+  if (footerContext.phone) {
+    contactLines.push(`Phone: "${footerContext.phone}"`)
+  }
+  if (footerContext.email) {
+    contactLines.push(`Email: "${footerContext.email}"`)
+  }
+  if (footerContext.address) {
+    contactLines.push(`Address: "${footerContext.address}"`)
+  }
+  if (footerContext.social) {
+    const socialParts: string[] = []
+    if (footerContext.social.instagram) socialParts.push(`IG: ${footerContext.social.instagram}`)
+    if (footerContext.social.linkedin) socialParts.push(`LinkedIn: ${footerContext.social.linkedin}`)
+    if (footerContext.social.facebook) socialParts.push(`FB: ${footerContext.social.facebook}`)
+    if (footerContext.social.twitter) socialParts.push(`X: ${footerContext.social.twitter}`)
+    if (socialParts.length > 0) {
+      contactLines.push(`Social: ${socialParts.join(' | ')}`)
+    }
+  }
 
-  return `
-<speaker_photo_zone>
-Speaker Photo Zone Configuration:
-- Position: ${SPEAKER_POSITION_DESCRIPTIONS[position] || position}
-- Size: ${SPEAKER_SIZE_DIMENSIONS[size] || size}
-- Shape: ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}
+  if (contactLines.length === 0) return ''
 
-${zoneInstructions}
-</speaker_photo_zone>
-`.trim()
+  return `FOOTER CONTACT INFO (display in footer zone): ${contactLines.join('. ')}.`
 }
 
 // ============================================================
@@ -413,6 +392,8 @@ export interface ContextOptions {
   layout?: LayoutZoneConfig
   language?: 'en' | 'ta' | 'hi'
   speakerPhotoConfig?: SpeakerPhotoConfig
+  // NEW v3.4 options
+  footerContext?: FooterContactContext
 }
 
 /**
@@ -448,6 +429,10 @@ export function buildAllContexts(options: ContextOptions): string {
 
   const speakerContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
   if (speakerContext) parts.push(speakerContext)
+
+  // NEW v3.4: Footer contact context
+  const footerContactCtx = buildFooterContactContext(options.footerContext)
+  if (footerContactCtx) parts.push(footerContactCtx)
 
   return parts.join('\n\n')
 }

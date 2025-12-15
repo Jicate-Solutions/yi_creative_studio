@@ -62,7 +62,7 @@ function groupZonesByRegion(safeZones: LogoSafeZone[]): {
   return {
     top: safeZones.filter((z) => z.position.startsWith('top-')),
     middle: safeZones.filter(
-      (z) => z.position.startsWith('mid-') || z.position === 'center'
+      (z) => z.position.startsWith('mid-')
     ),
     bottom: safeZones.filter((z) => z.position.startsWith('bottom-')),
   }
@@ -75,9 +75,12 @@ function getHorizontalPositions(zones: LogoSafeZone[]): string {
   const positions: string[] = []
 
   zones.forEach((zone) => {
-    if (zone.position.endsWith('-left')) positions.push('left')
-    if (zone.position.endsWith('-center') || zone.position === 'center') positions.push('center')
-    if (zone.position.endsWith('-right')) positions.push('right')
+    // 18-position grid uses positions like top-1, mid-3, bottom-5
+    // Left positions: 1, 2 | Center positions: 3, 4 | Right positions: 5, 6
+    const posNum = parseInt(zone.position.split('-')[1] || '0', 10)
+    if (posNum === 1 || posNum === 2) positions.push('left')
+    if (posNum === 3 || posNum === 4) positions.push('center')
+    if (posNum === 5 || posNum === 6) positions.push('right')
   })
 
   // Remove duplicates and join

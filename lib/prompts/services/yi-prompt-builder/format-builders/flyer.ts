@@ -36,6 +36,12 @@ import {
   buildBackgroundSettingSection,
 } from '../helpers/decorative-elements-injector'
 
+// Import time formatter utility (v3.4)
+import { formatEventTime } from '@/lib/utils/time-formatter'
+
+// Import logo zone enforcement helper (v3.5)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+
 // ============================================================
 // SIZE VARIATIONS (v3.1)
 // ============================================================
@@ -711,6 +717,10 @@ export function buildFlyerPrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
+  // NEW v3.5: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
   // NEW v3.2: Build AI background section if applicable
   const aiBackgroundResult = buildAIBackgroundSection(data, options)
   const useAIBackground = aiBackgroundResult.isActive
@@ -779,6 +789,8 @@ ${orgContext}
 
 ${layoutContext}
 
+${forbiddenZonesContext}
+
 ${langContext}
 
 ${aiBackgroundSection}
@@ -808,7 +820,7 @@ Zone Structure (optimized for ${flyerSize}):
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
 ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
-${data.eventTime ? `- Time: "${data.eventTime}" with clock icon` : ''}
+${data.eventTime ? `- Time: "${formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
@@ -823,7 +835,7 @@ Margins: ${sizeContext.margins}
 <text role="headline" prominence="LARGEST" style="bold, impactful, attention-grabbing">${data.flyerTitle}</text>
 ${data.flyerDescription ? `<text role="body" prominence="medium" style="clear, readable">${data.flyerDescription}</text>` : ''}
 ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calendar icon">${data.eventDate}</text>` : ''}
-${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventTime}</text>` : ''}
+${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
@@ -859,6 +871,12 @@ ${flyerSize === 'A5' ? 'For A5: Avoid too much text - focus on essentials only' 
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
 ${useAIBackground ? 'Avoid: Decorative elements that obscure text, compete with headline, or overwhelm the design' : ''}
 </constraints>
+
+${options?.preventionEnhancements?.length ? `
+<learned_improvements>
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+</learned_improvements>
+` : ''}
 
 <render_constraints>
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
@@ -934,6 +952,10 @@ export function buildFlyerPromptWithAgent(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
+  // Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
   // Build AI background section WITH agent recommendation
   const aiBackgroundResult = buildAIBackgroundSection(data, options, options.agentRecommendation)
   const useAIBackground = aiBackgroundResult.isActive
@@ -989,6 +1011,8 @@ ${orgContext}
 
 ${layoutContext}
 
+${forbiddenZonesContext}
+
 ${langContext}
 
 ${aiBackgroundSection}
@@ -1015,7 +1039,7 @@ Zone Structure (optimized for ${flyerSize}):
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
 ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
-${data.eventTime ? `- Time: "${data.eventTime}" with clock icon` : ''}
+${data.eventTime ? `- Time: "${formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
@@ -1030,7 +1054,7 @@ Margins: ${sizeContext.margins}
 <text role="headline" prominence="LARGEST" style="bold, impactful, attention-grabbing">${data.flyerTitle}</text>
 ${data.flyerDescription ? `<text role="body" prominence="medium" style="clear, readable">${data.flyerDescription}</text>` : ''}
 ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calendar icon">${data.eventDate}</text>` : ''}
-${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventTime}</text>` : ''}
+${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>

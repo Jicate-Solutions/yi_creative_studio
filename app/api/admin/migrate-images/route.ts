@@ -72,6 +72,9 @@ export async function POST(request: NextRequest) {
       details: [] as Array<{ id: string; status: string; oldSize?: number; newUrl?: string; error?: string }>,
     }
 
+    // NOTE: N+1 pattern is intentional here for safety - each migration is atomic
+    // If batch upload fails, we know exactly which record failed and can retry
+    // This endpoint is rate-limited by the 'limit' param (max 50)
     for (const creative of creatives) {
       const imageUrl = creative.image_url
 
@@ -184,12 +187,12 @@ export async function GET() {
     const supabase = await createClient()
 
     // Count base64 vs URL images
-    const { data: base64Count } = await supabase
+    const { count: base64Count } = await supabase
       .from('creatives')
       .select('id', { count: 'exact', head: true })
       .like('image_url', 'data:image%')
 
-    const { data: urlCount } = await supabase
+    const { count: urlCount } = await supabase
       .from('creatives')
       .select('id', { count: 'exact', head: true })
       .like('image_url', 'https://%')

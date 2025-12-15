@@ -374,11 +374,20 @@ export interface SpeakerPhotoCustomization {
 
 export interface FooterCustomization {
   style: FooterStyle
-  showWebsite: boolean
-  showPhone: boolean
-  showEmail: boolean
-  showSocial: boolean
   backgroundColor: string
+  // Single toggle for using brand info (default: false = disabled)
+  useBrandInfo: boolean
+  // Custom per-creative values (used when useBrandInfo is false)
+  customWebsite?: string
+  customPhone?: string
+  customEmail?: string
+  customAddress?: string
+  customSocial?: {
+    instagram?: string
+    linkedin?: string
+    facebook?: string
+    twitter?: string
+  }
 }
 
 export interface LayoutCustomization {
@@ -427,11 +436,14 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
   },
   footer: {
     style: 'minimal',
-    showWebsite: true,
-    showPhone: false,
-    showEmail: false,
-    showSocial: false,
     backgroundColor: 'transparent',
+    useBrandInfo: false, // Default to disabled - users enable if they want brand info
+    // Custom values default to undefined
+    customWebsite: undefined,
+    customPhone: undefined,
+    customEmail: undefined,
+    customAddress: undefined,
+    customSocial: undefined,
   },
   layout: {
     edgeToEdge: true, // Default to edge-to-edge for full-bleed designs
@@ -590,7 +602,7 @@ export const DEFAULT_DESIGN_DATA: DesignData = {
   theme: 'corporate',
   style: 'gradient',
   aspectRatio: '4:5',
-  resolution: '2K',
+  resolution: '1K',
   customization: DEFAULT_CUSTOMIZATION,
   exportSettings: DEFAULT_EXPORT_SETTINGS,
   colorConfig: DEFAULT_COLOR_CONFIG,

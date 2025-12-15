@@ -90,16 +90,6 @@ const instagramPost: FormatFieldSchema = {
       maxLength: 225,
       placeholder: '#YiOrg #Safety #Awareness',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -145,16 +135,6 @@ const instagramStory: FormatFieldSchema = {
       suggestable: true,
       maxLength: 150,
       placeholder: '#YiIndia #Story',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -202,16 +182,6 @@ const facebookPost: FormatFieldSchema = {
       maxLength: 120,
       placeholder: 'e.g., Visit our website',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -258,16 +228,6 @@ const linkedinPost: FormatFieldSchema = {
       maxLength: 75,
       placeholder: 'e.g., Connect with us, Learn more',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -303,16 +263,6 @@ const twitterPost: FormatFieldSchema = {
       suggestable: true,
       maxLength: 90,
       placeholder: '#YiIndia #Trending',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -351,16 +301,6 @@ const pinterestPin: FormatFieldSchema = {
       maxLength: 60,
       placeholder: 'e.g., Save for later, Click to learn',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -396,16 +336,6 @@ const whatsappStatus: FormatFieldSchema = {
       suggestable: true,
       maxLength: 60,
       placeholder: 'e.g., Contact us, Reply to join',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -448,16 +378,6 @@ const youtubeThumbnail: FormatFieldSchema = {
       maxLength: 75,
       placeholder: 'For branding reference',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -493,16 +413,6 @@ const youtubeBanner: FormatFieldSchema = {
       suggestable: false,
       maxLength: 75,
       placeholder: 'e.g., New videos every Friday',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -548,16 +458,6 @@ const videoCover: FormatFieldSchema = {
       suggestable: false,
       maxLength: 30,
       placeholder: 'e.g., Episode 12',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -686,25 +586,6 @@ const eventPoster: FormatFieldSchema = {
       maxLength: 225,
       placeholder: 'e.g., yi.org/event',
     },
-    {
-      id: 'organizedBy',
-      label: 'Organized By',
-      type: 'text',
-      required: false,
-      suggestable: false,
-      maxLength: 180,
-      placeholder: 'e.g., Yi Chennai Chapter',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -715,7 +596,7 @@ const portraitPoster: FormatFieldSchema = {
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
   fields: [
     {
-      id: 'posterTitle',
+      id: 'eventName',
       label: 'Poster Title',
       type: 'text',
       required: true,
@@ -764,16 +645,6 @@ const portraitPoster: FormatFieldSchema = {
       maxLength: 120,
       placeholder: 'e.g., Call 1800-XXX or visit yi.org',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -784,7 +655,7 @@ const announcement: FormatFieldSchema = {
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
   fields: [
     {
-      id: 'announcementTitle',
+      id: 'eventName',
       label: 'Announcement Title',
       type: 'text',
       required: true,
@@ -818,16 +689,6 @@ const announcement: FormatFieldSchema = {
       maxLength: 90,
       placeholder: 'What should the audience do?',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -838,7 +699,7 @@ const invitation: FormatFieldSchema = {
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
   fields: [
     {
-      id: 'eventTitle',
+      id: 'eventName',
       label: 'Event Title',
       type: 'text',
       required: true,
@@ -906,16 +767,6 @@ const invitation: FormatFieldSchema = {
       rows: 2,
       placeholder: 'Any special instructions for guests...',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -930,7 +781,7 @@ const flyerA4: FormatFieldSchema = {
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
   fields: [
     {
-      id: 'flyerTitle',
+      id: 'eventName',
       label: 'Flyer Title',
       type: 'text',
       required: true,
@@ -1006,16 +857,6 @@ const flyerA4: FormatFieldSchema = {
       suggestable: true,
       maxLength: 75,
       placeholder: 'e.g., Register Now, Join Us',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1094,16 +935,6 @@ const businessCard: FormatFieldSchema = {
       suggestable: false,
       maxLength: 60,
       placeholder: 'e.g., @yimumbai',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1212,16 +1043,6 @@ const certificate: FormatFieldSchema = {
       maxLength: 45,
       placeholder: 'e.g., CERT-2025-001',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1232,7 +1053,7 @@ const brochure: FormatFieldSchema = {
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
   fields: [
     {
-      id: 'brochureTitle',
+      id: 'eventName',
       label: 'Brochure Title',
       type: 'text',
       required: true,
@@ -1277,16 +1098,6 @@ const brochure: FormatFieldSchema = {
       suggestable: true,
       maxLength: 90,
       placeholder: 'e.g., Join the Movement',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1338,16 +1149,6 @@ const webBanner: FormatFieldSchema = {
       maxLength: 60,
       placeholder: 'e.g., 50% off, Free Entry',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1374,16 +1175,6 @@ const emailHeader: FormatFieldSchema = {
       suggestable: true,
       maxLength: 90,
       placeholder: 'Supporting tagline...',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1430,16 +1221,6 @@ const billboard: FormatFieldSchema = {
       maxLength: 60,
       placeholder: 'e.g., Call 1800-XXX',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1476,16 +1257,6 @@ const leaderboardAd: FormatFieldSchema = {
       maxLength: 45,
       placeholder: 'e.g., Limited Time Offer',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1521,16 +1292,6 @@ const squareAd: FormatFieldSchema = {
       suggestable: true,
       maxLength: 30,
       placeholder: 'e.g., Shop Now, Join Us',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1599,16 +1360,6 @@ const letterhead: FormatFieldSchema = {
       maxLength: 90,
       placeholder: 'Company tagline or motto...',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1673,16 +1424,6 @@ const resume: FormatFieldSchema = {
       rows: 3,
       placeholder: 'Brief professional summary...',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1744,16 +1485,6 @@ const reportCover: FormatFieldSchema = {
       maxLength: 60,
       placeholder: 'e.g., FY 2024-2025',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1798,16 +1529,6 @@ const bookCover: FormatFieldSchema = {
       suggestable: true,
       maxLength: 120,
       placeholder: 'A compelling tagline...',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -1874,16 +1595,6 @@ const presentation16x9: FormatFieldSchema = {
       required: false,
       suggestable: false,
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1936,16 +1647,6 @@ const facebookCover: FormatFieldSchema = {
       maxLength: 60,
       placeholder: 'e.g., Join Us Today',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -1979,16 +1680,6 @@ const linkedinBanner: FormatFieldSchema = {
       maxLength: 120,
       placeholder: 'Company or personal tagline...',
     },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
-    },
   ],
 }
 
@@ -2015,16 +1706,6 @@ const twitterHeader: FormatFieldSchema = {
       suggestable: true,
       maxLength: 90,
       placeholder: 'Your tagline or mission...',
-    },
-    {
-      id: 'eventNote',
-      label: 'Additional Note',
-      type: 'textarea',
-      required: false,
-      suggestable: true,
-      maxLength: 500,
-      rows: 3,
-      placeholder: 'Optional: Add announcements, registration info, or extra details to display...',
     },
   ],
 }
@@ -2327,13 +2008,47 @@ export const VERTICAL_FIELD_OVERRIDES: Record<string, DynamicField[]> = {
 // ============================================================================
 
 /**
+ * Normalize formatId for lookup
+ * Handles: dashes to underscores, stripping vertical suffixes
+ * e.g., "square-ad-innovation-technology" -> "square_ad"
+ */
+function normalizeFormatId(formatId: string): string {
+  // Convert dashes to underscores
+  let normalized = formatId.replace(/-/g, '_')
+
+  // Try direct match first
+  if (FORMAT_FIELD_SCHEMAS[normalized]) {
+    return normalized
+  }
+
+  // Strip known vertical suffixes and try again
+  const verticalSuffixes = [
+    '_masoom', '_road_safety', '_health', '_yuva',
+    '_climate_change', '_innovation', '_thalir', '_chapter_events',
+    '_innovation_technology', '_technology'
+  ]
+
+  for (const suffix of verticalSuffixes) {
+    if (normalized.endsWith(suffix)) {
+      const stripped = normalized.slice(0, -suffix.length)
+      if (FORMAT_FIELD_SCHEMAS[stripped]) {
+        return stripped
+      }
+    }
+  }
+
+  return normalized
+}
+
+/**
  * Get fields for a specific format with optional vertical overrides
  */
 export function getFormatFields(
   formatId: string,
   verticalId?: string
 ): DynamicField[] {
-  const schema = FORMAT_FIELD_SCHEMAS[formatId]
+  const normalizedId = normalizeFormatId(formatId)
+  const schema = FORMAT_FIELD_SCHEMAS[normalizedId]
   if (!schema) {
     return []
   }
@@ -2358,7 +2073,8 @@ export function getFormatFields(
  * Get the schema for a specific format
  */
 export function getFormatSchema(formatId: string): FormatFieldSchema | null {
-  return FORMAT_FIELD_SCHEMAS[formatId] || null
+  const normalizedId = normalizeFormatId(formatId)
+  return FORMAT_FIELD_SCHEMAS[normalizedId] || null
 }
 
 /**

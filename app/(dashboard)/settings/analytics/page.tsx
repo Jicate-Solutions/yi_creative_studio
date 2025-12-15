@@ -52,7 +52,7 @@ import {
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import type { Creative } from '@/types/database.types'
 import { type UsageAnalytics } from '@/lib/services/api-usage'
-import { formatUSD, formatINR, USD_TO_INR, convertToINR } from '@/lib/services/currency'
+import { formatUSD, formatINR, USD_TO_INR, convertToINR, EXCHANGE_RATE_UPDATED } from '@/lib/services/currency'
 import { REQUEST_TYPE_LABELS, type AIProvider, type RequestType } from '@/lib/config/ai-pricing'
 
 interface AnalyticsData {
@@ -90,16 +90,31 @@ function getStageLabel(requestType: string): string {
 // Helper to get model display name
 function getModelDisplayName(model: string): string {
   const modelNames: Record<string, string> = {
+    // Gemini models - Image generation
     'gemini-2.5-flash-image': 'Gemini 2.5 Flash (Image)',
+    'gemini-3-pro-image-preview': 'Gemini 3 Pro (Image)',
+    // Gemini models - Text
     'gemini-2.5-flash': 'Gemini 2.5 Flash',
+    'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+    'gemini-2.5-flash-exp': 'Gemini 2.5 Flash (Exp)',
     'gemini-2.5-pro': 'Gemini 2.5 Pro',
-    'gemini-3-pro-image-preview': 'Nano Banana Pro Preview',
+    'gemini-2.0-flash': 'Gemini 2.0 Flash',
+    'gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Exp)',
+    'gemini-2.0-flash-001': 'Gemini 2.0 Flash',
+    'gemini-3-pro-preview': 'Gemini 3 Pro Preview',
+    // Claude Haiku models
     'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
     'claude-haiku-4-5': 'Claude Haiku 4.5',
-    'claude-3-5-haiku-latest': 'Claude 3.5 Haiku (Legacy)',
-    'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku (Legacy)',
-    'claude-3-5-sonnet-latest': 'Claude 3.5 Sonnet',
+    'claude-3-5-haiku-latest': 'Claude Haiku 3.5 (Legacy)',
+    'claude-3-5-haiku-20241022': 'Claude Haiku 3.5 (Legacy)',
+    // Claude Sonnet models
+    'claude-sonnet-4-5-20251022': 'Claude Sonnet 4.5',
+    'claude-sonnet-4-5': 'Claude Sonnet 4.5',
     'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+    'claude-3-5-sonnet-latest': 'Claude Sonnet 3.5 (Legacy)',
+    // Claude Opus models
+    'claude-opus-4-5-20251101': 'Claude Opus 4.5',
+    'claude-opus-4-5': 'Claude Opus 4.5',
     'claude-opus-4-20250514': 'Claude Opus 4',
   }
   return modelNames[model] || model
@@ -356,13 +371,24 @@ export default function AnalyticsPage() {
         </Select>
       </div>
 
-      {/* Show loading if either auth is loading or data is loading */}
-      {(authLoading || isLoading || !currentOrganization?.id) ? (
+      {/* Show loading skeletons only during actual loading */}
+      {(authLoading || isLoading) ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
+      ) : !currentOrganization?.id ? (
+        // Organization not available - show helpful message instead of infinite skeletons
+        <Card className="py-12">
+          <CardContent className="text-center">
+            <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <h3 className="text-lg font-medium mb-2">Organization Required</h3>
+            <p className="text-muted-foreground">
+              Please select an organization to view analytics
+            </p>
+          </CardContent>
+        </Card>
       ) : !analytics ? (
         <div className="space-y-6">
           {/* No Data State with Pricing Info */}
@@ -404,9 +430,10 @@ export default function AnalyticsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="text-sm space-y-1">
-                        <p className="text-muted-foreground">Claude 3.5 Haiku</p>
-                        <p>Input: <span className="font-medium">$0.80</span>/1M tokens</p>
-                        <p>Output: <span className="font-medium">$4.00</span>/1M tokens</p>
+                        <p className="text-muted-foreground">Claude Haiku 4.5</p>
+                        <p>Input: <span className="font-medium">$1.00</span>/1M tokens</p>
+                        <p>Output: <span className="font-medium">$5.00</span>/1M tokens</p>
+                        <p className="text-xs text-muted-foreground">Cached: $0.10/1M (90% savings)</p>
                       </CardContent>
                     </Card>
 
@@ -419,9 +446,10 @@ export default function AnalyticsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="text-sm space-y-1">
-                        <p className="text-muted-foreground">Claude 3.5 Haiku</p>
-                        <p>Input: <span className="font-medium">$0.80</span>/1M tokens</p>
-                        <p>Output: <span className="font-medium">$4.00</span>/1M tokens</p>
+                        <p className="text-muted-foreground">Claude Haiku 4.5</p>
+                        <p>Input: <span className="font-medium">$1.00</span>/1M tokens</p>
+                        <p>Output: <span className="font-medium">$5.00</span>/1M tokens</p>
+                        <p className="text-xs text-muted-foreground">Cached: $0.10/1M (90% savings)</p>
                       </CardContent>
                     </Card>
 
@@ -436,7 +464,7 @@ export default function AnalyticsPage() {
                       <CardContent className="text-sm space-y-1">
                         <p className="text-muted-foreground">Gemini 2.5 Flash</p>
                         <p>Per Image: <span className="font-medium">$0.039</span></p>
-                        <p className="text-xs text-muted-foreground">(~₹3.29 per image)</p>
+                        <p className="text-xs text-muted-foreground">(~₹{(0.039 * USD_TO_INR).toFixed(2)} per image)</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -444,7 +472,7 @@ export default function AnalyticsPage() {
                   <div className="bg-muted/50 rounded-lg p-4 text-sm">
                     <p className="font-medium mb-2">Estimated Cost per Creative</p>
                     <p className="text-muted-foreground">
-                      A typical creative generation costs approximately <span className="font-medium text-foreground">$0.04 - $0.06</span> (₹3.38 - ₹5.07 INR) depending on prompt complexity.
+                      A typical creative generation costs approximately <span className="font-medium text-foreground">$0.05 - $0.08</span> (₹{(0.05 * USD_TO_INR).toFixed(2)} - ₹{(0.08 * USD_TO_INR).toFixed(2)} INR) depending on prompt complexity.
                     </p>
                   </div>
                 </TabsContent>
@@ -457,6 +485,7 @@ export default function AnalyticsPage() {
                         <TableHead>Model</TableHead>
                         <TableHead className="text-right">Input/1M</TableHead>
                         <TableHead className="text-right">Output/1M</TableHead>
+                        <TableHead className="text-right">Cached/1M</TableHead>
                         <TableHead className="text-right">Image Cost</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -466,6 +495,7 @@ export default function AnalyticsPage() {
                         <TableCell>Gemini 2.5 Flash (Image)</TableCell>
                         <TableCell className="text-right">$0.30</TableCell>
                         <TableCell className="text-right">$2.50</TableCell>
+                        <TableCell className="text-right text-muted-foreground">$0.03</TableCell>
                         <TableCell className="text-right font-medium">$0.039</TableCell>
                       </TableRow>
                       <TableRow>
@@ -473,20 +503,31 @@ export default function AnalyticsPage() {
                         <TableCell>Gemini 2.5 Pro</TableCell>
                         <TableCell className="text-right">$1.25</TableCell>
                         <TableCell className="text-right">$10.00</TableCell>
+                        <TableCell className="text-right text-muted-foreground">$0.125</TableCell>
                         <TableCell className="text-right">-</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
-                        <TableCell>Claude 3.5 Haiku</TableCell>
-                        <TableCell className="text-right">$0.80</TableCell>
-                        <TableCell className="text-right">$4.00</TableCell>
+                        <TableCell>Claude Haiku 4.5</TableCell>
+                        <TableCell className="text-right">$1.00</TableCell>
+                        <TableCell className="text-right">$5.00</TableCell>
+                        <TableCell className="text-right text-muted-foreground">$0.10</TableCell>
                         <TableCell className="text-right">-</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
-                        <TableCell>Claude 3.5 Sonnet</TableCell>
+                        <TableCell>Claude Sonnet 4.5</TableCell>
                         <TableCell className="text-right">$3.00</TableCell>
                         <TableCell className="text-right">$15.00</TableCell>
+                        <TableCell className="text-right text-muted-foreground">$0.30</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                        <TableCell>Claude Opus 4.5</TableCell>
+                        <TableCell className="text-right">$5.00</TableCell>
+                        <TableCell className="text-right">$25.00</TableCell>
+                        <TableCell className="text-right text-muted-foreground">$0.50</TableCell>
                         <TableCell className="text-right">-</TableCell>
                       </TableRow>
                     </TableBody>
@@ -589,7 +630,7 @@ export default function AnalyticsPage() {
                       {formatINR(apiUsage.totalCostInr)}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Exchange rate: ₹{USD_TO_INR}/USD
+                      ₹{USD_TO_INR}/USD (updated {EXCHANGE_RATE_UPDATED})
                     </p>
                   </CardContent>
                 </Card>

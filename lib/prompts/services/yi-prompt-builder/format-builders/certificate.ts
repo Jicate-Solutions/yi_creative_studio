@@ -27,6 +27,9 @@ import {
   normalizeStyleId,
 } from '../../../knowledge-base/design-architecture'
 
+// Import logo zone enforcement helper (v3.2)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+
 // ============================================================
 // STYLE HELPERS
 // ============================================================
@@ -126,6 +129,9 @@ export function buildCertificatePrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
+  // NEW v3.2: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+
   // Get enhanced design architecture
   const normalizedStyle = normalizeStyleId(style)
   const borderArchitecture = getBorderStylePromptFragment(normalizedStyle)
@@ -153,6 +159,8 @@ ${themeContext}
 ${orgContext}
 
 ${layoutContext}
+
+${forbiddenZonesContext}
 
 ${langContext}
 
@@ -230,6 +238,12 @@ ${options.brandContext ? '- Brand colors subtly integrated' : ''}
 <constraints>
 Avoid: Blurry or pixelated elements, clipart, cartoon graphics, casual or playful fonts (Comic Sans, etc.), neon or overly bright colors, busy patterns, crowded layout, poor text hierarchy, stock photo elements, modern casual aesthetic (unless modern style selected), low resolution output, complex patterns in header areas
 </constraints>
+
+${options?.preventionEnhancements?.length ? `
+<learned_improvements>
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+</learned_improvements>
+` : ''}
 
 <render_constraints>
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.

@@ -8,13 +8,14 @@ import { useVerticals, useAIModels, useLogos, useCredits, useOnlineStatus } from
 import { useEventSuggestions } from '@/hooks/use-event-suggestions'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
-import type { TablesInsert, Json } from '@/types/database.types'
+import type { TablesInsert, Json, BrandConfig } from '@/types/database.types'
 import type { SuggestableField } from '@/types/suggestions'
 import { getCreativeSchema } from '@/lib/schemas/creativeSchemas'
 import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
 import { FormatSelectionInline } from '@/components/create/format-selection'
 import { CustomSizeForm } from '@/components/create/format-selection/custom-size-form'
 import type { CreativeFormat } from '@/lib/config/creative-formats'
+import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
 import {
   Card,
   CardContent,
@@ -36,6 +37,11 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -54,6 +60,7 @@ import {
   Loader2,
   Download,
   RefreshCw,
+  RefreshCcw,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -68,6 +75,7 @@ import {
   WifiOff,
   Save,
   Maximize2,
+  ChevronDown,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
 import { Stepper, type Step } from '@/components/ui/stepper'
@@ -78,6 +86,7 @@ import {
 } from '@/components/create/ai-suggestion-field'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { SaveTemplateDialog } from '@/components/create/SaveTemplateDialog'
+import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
 import { CreateSidebar } from '@/components/create/create-sidebar'
 import { useUIStore } from '@/stores/ui-store'
 
@@ -97,8 +106,8 @@ const ModeSelector = dynamic(
   { loading: () => <ComponentLoadingSkeleton type="mode" /> }
 )
 
-const DesignTab = dynamic(
-  () => import('@/components/create/design-tab').then(mod => ({ default: mod.DesignTab })),
+const StylingStep = dynamic(
+  () => import('@/components/create/styling-step').then(mod => ({ default: mod.StylingStep })),
   { loading: () => <ComponentLoadingSkeleton type="design" /> }
 )
 
@@ -183,12 +192,13 @@ import type { SpeakerPhotoCustomization, CustomColors } from '@/lib/config/desig
 import { cn } from '@/lib/utils'
 
 // Display-friendly names for AI models (hide technical names from users)
-const getModelDisplayName = (provider: string) => {
+const getModelDisplayName = (slug: string) => {
   const displayNames: Record<string, string> = {
     'ideogram': 'Smart Design',
-    'google': 'Creative Poster',
+    'gemini': 'Creative Poster',
+    'gemini-3-pro-image-preview': 'Ultra PRO 10',
   }
-  return displayNames[provider] || provider
+  return displayNames[slug] || slug
 }
 
 // Default speaker photo configuration
@@ -202,14 +212,14 @@ const DEFAULT_SPEAKER_PHOTO: SpeakerPhotoCustomization = {
   shadow: true,
 }
 
-// Step definitions - Logos moved to Step 4 for Smart Layout (AI knows logo positions before designing)
+// Step definitions - Details moved before Styling so AI theme suggestions have event context
 const STEPS: Step[] = [
   { id: 1, title: 'Format', icon: <LayoutGrid className="h-4 w-4" /> },
   { id: 2, title: 'Vertical', icon: <Palette className="h-4 w-4" /> },
   { id: 3, title: 'Mode', icon: <Sparkles className="h-4 w-4" /> },
   { id: 4, title: 'Logos', icon: <ImageIcon className="h-4 w-4" /> },
-  { id: 5, title: 'Template', icon: <FileImage className="h-4 w-4" /> },
-  { id: 6, title: 'Details', icon: <FileText className="h-4 w-4" /> },
+  { id: 5, title: 'Details', icon: <FileText className="h-4 w-4" /> },
+  { id: 6, title: 'Styling', icon: <Palette className="h-4 w-4" /> },
   { id: 7, title: 'Generate', icon: <Wand2 className="h-4 w-4" /> },
 ]
 
@@ -221,7 +231,7 @@ export default function CreatePage() {
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
   const { logos, fetchLogos } = useLogos()
-  const { canAfford, deductCredits } = useCredits()
+  const { canAfford, deductCredits, balance: creditsBalance } = useCredits()
   const { isOnline } = useOnlineStatus()
 
   const {
@@ -283,6 +293,7 @@ export default function CreatePage() {
   const [step, setStep] = useState(1)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false)
+  const [regenerateModalOpen, setRegenerateModalOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
@@ -416,8 +427,11 @@ export default function CreatePage() {
   const creditCost = getModelCost()
   const canGenerate = selectedVertical && selectedModel && canAfford(creditCost) && isOnline
 
-  async function handleGenerate() {
-    if (!canGenerate || !currentOrganization) {
+  async function handleGenerate(overrideModel?: { model_id: string; provider: string }) {
+    // Use override model if provided (from regenerate), otherwise use selected model
+    const modelToUse = overrideModel || selectedModel
+
+    if (!modelToUse || !selectedVertical || !currentOrganization || !isOnline) {
       toast.error('Please complete all fields and ensure you have enough credits')
       return
     }
@@ -435,6 +449,57 @@ export default function CreatePage() {
       if (!result) {
         setGenerating(false)
         return
+      }
+
+      // Logo positions optimization
+      // The optimizer now respects user's strip placement (row) while distributing
+      // logos evenly WITHIN each strip for visual balance
+      let optimizedPlacements = formData.logosPlacements
+
+      if (formData.logosPlacements.length > 0) {
+        // Run optimization - it will respect the user's strip (row) choices
+        try {
+          const optimizeResponse = await fetch('/api/optimize-logo-positions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              logos: formData.logosPlacements.map(p => ({
+                id: p.logoId,
+                name: p.logo?.name || '',
+                type: p.logoType || 'other',
+              })),
+              formatId: formData.formatId || 'event_poster',
+              useAI: false, // Fast algorithm, no AI cost
+              currentPlacements: formData.logosPlacements.map(p => ({
+                logoId: p.logoId,
+                position: p.position,
+                size: p.size,
+                backgroundShape: p.backgroundShape,
+                backgroundStyle: p.backgroundStyle,
+              })),
+            }),
+          })
+
+          const optimizeData = await optimizeResponse.json()
+
+          if (optimizeData.success && optimizeData.placements) {
+            // Merge optimized positions with current placement data
+            optimizedPlacements = formData.logosPlacements.map(current => {
+              const optimized = optimizeData.placements.find((o: { logoId: string }) => o.logoId === current.logoId)
+              if (optimized) {
+                return {
+                  ...current,
+                  position: optimized.position || current.position,
+                  size: optimized.size || current.size,
+                }
+              }
+              return current
+            })
+          }
+        } catch (optimizeError) {
+          // Silently continue with original placements if optimization fails
+          console.warn('Logo optimization failed, using original placements:', optimizeError)
+        }
       }
 
       // Build prompt from vertical template and form data
@@ -503,6 +568,15 @@ export default function CreatePage() {
       // CRITICAL: Clean any remaining unreplaced placeholders to prevent them from appearing in images
       prompt = prompt.replace(/\{\{[a-zA-Z_]+\}\}/g, '').replace(/\s+/g, ' ').trim()
 
+      // Enrich form data with organization name from branding settings
+      // Organization name ALWAYS comes from branding - prevents users from accidentally
+      // overwriting it with RSVP/contact info in the form
+      const enrichedFormData = {
+        ...formData.formData,
+        // ALWAYS use organization name from branding settings (ignore any form field value)
+        organizationName: currentOrganization?.name || 'Yi',
+      }
+
       // Call generation API with format info
       const formatDimensions = getFormatDimensions()
       const response = await fetch('/api/generate', {
@@ -510,10 +584,12 @@ export default function CreatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          model: selectedModel.model_id,
-          provider: selectedModel.provider,
+          model: modelToUse.model_id,
+          provider: modelToUse.provider,
           verticalSlug: selectedVertical.slug,
-          logosPlacements: formData.logosPlacements,
+          logosPlacements: optimizedPlacements, // User's positions (or auto-optimized if not locked)
+          logoBackgroundColor: formData.logoBackgroundColor, // Global background color for logo backgrounds
+          logoStripMode: formData.logoStripMode, // Unified strip layout mode
           organizationId: currentOrganization.id,
           templateId: selectedTemplate?.id || null,
           templateUrl: selectedTemplate?.image_url || null,
@@ -527,8 +603,8 @@ export default function CreatePage() {
           customDimensions: formData.customDimensions || null,
           // Language selection (PRD Section 10.2)
           language: formData.formData?.language || 'en',
-          // Pass form data directly for reliable value extraction (bypasses template placeholder issues)
-          userFormData: formData.formData,
+          // Pass enriched form data with organization name from branding
+          userFormData: enrichedFormData,
         }),
       })
 
@@ -540,16 +616,12 @@ export default function CreatePage() {
 
       setGeneratedImage(data.imageUrl)
 
-      // Generate thumbnail for gallery preview (compressed JPEG for faster loading)
-      let thumbnailUrl: string | null = null
-      try {
-        const { generateThumbnail } = await import('@/lib/utils/thumbnail')
-        thumbnailUrl = await generateThumbnail(data.imageUrl, 400, 0.7)
-      } catch (err) {
-        console.warn('Thumbnail generation failed, gallery will use full image:', err)
-      }
+      // Use server-generated thumbnail for gallery preview
+      // Thumbnail is generated server-side to avoid CORS issues with client Canvas
+      const thumbnailUrl: string | null = data.thumbnailUrl || null
 
       // Save creative to database
+      // v4.1: Include A/B testing columns for prevention effectiveness measurement
       const creativeInsert: TablesInsert<'creatives'> = {
         organization_id: currentOrganization.id,
         ai_model: selectedModel.name,
@@ -563,6 +635,9 @@ export default function CreatePage() {
         prompt_used: prompt,
         title: (formData.formData as { title?: string }).title || `${selectedVertical.name} Creative`,
         logo_config: formData.logosPlacements as unknown as Json,
+        // A/B testing columns - tracks whether prevention was applied or creative was in holdout group
+        prevention_applied: data.preventionApplied ?? null,
+        prevention_holdout: data.preventionHoldout ?? false,
       }
       const { data: creativeData } = await supabase
         .from('creatives')
@@ -592,9 +667,7 @@ export default function CreatePage() {
             console.error('[API Usage] Backfill error:', err)
           }
         }
-
-        // Show feedback dialog after a brief delay
-        setTimeout(() => setShowFeedbackDialog(true), 3000)
+        // Feedback dialog is now triggered after download in export modal
       }
 
       toast.success('Creative generated successfully!')
@@ -614,6 +687,44 @@ export default function CreatePage() {
     setCreativeId(null)
     setExportModalOpen(false)
     setShowFeedbackDialog(false)
+  }
+
+  // Handle regeneration with different model/settings
+  async function handleRegenerate(options: RegenerateOptions) {
+    setRegenerateModalOpen(false)
+
+    const regenerateModel = models.find(m => m.id === options.modelId)
+    if (!regenerateModel) {
+      toast.error('Invalid model selected')
+      return
+    }
+
+    const modelCreditCost = regenerateModel.credits_cost
+    if (!canAfford(modelCreditCost)) {
+      toast.error('Insufficient credits')
+      return
+    }
+
+    // Update model selection
+    selectModel(options.modelId)
+
+    // Update theme/style/resolution if provided (scratch mode only)
+    if (formData.creationMode === 'scratch') {
+      if (options.theme) updateTheme(options.theme)
+      if (options.style) updateStyle(options.style)
+      if (options.resolution) updateResolution(options.resolution)
+    }
+
+    // Clear previous image and regenerate
+    setGeneratedImage(null)
+    setCreativeId(null)
+
+    // Pass the model directly to avoid React closure issues
+    // (state update from selectModel won't be captured by handleGenerate's closure)
+    handleGenerate({
+      model_id: regenerateModel.model_id,
+      provider: regenerateModel.provider,
+    })
   }
 
   // Check for past date before generating (Edge Case E07)
@@ -646,27 +757,19 @@ export default function CreatePage() {
       case 4:
         return true // Logos are optional (Smart Layout - AI knows positions)
       case 5:
-        return true // Template is optional
+        // Details step - Check if user has entered any form data
+        // The form has its own validation, we just need to ensure the user has started filling it
+        const userFormData = formData.formData as Record<string, unknown>
+        const hasAnyFormData = Object.keys(userFormData).some(key => {
+          const value = userFormData[key]
+          if (value === undefined || value === null) return false
+          if (typeof value === 'string') return value.trim().length > 0
+          if (typeof value === 'object') return true // Date objects, arrays, etc.
+          return !!value
+        })
+        return hasAnyFormData
       case 6:
-        // Match DynamicDetailsForm's field priority: dynamicSchema > formatFields > staticSchema
-        const dynamicFields = dynamicSchema.schema?.fields
-        const formatFields = getFormatFields(selectedFormat?.id || '', selectedVertical?.slug)
-        const staticSchema = getCreativeSchema(selectedFormat?.id || null)
-
-        // Priority: AI-generated > format-specific > static
-        let fieldsToValidate: Array<{ id: string; required: boolean }>
-        if (dynamicFields && dynamicFields.length > 0) {
-          fieldsToValidate = dynamicFields
-        } else if (formatFields && formatFields.length > 0) {
-          fieldsToValidate = formatFields
-        } else {
-          fieldsToValidate = staticSchema.fields
-        }
-
-        const firstRequiredField = fieldsToValidate.find(f => f.required)
-        if (!firstRequiredField) return true
-        const fieldValue = (formData.formData as Record<string, unknown>)[firstRequiredField.id]
-        return !!fieldValue && String(fieldValue).trim().length > 0
+        return true // Template is optional
       default:
         return true
     }
@@ -674,7 +777,7 @@ export default function CreatePage() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen">
+      <div className="flex h-screen overflow-hidden">
         {/* Create Sidebar - Left (Desktop only) */}
         {createModeActive && (
           <CreateSidebar
@@ -688,7 +791,7 @@ export default function CreatePage() {
 
         {/* Main Content Area */}
         <div className={cn(
-          "flex-1 flex flex-col min-w-0",
+          "flex-1 flex flex-col min-w-0 overflow-hidden",
           createModeActive && "md:ml-64"
         )}>
           {/* Mobile Step Indicator - Sticky on mobile, hidden on desktop */}
@@ -718,9 +821,9 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Step Content Area - pb-32 on mobile for fixed footer + bottom nav, pb-24 on desktop */}
+          {/* Step Content Area - Scrollable */}
           <div className={cn(
-            "flex-1 py-6 pb-32 md:pb-24",
+            "flex-1 overflow-y-auto py-6 bg-[#E8F4FD]",
             (step === 1 || step === 3 || step === 4) ? "px-6" : "container"
           )}>
           <div className="grid grid-cols-1 gap-6">
@@ -887,8 +990,8 @@ export default function CreatePage() {
                 </div>
               )}
 
-              {/* Step 5: Choose Template or Design Options */}
-              {step === 5 && selectedVertical && (
+              {/* Step 6: Choose Template or Styling Options (moved after Details for better AI context) */}
+              {step === 6 && selectedVertical && (
                 formData.creationMode === 'template' ? (
                   <Card>
                     <CardHeader>
@@ -912,32 +1015,28 @@ export default function CreatePage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="space-y-6">
-                    <DesignTab
-                      designData={formData.designData}
-                      onThemeChange={updateTheme}
-                      onStyleChange={updateStyle}
-                      onResolutionChange={updateResolution}
-                      onToggleBrandColors={setUseBrandColors}
-                      onSelectPalette={setColorPalette}
-                      onCustomColorChange={setCustomColors}
-                      brandColors={(() => {
-                        const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
-                        return {
-                          primary_color: brandConfig?.primaryColor,
-                          secondary_color: brandConfig?.secondaryColor,
-                          accent_color: brandConfig?.accentColor,
-                        }
-                      })()}
-                      eventType={selectedVertical.slug}
-                      eventName={(formData.formData as { title?: string }).title}
-                    />
-                  </div>
+                  <StylingStep
+                    designData={formData.designData}
+                    onThemeChange={updateTheme}
+                    onStyleChange={updateStyle}
+                    onResolutionChange={updateResolution}
+                    onToggleBrandColors={setUseBrandColors}
+                    onSelectPalette={setColorPalette}
+                    onCustomColorChange={setCustomColors}
+                    brandColors={(() => {
+                      const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
+                      return {
+                        primary_color: brandConfig?.primaryColor,
+                        secondary_color: brandConfig?.secondaryColor,
+                        accent_color: brandConfig?.accentColor,
+                      }
+                    })()}
+                  />
                 )
               )}
 
-              {/* Step 6: Fill Details - Dynamic form based on format type */}
-              {step === 6 && selectedVertical && (
+              {/* Step 5: Fill Details - Dynamic form based on format type (moved before Template for better AI context) */}
+              {step === 5 && selectedVertical && (
                 <div className="space-y-6">
                   {/* Dynamic Details Form - renders fields based on selected format */}
                   <DynamicDetailsForm
@@ -1018,122 +1117,277 @@ export default function CreatePage() {
                       dismissAllSuggestions()
                     }}
                     onDismissAllSuggestions={dismissAllSuggestions}
-                    languageValue={(formData.formData?.language as string) || 'en'}
-                    onLanguageChange={(value) => updateFormData({ language: value })}
-                    showLanguageSelector={true}
+                    // Speaker photo integration into Speaker Details section
+                    speakerPhotoValue={formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO}
+                    onSpeakerPhotoChange={(data) =>
+                      updateCustomization({
+                        speakerPhoto: { ...(formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
+                      })
+                    }
                   />
 
-                  {/* Optional Settings: Speaker Photo & Footer */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Optional Settings</CardTitle>
-                      <CardDescription>
-                        Additional customization options for your creative
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                    <Accordion type="multiple" className="space-y-2">
-                      {/* Speaker Photo - Optional */}
-                      <AccordionItem value="speaker-photo" className="border rounded-lg px-4">
-                        <AccordionTrigger className="hover:no-underline py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted">
-                              <User className="h-4 w-4" />
-                            </div>
-                            <div className="text-left">
-                              <span className="font-medium">Speaker Photo</span>
-                              <p className="text-xs text-muted-foreground">Add a photo of the speaker or guest</p>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pb-4">
-                          <SpeakerPhotoUpload
-                            value={formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO}
-                            onChange={(data) =>
-                              updateCustomization({
-                                speakerPhoto: { ...(formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
-                              })
-                            }
-                          />
-                        </AccordionContent>
-                      </AccordionItem>
+                  {/* Footer Settings - Format Aware (Speaker Photo is now in Speaker Details section) */}
+                  {(() => {
+                    const customizationOptions = getFormatCustomizationOptions(selectedFormat?.id || '')
+                    // Only show card if footer is supported (speaker photo is now in Speaker Details section)
+                    if (!customizationOptions.footer) return null
 
-                      {/* Footer Settings - Optional */}
-                      <AccordionItem value="footer" className="border rounded-lg px-4">
-                        <AccordionTrigger className="hover:no-underline py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted">
-                              <LayoutTemplate className="h-4 w-4" />
-                            </div>
-                            <div className="text-left">
-                              <span className="font-medium">Footer Settings</span>
-                              <p className="text-xs text-muted-foreground">Configure footer content visibility</p>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pb-4 space-y-4">
-                          <div className="space-y-2">
-                            <Label>Footer Style</Label>
-                            <Select
-                              value={formData.designData?.customization?.footer?.style || 'minimal'}
-                              onValueChange={(v) => updateCustomization({
-                                footer: { ...(formData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
-                              })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="minimal">Minimal</SelectItem>
-                                <SelectItem value="full">Full</SelectItem>
-                                <SelectItem value="branded">Branded</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                    return (
+                      <Card>
+                        <Collapsible defaultOpen={false}>
+                          <CollapsibleTrigger className="w-full">
+                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 rounded-lg bg-muted">
+                                    <LayoutTemplate className="h-4 w-4" />
+                                  </div>
+                                  <div className="text-left">
+                                    <CardTitle className="text-base">Footer Settings</CardTitle>
+                                    <CardDescription>
+                                      Configure footer content visibility
+                                    </CardDescription>
+                                  </div>
+                                </div>
+                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                              </div>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4 pt-0">
+                              <div className="space-y-2">
+                                <Label>Footer Style</Label>
+                                <Select
+                                  value={formData.designData?.customization?.footer?.style || 'minimal'}
+                                  onValueChange={(v) => updateCustomization({
+                                    footer: { ...(formData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
+                                  })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="minimal">Minimal</SelectItem>
+                                    <SelectItem value="full">Full</SelectItem>
+                                    <SelectItem value="branded">Branded</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <Label>Show Website</Label>
-                              <Switch
-                                checked={formData.designData?.customization?.footer?.showWebsite ?? true}
-                                onCheckedChange={(checked) => updateCustomization({
-                                  footer: { ...(formData.designData?.customization?.footer || {}), showWebsite: checked }
-                                })}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label>Show Phone</Label>
-                              <Switch
-                                checked={formData.designData?.customization?.footer?.showPhone ?? true}
-                                onCheckedChange={(checked) => updateCustomization({
-                                  footer: { ...(formData.designData?.customization?.footer || {}), showPhone: checked }
-                                })}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label>Show Email</Label>
-                              <Switch
-                                checked={formData.designData?.customization?.footer?.showEmail ?? true}
-                                onCheckedChange={(checked) => updateCustomization({
-                                  footer: { ...(formData.designData?.customization?.footer || {}), showEmail: checked }
-                                })}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label>Show Social Links</Label>
-                              <Switch
-                                checked={formData.designData?.customization?.footer?.showSocial ?? false}
-                                onCheckedChange={(checked) => updateCustomization({
-                                  footer: { ...(formData.designData?.customization?.footer || {}), showSocial: checked }
-                                })}
-                              />
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    </Accordion>
-                  </CardContent>
-                </Card>
+                              {(() => {
+                                const brandConfig = currentOrganization?.brand_config as BrandConfig | null
+                                const footerData = formData.designData?.customization?.footer || {}
+
+                                const updateFooterField = (field: string, value: string | boolean | object) => {
+                                  updateCustomization({
+                                    footer: { ...footerData, [field]: value }
+                                  })
+                                }
+
+                                return (
+                                  <div className="space-y-4">
+                                    {/* Website */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label>Website</Label>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Use Brand</span>
+                                          <Switch
+                                            checked={footerData.useBrandWebsite ?? false}
+                                            onCheckedChange={(checked) => updateFooterField('useBrandWebsite', checked)}
+                                          />
+                                        </div>
+                                      </div>
+                                      {(footerData.useBrandWebsite ?? false) ? (
+                                        brandConfig?.footerWebsite && (
+                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                            {brandConfig.footerWebsite}
+                                          </p>
+                                        )
+                                      ) : (
+                                        <Input
+                                          placeholder="Enter custom website URL"
+                                          value={footerData.customWebsite || ''}
+                                          onChange={(e) => updateFooterField('customWebsite', e.target.value)}
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Phone */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label>Phone</Label>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Use Brand</span>
+                                          <Switch
+                                            checked={footerData.useBrandPhone ?? false}
+                                            onCheckedChange={(checked) => updateFooterField('useBrandPhone', checked)}
+                                          />
+                                        </div>
+                                      </div>
+                                      {(footerData.useBrandPhone ?? false) ? (
+                                        brandConfig?.footerPhone && (
+                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                            {brandConfig.footerPhone}
+                                          </p>
+                                        )
+                                      ) : (
+                                        <Input
+                                          placeholder="Enter custom phone number"
+                                          type="tel"
+                                          value={footerData.customPhone || ''}
+                                          onChange={(e) => updateFooterField('customPhone', e.target.value)}
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Email */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label>Email</Label>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Use Brand</span>
+                                          <Switch
+                                            checked={footerData.useBrandEmail ?? false}
+                                            onCheckedChange={(checked) => updateFooterField('useBrandEmail', checked)}
+                                          />
+                                        </div>
+                                      </div>
+                                      {(footerData.useBrandEmail ?? false) ? (
+                                        brandConfig?.footerEmail && (
+                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                            {brandConfig.footerEmail}
+                                          </p>
+                                        )
+                                      ) : (
+                                        <Input
+                                          placeholder="Enter custom email address"
+                                          type="email"
+                                          value={footerData.customEmail || ''}
+                                          onChange={(e) => updateFooterField('customEmail', e.target.value)}
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Address */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label>Address</Label>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Use Brand</span>
+                                          <Switch
+                                            checked={footerData.useBrandAddress ?? false}
+                                            onCheckedChange={(checked) => updateFooterField('useBrandAddress', checked)}
+                                          />
+                                        </div>
+                                      </div>
+                                      {(footerData.useBrandAddress ?? false) ? (
+                                        brandConfig?.footerAddress && (
+                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                            {brandConfig.footerAddress}
+                                          </p>
+                                        )
+                                      ) : (
+                                        <Input
+                                          placeholder="Enter custom address"
+                                          value={footerData.customAddress || ''}
+                                          onChange={(e) => updateFooterField('customAddress', e.target.value)}
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Social Links */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label>Social Links</Label>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">Use Brand</span>
+                                          <Switch
+                                            checked={footerData.useBrandSocial ?? false}
+                                            onCheckedChange={(checked) => updateFooterField('useBrandSocial', checked)}
+                                          />
+                                        </div>
+                                      </div>
+                                      {(footerData.useBrandSocial ?? false) ? (
+                                        (brandConfig?.footerSocial?.instagram || brandConfig?.footerSocial?.linkedin || brandConfig?.footerSocial?.facebook || brandConfig?.footerSocial?.twitter) && (
+                                          <div className="text-sm text-muted-foreground pl-2 border-l-2 border-muted space-y-1">
+                                            {brandConfig?.footerSocial?.instagram && <p>IG: {brandConfig.footerSocial.instagram}</p>}
+                                            {brandConfig?.footerSocial?.linkedin && <p>LinkedIn: {brandConfig.footerSocial.linkedin}</p>}
+                                            {brandConfig?.footerSocial?.facebook && <p>FB: {brandConfig.footerSocial.facebook}</p>}
+                                            {brandConfig?.footerSocial?.twitter && <p>X: {brandConfig.footerSocial.twitter}</p>}
+                                          </div>
+                                        )
+                                      ) : (
+                                        <div className="space-y-2 pl-3 border-l-2 border-muted">
+                                          <Input
+                                            placeholder="Instagram (@handle)"
+                                            value={footerData.customSocial?.instagram || ''}
+                                            onChange={(e) => updateFooterField('customSocial', {
+                                              ...footerData.customSocial,
+                                              instagram: e.target.value
+                                            })}
+                                          />
+                                          <Input
+                                            placeholder="LinkedIn (URL or handle)"
+                                            value={footerData.customSocial?.linkedin || ''}
+                                            onChange={(e) => updateFooterField('customSocial', {
+                                              ...footerData.customSocial,
+                                              linkedin: e.target.value
+                                            })}
+                                          />
+                                          <Input
+                                            placeholder="Facebook (page name)"
+                                            value={footerData.customSocial?.facebook || ''}
+                                            onChange={(e) => updateFooterField('customSocial', {
+                                              ...footerData.customSocial,
+                                              facebook: e.target.value
+                                            })}
+                                          />
+                                          <Input
+                                            placeholder="X / Twitter (@handle)"
+                                            value={footerData.customSocial?.twitter || ''}
+                                            onChange={(e) => updateFooterField('customSocial', {
+                                              ...footerData.customSocial,
+                                              twitter: e.target.value
+                                            })}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+
+                              {/* Language Selector */}
+                              <div className="pt-3 border-t space-y-2">
+                                <Label>Language</Label>
+                                <Select
+                                  value={(formData.formData?.language as string) || 'en'}
+                                  onValueChange={(value) => updateFormData({ language: value })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select language" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="en">English</SelectItem>
+                                    <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
+                                    <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                                    <SelectItem value="es">Spanish (Español)</SelectItem>
+                                    <SelectItem value="fr">French (Français)</SelectItem>
+                                    <SelectItem value="ar">Arabic (العربية)</SelectItem>
+                                    <SelectItem value="ja">Japanese (日本語)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                  Text will be generated in this language
+                                </p>
+                              </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </Card>
+                    )
+                  })()}
                 </div>
               )}
 
@@ -1219,7 +1473,7 @@ export default function CreatePage() {
                               {models.map((model) => (
                                 <SelectItem key={model.id} value={model.id}>
                                   <div className="flex items-center gap-2">
-                                    <span>{getModelDisplayName(model.provider)}</span>
+                                    <span>{getModelDisplayName(model.slug)}</span>
                                     <Badge variant="secondary" className="text-xs">
                                       {model.credits_cost}
                                     </Badge>
@@ -1251,6 +1505,15 @@ export default function CreatePage() {
                             >
                               <Save className="h-4 w-4" />
                               Save
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="default"
+                              onClick={() => setRegenerateModalOpen(true)}
+                              className="flex-1 gap-2"
+                            >
+                              <RefreshCcw className="h-4 w-4" />
+                              Regenerate
                             </Button>
                             <Button
                               variant="ghost"
@@ -1299,16 +1562,6 @@ export default function CreatePage() {
                               alt="Generated creative"
                               className="w-full h-full object-contain"
                             />
-                            {/* Full View button - top left */}
-                            <Button
-                              variant="secondary"
-                              size="icon"
-                              className="absolute top-2 left-2 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background/90"
-                              onClick={() => setPreviewModalOpen(true)}
-                              title="Full View"
-                            >
-                              <Maximize2 className="h-3.5 w-3.5" />
-                            </Button>
                             <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
                               <div className="flex gap-2">
                                 <Button
@@ -1382,9 +1635,9 @@ export default function CreatePage() {
           </div>
         </div>
 
-        {/* Footer Navigation - Fixed on mobile for always-visible step actions */}
+        {/* Footer Navigation - Fixed at bottom for easy access */}
         {(step !== 7 || !generatedImage) && (
-          <div className="fixed bottom-14 md:bottom-0 left-0 right-0 md:sticky md:left-auto md:right-auto z-40 bg-background/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 bg-[#E8F4FD]/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)]">
             <div className="container py-3 md:py-4">
               <div className="flex items-center justify-between">
                 {/* Back Button - Canva style with hover border */}
@@ -1516,6 +1769,23 @@ export default function CreatePage() {
             onSaveComplete={(templateId) => {
               toast.success('Template saved! You can find it in your templates.')
             }}
+          />
+        )}
+
+        {/* Regenerate Modal - allows changing model/settings and regenerating */}
+        {generatedImage && (
+          <RegenerateModal
+            open={regenerateModalOpen}
+            onOpenChange={setRegenerateModalOpen}
+            currentModelId={selectedModel?.id}
+            currentTheme={formData.designData?.theme}
+            currentStyle={formData.designData?.style}
+            currentResolution={formData.designData?.resolution}
+            creationMode={formData.creationMode as 'template' | 'scratch'}
+            models={models}
+            onRegenerate={handleRegenerate}
+            isRegenerating={isGenerating}
+            currentBalance={creditsBalance}
           />
         )}
 

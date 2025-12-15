@@ -63,7 +63,10 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
   return (
     <RoleProvider>
       <TooltipProvider>
-        <div className="relative flex min-h-screen">
+        <div className={cn(
+          "relative flex",
+          createModeActive ? "h-screen overflow-hidden" : "min-h-screen"
+        )}>
           {/* Sidebar - Desktop */}
           <Sidebar />
 
@@ -88,22 +91,24 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             {/* Page Content */}
             <main className={cn(
               'flex-1',
-              'overflow-x-hidden',
+              createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
               !createModeActive && 'p-3 sm:p-4 md:p-6',
-              // Add padding for mobile bottom navigation
-              'pb-20 md:pb-6',
+              // Add padding for mobile bottom navigation (not in create mode)
+              !createModeActive && 'pb-20 md:pb-6',
               className
             )}>
               {children}
             </main>
 
-            {/* Application Footer - No border for seamless look */}
-            <footer className="hidden md:flex items-center justify-center py-3 bg-muted/20">
-              <p className="text-[11px] text-muted-foreground/70">
-                Developed by <span className="font-medium text-muted-foreground">Roja</span> • Powered by{" "}
-                <span className="font-medium text-muted-foreground">JICATE Solutions Private Limited</span>
-              </p>
-            </footer>
+            {/* Application Footer - Hidden in create mode for cleaner workspace */}
+            {!createModeActive && (
+              <footer className="hidden md:flex items-center justify-center py-3 bg-muted/20">
+                <p className="text-[11px] text-muted-foreground/70">
+                  Developed by <span className="font-medium text-muted-foreground">Roja</span> • Powered by{" "}
+                  <span className="font-medium text-muted-foreground">JICATE Solutions Private Limited</span>
+                </p>
+              </footer>
+            )}
           </div>
 
           {/* Floating Action Button */}

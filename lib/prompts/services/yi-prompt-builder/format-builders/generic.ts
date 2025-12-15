@@ -9,7 +9,18 @@
  */
 
 import type { EnhancedBuildOptions } from '../types'
-import { buildLogoContext, buildBrandContext, buildQualityContext } from '../context-helpers'
+import {
+  buildLogoContext,
+  buildBrandContext,
+  buildQualityContext,
+  buildThemeContext,
+  buildOrganizationContext,
+  buildLanguageContext,
+  buildLayoutZoneContext,
+} from '../context-helpers'
+
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
 // ============================================================
 // FIELD EXTRACTION HELPERS
@@ -163,6 +174,37 @@ export function buildGenericPrompt(
   const brandContext = buildBrandContext(options.brandContext)
   const qualityContext = buildQualityContext(options.resolution, formatId)
 
+  // NEW v3.4: Build additional context sections
+  const themeContext = buildThemeContext(options.theme, options.style)
+  const orgContext = buildOrganizationContext(options.organizationContext)
+  const langContext = buildLanguageContext(options.language)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
+
   // Determine aspect ratio from format ID
   let aspectRatio = '1:1 Square'
   if (formatId.includes('story') || formatId.includes('vertical')) {
@@ -200,6 +242,20 @@ ${logoContext}
 ${brandContext}
 
 ${qualityContext}
+
+${themeContext}
+
+${orgContext}
+
+${langContext}
+
+${layoutContext}
+
+${forbiddenZonesContext}
+
+${aiTypographySection}
+
+${aiDecorativeSection}
 
 <subject>
 A professional graphic for: "${title}"
@@ -243,5 +299,21 @@ ${options.brandContext ? '- Brand colors properly applied' : ''}
 Avoid: Cluttered layout, poor hierarchy, illegible text, unprofessional design, mismatched elements, inconsistent styling
 ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
 </constraints>
+
+${options?.preventionEnhancements?.length ? `
+LEARNED IMPROVEMENTS (from past feedback):
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+` : ''}
+
+<render_constraints>
+CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+DO NOT render as visible text:
+- XML tag names (task, format, composition, style, constraints)
+- Instruction phrases (Generate, Create, Include, Apply)
+- Design terminology (hierarchy, prominence, focal point)
+- Words: IMPORTANT, CRITICAL, NOTE, AVOID
+</render_constraints>
+
+${zoneReminderContext}
 `.trim()
 }

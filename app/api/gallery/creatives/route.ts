@@ -31,12 +31,17 @@ export async function GET(request: Request) {
     }
 
     // Build query - select only columns needed for list view
-    // Exclude image_url (1MB+ base64 per row) - fetch separately for detail view
+    // CRITICAL: Exclude heavy columns to prevent JSON parsing failures (57MB+ responses)
+    // - image_url: 1MB+ base64 per row
+    // - prompt_used: 10KB+ per row (AI prompts)
+    // - form_data: JSON form values (fetch on-demand for template saving)
+    // - logo_config: JSON logo placements (fetch on-demand for template saving)
     let query = supabase
       .from('creatives')
-      .select('id, organization_id, created_by, creative_type, vertical, title, form_data, logo_config, ai_model, ai_model_id, prompt_used, thumbnail_url, image_url, credits_used, generation_time_ms, download_count, is_favorite, created_at, expires_at')
+      .select('id, organization_id, creative_type, vertical, title, ai_model, thumbnail_url, credits_used, is_favorite, created_at')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: sortBy === 'oldest' })
+      .limit(50) // Pagination limit to prevent large result sets
 
     if (verticalFilter && verticalFilter !== 'all') {
       query = query.eq('vertical', verticalFilter)
@@ -47,7 +52,9 @@ export async function GET(request: Request) {
     }
 
     if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,prompt_used.ilike.%${searchQuery}%`)
+      // Only search on title - searching prompt_used forces loading 10KB+ per row
+      // even though it's not in the select (performance killer)
+      query = query.ilike('title', `%${searchQuery}%`)
     }
 
     const { data, error } = await query

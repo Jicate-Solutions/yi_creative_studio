@@ -154,6 +154,8 @@ export type Database = {
           is_favorite: boolean | null
           logo_config: Json | null
           organization_id: string
+          prevention_applied: boolean | null
+          prevention_holdout: boolean | null
           prompt_used: string | null
           thumbnail_url: string | null
           title: string | null
@@ -175,6 +177,8 @@ export type Database = {
           is_favorite?: boolean | null
           logo_config?: Json | null
           organization_id: string
+          prevention_applied?: boolean | null
+          prevention_holdout?: boolean | null
           prompt_used?: string | null
           thumbnail_url?: string | null
           title?: string | null
@@ -196,6 +200,8 @@ export type Database = {
           is_favorite?: boolean | null
           logo_config?: Json | null
           organization_id?: string
+          prevention_applied?: boolean | null
+          prevention_holdout?: boolean | null
           prompt_used?: string | null
           thumbnail_url?: string | null
           title?: string | null
@@ -633,6 +639,232 @@ export type Database = {
         }
         Relationships: []
       }
+      learned_patterns: {
+        Row: {
+          id: string
+          pattern_type: string
+          issue_signature: Json
+          fix_mapping: Json
+          effectiveness: Json
+          confidence: number
+          status: string
+          created_from_feedback_ids: string[]
+          embedding: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pattern_type: string
+          issue_signature: Json
+          fix_mapping: Json
+          effectiveness?: Json
+          confidence?: number
+          status?: string
+          created_from_feedback_ids?: string[]
+          embedding?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          pattern_type?: string
+          issue_signature?: Json
+          fix_mapping?: Json
+          effectiveness?: Json
+          confidence?: number
+          status?: string
+          created_from_feedback_ids?: string[]
+          embedding?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      prevention_actions: {
+        Row: {
+          id: string
+          session_id: string | null
+          creative_id: string | null
+          organization_id: string
+          matched_patterns: string[]
+          adjustments_applied: Json
+          was_effective: boolean | null
+          feedback_rating: number | null
+          fix_effective: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          creative_id?: string | null
+          organization_id: string
+          matched_patterns?: string[]
+          adjustments_applied?: Json
+          was_effective?: boolean | null
+          feedback_rating?: number | null
+          fix_effective?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          creative_id?: string | null
+          organization_id?: string
+          matched_patterns?: string[]
+          adjustments_applied?: Json
+          was_effective?: boolean | null
+          feedback_rating?: number | null
+          fix_effective?: boolean | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_actions_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_sessions: {
+        Row: {
+          id: string
+          mode: string
+          organization_id: string
+          user_id: string
+          state_snapshot: Json | null
+          input_summary: Json | null
+          output_summary: Json | null
+          patterns_matched: number
+          patches_created: number
+          adjustments_suggested: number
+          started_at: string
+          completed_at: string | null
+          duration_ms: number | null
+          total_tokens: number
+          estimated_cost_usd: number
+        }
+        Insert: {
+          id?: string
+          mode: string
+          organization_id: string
+          user_id: string
+          state_snapshot?: Json | null
+          input_summary?: Json | null
+          output_summary?: Json | null
+          patterns_matched?: number
+          patches_created?: number
+          adjustments_suggested?: number
+          started_at?: string
+          completed_at?: string | null
+          duration_ms?: number | null
+          total_tokens?: number
+          estimated_cost_usd?: number
+        }
+        Update: {
+          id?: string
+          mode?: string
+          organization_id?: string
+          user_id?: string
+          state_snapshot?: Json | null
+          input_summary?: Json | null
+          output_summary?: Json | null
+          patterns_matched?: number
+          patches_created?: number
+          adjustments_suggested?: number
+          started_at?: string
+          completed_at?: string | null
+          duration_ms?: number | null
+          total_tokens?: number
+          estimated_cost_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_patches: {
+        Row: {
+          id: string
+          target_file: string
+          patch_type: string
+          original_content: string | null
+          proposed_content: string
+          reasoning: string
+          status: string
+          learned_pattern_id: string | null
+          auto_generated: boolean
+          feedback_ids: string[]
+          feedback_count: number
+          pattern_confidence: number
+          admin_reviewed_at: string | null
+          admin_reviewed_by: string | null
+          review_notes: string | null
+          created_at: string
+          applied_at: string | null
+        }
+        Insert: {
+          id?: string
+          target_file: string
+          patch_type: string
+          original_content?: string | null
+          proposed_content: string
+          reasoning: string
+          status?: string
+          learned_pattern_id?: string | null
+          auto_generated?: boolean
+          feedback_ids?: string[]
+          feedback_count?: number
+          pattern_confidence?: number
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
+          review_notes?: string | null
+          created_at?: string
+          applied_at?: string | null
+        }
+        Update: {
+          id?: string
+          target_file?: string
+          patch_type?: string
+          original_content?: string | null
+          proposed_content?: string
+          reasoning?: string
+          status?: string
+          learned_pattern_id?: string | null
+          auto_generated?: boolean
+          feedback_ids?: string[]
+          feedback_count?: number
+          pattern_confidence?: number
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
+          review_notes?: string | null
+          created_at?: string
+          applied_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_patches_learned_pattern_id_fkey"
+            columns: ["learned_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "learned_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -855,6 +1087,12 @@ export type UserProfile = Tables<'user_profiles'>
 export type TemplateImage = Tables<'template_images'>
 export type ApiUsage = Tables<'api_usage'>
 
+// Feedback Learning Agent tables
+export type LearnedPattern = Tables<'learned_patterns'>
+export type PreventionAction = Tables<'prevention_actions'>
+export type AgentSession = Tables<'agent_sessions'>
+export type KnowledgePatch = Tables<'knowledge_patches'>
+
 // Custom types for JSON columns
 export interface BrandConfig {
   primaryColor: string
@@ -867,4 +1105,12 @@ export interface BrandConfig {
   footerText: string
   footerEmail: string
   footerWebsite: string
+  footerPhone: string
+  footerAddress: string
+  footerSocial: {
+    instagram?: string
+    linkedin?: string
+    facebook?: string
+    twitter?: string
+  }
 }

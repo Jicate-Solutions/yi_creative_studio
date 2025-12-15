@@ -16,6 +16,7 @@ import {
   buildThemeContext,
   buildOrganizationContext,
   buildLanguageContext,
+  buildLayoutZoneContext,
 } from '../context-helpers'
 import { INSTAGRAM_POST_EXAMPLES } from '../examples'
 
@@ -25,6 +26,9 @@ import {
   getTypographyPromptFragment,
   getPlatformAntiPatterns,
 } from '../../../knowledge-base/design-architecture'
+
+// Import logo zone enforcement helper (v3.4)
+import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
 // ============================================================
 // INSTAGRAM CONTEXTS
@@ -129,6 +133,32 @@ export function buildInstagramPrompt(
   const themeContext = buildThemeContext(options.theme, options.style)
   const orgContext = buildOrganizationContext(options.organizationContext)
   const langContext = buildLanguageContext(options.language)
+  const layoutContext = buildLayoutZoneContext(options.layout)
+
+  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
+  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  const aiTypographySection = options.designContext?.typographyGuidance
+    ? `
+<ai_typography_guidance>
+Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
+Body Style: ${options.designContext.typographyGuidance.bodyStyle}
+Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+</ai_typography_guidance>
+`
+    : ''
+
+  const aiDecorativeSection = options.designContext?.decorativeElements
+    ? `
+<ai_decorative_elements>
+Corner Treatment: ${options.designContext.decorativeElements.corners}
+Pattern Overlay: ${options.designContext.decorativeElements.patterns}
+Accent Elements: ${options.designContext.decorativeElements.accents}
+</ai_decorative_elements>
+`
+    : ''
 
   // Get platform-specific scroll-stop patterns and typography
   const scrollStopPatterns = getScrollStopPromptFragment('instagram')
@@ -162,6 +192,14 @@ ${themeContext}
 ${orgContext}
 
 ${langContext}
+
+${layoutContext}
+
+${forbiddenZonesContext}
+
+${aiTypographySection}
+
+${aiDecorativeSection}
 
 <platform_optimization>
 ${scrollStopPatterns}
@@ -228,6 +266,12 @@ ${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwa
 Platform Anti-Patterns: ${antiPatterns.slice(0, 5).join(', ')}
 </constraints>
 
+${options?.preventionEnhancements?.length ? `
+<learned_improvements>
+${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+</learned_improvements>
+` : ''}
+
 <render_constraints>
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
 DO NOT render as visible text:
@@ -237,6 +281,8 @@ DO NOT render as visible text:
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 - Any content from platform_optimization or typography_hierarchy sections
 </render_constraints>
+
+${zoneReminderContext}
 `.trim()
 }
 

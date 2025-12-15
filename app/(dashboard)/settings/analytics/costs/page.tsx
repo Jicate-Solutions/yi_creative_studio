@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatCostAsINR, convertToINR } from '@/lib/services/currency'
+import { formatCostAsINR, convertToINR, USD_TO_INR } from '@/lib/services/currency'
 import { CREATIVE_FORMATS } from '@/lib/config/creative-formats'
 import { cn } from '@/lib/utils'
 import {
@@ -160,11 +160,11 @@ export default function TokenCostsPage() {
       // Apply cost filters (client-side since we aggregate)
       let filtered = transformed
       if (filters.minCostInr) {
-        const minUsd = filters.minCostInr / 84.5 // Approximate conversion
+        const minUsd = filters.minCostInr / USD_TO_INR
         filtered = filtered.filter((c) => c.totalCostUsd >= minUsd)
       }
       if (filters.maxCostInr) {
-        const maxUsd = filters.maxCostInr / 84.5
+        const maxUsd = filters.maxCostInr / USD_TO_INR
         filtered = filtered.filter((c) => c.totalCostUsd <= maxUsd)
       }
 

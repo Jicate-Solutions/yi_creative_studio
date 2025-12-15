@@ -9,8 +9,16 @@ import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, Reso
 import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
-import { type LogoSizePreset, DEFAULT_LOGO_SIZE } from '@/lib/constants/logoConstants'
+import {
+  type LogoSizePreset,
+  DEFAULT_LOGO_SIZE,
+  type LogoBackgroundShape,
+  type LogoBackgroundStyle,
+  DEFAULT_LOGO_BACKGROUND,
+  DEFAULT_LOGO_BACKGROUND_COLOR,
+} from '@/lib/constants/logoConstants'
 import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
+import type { LogoPreset } from '@/types/logo-presets'
 
 // Re-export for convenience
 export type { GeneratedSchema, DynamicSchemaField }
@@ -44,6 +52,17 @@ export interface LogoPlacement {
   logo?: OrganizationLogo
   isLocked: boolean // User-controlled position lock
   logoType?: LogoType // Auto-detected from logo name (brand, vertical, sponsor, etc.)
+  // Background options for logo
+  backgroundShape: LogoBackgroundShape // 'none' | 'rectangle' | 'rounded' | 'circle'
+  backgroundStyle: LogoBackgroundStyle // { shadow: boolean, border: boolean }
+}
+
+// Logo Strip Mode - unified white strip containing all logos in a row
+export type LogoStripRow = 'header' | 'middle' | 'footer'
+
+export interface LogoStripMode {
+  enabled: boolean
+  rows: LogoStripRow[] // Which rows use strip mode (header, middle, footer)
 }
 
 interface CreativeFormData {
@@ -55,6 +74,8 @@ interface CreativeFormData {
   modelId: string | null
   formData: Record<string, unknown>
   logosPlacements: LogoPlacement[]
+  logoBackgroundColor: string // Global background color for all logos (hex)
+  logoStripMode: LogoStripMode // Unified strip layout for logos
   // Creation mode and design data
   creationMode: CreationMode
   templateId: string | null
@@ -195,6 +216,21 @@ interface CreativeState {
   updateLogoSize: (logoId: string, size: LogoSizePreset | number) => void
   toggleLogoLock: (logoId: string) => void
   clearLogoPlacements: () => void
+  applyLogoPreset: (preset: LogoPreset) => void
+  // Logo background actions
+  updateLogoBackground: (logoId: string, shape: LogoBackgroundShape) => void
+  updateLogoBackgroundStyle: (logoId: string, style: Partial<LogoBackgroundStyle>) => void
+  setLogoBackgroundColor: (color: string) => void // Global background color for all logos
+  // Logo strip mode actions
+  setLogoStripMode: (stripMode: LogoStripMode) => void
+  toggleLogoStripRow: (row: LogoStripRow) => void
+  // AI Logo Position Optimization
+  applyOptimizedPlacements: (optimizedPlacements: Array<{
+    logoId: string
+    position: LogoPosition
+    size?: LogoSizePreset
+    backgroundShape?: LogoBackgroundShape
+  }>) => void
 
   setGenerating: (generating: boolean) => void
   setGenerationProgress: (progress: number) => void
@@ -263,6 +299,12 @@ interface CreativeState {
   resetForm: () => void
 }
 
+// Default logo strip mode - disabled by default
+const DEFAULT_LOGO_STRIP_MODE: LogoStripMode = {
+  enabled: false,
+  rows: ['header'], // Default to header row when enabled
+}
+
 const initialFormData: CreativeFormData = {
   // Format selection
   formatId: null,
@@ -272,6 +314,8 @@ const initialFormData: CreativeFormData = {
   modelId: null,
   formData: {},
   logosPlacements: [],
+  logoBackgroundColor: DEFAULT_LOGO_BACKGROUND_COLOR,
+  logoStripMode: DEFAULT_LOGO_STRIP_MODE,
   creationMode: 'template',
   templateId: null,
   designData: DEFAULT_DESIGN_DATA,
@@ -424,10 +468,9 @@ export const useCreativeStore = create<CreativeState>()(
         const logo = logos.find((l) => l.id === logoId)
         const existing = formData.logosPlacements.find((p) => p.logoId === logoId)
 
-        // Yi Brand Guidelines 2025: Support full two-strip layout system
-        // Header strip (3) + Second strip (3) + Footer strip (3) = 9 positions max
-        // Previously limited to 4, but this blocked footer/sponsor logos
-        if (formData.logosPlacements.length >= 9 && !existing) {
+        // Yi Brand Guidelines 2025: Support full 6-column × 3-row layout system
+        // Header strip (6) + Second strip (6) + Footer strip (6) = 18 positions max
+        if (formData.logosPlacements.length >= 18 && !existing) {
           return // Silently reject - UI should prevent this
         }
 
@@ -465,7 +508,9 @@ export const useCreativeStore = create<CreativeState>()(
                   size,
                   logo,
                   isLocked: autoLocked, // Auto-lock brand logos, others start unlocked
-                  logoType
+                  logoType,
+                  backgroundShape: DEFAULT_LOGO_BACKGROUND.shape,
+                  backgroundStyle: { ...DEFAULT_LOGO_BACKGROUND.style },
                 }
               ],
             },
@@ -478,7 +523,16 @@ export const useCreativeStore = create<CreativeState>()(
               ...formData,
               logosPlacements: [
                 ...formData.logosPlacements,
-                { logoId, position, size, logo, isLocked: false, logoType }
+                {
+                  logoId,
+                  position,
+                  size,
+                  logo,
+                  isLocked: false,
+                  logoType,
+                  backgroundShape: DEFAULT_LOGO_BACKGROUND.shape,
+                  backgroundStyle: { ...DEFAULT_LOGO_BACKGROUND.style },
+                }
               ],
             },
           })
@@ -555,6 +609,136 @@ export const useCreativeStore = create<CreativeState>()(
         set((state) => ({
           formData: { ...state.formData, logosPlacements: [] },
         })),
+
+      updateLogoBackground: (logoId, shape) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logosPlacements: state.formData.logosPlacements.map((p) =>
+              p.logoId === logoId ? { ...p, backgroundShape: shape } : p
+            ),
+          },
+        })),
+
+      updateLogoBackgroundStyle: (logoId, style) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logosPlacements: state.formData.logosPlacements.map((p) =>
+              p.logoId === logoId
+                ? { ...p, backgroundStyle: { ...p.backgroundStyle, ...style } }
+                : p
+            ),
+          },
+        })),
+
+      setLogoBackgroundColor: (color) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logoBackgroundColor: color,
+          },
+        })),
+
+      // Logo strip mode actions
+      setLogoStripMode: (stripMode) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logoStripMode: stripMode,
+          },
+        })),
+
+      toggleLogoStripRow: (row) =>
+        set((state) => {
+          const currentRows = state.formData.logoStripMode.rows
+          const newRows = currentRows.includes(row)
+            ? currentRows.filter((r) => r !== row)
+            : [...currentRows, row]
+          return {
+            formData: {
+              ...state.formData,
+              logoStripMode: {
+                ...state.formData.logoStripMode,
+                rows: newRows.length > 0 ? newRows : ['header'], // At least one row
+              },
+            },
+          }
+        }),
+
+      // AI Logo Position Optimization - apply optimized placements from the optimizer
+      applyOptimizedPlacements: (optimizedPlacements) =>
+        set((state) => {
+          const currentPlacements = state.formData.logosPlacements
+
+          // Merge optimized positions with current placement data
+          const updatedPlacements = currentPlacements.map(current => {
+            const optimized = optimizedPlacements.find(o => o.logoId === current.logoId)
+
+            if (optimized) {
+              // Yi Brand Guidelines 2025: Never change position for auto-locked logos
+              const isAutoLockedLogo = current.logo?.name && isLogoAutoLocked(current.logo.name)
+
+              return {
+                ...current,
+                // Only update position if not auto-locked
+                position: isAutoLockedLogo ? current.position : (optimized.position || current.position),
+                // Update size if provided
+                size: optimized.size || current.size,
+                // Update background shape if provided
+                backgroundShape: optimized.backgroundShape || current.backgroundShape,
+              }
+            }
+            return current
+          })
+
+          return {
+            formData: {
+              ...state.formData,
+              logosPlacements: updatedPlacements,
+            },
+          }
+        }),
+
+      applyLogoPreset: (preset) => {
+        const { logos, formData } = get()
+
+        // Map preset placements to full LogoPlacement objects
+        const placements: LogoPlacement[] = preset.placements
+          .map((p): LogoPlacement | null => {
+            // Find the logo in the organization's current logos
+            const logo = logos.find((l) => l.id === p.logoId)
+
+            // Skip if logo no longer exists in organization
+            if (!logo) {
+              console.warn(`Logo ${p.logoName} (${p.logoId}) not found - skipping`)
+              return null
+            }
+
+            const logoType = detectLogoType(logo.name)
+            const autoLocked = isLogoAutoLocked(logo.name)
+
+            return {
+              logoId: p.logoId,
+              position: p.position,
+              size: p.size as LogoSizePreset | number,
+              logo,
+              isLocked: autoLocked,
+              logoType,
+              // Apply background settings from preset (with defaults for backward compatibility)
+              backgroundShape: p.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape,
+              backgroundStyle: p.backgroundStyle || { ...DEFAULT_LOGO_BACKGROUND.style },
+            }
+          })
+          .filter((p): p is LogoPlacement => p !== null)
+
+        set({
+          formData: {
+            ...formData,
+            logosPlacements: placements,
+          },
+        })
+      },
 
       setGenerating: (isGenerating) => set({ isGenerating }),
 

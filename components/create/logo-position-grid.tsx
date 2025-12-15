@@ -12,35 +12,71 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { X, Image as ImageIcon, Check, Wand2, MousePointerClick, LayoutGrid, Circle, Square, RectangleHorizontal, CircleOff, Trash2, Settings2, Palette, Sparkles, Loader2, Rows3 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
+import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory, migrateLogoPosition } from '@/lib/config/constants'
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
-import { X, Image as ImageIcon, Grid3X3, Check, Move, Filter, Lock, LockOpen, Info, AlertTriangle } from 'lucide-react'
-import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory } from '@/lib/config/constants'
-import { type LogoSizePreset } from '@/lib/constants/logoConstants'
-import { detectLogoType, getComplianceWarning, isLogoAutoLocked } from '@/lib/config/logo-locks'
+  type LogoSizePreset,
+  type LogoBackgroundShape,
+  type LogoBackgroundStyle,
+  BACKGROUND_SHAPE_OPTIONS,
+  DEFAULT_LOGO_BACKGROUND,
+} from '@/lib/constants/logoConstants'
+import { LogoPresetSelector } from './logo-preset-selector'
+import { SavePresetDialog } from './save-preset-dialog'
 
-const POSITION_LABELS: Record<LogoPosition, string> = {
-  'top-left': 'Top Left',
-  'top-center': 'Top Center',
-  'top-right': 'Top Right',
-  'mid-left': 'Mid Left',
-  'center': 'Center',
-  'mid-right': 'Mid Right',
-  'bottom-left': 'Bottom Left',
-  'bottom-center': 'Bottom Center',
-  'bottom-right': 'Bottom Right',
+// Zone configuration for visual grouping
+const ZONES = {
+  header: {
+    label: 'Header Zone',
+    description: 'Brand logos',
+    positions: ['top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6'] as LogoPosition[],
+    color: 'bg-blue-500/10 border-blue-500/30',
+    hoverColor: 'hover:bg-blue-500/20',
+  },
+  middle: {
+    label: 'Middle Zone',
+    description: 'Program logos',
+    positions: ['mid-1', 'mid-2', 'mid-3', 'mid-4', 'mid-5', 'mid-6'] as LogoPosition[],
+    color: 'bg-slate-500/10 border-slate-500/30',
+    hoverColor: 'hover:bg-slate-500/20',
+  },
+  footer: {
+    label: 'Footer Zone',
+    description: 'Sponsors & Partners',
+    positions: ['bottom-1', 'bottom-2', 'bottom-3', 'bottom-4', 'bottom-5', 'bottom-6'] as LogoPosition[],
+    color: 'bg-orange-500/10 border-orange-500/30',
+    hoverColor: 'hover:bg-orange-500/20',
+  },
+}
+
+// Brand logos that get auto-placed
+const BRAND_LOGOS = [
+  { pattern: /yi\s*(logo|main)?$/i, position: 'top-1' as LogoPosition },
+  { pattern: /bharat\s*rising/i, position: 'top-3' as LogoPosition },
+  { pattern: /cii|confederation/i, position: 'top-6' as LogoPosition },
+]
+
+type Logo = {
+  id: string
+  name: string
+  thumbnail_url?: string | null
+  file_url: string
+  category?: string | null
 }
 
 export function LogoPositionGrid() {
@@ -51,13 +87,21 @@ export function LogoPositionGrid() {
     removeLogoPlacement,
     updateLogoPosition,
     updateLogoSize,
-    toggleLogoLock,
+    updateLogoBackground,
+    updateLogoBackgroundStyle,
+    setLogoBackgroundColor,
+    applyOptimizedPlacements,
+    setLogoStripMode,
   } = useCreativeStore()
 
-  // Category filter state
+  // Click-to-place state
+  const [selectedLogoId, setSelectedLogoId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
 
-  const placedPositions = formData.logosPlacements.map((p) => p.position)
+  const placedPositions = formData.logosPlacements.map((p) => migrateLogoPosition(p.position))
+  const placedLogoIds = formData.logosPlacements.map((p) => p.logoId)
 
   // Filter logos by category
   const filteredLogos = useMemo(() => {
@@ -79,26 +123,116 @@ export function LogoPositionGrid() {
     return Object.entries(LOGO_CATEGORIES).filter(([key]) => categoryCounts[key] > 0)
   }, [categoryCounts])
 
+  // Check if brand logos exist for auto-place
+  const brandLogosAvailable = useMemo(() => {
+    return BRAND_LOGOS.filter(brand =>
+      logos.some(logo => brand.pattern.test(logo.name))
+    )
+  }, [logos])
+
   const getLogoAtPosition = (position: LogoPosition) => {
-    return formData.logosPlacements.find((p) => p.position === position)
+    return formData.logosPlacements.find((p) => migrateLogoPosition(p.position) === position)
   }
 
-  const handlePositionClick = (position: LogoPosition) => {
-    const existing = getLogoAtPosition(position)
+  const getSelectedLogo = () => {
+    if (!selectedLogoId) return null
+    return logos.find(l => l.id === selectedLogoId)
+  }
 
-    if (existing) {
-      removeLogoPlacement(existing.logoId)
+  // Handle clicking a logo card to select it
+  const handleLogoSelect = (logoId: string) => {
+    if (placedLogoIds.includes(logoId)) {
+      // If already placed, allow re-selecting to move
+      setSelectedLogoId(logoId)
+    } else if (placedPositions.length >= 18) {
+      // Max logos reached
+      return
+    } else {
+      setSelectedLogoId(selectedLogoId === logoId ? null : logoId)
     }
   }
 
-  const handleAddLogo = (logoId: string) => {
-    // Find first available position
-    const availablePosition = LOGO_POSITIONS.find(
-      (pos) => !placedPositions.includes(pos)
-    )
+  // Handle clicking a grid cell to place logo
+  const handleCellClick = (position: LogoPosition) => {
+    if (!selectedLogoId) return
 
-    if (availablePosition) {
-      addLogoPlacement(logoId, availablePosition)
+    const existingAtPosition = getLogoAtPosition(position)
+
+    // If cell is occupied by another logo, don't allow
+    if (existingAtPosition && existingAtPosition.logoId !== selectedLogoId) {
+      return
+    }
+
+    const existingPlacement = formData.logosPlacements.find(p => p.logoId === selectedLogoId)
+
+    if (existingPlacement) {
+      // Move to new position
+      updateLogoPosition(selectedLogoId, position)
+    } else {
+      // Add new placement
+      addLogoPlacement(selectedLogoId, position)
+    }
+
+    setSelectedLogoId(null)
+  }
+
+  // Auto-place brand logos
+  const handleAutoPlace = () => {
+    BRAND_LOGOS.forEach(brand => {
+      const logo = logos.find(l => brand.pattern.test(l.name))
+      if (logo && !placedLogoIds.includes(logo.id)) {
+        // Check if position is free
+        if (!placedPositions.includes(brand.position)) {
+          addLogoPlacement(logo.id, brand.position)
+        }
+      }
+    })
+  }
+
+  // AI-powered logo position optimization
+  const handleAIOptimize = async () => {
+    if (formData.logosPlacements.length === 0) {
+      toast.error('Add logos first to optimize their positions')
+      return
+    }
+
+    setIsOptimizing(true)
+    try {
+      const response = await fetch('/api/optimize-logo-positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          logos: formData.logosPlacements.map(p => ({
+            id: p.logoId,
+            name: p.logo?.name || '',
+            type: p.logoType || 'other',
+          })),
+          formatId: formData.formatId || 'event_poster',
+          useAI: false, // Use fast algorithm (set to true for AI-powered)
+          currentPlacements: formData.logosPlacements.map(p => ({
+            logoId: p.logoId,
+            position: p.position,
+            size: p.size,
+            backgroundShape: p.backgroundShape,
+            backgroundStyle: p.backgroundStyle,
+          })),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.placements) {
+        // Apply optimized placements
+        applyOptimizedPlacements(data.placements)
+        toast.success(data.reasoning || 'Logos optimized for visual balance')
+      } else {
+        toast.error(data.error || 'Optimization failed')
+      }
+    } catch (error) {
+      console.error('Logo optimization error:', error)
+      toast.error('Failed to optimize logo positions')
+    } finally {
+      setIsOptimizing(false)
     }
   }
 
@@ -106,430 +240,689 @@ export function LogoPositionGrid() {
     return <LogoPositionGridSkeleton />
   }
 
+  const selectedLogo = getSelectedLogo()
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      {/* LEFT SIDE: Compact Grid Preview */}
-      <div className="lg:w-[30%] flex-shrink-0">
-        <div className="sticky top-4">
-          {/* Position Grid Preview */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Grid3X3 className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Position Grid</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="secondary" className="ml-2 text-xs cursor-help">
-                    <Info className="h-3 w-3 mr-1" />
-                    AI-Aware
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[250px]">
-                  <p>The AI will avoid placing important content in positions where you place logos</p>
-                </TooltipContent>
-              </Tooltip>
-              <Badge variant="outline" className="ml-auto text-xs">
-                {formData.logosPlacements.length} / 9
-              </Badge>
-            </div>
-
-            <div className="relative aspect-square w-full bg-gradient-to-br from-muted/50 to-muted rounded-xl border-2 border-dashed border-muted-foreground/20 overflow-hidden">
-              <div className="absolute inset-4 grid grid-cols-3 grid-rows-3 gap-3">
-                {LOGO_POSITIONS.map((position) => {
-                  const placement = getLogoAtPosition(position)
-                  const logo = placement?.logo || logos.find((l) => l.id === placement?.logoId)
-
-                  return (
-                    <Tooltip key={position}>
-                      <TooltipTrigger asChild>
-                        <div
-                          onClick={() => handlePositionClick(position)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              handlePositionClick(position)
-                            }
-                          }}
-                          className={cn(
-                            'rounded-lg border-2 transition-all flex items-center justify-center cursor-pointer group',
-                            placement
-                              ? 'border-primary bg-primary/10 hover:bg-primary/20 shadow-sm'
-                              : 'border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted-foreground/5'
-                          )}
-                        >
-                          {logo ? (
-                            <div className="relative w-full h-full p-2">
-                              <img
-                                src={logo.thumbnail_url || logo.file_url}
-                                alt={logo.name}
-                                className="w-full h-full object-contain"
-                              />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  removeLogoPlacement(logo.id)
-                                }}
-                                className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground/50 text-center leading-tight font-medium">
-                              {POSITION_LABELS[position].split(' ').join('\n')}
-                            </span>
-                          )}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>{logo ? `${logo.name} - Click to remove` : `${POSITION_LABELS[position]} - Empty`}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-medium">Position Your Logos</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {selectedLogoId
+              ? `Click a cell to place "${selectedLogo?.name}"`
+              : 'Select a logo, then click where to place it'
+            }
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <LogoPresetSelector onSaveClick={() => setSaveDialogOpen(true)} />
+          {/* AI Optimize Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAIOptimize}
+            disabled={formData.logosPlacements.length === 0 || isOptimizing}
+            className="gap-2"
+          >
+            {isOptimizing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {isOptimizing ? 'Optimizing...' : 'AI Optimize'}
+            </span>
+            <span className="sm:hidden">
+              {isOptimizing ? '...' : 'AI'}
+            </span>
+          </Button>
         </div>
       </div>
 
-      {/* RIGHT SIDE: Controls & Functionality */}
-      <div className="lg:w-[70%] space-y-6">
-        {/* Available Logos Section */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Available Logos</span>
+      {/* Save Preset Dialog */}
+      <SavePresetDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} />
+
+      {/* SIDE-BY-SIDE LAYOUT: Logos (left) | Grid (right) */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+
+        {/* LEFT PANEL - Logo Selection (40%) */}
+        <div className="lg:w-[40%] space-y-3">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Your Logos</span>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {formData.logosPlacements.length} / 18
+            </Badge>
           </div>
 
-          {/* Category Filter with ToggleGroup */}
+          {/* Category Filter */}
           {logos.length > 0 && availableCategories.length > 0 && (
             <ToggleGroup
               type="single"
               value={categoryFilter}
               onValueChange={(value) => value && setCategoryFilter(value)}
-              className="justify-start flex-wrap mb-4"
+              className="justify-start flex-wrap"
             >
-              <ToggleGroupItem value="all" className="text-xs px-3 h-8">
+              <ToggleGroupItem value="all" className="text-xs px-2.5 h-7">
                 All ({categoryCounts.all})
               </ToggleGroupItem>
               {availableCategories.map(([key, { label }]) => (
-                <ToggleGroupItem key={key} value={key} className="text-xs px-3 h-8">
+                <ToggleGroupItem key={key} value={key} className="text-xs px-2.5 h-7">
                   {label.replace(' Logo', '')} ({categoryCounts[key]})
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
           )}
 
-          {/* Logo Grid */}
+          {/* Logo Cards Grid */}
           {filteredLogos.length > 0 ? (
-            <ScrollArea className="h-[180px]">
-              <div className="grid grid-cols-5 gap-2 pr-4">
+            <ScrollArea className="h-[280px] lg:h-[320px]">
+              <div className="grid grid-cols-4 xl:grid-cols-5 gap-1.5 pr-3">
                 {filteredLogos.map((logo) => {
-                  const isPlaced = formData.logosPlacements.some(
-                    (p) => p.logoId === logo.id
-                  )
+                  const placement = formData.logosPlacements.find(p => p.logoId === logo.id)
+                  const isPlaced = !!placement
+                  const isSelected = selectedLogoId === logo.id
+                  const migratedPosition = placement ? migrateLogoPosition(placement.position) : null
 
                   return (
-                    <HoverCard key={logo.id} openDelay={200} closeDelay={50}>
-                      <HoverCardTrigger asChild>
-                        <button
-                          onClick={() => !isPlaced && handleAddLogo(logo.id)}
-                          disabled={isPlaced || placedPositions.length >= 9}
-                          className={cn(
-                            'relative aspect-square rounded-lg border-2 p-2 transition-all group',
-                            isPlaced
-                              ? 'border-primary bg-primary/5 cursor-not-allowed'
-                              : 'border-border hover:border-primary hover:bg-primary/5 hover:shadow-sm'
-                          )}
-                        >
-                          <img
-                            src={logo.thumbnail_url || logo.file_url}
-                            alt={logo.name}
-                            className={cn(
-                              'w-full h-full object-contain transition-opacity',
-                              isPlaced && 'opacity-50'
-                            )}
-                          />
-                          {isPlaced && (
-                            <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="h-3 w-3 text-primary-foreground" />
-                            </div>
-                          )}
-                        </button>
-                      </HoverCardTrigger>
-                      <HoverCardContent side="top" className="w-48 p-3">
-                        <div className="space-y-2">
-                          <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
-                            <img
-                              src={logo.thumbnail_url || logo.file_url}
-                              alt={logo.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <p className="font-medium text-sm truncate">{logo.name}</p>
-                          {logo.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {LOGO_CATEGORIES[logo.category as LogoCategory]?.label || logo.category}
-                            </Badge>
-                          )}
-                          {isPlaced ? (
-                            <p className="text-xs text-muted-foreground">Already placed</p>
-                          ) : placedPositions.length >= 9 ? (
-                            <p className="text-xs text-destructive">Maximum 9 logos allowed</p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">Click to add</p>
-                          )}
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
+                    <LogoCard
+                      key={logo.id}
+                      logo={logo}
+                      isPlaced={isPlaced}
+                      isSelected={isSelected}
+                      position={migratedPosition}
+                      size={placement?.size || 'medium'}
+                      onSelect={() => handleLogoSelect(logo.id)}
+                      onSizeChange={(size) => updateLogoSize(logo.id, size)}
+                      onRemove={() => removeLogoPlacement(logo.id)}
+                      isDisabled={placedPositions.length >= 18 && !isPlaced}
+                    />
                   )
                 })}
               </div>
             </ScrollArea>
           ) : logos.length > 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm text-muted-foreground">No logos in this category</p>
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => setCategoryFilter('all')}
-                className="mt-1"
-              >
-                Show all logos
-              </Button>
-            </div>
+            <EmptyState
+              message="No logos in this category"
+              action={
+                <Button variant="link" size="sm" onClick={() => setCategoryFilter('all')}>
+                  Show all logos
+                </Button>
+              }
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm font-medium">No logos uploaded</p>
-              <p className="text-xs text-muted-foreground">
-                Upload logos in Settings → Logo Management
-              </p>
-            </div>
+            <EmptyState
+              message="No logos uploaded"
+              submessage="Upload logos in Settings → Logo Management"
+            />
           )}
         </div>
 
-        {/* Placed Logos - 2-Column Compact Grid */}
-        {formData.logosPlacements.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Move className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Placed Logos</span>
-              <Badge variant="outline" className="text-xs ml-auto">
-                {formData.logosPlacements.length} / 9
-              </Badge>
+        {/* RIGHT PANEL - Poster Grid (60%) */}
+        <div className="lg:w-[60%]">
+          {/* Panel Header */}
+          <div className="flex items-center gap-2 mb-3">
+            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Poster Preview</span>
+          </div>
+
+          {/* Logo Options - Combined Panel */}
+          <div className="p-2 bg-muted/50 rounded-lg border space-y-2 mb-3">
+            {/* Strip Layout */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Rows3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-medium">Strip Layout</Label>
+              </div>
+              <Switch
+                checked={formData.logoStripMode?.enabled ?? false}
+                onCheckedChange={(checked) => {
+                  setLogoStripMode({
+                    enabled: checked,
+                    rows: checked ? ['header'] : [],
+                  })
+                }}
+              />
             </div>
 
-            {/* 2-Column Grid - No ScrollArea needed */}
-            <div className="grid grid-cols-2 gap-2">
-              {formData.logosPlacements.map((placement) => {
-                const logo = placement.logo || logos.find((l) => l.id === placement.logoId)
-                if (!logo) return null
-
-                const autoLocked = isLogoAutoLocked(logo.name) // Yi Brand Guidelines: Brand logos are auto-locked
-                const isLocked = autoLocked || placement.isLocked // Either auto-locked or user-locked
-                const currentSize = placement.size || 'medium'
-
-                return (
-                  <div
-                    key={placement.logoId}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-lg border",
-                      autoLocked ? "bg-primary/5 border-primary/30" : "bg-muted/50"
-                    )}
-                  >
-                    {/* Logo Thumbnail */}
-                    <div className="w-8 h-8 rounded bg-background border p-0.5 flex-shrink-0">
-                      <img
-                        src={logo.thumbnail_url || logo.file_url}
-                        alt={logo.name}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-
-                    {/* Info & Controls */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs font-medium truncate">{logo.name}</p>
-                        {/* Logo Type Badge - Highlight brand logos */}
-                        <Badge
-                          variant={autoLocked ? "default" : "outline"}
-                          className={cn(
-                            "text-[9px] px-1 py-0 h-3.5 shrink-0",
-                            autoLocked && "bg-primary text-primary-foreground"
-                          )}
-                        >
-                          {autoLocked ? "Brand" : (placement.logoType || detectLogoType(logo.name))}
-                        </Badge>
-                        {/* Compliance Warning - only show for non-auto-locked logos */}
-                        {!autoLocked && (() => {
-                          const warning = getComplianceWarning(logo.name, placement.position)
-                          return warning ? (
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-[200px]">
-                                <p className="text-xs">{warning}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : null
-                        })()}
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {/* Lock Toggle Button - Disabled for auto-locked brand logos */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "h-5 w-5 p-0",
-                                autoLocked && "cursor-not-allowed opacity-70"
-                              )}
-                              onClick={() => !autoLocked && toggleLogoLock(placement.logoId)}
-                              disabled={autoLocked}
-                            >
-                              {isLocked ? (
-                                <Lock className={cn("h-3 w-3", autoLocked ? "text-primary" : "text-primary")} />
-                              ) : (
-                                <LockOpen className="h-3 w-3 text-muted-foreground" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>
-                              {autoLocked
-                                ? 'Brand logo - Fixed position per Yi Brand Guidelines'
-                                : isLocked
-                                  ? 'Click to unlock position'
-                                  : 'Click to lock position'
-                              }
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        {/* Position Selector (compact) - Always badge for locked/auto-locked */}
-                        {isLocked ? (
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              "text-[10px] px-1 py-0 h-4",
-                              autoLocked && "bg-primary/20 text-primary"
-                            )}
-                          >
-                            {POSITION_LABELS[placement.position].split(' ').map(w => w[0]).join('')}
-                          </Badge>
-                        ) : (
-                          <Select
-                            value={placement.position}
-                            onValueChange={(pos) => updateLogoPosition(placement.logoId, pos as LogoPosition)}
-                          >
-                            <SelectTrigger className="h-4 w-10 text-[10px] px-1 border-0 bg-muted/50">
-                              <SelectValue>
-                                {POSITION_LABELS[placement.position].split(' ').map(w => w[0]).join('')}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {LOGO_POSITIONS.map((pos) => (
-                                <SelectItem
-                                  key={pos}
-                                  value={pos}
-                                  disabled={placedPositions.includes(pos) && pos !== placement.position}
-                                >
-                                  {POSITION_LABELS[pos]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+            {/* Row Selection - only show when strip mode is enabled */}
+            {formData.logoStripMode?.enabled && (
+              <div className="flex items-center gap-2 pl-5">
+                <span className="text-[10px] text-muted-foreground">Apply to:</span>
+                <div className="flex gap-1.5">
+                  {(['header', 'middle', 'footer'] as const).map((row) => {
+                    const isActive = formData.logoStripMode?.rows?.includes(row)
+                    return (
+                      <button
+                        key={row}
+                        type="button"
+                        onClick={() => {
+                          const currentRows = formData.logoStripMode?.rows || []
+                          const newRows = isActive
+                            ? currentRows.filter(r => r !== row)
+                            : [...currentRows, row]
+                          if (newRows.length > 0) {
+                            setLogoStripMode({
+                              enabled: true,
+                              rows: newRows,
+                            })
+                          }
+                        }}
+                        className={cn(
+                          'px-2 py-0.5 text-[10px] font-medium rounded transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                         )}
+                      >
+                        {row.charAt(0).toUpperCase() + row.slice(1)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
-                        {/* Size Dropdown (compact) */}
-                        <Select
-                          value={typeof currentSize === 'string' ? currentSize : 'medium'}
-                          onValueChange={(size) => updateLogoSize(placement.logoId, size as LogoSizePreset)}
-                        >
-                          <SelectTrigger className="h-4 w-10 text-[10px] px-1 border-0 bg-muted/50">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="small">S</SelectItem>
-                            <SelectItem value="medium">M</SelectItem>
-                            <SelectItem value="large">L</SelectItem>
-                            <SelectItem value="extra-large">XL</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+            {/* Divider */}
+            <Separator className="my-1" />
 
-                    {/* Remove Button */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                      onClick={() => removeLogoPlacement(placement.logoId)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )
-              })}
+            {/* Background Color */}
+            <div className="flex items-center gap-2">
+              <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+              <Label className="text-xs font-medium">Background:</Label>
+              <Input
+                type="color"
+                value={formData.logoBackgroundColor}
+                onChange={(e) => setLogoBackgroundColor(e.target.value)}
+                className="w-7 h-7 p-0.5 cursor-pointer rounded border-0"
+              />
+              <span className="text-xs text-muted-foreground font-mono">
+                {formData.logoBackgroundColor}
+              </span>
             </div>
           </div>
-        )}
+
+          {/* Poster Preview with Zones */}
+          <div className="relative bg-gradient-to-b from-muted/30 to-muted/60 rounded-xl border-2 border-dashed border-muted-foreground/20 p-2">
+            <div className="space-y-1.5">
+              {/* Header Zone */}
+              <ZoneRow
+                zone={ZONES.header}
+                selectedLogoId={selectedLogoId}
+                logos={logos}
+                getLogoAtPosition={getLogoAtPosition}
+                onCellClick={handleCellClick}
+                onRemove={removeLogoPlacement}
+                onSizeChange={updateLogoSize}
+                onBackgroundChange={updateLogoBackground}
+                onBackgroundStyleChange={updateLogoBackgroundStyle}
+                placedPositions={placedPositions}
+              />
+
+              {/* Middle Zone */}
+              <ZoneRow
+                zone={ZONES.middle}
+                selectedLogoId={selectedLogoId}
+                logos={logos}
+                getLogoAtPosition={getLogoAtPosition}
+                onCellClick={handleCellClick}
+                onRemove={removeLogoPlacement}
+                onSizeChange={updateLogoSize}
+                onBackgroundChange={updateLogoBackground}
+                onBackgroundStyleChange={updateLogoBackgroundStyle}
+                placedPositions={placedPositions}
+              />
+
+              {/* Content placeholder - Compact to fit viewport */}
+              <div className="h-16 lg:h-20 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-[9px] text-muted-foreground/70">Main Content Area</p>
+                  <p className="text-[8px] text-muted-foreground/50">AI designs this space</p>
+                </div>
+              </div>
+
+              {/* Footer Zone */}
+              <ZoneRow
+                zone={ZONES.footer}
+                selectedLogoId={selectedLogoId}
+                logos={logos}
+                getLogoAtPosition={getLogoAtPosition}
+                onCellClick={handleCellClick}
+                onRemove={removeLogoPlacement}
+                onSizeChange={updateLogoSize}
+                onBackgroundChange={updateLogoBackground}
+                onBackgroundStyleChange={updateLogoBackgroundStyle}
+                placedPositions={placedPositions}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Selection indicator - floating toast */}
+      {selectedLogoId && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg animate-in slide-in-from-bottom-2">
+            <MousePointerClick className="h-4 w-4" />
+            <span className="text-sm font-medium">Click a cell to place logo</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedLogoId(null)}
+              className="h-6 w-6 p-0 hover:bg-primary-foreground/20"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Zone Row Component
+function ZoneRow({
+  zone,
+  selectedLogoId,
+  logos,
+  getLogoAtPosition,
+  onCellClick,
+  onRemove,
+  onSizeChange,
+  onBackgroundChange,
+  onBackgroundStyleChange,
+  placedPositions,
+}: {
+  zone: typeof ZONES.header
+  selectedLogoId: string | null
+  logos: Logo[]
+  getLogoAtPosition: (position: LogoPosition) => any
+  onCellClick: (position: LogoPosition) => void
+  onRemove: (logoId: string) => void
+  onSizeChange: (logoId: string, size: LogoSizePreset) => void
+  onBackgroundChange: (logoId: string, shape: LogoBackgroundShape) => void
+  onBackgroundStyleChange: (logoId: string, style: Partial<LogoBackgroundStyle>) => void
+  placedPositions: LogoPosition[]
+}) {
+  return (
+    <div className={cn('rounded-lg border p-1.5', zone.color)}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] font-medium text-muted-foreground">{zone.label}</span>
+        <span className="text-[8px] text-muted-foreground/70">{zone.description}</span>
+      </div>
+      <div className="grid grid-cols-6 gap-0.5">
+        {zone.positions.map((position) => {
+          const placement = getLogoAtPosition(position)
+          const logo = placement?.logo || logos.find((l) => l.id === placement?.logoId)
+          const isOccupied = !!logo
+          const isAvailable = selectedLogoId && !isOccupied
+          const canPlace = selectedLogoId && (!isOccupied || placement?.logoId === selectedLogoId)
+
+          // Background settings from placement
+          const bgShape = placement?.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape
+          const bgStyle = placement?.backgroundStyle || DEFAULT_LOGO_BACKGROUND.style
+
+          return (
+            <div
+              key={position}
+              onClick={() => canPlace && onCellClick(position)}
+              className={cn(
+                'aspect-[2/1] rounded-md border-2 flex items-center justify-center transition-all',
+                isOccupied
+                  ? 'border-primary/50 bg-background'
+                  : 'border-dashed border-muted-foreground/30',
+                isAvailable && 'border-primary cursor-pointer animate-pulse',
+                canPlace && 'cursor-pointer',
+                !isOccupied && zone.hoverColor
+              )}
+            >
+              {logo && placement ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <div className="relative w-full h-full p-0.5 group cursor-pointer">
+                      {/* Logo with background preview */}
+                      <div
+                        className={cn(
+                          'w-full h-full flex items-center justify-center',
+                          // Background shape classes
+                          bgShape === 'rectangle' && 'bg-white',
+                          bgShape === 'rounded' && 'bg-white rounded-md',
+                          bgShape === 'circle' && 'bg-white rounded-full',
+                          // Style modifiers
+                          bgStyle?.shadow && 'shadow-md',
+                          bgStyle?.border && 'ring-1 ring-gray-200'
+                        )}
+                      >
+                        <img
+                          src={logo.thumbnail_url || logo.file_url}
+                          alt={logo.name}
+                          className={cn(
+                            'object-contain',
+                            // Adjust image size based on background
+                            bgShape !== 'none' ? 'w-[75%] h-[75%]' : 'w-full h-full'
+                          )}
+                        />
+                      </div>
+                      {/* Settings indicator */}
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-muted flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                        <Settings2 className="h-2 w-2 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-3" align="center" side="top">
+                    <LogoOptionsPopover
+                      logo={logo}
+                      placement={placement}
+                      onShapeChange={(shape) => onBackgroundChange(logo.id, shape)}
+                      onStyleChange={(style) => onBackgroundStyleChange(logo.id, style)}
+                      onSizeChange={(size) => onSizeChange(logo.id, size)}
+                      onRemove={() => onRemove(logo.id)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span className="text-[7px] text-muted-foreground/40">
+                  {position.split('-')[1]}
+                </span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-// Skeleton loader
+// Logo Options Popover Content
+function LogoOptionsPopover({
+  logo,
+  placement,
+  onShapeChange,
+  onStyleChange,
+  onSizeChange,
+  onRemove,
+}: {
+  logo: Logo
+  placement: {
+    size?: LogoSizePreset | number
+    backgroundShape?: LogoBackgroundShape
+    backgroundStyle?: LogoBackgroundStyle
+  }
+  onShapeChange: (shape: LogoBackgroundShape) => void
+  onStyleChange: (style: Partial<LogoBackgroundStyle>) => void
+  onSizeChange: (size: LogoSizePreset) => void
+  onRemove: () => void
+}) {
+  const currentShape = placement.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape
+  const currentStyle = placement.backgroundStyle || DEFAULT_LOGO_BACKGROUND.style
+  const currentSize = typeof placement.size === 'string' ? placement.size : 'medium'
+
+  // Shape icons mapping
+  const shapeIcons: Record<LogoBackgroundShape, React.ReactNode> = {
+    none: <CircleOff className="h-3.5 w-3.5" />,
+    rectangle: <Square className="h-3.5 w-3.5" />,
+    rounded: <RectangleHorizontal className="h-3.5 w-3.5" />,
+    circle: <Circle className="h-3.5 w-3.5" />,
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Logo name */}
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded overflow-hidden bg-muted">
+          <img
+            src={logo.thumbnail_url || logo.file_url}
+            alt={logo.name}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <span className="text-sm font-medium truncate">{logo.name}</span>
+      </div>
+
+      <Separator />
+
+      {/* Background Shape */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Background</Label>
+        <ToggleGroup
+          type="single"
+          value={currentShape}
+          onValueChange={(value) => value && onShapeChange(value as LogoBackgroundShape)}
+          className="justify-start"
+        >
+          {BACKGROUND_SHAPE_OPTIONS.map((option) => (
+            <ToggleGroupItem
+              key={option.value}
+              value={option.value}
+              className="h-8 w-8 p-0"
+              title={option.description}
+            >
+              {shapeIcons[option.value]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      {/* Shadow & Border (only if shape is not 'none') */}
+      {currentShape !== 'none' && (
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="shadow"
+              checked={currentStyle.shadow}
+              onCheckedChange={(checked) =>
+                onStyleChange({ shadow: checked === true })
+              }
+            />
+            <Label htmlFor="shadow" className="text-xs cursor-pointer">
+              Shadow
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="border"
+              checked={currentStyle.border}
+              onCheckedChange={(checked) =>
+                onStyleChange({ border: checked === true })
+              }
+            />
+            <Label htmlFor="border" className="text-xs cursor-pointer">
+              Border
+            </Label>
+          </div>
+        </div>
+      )}
+
+      {/* Size */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Size</Label>
+        <ToggleGroup
+          type="single"
+          value={currentSize}
+          onValueChange={(value) => value && onSizeChange(value as LogoSizePreset)}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="small" className="h-7 px-2.5 text-xs">S</ToggleGroupItem>
+          <ToggleGroupItem value="medium" className="h-7 px-2.5 text-xs">M</ToggleGroupItem>
+          <ToggleGroupItem value="large" className="h-7 px-2.5 text-xs">L</ToggleGroupItem>
+          <ToggleGroupItem value="xlarge" className="h-7 px-2.5 text-xs">XL</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <Separator />
+
+      {/* Remove */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+        onClick={onRemove}
+      >
+        <Trash2 className="h-3.5 w-3.5 mr-2" />
+        Remove from poster
+      </Button>
+    </div>
+  )
+}
+
+// Logo Card Component - Ultra-compact version for side panel
+function LogoCard({
+  logo,
+  isPlaced,
+  isSelected,
+  position,
+  size,
+  onSelect,
+  onSizeChange,
+  onRemove,
+  isDisabled,
+}: {
+  logo: Logo
+  isPlaced: boolean
+  isSelected: boolean
+  position: LogoPosition | null
+  size: LogoSizePreset | number | string
+  onSelect: () => void
+  onSizeChange: (size: LogoSizePreset) => void
+  onRemove: () => void
+  isDisabled: boolean
+}) {
+  return (
+    <div
+      onClick={isDisabled ? undefined : onSelect}
+      className={cn(
+        'relative rounded-md border p-1 transition-all group',
+        isSelected && 'ring-2 ring-primary ring-offset-1 border-primary',
+        isPlaced && !isSelected && 'border-primary/50 bg-primary/5',
+        !isPlaced && !isSelected && 'border-border hover:border-primary/50 hover:bg-muted/50',
+        isDisabled && 'opacity-50 cursor-not-allowed',
+        !isDisabled && 'cursor-pointer'
+      )}
+    >
+      {/* Logo thumbnail */}
+      <div className="aspect-square rounded overflow-hidden bg-muted/30">
+        <img
+          src={logo.thumbnail_url || logo.file_url}
+          alt={logo.name}
+          className="w-full h-full object-contain"
+        />
+      </div>
+
+      {/* Logo name - single line truncated */}
+      <p className="text-[8px] font-medium truncate text-center mt-0.5 leading-tight">{logo.name}</p>
+
+      {/* Placed indicator badge */}
+      {isPlaced && (
+        <div className="absolute top-0.5 left-0.5">
+          <div className="w-3 h-3 rounded-full bg-primary flex items-center justify-center">
+            <Check className="h-2 w-2 text-primary-foreground" />
+          </div>
+        </div>
+      )}
+
+      {/* Size badge (if placed) - compact */}
+      {isPlaced && (
+        <div className="absolute bottom-0.5 right-0.5 flex items-center gap-0.5">
+          <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3 font-medium">
+            {typeof size === 'string' ? size.charAt(0).toUpperCase() : 'M'}
+          </Badge>
+        </div>
+      )}
+
+      {/* Remove button on hover */}
+      {isPlaced && (
+        <Button
+          variant="destructive"
+          size="icon"
+          className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+        >
+          <X className="h-2.5 w-2.5" />
+        </Button>
+      )}
+
+      {/* Selection indicator */}
+      {isSelected && !isPlaced && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center shadow-md">
+          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Empty State Component
+function EmptyState({
+  message,
+  submessage,
+  action,
+}: {
+  message: string
+  submessage?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-6 text-center">
+      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-2">
+        <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
+      </div>
+      <p className="text-sm font-medium">{message}</p>
+      {submessage && (
+        <p className="text-xs text-muted-foreground mt-1">{submessage}</p>
+      )}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  )
+}
+
+// Skeleton loader - Side-by-side layout
 export function LogoPositionGridSkeleton() {
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      {/* Left side skeleton - 30% */}
-      <div className="lg:w-[30%]">
-        <div className="flex items-center gap-2 mb-3">
-          <Skeleton className="h-4 w-4 rounded" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-5 w-12 ml-auto rounded-full" />
+    <div className="space-y-4">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Skeleton className="h-4 w-32 mb-1" />
+          <Skeleton className="h-3 w-48" />
         </div>
-        <Skeleton className="aspect-square w-full rounded-xl" />
+        <Skeleton className="h-8 w-32 rounded-md" />
       </div>
-      {/* Right side skeleton - 70% */}
-      <div className="lg:w-[70%] space-y-6">
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Skeleton className="h-4 w-4 rounded" />
-            <Skeleton className="h-4 w-28" />
+
+      {/* Side-by-side skeleton */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        {/* Left panel skeleton */}
+        <div className="lg:w-[40%] space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-5 w-12 rounded-full" />
           </div>
-          <div className="flex gap-2 mb-4">
-            <Skeleton className="h-8 w-16 rounded-md" />
-            <Skeleton className="h-8 w-20 rounded-md" />
-            <Skeleton className="h-8 w-24 rounded-md" />
+          <div className="flex gap-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-7 w-16 rounded-md" />
+            ))}
           </div>
-          <div className="grid grid-cols-5 gap-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-lg" />
+          <div className="grid grid-cols-4 xl:grid-cols-5 gap-1.5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-square rounded-md" />
             ))}
           </div>
         </div>
-        {/* Placed logos skeleton - 2 column */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Skeleton className="h-4 w-4 rounded" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-5 w-10 ml-auto rounded-full" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 rounded-lg" />
-            ))}
+
+        {/* Right panel skeleton */}
+        <div className="lg:w-[60%]">
+          <Skeleton className="h-4 w-28 mb-3" />
+          <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 p-2 space-y-1.5">
+            <Skeleton className="h-8 rounded-lg" />
+            <Skeleton className="h-8 rounded-lg" />
+            <Skeleton className="h-12 rounded-lg" />
+            <Skeleton className="h-8 rounded-lg" />
           </div>
         </div>
       </div>

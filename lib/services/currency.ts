@@ -13,12 +13,12 @@
  * USD to INR exchange rate
  * Update this periodically or fetch from an API for real-time rates
  */
-export const USD_TO_INR = 84.50
+export const USD_TO_INR = 90.55
 
 /**
  * Last updated timestamp for the exchange rate
  */
-export const EXCHANGE_RATE_UPDATED = '2025-12-05'
+export const EXCHANGE_RATE_UPDATED = '2025-12-13'
 
 // ============================================================
 // CONVERSION FUNCTIONS

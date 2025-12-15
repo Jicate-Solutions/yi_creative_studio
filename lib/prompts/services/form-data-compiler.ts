@@ -7,6 +7,7 @@
 
 import type { DesignData } from '@/lib/config/design-constants'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
+import { formatEventTime } from '@/lib/utils/time-formatter'
 
 // ============================================================
 // TYPES
@@ -71,8 +72,8 @@ const FIELD_ALIASES: Record<string, string[]> = {
   speakerDesignation: ['designation', 'guestDesignation', 'speakerDesignation', 'title', 'role', 'position', 'speaker_designation'],
   organizationName: ['organization', 'organizationName', 'org', 'company', 'institution', 'organization_name'],
   description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message'],
-  tagline: ['tagline', 'slogan', 'subtitle', 'subheading', 'motto'],
-  eventNote: ['eventNote', 'note', 'additionalNote', 'footerNote', 'extraInfo', 'announcement'],
+  tagline: ['tagline', 'slogan', 'subtitle', 'subheading', 'motto', 'eventTagline'],
+  eventNote: ['eventNote', 'note', 'additionalNote', 'footerNote', 'extraInfo', 'announcement', 'additionalDetails'],
 }
 
 // ============================================================
@@ -82,12 +83,16 @@ const FIELD_ALIASES: Record<string, string[]> = {
 /**
  * Compiles ALL user form fields into a structured format.
  * Handles both standard fields (via aliases) and custom/dynamic fields.
+ *
+ * @param speakerPhotoEnabled - When false, speaker name/designation fields are excluded
+ *   to prevent speaker data from leaking into AI prompts when speaker photo is disabled
  */
 export function compileFormData(
   userFormData: Record<string, unknown> | undefined,
   formatId: CreativeFormatId | undefined,
   designData: DesignData | undefined | null,
-  language: string = 'en'
+  language: string = 'en',
+  speakerPhotoEnabled: boolean = false
 ): CompiledFormData {
   const formData = userFormData || {}
 
@@ -111,6 +116,13 @@ export function compileFormData(
     if (!extractedFields[standardField]) {
       extractedFields[standardField] = null
     }
+  }
+
+  // Clear speaker fields when speaker photo is disabled
+  // This prevents speaker data from leaking into AI prompts
+  if (!speakerPhotoEnabled) {
+    extractedFields.speakerName = null
+    extractedFields.speakerDesignation = null
   }
 
   // Extract custom fields (fields not matched by aliases)
@@ -175,7 +187,7 @@ export function summarizeCompiledData(data: CompiledFormData): string {
   if (data.eventName) lines.push(`Event: ${data.eventName}`)
   if (data.eventType) lines.push(`Type: ${data.eventType}`)
   if (data.date) lines.push(`Date: ${data.date}`)
-  if (data.time) lines.push(`Time: ${data.time}`)
+  if (data.time) lines.push(`Time: ${formatEventTime(data.time)}`)
   if (data.venue) lines.push(`Venue: ${data.venue}`)
   if (data.speakerName) {
     let speaker = `Speaker: ${data.speakerName}`
@@ -227,7 +239,7 @@ export function buildTextBriefFromCompiled(data: CompiledFormData): string {
   // Date and time combined naturally (no labels)
   const dateTimeParts: string[] = []
   if (data.date?.trim()) dateTimeParts.push(data.date.trim())
-  if (data.time?.trim()) dateTimeParts.push(data.time.trim())
+  if (data.time?.trim()) dateTimeParts.push(formatEventTime(data.time.trim()))
   if (dateTimeParts.length > 0) {
     textValues.push(`"${dateTimeParts.join(' | ')}"`)
   }
