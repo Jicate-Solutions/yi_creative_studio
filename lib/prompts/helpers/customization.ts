@@ -243,10 +243,10 @@ export function buildFooterNarrative(
 
   // Elements to include
   const elements: string[] = []
-  if (footer.showWebsite) elements.push('website URL')
-  if (footer.showPhone) elements.push('phone number')
-  if (footer.showEmail) elements.push('email address')
-  if (footer.showSocial) elements.push('social media handles')
+  if (footer.useBrandWebsite || footer.customWebsite) elements.push('website URL')
+  if (footer.useBrandPhone || footer.customPhone) elements.push('phone number')
+  if (footer.useBrandEmail || footer.customEmail) elements.push('email address')
+  if (footer.useBrandSocial) elements.push('social media handles')
 
   if (elements.length > 0) {
     parts.push(`Include ${elements.join(', ')} for easy contact and follow-up`)

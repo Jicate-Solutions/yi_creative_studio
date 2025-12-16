@@ -26,8 +26,7 @@ export async function GET(request: NextRequest) {
     const sinceDateStr = sinceDate.toISOString()
 
     // 1. Pattern statistics
-    let patternQuery = supabase
-      .from('learning_patterns')
+    let patternQuery = (supabase.from as Function)('learning_patterns')
       .select('id, format_id, issue_type, application_count, success_count, is_active', { count: 'exact' })
 
     if (organizationId) {
@@ -36,16 +35,16 @@ export async function GET(request: NextRequest) {
 
     const { data: patterns, count: totalPatterns } = await patternQuery
 
-    const activePatterns = patterns?.filter(p => p.is_active).length || 0
-    const totalApplications = patterns?.reduce((sum, p) => sum + (p.application_count || 0), 0) || 0
-    const totalSuccesses = patterns?.reduce((sum, p) => sum + (p.success_count || 0), 0) || 0
+    type PatternRow = { is_active?: boolean; application_count?: number; success_count?: number }
+    const activePatterns = patterns?.filter((p: PatternRow) => p.is_active).length || 0
+    const totalApplications = patterns?.reduce((sum: number, p: PatternRow) => sum + (p.application_count || 0), 0) || 0
+    const totalSuccesses = patterns?.reduce((sum: number, p: PatternRow) => sum + (p.success_count || 0), 0) || 0
     const overallEffectiveness = totalApplications > 0
       ? Math.round((totalSuccesses / totalApplications) * 100)
       : 0
 
     // 2. Pending patches count
-    let patchQuery = supabase
-      .from('learning_patch_queue')
+    let patchQuery = (supabase.from as Function)('learning_patch_queue')
       .select('id', { count: 'exact' })
       .eq('status', 'pending')
 
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     // 3. A/B Testing statistics
     // Compare feedback ratings between prevention-applied and holdout groups
-    const { data: abTestData, error: abError } = await supabase.rpc('get_ab_test_stats', {
+    const { data: abTestData, error: abError } = await (supabase.rpc as Function)('get_ab_test_stats', {
       p_since_date: sinceDateStr,
       p_organization_id: organizationId || null,
     }).single()
@@ -72,15 +71,17 @@ export async function GET(request: NextRequest) {
         .gte('created_at', sinceDateStr)
         .not('prevention_applied', 'is', null)
 
-      const { data: feedbacks } = await supabase
-        .from('creative_feedback')
+      const { data: feedbacks } = await (supabase.from as Function)('creative_feedback')
         .select('creative_id, rating')
         .not('rating', 'is', null)
 
       if (creatives && feedbacks) {
+        type FeedbackRow = { creative_id: string; rating: number }
+        type CreativeRow = { id: string; prevention_applied: boolean | null; prevention_holdout: boolean | null }
+
         // Build a map of creative_id to ratings
         const ratingMap = new Map<string, number[]>()
-        feedbacks.forEach(f => {
+        feedbacks.forEach((f: FeedbackRow) => {
           if (!ratingMap.has(f.creative_id)) {
             ratingMap.set(f.creative_id, [])
           }
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
           ratings: [] as number[],
         }
 
-        creatives.forEach(c => {
+        creatives.forEach((c: CreativeRow) => {
           const ratings = ratingMap.get(c.id)
           if (ratings && ratings.length > 0) {
             const avgRating = ratings.reduce((a, b) => a + b, 0) / ratings.length
@@ -138,7 +139,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Issue type breakdown
-    const issueTypeBreakdown = patterns?.reduce((acc, p) => {
+    type BreakdownAcc = Record<string, { count: number; applications: number; successes: number }>
+    type PatternItem = { issue_type?: string; format_id?: string; application_count?: number; success_count?: number }
+    const issueTypeBreakdown = patterns?.reduce((acc: BreakdownAcc, p: PatternItem) => {
       const type = p.issue_type || 'unknown'
       if (!acc[type]) {
         acc[type] = { count: 0, applications: 0, successes: 0 }
@@ -147,10 +150,10 @@ export async function GET(request: NextRequest) {
       acc[type].applications += p.application_count || 0
       acc[type].successes += p.success_count || 0
       return acc
-    }, {} as Record<string, { count: number; applications: number; successes: number }>) || {}
+    }, {} as BreakdownAcc) || {}
 
     // 5. Format breakdown
-    const formatBreakdown = patterns?.reduce((acc, p) => {
+    const formatBreakdown = patterns?.reduce((acc: BreakdownAcc, p: PatternItem) => {
       const format = p.format_id || 'unknown'
       if (!acc[format]) {
         acc[format] = { count: 0, applications: 0, successes: 0 }

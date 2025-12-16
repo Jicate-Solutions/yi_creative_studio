@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
         const preventionResult = await preventIssuesSafe({
           formatId: formatId || 'unknown',
           formData: userFormData || {},
-          designData: designData as Record<string, unknown>,
+          designData: designData as unknown as Record<string, unknown>,
           logosPlacements: logosPlacements?.map((lp: { logoId: string; position: string }) => ({
             type: lp.logoId as 'yi' | 'cii' | 'custom',
             position: lp.position,
@@ -357,13 +357,13 @@ export async function POST(request: NextRequest) {
 
       // Create a modified designData for prompt building
       // If user has their own photo, disable speaker photo in prompt to avoid AI generating placeholder
-      const promptDesignData = userHasSpeakerPhoto
+      const promptDesignData = userHasSpeakerPhoto && effectiveDesignData
         ? {
             ...effectiveDesignData,
             customization: {
               ...effectiveDesignData.customization,
               speakerPhoto: {
-                ...effectiveDesignData.customization.speakerPhoto,
+                ...effectiveDesignData.customization?.speakerPhoto,
                 enabled: false, // Don't tell AI about speaker photo if user will overlay their own
               },
             },
@@ -444,8 +444,8 @@ export async function POST(request: NextRequest) {
       const cleanedPrompt = sanitizePlaceholders(cleanPromptInstructions(prompt), 'cleanedPrompt')
 
       // Extract visual layout context from customization
-      const speakerPhotoConfig = effectiveDesignData.customization?.speakerPhoto
-      const layoutConfig = effectiveDesignData.customization?.layout
+      const speakerPhotoConfig = effectiveDesignData?.customization?.speakerPhoto
+      const layoutConfig = effectiveDesignData?.customization?.layout
 
       // Get format info for format-aware design intelligence
       const formatTemplate = formatId ? getTemplateForFormat(formatId) : null
@@ -489,11 +489,11 @@ export async function POST(request: NextRequest) {
 
       // Determine final theme: User selection takes priority, but inference provides fallback/enhancement
       // If user hasn't explicitly selected a theme (default), use inferred theme
-      const finalTheme = effectiveDesignData.theme || themeInference.suggestedTheme
-      const finalStyle = effectiveDesignData.style || themeInference.inferredStyle
+      const finalTheme = effectiveDesignData?.theme || themeInference.suggestedTheme
+      const finalStyle = effectiveDesignData?.style || themeInference.inferredStyle
 
       console.log('[Generate] === THEME INFERENCE ===')
-      console.log('[Generate] User Selected Theme:', effectiveDesignData.theme || '(none)')
+      console.log('[Generate] User Selected Theme:', effectiveDesignData?.theme || '(none)')
       console.log('[Generate] Inferred Theme:', themeInference.suggestedTheme, `(${themeInference.confidence})`)
       console.log('[Generate] Reason:', themeInference.reason)
       console.log('[Generate] Inferred Mood:', themeInference.inferredMood)
@@ -615,7 +615,7 @@ export async function POST(request: NextRequest) {
 
         // Store original speaker photo config BEFORE it was disabled for prompt
         // This allows builders to reserve the correct zone even when user overlays their own photo
-        const originalSpeakerPhotoConfig = effectiveDesignData.customization?.speakerPhoto
+        const originalSpeakerPhotoConfig = effectiveDesignData?.customization?.speakerPhoto
 
         const buildOptions: EnhancedBuildOptions = {
           verticalId: verticalSlug,
@@ -657,8 +657,8 @@ export async function POST(request: NextRequest) {
           })(),
 
           // NEW v3.1: Theme & style preferences
-          theme: effectiveDesignData.theme,
-          style: effectiveDesignData.style,
+          theme: effectiveDesignData?.theme,
+          style: effectiveDesignData?.style,
 
           // NEW v3.1: Layout zone configuration (header/footer heights)
           layout: layoutConfig ? {
@@ -748,7 +748,7 @@ export async function POST(request: NextRequest) {
         // ========================================================
         const promptData = buildDesignPromptWithFormat(
           enhancedPrompt,
-          promptDesignData,
+          promptDesignData || effectiveDesignData!,
           providerType,
           'Yi Creatives',
           selectedFormat,

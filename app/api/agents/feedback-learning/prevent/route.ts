@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       verticalId: body.generationRequest.verticalId,
       designContext: body.generationRequest.designContext,
       logosPlacements: body.generationRequest.logosPlacements || [],
+      timestamp: new Date().toISOString(),
     }
 
     // Determine mode
@@ -110,20 +111,21 @@ export async function POST(request: NextRequest) {
         })
 
         // Map to response format
+        type AppliedAdj = { field: string; originalValue: unknown; newValue: unknown; patternId: string; layer: string; confidence: number }
         return NextResponse.json({
           success: true,
           shouldAdjust: result.prevented,
-          adjustments: result.adjustments.map(adj => ({
-            id: adj.id || `adj-${Date.now()}`,
+          adjustments: result.adjustments.map((adj: AppliedAdj, idx: number) => ({
+            id: `adj-${Date.now()}-${idx}`,
             type: adj.layer.replace('L', 'layer_').toLowerCase(),
-            target: adj.layer,
-            originalValue: null,
-            suggestedValue: adj.value,
-            reason: adj.reason,
+            target: adj.field,
+            originalValue: adj.originalValue,
+            suggestedValue: adj.newValue,
+            reason: `Applied from pattern ${adj.patternId}`,
             patternId: adj.patternId,
             confidence: adj.confidence,
           })),
-          matchedPatterns: result.matchedPatterns.map(id => ({
+          matchedPatterns: result.matchedPatterns.map((id: string) => ({
             patternId: id,
             matchScore: 0.8, // Simplified
           })),
@@ -199,7 +201,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
-    const { patternCache, getQueueStats, getShadowStats } = await import('@/lib/learning')
+    const { patternCache, getQueueStats, getShadowModeStats } = await import('@/lib/learning')
 
     // Get cache stats
     const cacheStats = {
@@ -212,7 +214,7 @@ export async function GET() {
     const queueStats = await getQueueStats()
 
     // Get shadow stats
-    const shadowStats = await getShadowStats()
+    const shadowStats = await getShadowModeStats()
 
     return NextResponse.json({
       status: 'operational',

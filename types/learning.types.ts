@@ -187,9 +187,11 @@ export interface GenerationRequestSnapshot {
   formatId: string
   formData: Record<string, unknown>
   designData?: Record<string, unknown>
+  designContext?: Record<string, unknown>
   logosPlacements?: LogoPlacement[]
   organizationId?: string
   userId?: string
+  verticalId?: string
   timestamp: string
 }
 
@@ -259,7 +261,9 @@ export interface ExperimentResults {
   treatmentStdDev: number
   effectSize: number
   pValue: number
+  isSignificant: boolean
   confidenceInterval: [number, number]
+  recommendation?: 'promote' | 'deprecate' | 'continue' | 'needs_more_data'
   powerAnalysis?: PowerAnalysis
 }
 
@@ -670,6 +674,24 @@ export interface PatternDeprecationEvent {
 // =============================================================================
 // API RESPONSE TYPES
 // =============================================================================
+
+/**
+ * Result from the prevention pipeline (runPreventionPipeline)
+ */
+export interface PreventionPipelineResult {
+  prevented: boolean
+  adjustments: AppliedAdjustment[]
+  matchedPatterns: string[]
+  latencyMs: number
+  shadowMode: boolean
+  shadowLogId?: string
+  proposedAdjustments?: ProposedAdjustment[]
+  experimentId?: string
+  variant?: ExperimentVariant
+  lineageId?: string
+  preventionActionId?: string
+  error?: string
+}
 
 export interface PreventionResponse {
   success: boolean

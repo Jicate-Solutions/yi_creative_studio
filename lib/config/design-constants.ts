@@ -377,7 +377,13 @@ export interface FooterCustomization {
   backgroundColor: string
   // Single toggle for using brand info (default: false = disabled)
   useBrandInfo: boolean
-  // Custom per-creative values (used when useBrandInfo is false)
+  // Individual toggles for each brand field
+  useBrandWebsite?: boolean
+  useBrandPhone?: boolean
+  useBrandEmail?: boolean
+  useBrandAddress?: boolean
+  useBrandSocial?: boolean
+  // Custom per-creative values (used when useBrand* is false)
   customWebsite?: string
   customPhone?: string
   customEmail?: string

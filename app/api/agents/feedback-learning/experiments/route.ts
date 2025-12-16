@@ -142,6 +142,23 @@ export async function GET(request: NextRequest) {
 
     const { data: experiments, error } = await query
 
+    type ExperimentRow = {
+      id: string
+      name: string
+      description?: string
+      pattern_id: string
+      status: string
+      traffic_percentage: number
+      min_samples: number
+      confidence_level: number
+      control_samples?: number
+      treatment_samples?: number
+      results?: unknown
+      created_at: string
+      started_at?: string
+      completed_at?: string
+    }
+
     if (error) {
       console.error('[Experiments API] Error fetching experiments:', error)
       return NextResponse.json(
@@ -151,8 +168,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get active experiments count
-    const { getActiveExperiments } = await import('@/lib/learning/ab-testing')
-    const activeExperiments = await getActiveExperiments()
+    const { getRunningExperiments } = await import('@/lib/learning/ab-testing')
+    const activeExperiments = await getRunningExperiments()
 
     // Calculate summary stats
     const stats = {
@@ -161,13 +178,13 @@ export async function GET(request: NextRequest) {
       byStatus: {} as Record<string, number>,
     }
 
-    for (const exp of experiments || []) {
+    for (const exp of (experiments || []) as ExperimentRow[]) {
       const s = exp.status as string
       stats.byStatus[s] = (stats.byStatus[s] || 0) + 1
     }
 
     return NextResponse.json({
-      experiments: experiments?.map(exp => ({
+      experiments: (experiments as ExperimentRow[] | null)?.map((exp: ExperimentRow) => ({
         id: exp.id,
         name: exp.name,
         description: exp.description,

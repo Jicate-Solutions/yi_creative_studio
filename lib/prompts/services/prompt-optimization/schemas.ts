@@ -112,7 +112,7 @@ export type FeedbackPattern = z.infer<typeof FeedbackPatternSchema>
 export function validateDesignContext(data: unknown): {
   success: boolean
   data?: DesignContextValidated
-  errors?: z.ZodError['errors']
+  errors?: z.ZodIssue[]
 } {
   const result = DesignContextSchema.safeParse(data)
 
@@ -120,8 +120,8 @@ export function validateDesignContext(data: unknown): {
     return { success: true, data: result.data }
   }
 
-  console.warn('[Schema Validation] Design Context validation failed:', result.error.errors)
-  return { success: false, errors: result.error.errors }
+  console.warn('[Schema Validation] Design Context validation failed:', result.error.issues)
+  return { success: false, errors: result.error.issues }
 }
 
 /**
@@ -130,7 +130,7 @@ export function validateDesignContext(data: unknown): {
 export function validateUltraProPrompt(data: unknown): {
   success: boolean
   data?: UltraProPromptValidated
-  errors?: z.ZodError['errors']
+  errors?: z.ZodIssue[]
 } {
   const result = UltraProPromptSchema.safeParse(data)
 
@@ -138,8 +138,8 @@ export function validateUltraProPrompt(data: unknown): {
     return { success: true, data: result.data }
   }
 
-  console.warn('[Schema Validation] Ultra-Pro Prompt validation failed:', result.error.errors)
-  return { success: false, errors: result.error.errors }
+  console.warn('[Schema Validation] Ultra-Pro Prompt validation failed:', result.error.issues)
+  return { success: false, errors: result.error.issues }
 }
 
 /**
@@ -193,7 +193,7 @@ export function validateAndFixDesignContext(data: unknown): DesignContextValidat
     return fixedResult.data
   }
 
-  console.warn('[Schema Validation] Could not fix Design Context:', fixedResult.error.errors)
+  console.warn('[Schema Validation] Could not fix Design Context:', fixedResult.error.issues)
   return null
 }
 

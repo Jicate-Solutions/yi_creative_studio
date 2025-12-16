@@ -26,8 +26,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // Build query
-    let query = supabase
-      .from('learning_patterns')
+    let query = (supabase.from as Function)('learning_patterns')
       .select('*', { count: 'exact' })
       .order('success_count', { ascending: false })
       .range(offset, offset + limit - 1)
@@ -52,10 +51,10 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     // Calculate effectiveness rate for each pattern
-    const patternsWithStats = patterns?.map(pattern => ({
+    const patternsWithStats = patterns?.map((pattern: { application_count?: number; success_count?: number }) => ({
       ...pattern,
-      effectiveness_rate: pattern.application_count > 0
-        ? Math.round((pattern.success_count / pattern.application_count) * 100)
+      effectiveness_rate: (pattern.application_count ?? 0) > 0
+        ? Math.round(((pattern.success_count ?? 0) / (pattern.application_count ?? 1)) * 100)
         : 0,
     })) || []
 
@@ -94,8 +93,7 @@ export async function PATCH(request: NextRequest) {
 
     const isActive = action === 'activate'
 
-    const { data, error } = await supabase
-      .from('learning_patterns')
+    const { data, error } = await (supabase.from as Function)('learning_patterns')
       .update({
         is_active: isActive,
         updated_at: new Date().toISOString(),

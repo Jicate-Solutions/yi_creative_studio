@@ -19,6 +19,16 @@
  * 12. Feedback Enrichment - AI extracts structure from comments
  */
 
+// Import for local use
+import {
+  patternCache as _patternCache,
+  matchPatternsFromCache as _matchPatternsFromCache,
+} from './cache'
+import { runShadowMode as _runShadowMode } from './shadow'
+import { getRunningExperiments as _getRunningExperiments } from './ab-testing'
+import { orchestrateInterventions as _orchestrateInterventions } from './interventions'
+import type { ExperimentVariant } from '@/types/learning.types'
+
 // Pattern Cache - Ultra-fast pattern matching
 export {
   patternCache,
@@ -29,30 +39,30 @@ export {
 // Pre-Seeded Patterns - Day-1 value
 export {
   PRE_SEEDED_PATTERNS,
-  seedPatternsToDatabase,
+  seedPatterns,
 } from './seeding'
 
 // Shadow Mode - Validate before activating
 export {
   runShadowMode,
   linkShadowLogToCreative,
-  getShadowStats,
+  getShadowModeStats,
   runCorrelationAnalysis,
-  correlateUnprocessedLogs,
+  getUncorrelatedShadowLogs,
 } from './shadow'
 
 // A/B Testing - Statistical validation
 export {
   createExperiment,
-  assignToExperiment,
-  recordExperimentFeedback,
+  routeToExperiment,
+  recordAssignmentFeedback,
   analyzeExperiment,
   checkSignificance,
-  promoteExperiment,
-  deprecateExperiment,
-  runAutoPromotion,
-  getActiveExperiments,
-  getExperimentResults,
+  manuallyPromote,
+  manuallyDeprecate,
+  processRunningExperiments,
+  getRunningExperiments,
+  getTestResult,
 } from './ab-testing'
 
 // Interventions - Multi-layer fixes
@@ -62,14 +72,15 @@ export {
   applyPromptIntervention,
   applyDesignContextIntervention,
   applyPostProcessIntervention,
-  flagForReview,
+  shouldFlagForReview,
+  addToReviewQueue,
 } from './interventions'
 
 // Vision Analysis - Proactive detection
 export {
   analyzeImage,
   quickQualityCheck,
-  flagProblematicCreatives,
+  analyzeAndSave,
 } from './vision'
 
 // Success Patterns - Learn from wins
@@ -98,8 +109,6 @@ export type {
   SeededPattern,
   PatternMatch,
   GenerationRequestSnapshot,
-  PreventionAction,
-  PreventionResult,
 
   // Shadow mode
   ShadowModeLog,
@@ -109,24 +118,18 @@ export type {
   // A/B Testing
   ABExperiment,
   ABAssignment,
-  ABVariant,
+  ExperimentVariant,
   ExperimentResults,
-  ExperimentSample,
 
   // Interventions
   InterventionLayer,
   InterventionRequest,
   InterventionResult,
-  FormDataAdjustment,
-  PromptInjection,
-  DesignContextOverride,
-  PostProcessAdjustment,
 
   // Vision
   VisionAnalysis,
   VisionAnalysisRequest,
-  VisionIssue,
-  IssueSeverity,
+  DetectedIssue,
 
   // Success patterns
   SuccessPattern,
@@ -153,6 +156,9 @@ export type {
   LearningSystemConfig,
 } from '@/types/learning.types'
 
+// Re-export prevention types
+export type { PreventionPipelineResult } from '@/types/learning.types'
+
 export { DEFAULT_LEARNING_CONFIG } from '@/types/learning.types'
 
 /**
@@ -178,12 +184,12 @@ export async function runPreventionPipeline(
     shadowOnly?: boolean
     skipAB?: boolean
   }
-): Promise<PreventionResult> {
+): Promise<PreventionPipelineResult> {
   const startTime = Date.now()
 
   try {
     // Step 1: Fast pattern matching from cache
-    const matches = matchPatternsFromCache(request)
+    const matches = _matchPatternsFromCache(request)
 
     if (matches.length === 0) {
       return {
@@ -197,7 +203,7 @@ export async function runPreventionPipeline(
 
     // Step 2: Shadow mode (log but don't apply)
     if (options.shadowOnly) {
-      const shadowResult = await runShadowMode(request, options.generationRequestId)
+      const shadowResult = await _runShadowMode(request, options.generationRequestId)
       return {
         prevented: false,
         adjustments: [],
@@ -211,18 +217,17 @@ export async function runPreventionPipeline(
 
     // Step 3: A/B experiment assignment
     let activeExperiment: ABExperiment | null = null
-    let variant: ABVariant = 'treatment'
+    let variant: ExperimentVariant = 'treatment'
 
     if (!options.skipAB) {
-      const experiments = await getActiveExperiments()
+      const experiments = await _getRunningExperiments()
       // Find experiment for matched patterns
       for (const exp of experiments) {
         if (matches.some(m => m.patternId === exp.patternId)) {
           activeExperiment = exp
-          const { assignToExperiment: assignFn } = await import('./ab-testing')
-          const assignment = await assignFn(
-            exp.id,
-            options.generationRequestId,
+          const { routeToExperiment } = await import('./ab-testing')
+          const assignment = await routeToExperiment(
+            exp.patternId,
             options.organizationId,
             options.userId
           )
@@ -248,10 +253,10 @@ export async function runPreventionPipeline(
     }
 
     // Step 4: Apply interventions
-    const interventionResult = await orchestrateInterventions({
-      matches,
-      request,
-      organizationId: options.organizationId,
+    const interventionResult = await _orchestrateInterventions({
+      generationRequest: request,
+      matchedPatterns: matches,
+      shadowMode: false,
     })
 
     // Step 5: Track lineage
@@ -269,7 +274,7 @@ export async function runPreventionPipeline(
       pipeline_trace: {
         cacheHit: true,
         matchCount: matches.length,
-        interventionLayers: interventionResult.layersApplied,
+        interventionLayer: interventionResult.layer,
         latencyMs: Date.now() - startTime,
       },
     }
@@ -288,7 +293,6 @@ export async function runPreventionPipeline(
       experimentId: activeExperiment?.id,
       variant,
       lineageId: lineage?.id,
-      preventionActionId: interventionResult.preventionActionId,
     }
   } catch (error) {
     console.error('[PreventionPipeline] Error:', error)
@@ -306,7 +310,6 @@ export async function runPreventionPipeline(
 // Import types for function signatures
 import type {
   GenerationRequestSnapshot,
-  PreventionResult,
   ABExperiment,
-  ABVariant,
+  PreventionPipelineResult,
 } from '@/types/learning.types'

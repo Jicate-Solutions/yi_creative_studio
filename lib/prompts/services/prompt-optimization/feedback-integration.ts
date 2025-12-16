@@ -29,8 +29,7 @@ export async function fetchRelevantPatterns(params: {
     // Query learned patterns from database
     // Note: This assumes a 'prompt_patterns' table exists
     // If not, we'll use the feedback_actions table as a fallback
-    const { data: patterns, error } = await supabase
-      .from('feedback_patterns')
+    const { data: patterns, error } = await (supabase.from as Function)('feedback_patterns')
       .select('*')
       .eq('format_id', params.formatId)
       .gte('confidence', FEEDBACK_CONFIG.minConfidence)
@@ -48,7 +47,18 @@ export async function fetchRelevantPatterns(params: {
     }
 
     // Transform database records to FeedbackPattern type
-    return patterns.slice(0, FEEDBACK_CONFIG.maxPatternsPerPrompt).map(p => ({
+    type PatternRecord = {
+      id: string
+      format_id: string
+      pattern_type: string
+      trigger?: Record<string, unknown>
+      modification: string
+      confidence: number
+      success_count?: number
+      failure_count?: number
+      last_applied?: string
+    }
+    return patterns.slice(0, FEEDBACK_CONFIG.maxPatternsPerPrompt).map((p: PatternRecord) => ({
       patternId: p.id,
       formatId: p.format_id,
       patternType: p.pattern_type,
@@ -279,7 +289,7 @@ export function applyPatternsToPrompt(
         // Add to constraints section if it exists
         if (modified.includes('<constraints>') || modified.includes('CONSTRAINTS:')) {
           modified = modified.replace(
-            /(<\/constraints>|CONSTRAINTS:.*?(?=\n\n))/s,
+            /(<\/constraints>|CONSTRAINTS:[\s\S]*?(?=\n\n))/,
             `$1\n${content}`
           )
         } else {
@@ -315,14 +325,13 @@ export async function recordPatternApplication(
     // Update pattern statistics
     const field = success ? 'success_count' : 'failure_count'
 
-    await supabase.rpc('increment_pattern_count', {
+    await (supabase.rpc as Function)('increment_pattern_count', {
       p_pattern_id: patternId,
       p_field: field,
     })
 
     // Also update last_applied timestamp
-    await supabase
-      .from('feedback_patterns')
+    await (supabase.from as Function)('feedback_patterns')
       .update({ last_applied: new Date().toISOString() })
       .eq('id', patternId)
   } catch (error) {
@@ -349,8 +358,7 @@ export async function createLearnedPattern(params: {
   try {
     const supabase = createClient()
 
-    const { data, error } = await supabase
-      .from('feedback_patterns')
+    const { data, error } = await (supabase.from as Function)('feedback_patterns')
       .insert({
         format_id: params.formatId,
         event_type: params.eventType,

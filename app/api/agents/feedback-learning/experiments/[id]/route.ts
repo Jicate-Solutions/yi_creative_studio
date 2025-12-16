@@ -185,15 +185,15 @@ export async function PATCH(
       }
 
       case 'promote': {
-        const { promoteExperiment } = await import('@/lib/learning/ab-testing')
-        const promoted = await promoteExperiment(id)
+        const { manuallyPromote } = await import('@/lib/learning/ab-testing')
+        const promoted = await manuallyPromote(id, 'Manual promotion via API')
         result = { promoted, status: promoted ? 'promoted' : 'failed' }
         break
       }
 
       case 'deprecate': {
-        const { deprecateExperiment } = await import('@/lib/learning/ab-testing')
-        const deprecated = await deprecateExperiment(id)
+        const { manuallyDeprecate } = await import('@/lib/learning/ab-testing')
+        const deprecated = await manuallyDeprecate(id, 'Manual deprecation via API')
         result = { deprecated, status: deprecated ? 'deprecated' : 'failed' }
         break
       }

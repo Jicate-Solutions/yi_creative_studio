@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     console.log('[Seed API] Starting pattern seeding...', { forceReseed })
 
     // Import and run seeding
-    const { seedPatternsToDatabase } = await import('@/lib/learning/seeding')
-    const result = await seedPatternsToDatabase(forceReseed)
+    const { seedPatterns } = await import('@/lib/learning/seeding')
+    const result = await seedPatterns({ forceUpdate: forceReseed })
 
     // Refresh pattern cache
     const { patternCache } = await import('@/lib/learning')
@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
     console.log('[Seed API] Seeding complete:', result)
 
     return NextResponse.json({
-      success: true,
       ...result,
       cacheRefreshed: true,
     })

@@ -149,10 +149,10 @@ function buildCustomizationInstructionsLegacy(customization: DesignCustomization
   // Footer customization
   const { footer } = customization
   const footerContent = [
-    footer.showWebsite && 'website',
-    footer.showPhone && 'phone',
-    footer.showEmail && 'email',
-    footer.showSocial && 'social links',
+    (footer.useBrandWebsite || footer.customWebsite) && 'website',
+    (footer.useBrandPhone || footer.customPhone) && 'phone',
+    (footer.useBrandEmail || footer.customEmail) && 'email',
+    footer.useBrandSocial && 'social links',
   ].filter(Boolean)
   instructions.push(`FOOTER:
 - Style: ${footer.style} design

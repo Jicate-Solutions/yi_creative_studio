@@ -26,6 +26,7 @@ interface CreateExperimentOptions {
   minSamples?: number
   confidenceLevel?: number
   createdBy?: string
+  organizationId?: string
 }
 
 /**

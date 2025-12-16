@@ -485,7 +485,7 @@ export async function generateDesignContext(
     )
     if (appliedPatterns.length > 0) {
       console.log('[Design Intelligence] Applied feedback patterns:', appliedPatterns.join(', '))
-      finalContext = enhancedContext as DesignContext
+      finalContext = enhancedContext as unknown as DesignContext
     }
   }
 

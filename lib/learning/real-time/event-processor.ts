@@ -229,9 +229,17 @@ async function processPatternMatchEvent(event: PatternMatchEvent): Promise<{
     const supabase = await createClient()
 
     for (const match of event.patternsMatched) {
+      // Fetch current value and increment
+      const { data: current } = await (supabase.from as Function)('seeded_patterns')
+        .select('times_applied')
+        .eq('id', match.patternId)
+        .single()
+
+      const currentCount = (current as { times_applied?: number } | null)?.times_applied || 0
+
       await (supabase.from as Function)('seeded_patterns')
         .update({
-          times_applied: (supabase as { raw: Function }).raw('times_applied + 1'),
+          times_applied: currentCount + 1,
           last_applied_at: new Date().toISOString(),
         })
         .eq('id', match.patternId)

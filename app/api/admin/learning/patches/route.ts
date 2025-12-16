@@ -25,8 +25,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // Build query
-    let query = supabase
-      .from('learning_patch_queue')
+    let query = (supabase.from as Function)('learning_patch_queue')
       .select(`
         *,
         source_feedback:creative_feedback(
@@ -82,8 +81,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get the patch details
-    const { data: patch, error: fetchError } = await supabase
-      .from('learning_patch_queue')
+    const { data: patch, error: fetchError } = await (supabase.from as Function)('learning_patch_queue')
       .select('*')
       .eq('id', patchId)
       .single()
@@ -94,8 +92,7 @@ export async function PATCH(request: NextRequest) {
 
     if (action === 'approve') {
       // Create a new pattern from the approved patch
-      const { data: newPattern, error: patternError } = await supabase
-        .from('learning_patterns')
+      const { data: newPattern, error: patternError } = await (supabase.from as Function)('learning_patterns')
         .insert({
           organization_id: patch.organization_id,
           format_id: patch.format_id,
@@ -116,8 +113,7 @@ export async function PATCH(request: NextRequest) {
       if (patternError) throw patternError
 
       // Update patch status
-      const { error: updateError } = await supabase
-        .from('learning_patch_queue')
+      const { error: updateError } = await (supabase.from as Function)('learning_patch_queue')
         .update({
           status: 'applied',
           applied_pattern_id: newPattern.id,
@@ -136,8 +132,7 @@ export async function PATCH(request: NextRequest) {
       })
     } else if (action === 'reject') {
       // Update patch status to rejected
-      const { error: updateError } = await supabase
-        .from('learning_patch_queue')
+      const { error: updateError } = await (supabase.from as Function)('learning_patch_queue')
         .update({
           status: 'rejected',
           reviewed_by: user.id,

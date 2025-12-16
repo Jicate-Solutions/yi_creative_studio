@@ -215,8 +215,8 @@ async function calculatePatternAdjustments(
 
   if (!patterns) return adjustments
 
-  const confidenceMap = new Map(
-    patterns.map((p: { id: string; confidence: number }) => [p.id, p.confidence])
+  const confidenceMap = new Map<string, number>(
+    patterns.map((p: { id: string; confidence: number | null }) => [p.id, p.confidence ?? 0.5])
   )
 
   for (const pattern of matchedPatterns) {

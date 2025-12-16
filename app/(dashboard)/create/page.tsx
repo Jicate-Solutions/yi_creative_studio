@@ -624,8 +624,8 @@ export default function CreatePage() {
       // v4.1: Include A/B testing columns for prevention effectiveness measurement
       const creativeInsert: TablesInsert<'creatives'> = {
         organization_id: currentOrganization.id,
-        ai_model: selectedModel.name,
-        ai_model_id: selectedModel.id,
+        ai_model: selectedModel?.name ?? modelToUse.model_id,
+        ai_model_id: selectedModel?.id ?? modelToUse.model_id,
         creative_type: 'event_poster',
         vertical: selectedVertical.slug,
         credits_used: creditCost,
@@ -1605,7 +1605,7 @@ export default function CreatePage() {
                               <RefreshCw className="h-5 w-5 text-destructive" />
                             </div>
                             <p className="text-destructive text-xs text-center mb-2">{generationError}</p>
-                            <Button onClick={handleGenerate} disabled={isGenerating} size="sm" variant="outline">
+                            <Button onClick={() => handleGenerate()} disabled={isGenerating} size="sm" variant="outline">
                               <RefreshCw className="h-3 w-3 mr-1" />
                               Retry
                             </Button>

@@ -64,6 +64,8 @@ export async function analyzeExperiment(experimentId: string): Promise<Experimen
       effectSize
     )
 
+    const isSignificant = testResult.pValue < ALPHA
+
     const results: ExperimentResults = {
       controlSamples: stats.controlWithFeedback,
       treatmentSamples: stats.treatmentWithFeedback,
@@ -73,6 +75,7 @@ export async function analyzeExperiment(experimentId: string): Promise<Experimen
       treatmentStdDev,
       effectSize,
       pValue: testResult.pValue,
+      isSignificant,
       confidenceInterval: ci,
       powerAnalysis: {
         currentPower: power,

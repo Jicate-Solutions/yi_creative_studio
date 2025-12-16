@@ -16,6 +16,7 @@ import type {
   DetectedIssue,
   CategoryScores,
   PatternCategory,
+  IssueLocation,
 } from '@/types/learning.types'
 
 // Vision analysis prompt template
@@ -136,7 +137,7 @@ export async function analyzeImage(
           y: 0,
           width: 0,
           height: 0,
-          region: issue.location.region as DetectedIssue['location']['region'],
+          region: (issue.location as { region?: string })?.region as IssueLocation['region'],
         } : undefined,
         suggestedFix: issue.suggestedFix,
         confidence: issue.confidence,

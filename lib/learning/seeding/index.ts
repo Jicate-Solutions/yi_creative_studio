@@ -55,8 +55,8 @@ export async function seedPatterns(options?: {
     const { data: existing } = await (supabase.from as Function)('seeded_patterns')
       .select('pattern_key, version')
 
-    const existingMap = new Map(
-      (existing || []).map((p: { pattern_key: string; version: number }) => [p.pattern_key, p.version])
+    const existingMap = new Map<string, number>(
+      (existing || []).map((p: { pattern_key: string; version: number | null }) => [p.pattern_key, p.version ?? 0])
     )
 
     for (const pattern of PRE_SEEDED_PATTERNS) {

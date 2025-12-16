@@ -312,10 +312,10 @@ export default function LearningDashboardPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold">
-                    {stats?.abTesting.improvement > 0 ? '+' : ''}
-                    {(stats?.abTesting.improvement || 0).toFixed(2)}
+                    {(stats?.abTesting?.improvement ?? 0) > 0 ? '+' : ''}
+                    {(stats?.abTesting?.improvement ?? 0).toFixed(2)}
                   </span>
-                  {(stats?.abTesting.improvement || 0) > 0 ? (
+                  {(stats?.abTesting?.improvement ?? 0) > 0 ? (
                     <TrendingUp className="h-5 w-5 text-green-500" />
                   ) : (
                     <TrendingDown className="h-5 w-5 text-red-500" />

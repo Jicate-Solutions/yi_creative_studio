@@ -83,8 +83,8 @@ export async function GET(request: NextRequest) {
     const includeUncorrelated = searchParams.get('uncorrelated') === 'true'
 
     // Get shadow stats
-    const { getShadowStats } = await import('@/lib/learning/shadow')
-    const stats = await getShadowStats()
+    const { getShadowModeStats } = await import('@/lib/learning/shadow')
+    const stats = await getShadowModeStats()
 
     // Get recent shadow logs
     let query = (supabase.from as Function)('shadow_mode_logs')

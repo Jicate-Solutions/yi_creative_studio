@@ -155,7 +155,7 @@ export class FeedbackLearningAgent {
 
       return {
         success: true,
-        pipelineUnderstanding: this.state.pipelineUnderstanding,
+        pipelineUnderstanding: this.state.pipelineUnderstanding || understanding,
         newInsights: understanding.keyInsights,
         filesAnalyzed: understanding.totalFiles,
         duration: Date.now() - startTime,
@@ -1178,12 +1178,18 @@ async function adjustPatternConfidence(
     const newConfidence = Math.max(0.1, Math.min(1.0, currentConfidence + adjustment))
 
     // Update effectiveness tracking
-    const currentEffectiveness = pattern.effectiveness || {
+    type EffectivenessData = {
+      timesApplied?: number
+      successRate?: number
+      feedbackImprovement?: number
+      lastEvaluated?: string | null
+    }
+    const currentEffectiveness = (pattern.effectiveness || {
       timesApplied: 0,
       successRate: 0,
       feedbackImprovement: 0,
       lastEvaluated: null,
-    }
+    }) as EffectivenessData
 
     const timesApplied = (currentEffectiveness.timesApplied || 0) + 1
     const successCount = Math.round((currentEffectiveness.successRate || 0) * (currentEffectiveness.timesApplied || 0))

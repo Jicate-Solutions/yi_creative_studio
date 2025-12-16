@@ -68,6 +68,25 @@ export async function GET(request: NextRequest) {
 
     const { data: patterns, error } = await query
 
+    type PatternRow = {
+      id: string
+      pattern_key: string
+      category: string
+      name: string
+      description?: string
+      issue_signature?: unknown
+      fix_mapping?: unknown
+      source?: string
+      confidence?: number
+      is_active?: boolean
+      format_ids?: string[]
+      created_at?: string
+      updated_at?: string
+      times_applied?: number
+      success_rate?: number
+      last_applied_at?: string
+    }
+
     if (error) {
       console.error('[Patterns API] Error fetching patterns:', error)
       return NextResponse.json(
@@ -91,7 +110,7 @@ export async function GET(request: NextRequest) {
     }
 
     let totalConfidence = 0
-    for (const pattern of patterns || []) {
+    for (const pattern of (patterns || []) as PatternRow[]) {
       stats.byCategory[pattern.category] =
         (stats.byCategory[pattern.category] || 0) + 1
       totalConfidence += pattern.confidence || 0
@@ -101,7 +120,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       cache: cacheStats,
       stats,
-      patterns: patterns?.map(p => ({
+      patterns: (patterns as PatternRow[] | null)?.map((p: PatternRow) => ({
         id: p.id,
         patternKey: p.pattern_key,
         category: p.category,

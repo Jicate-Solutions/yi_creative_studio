@@ -227,7 +227,9 @@
       "Bash(cmd /c \"dir /s /b C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\lib\\services\\*gemini*\")",
       "Bash(cmd /c \"findstr /s /i /n supportsImageConfig C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\lib\\*.ts\")",
       "Bash(cmd /c \"del C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.next\\dev\\lock 2>nul & rmdir /s /q C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.next 2>nul & echo Cleaned\")",
-      "Bash(cmd /c \"findstr /s /i /n creative-hero-container C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\app\\*.css\")"
+      "Bash(cmd /c \"findstr /s /i /n creative-hero-container C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\app\\*.css\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio && npm run build 2>&1 | head -100\")",
+      "Bash(cmd /c \"npx tsc --noEmit --skipLibCheck\")"
     ],
     "deny": [],
     "ask": [],

@@ -161,16 +161,22 @@ export async function getAIOptimizedPlacements(
     })
 
     // Track API usage
-    if (userId) {
+    if (userId && organizationId) {
+      // Estimate cost based on Claude Haiku pricing
+      const inputCost = (response.usage.input_tokens / 1_000_000) * 0.25
+      const outputCost = (response.usage.output_tokens / 1_000_000) * 1.25
+      const estimatedCostUsd = inputCost + outputCost
+
       await trackApiUsage({
         userId,
         organizationId,
-        provider: 'anthropic',
+        provider: 'claude',
         model,
+        requestType: 'logo_placement',
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
-        stage: 'logo_placement',
-        requestId: `logo-placement-${Date.now()}`,
+        estimatedCostUsd,
+        success: true,
         metadata: {
           logoCount: input.logos.length,
           formatId: input.formatId,
