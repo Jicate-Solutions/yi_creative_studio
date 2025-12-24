@@ -1,176 +1,73 @@
-/**
- * AI-Powered Design Intelligence Service
- *
- * Two-stage AI pipeline:
- * Stage 1: Analyze creative brief and generate design context (this service)
- * Stage 2: Use context for image generation (handled by adapters)
- *
- * Supports configurable LLM providers for future optimization
- */
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import type {
+  BriefAnalysisInput,
+  DesignContext,
+  DesignIntelligenceResult,
+  DesignBrief,
+  LLMResponse,
+  TokenUsage,
+} from './yi-prompt-builder/types'
+
+export type { DesignBrief, DesignContextForPrompt } from './yi-prompt-builder/types'
+import { safeJsonParse } from '@/lib/utils/json-repair'
+import {
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+} from '@google/generative-ai'
 import Anthropic from '@anthropic-ai/sdk'
 
-// Import prompt optimization utilities
 import {
-  getTemperatureConfig,
-  generateDesignContextCacheKey,
-  getCachedDesignContext,
-  setCachedDesignContext,
-  validateAndFixDesignContext,
-  integratePattersWithDesignContext,
-  selectABVariant,
-  createClaudeCacheableRequest,
-} from './prompt-optimization'
+  generateFallbackContext,
+  validateDesignContext,
+} from './yi-prompt-builder/context-helpers'
 
 // ============================================================
-// TYPES
+// PROMPT BUILDERS (Locally Defined)
 // ============================================================
 
-export type LLMProvider = 'gemini' | 'claude' | 'openai'
+function buildDesignContextPrompt(template: string, input: DesignBrief): string {
+  const brandColors = input.brandContext ? `
+BRAND IDENTITY:
+- Primary Color: ${input.brandContext.primaryColor || 'Not specified'}
+- Secondary Color: ${input.brandContext.secondaryColor || 'Not specified'}
+- Accent Color: ${input.brandContext.accentColor || 'Not specified'}
+- Font Preference: ${input.brandContext.fontPreference || 'Not specified'}
+` : ''
 
-/**
- * Token usage from AI API call
- */
-export interface TokenUsage {
-  inputTokens: number
-  outputTokens: number
-  cachedTokens?: number
-  totalTokens: number
+  const finalTitle = input.eventName && input.eventName.trim().length > 0
+    ? input.eventName
+    : "(Not Specified - Look for Greeting/Headline in Description)";
+
+  const brief = `
+${input.formatId ? `FORMAT TYPE: ${input.formatId} (${input.formatName || 'Creative Design'})
+FORMAT CATEGORY: ${getCategoryName(input.formatId)}
+` : ''}
+${input.eventName ? `EVENT/CONTENT TITLE: ${input.eventName}` : `CONTENT TITLE: ${input.formatName || 'Design'}`}
+FULL DESCRIPTION: ${input.details || ''}
+${input.venue ? `VENUE: ${input.venue}` : ''}
+ADDITIONAL CONTEXT: ${input.additionalContext || ''}
+THEME: ${input.theme || ''}
+STYLE: ${input.style || ''}
+HOST ORGANIZATION: ${input.organizationName || ''} (For branding only - NOT the event theme)
+${brandColors}
+${getFormatSpecificGuidance(input.formatId, input.formatName)}
+`
+  return template.replace('{brief}', brief)
 }
 
-/**
- * Response from LLM call including token usage
- */
-interface LLMResponse {
-  text: string
-  tokenUsage: TokenUsage
-  model: string
-  durationMs: number
+function buildCreativeBriefPrompt(input: BriefAnalysisInput): string {
+  return ''
 }
 
-/**
- * Result from design context generation including usage tracking
- */
-export interface DesignContextResult {
-  context: DesignContext
-  usage: {
-    provider: 'gemini' | 'claude'
-    model: string
-    tokenUsage: TokenUsage
-    durationMs: number
-  }
-}
 
-/**
- * AI-generated design context
- * Contains everything the image generation AI needs to understand
- * the CORE PURPOSE and VISUAL REQUIREMENTS of the design
- */
-export interface DesignContext {
-  /** The emotional job this design must accomplish */
-  corePurpose: string
-  /** What viewers should DO after seeing this */
-  desiredAction: string
-  /** How viewers should FEEL */
-  emotionalJob: string
-  /** Visual elements that BELONG in this type of design */
-  visualElements: string[]
-  /** Appropriate environment/backdrop description */
-  backgroundSetting: string
-  /** Iconic imagery that reinforces the message */
-  iconicImagery: string[]
-  /** Color psychology guidance for this design */
-  colorMood: string
-  /** Strategic visual approach */
-  designStrategy: string
-  /** How to know the design worked */
-  successMetric: string
-  /** Specific layout guidance based on speaker photo position and logo requirements */
-  layoutGuidance?: string
+// ============================================================
+// CONSTANTS & CONFIG
+// ============================================================
 
-  // === v3.4: Enhanced design attributes ===
-  /** Typography recommendations for this design */
-  typographyGuidance?: {
-    /** Headline font style and weight (e.g., "Bold sans-serif for impact") */
-    headlineStyle: string
-    /** Body text style (e.g., "Clean readable sans-serif") */
-    bodyStyle: string
-    /** Size and weight hierarchy description */
-    hierarchy: string
-  }
-  /** Decorative element recommendations */
-  decorativeElements?: {
-    /** Corner treatments (e.g., "Geometric corner accents") */
-    corners: string
-    /** Pattern overlays (e.g., "Subtle gradient mesh at 10% opacity") */
-    patterns: string
-    /** Accent elements (e.g., "Gold ribbon borders") */
-    accents: string
-  }
-  /** ONE unexpected visual element that makes this design unique and memorable */
-  creativeTwist?: string
-}
-
-/**
- * Input for design intelligence generation
- */
-export interface DesignBrief {
-  /** Type of event or creative (e.g., 'conference', 'blood_donation', 'wedding') */
-  eventType?: string
-  /** Name of the event */
-  eventName?: string
-  /** Organization name */
-  organizationName?: string
-  /** Additional details about the creative */
-  details?: string
-  /** Theme selection (e.g., 'corporate', 'festive') */
-  theme?: string
-  /** Style selection (e.g., 'gradient', 'geometric') */
-  style?: string
-  /** Guest/speaker name if applicable */
-  guestName?: string
-  /** Guest/speaker designation (e.g., 'Chief Guest', 'Keynote Speaker') */
-  guestDesignation?: string
-  /** Venue information */
-  venue?: string
-  /** Any additional context */
-  additionalContext?: string
-
-  // === FORMAT AWARENESS (CRITICAL for correct design type) ===
-  /** Format ID (e.g., 'certificate', 'youtube_thumbnail', 'business_card') */
-  formatId?: string
-  /** Format category/base pattern (e.g., 'print_landscape', 'thumbnail_click') */
-  formatCategory?: string
-  /** Human-readable format name (e.g., 'Certificate', 'YouTube Thumbnail') */
-  formatName?: string
-  /** Format-specific design guidance from knowledge base */
-  formatGuidance?: string
-
-  // === VISUAL LAYOUT CONTEXT ===
-  /** Whether speaker photo overlay is enabled */
-  hasSpeakerPhoto?: boolean
-  /** Speaker photo position: 'left', 'center', 'right' */
-  speakerPhotoPosition?: string
-  /** Speaker photo shape: 'circle', 'rounded', 'square' */
-  speakerPhotoShape?: string
-  /** Speaker photo size in pixels */
-  speakerPhotoSize?: number
-  /** Whether header logo zone is enabled */
-  hasHeaderLogo?: boolean
-  /** Header zone height in pixels */
-  headerHeight?: number
-  /** Whether footer zone is enabled */
-  hasFooterLogo?: boolean
-  /** Footer zone height in pixels */
-  footerHeight?: number
-  /** Additional layout preferences */
-  layoutPreferences?: string
-
-  // === LOGO AWARENESS (Smart Layout) ===
-  /** Pre-computed logo safe zone guidance for AI */
-  logoSafeZoneGuidance?: string
-}
+// Model configuration
+const GEMINI_MODEL = 'gemini-2.0-flash-exp' // Best for creative reasoning
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001' // Ultra-smart fallback
 
 // ============================================================
 // PROMPT TEMPLATE
@@ -185,668 +82,583 @@ export interface DesignBrief {
  * - Thinks strategically about viewer psychology
  * - Outputs structured, actionable design guidance
  */
-const DESIGN_INTELLIGENCE_PROMPT = `You are an ULTRA-PRO DESIGNER with 20+ years creating award-winning campaigns for Apple, Nike, TED, ESPN, National Geographic, and Google.
+const DESIGN_INTELLIGENCE_PROMPT = `You are a VISIONARY ART DIRECTOR with a hatred for boring, generic designs.AVOID "SAFE" CHOICES.You characterize yourself by bold, unexpected creative decisions that perfectly capture the story.
+You think like a HUMAN ARTIST who reads event context, understands the VISUAL NARRATIVE, and makes decisions that WOW the viewer.
 
-Your SUPERPOWER: You think like a DOMAIN EXPERT. When you see "AI Workshop", you don't just think "technology" - you think like a Silicon Valley designer who lives and breathes tech culture. When you see "Cricket Tournament", you think like a sports brand designer who understands athletic energy.
+=== YOUR MISSION ===
 
-=== DOMAIN-SPECIFIC DESIGN THINKING (CRITICAL!) ===
+    Read the event details and create a design that TELLS THE STORY visually.Don't just identify the domain - understand the FULL CONTEXT:
+      - What narrative is this event telling ?
+        - What should people FEEL when they see this ?
+          - How do typography, colors, and layout support this story ?
 
-STEP 1: IDENTIFY THE DOMAIN from the event details. Then THINK LIKE THAT DOMAIN'S TOP DESIGNER:
+            CRITICAL : The SAME event type(e.g., "climate change") can have DIFFERENT stories:
+  - "Climate Change Leadership Summit for Professionals" → Prestigious, authoritative, golden tones, refined decorations
+    - "Climate Awareness Workshop for Kids" → Playful, educational, bright colors, cartoon elements
 
-🤖 **AI / TECHNOLOGY / INNOVATION EVENTS**
-Think like: Apple, Google, Tesla design teams
-Typography: Futuristic sans-serif (like SF Pro, Inter, Geist), ultra-bold headlines with tight tracking
-Colors: Electric blue (#0066FF), neon cyan (#00D4FF), deep purple (#6B5CE7), dark backgrounds
-Patterns: Neural network meshes, circuit board traces, data flow visualizations, holographic grids
-Decorative: Glowing orbs, particle effects, geometric wireframes, gradient meshes
-Background: Dark space with glowing nodes, abstract data streams, futuristic cityscapes
-Energy: Cutting-edge, innovative, forward-thinking, sleek
+You must analyze the FULL CONTEXT, not just the event type.
 
-⚽ **SPORTS / FITNESS / ATHLETIC EVENTS**
-Think like: Nike, ESPN, Under Armour design teams
-Typography: Bold condensed impact fonts, dynamic italics for speed, aggressive uppercase
-Colors: High-energy (red #FF3B30, orange #FF9500, electric green #30D158), strong contrasts
-Patterns: Dynamic diagonal stripes, motion blur effects, halftone dots, speed lines
-Decorative: Swooshes, action bursts, geometric shapes suggesting movement
-Background: Stadium lights, action shots, athletic textures, grass/court surfaces
-Energy: Powerful, dynamic, competitive, victorious, adrenaline-pumping
+=== 7 - STEP STORY - DRIVEN DESIGN FRAMEWORK ===
 
-🏥 **MEDICAL / HEALTH / WELLNESS EVENTS**
-Think like: Mayo Clinic, WHO, wellness brand design teams
-Typography: Clean humanist sans-serif (like Avenir, Proxima Nova), approachable yet professional
-Colors: Trust blue (#007AFF), healing green (#34C759), clean white, soft coral for warmth
-Patterns: Subtle pulse lines, DNA helix motifs, cellular structures, soft gradients
-Decorative: Medical crosses, heart icons, stethoscope silhouettes, clean geometric shapes
-Background: Clean clinical environments, soft gradients, medical imagery, caring hands
-Energy: Trustworthy, caring, professional, life-saving, hopeful
+## STEP 1: STORY ANALYSIS(Think deeply about the narrative)
 
-🎭 **CULTURAL / TRADITIONAL / HERITAGE EVENTS**
-Think like: Museum curators, cultural festival designers, heritage brand teams
-Typography: Elegant serifs (like Playfair, Cormorant), decorative scripts for accents
-Colors: Rich golds (#FFD700), deep maroons (#800020), royal purples, earthy tones
-Patterns: Traditional motifs (rangoli, mandala, ethnic patterns), ornate borders
-Decorative: Floral elements, paisley designs, cultural symbols, intricate borders
-Background: Warm textures, fabric patterns, architectural elements, festive imagery
-Energy: Rich, celebratory, rooted, majestic, heritage-proud
+Analyze the narrative this event is telling:
 
-💼 **CORPORATE / BUSINESS / PROFESSIONAL EVENTS**
-Think like: McKinsey, Deloitte, Fortune 500 design teams
-Typography: Professional sans-serif (like Helvetica, Arial, Calibri), clean and authoritative
-Colors: Corporate blue (#0A66C2), charcoal (#333333), professional greens, gold accents
-Patterns: Subtle geometric grids, abstract business graphics, minimal line patterns
-Decorative: Clean borders, professional badges, subtle gradients
-Background: Modern office architecture, abstract corporate imagery, clean gradients
-Energy: Professional, trustworthy, authoritative, growth-oriented
+** Story Identification **:
+  - What is the core narrative ? (e.g., "Young leaders conquering climate crisis")
+    - What's the emotional arc? (e.g., Challenge → Empowerment → Victory)
+      - Who are the characters ? (e.g., Ambitious professionals becoming heroes)
 
-🎓 **EDUCATION / ACADEMIC / LEARNING EVENTS**
-Think like: Harvard, TED-Ed, Coursera design teams
-Typography: Scholarly serifs for prestige (Georgia, Times), modern sans for accessibility
-Colors: Academic navy (#1E3A5F), wisdom gold (#CFB53B), knowledge green, parchment cream
-Patterns: Book page textures, graduation cap motifs, lightbulb iconography
-Decorative: Laurel wreaths, academic crests, scroll elements, wisdom symbols
-Background: Library settings, graduation scenes, inspiring educational environments
-Energy: Inspiring, intellectual, empowering, growth-focused
+** Message Extraction **:
+  - What's the primary message? (1 sentence)
+    - What secondary themes exist ? (list 2 - 3)
+  - What transformation occurs ? (before → after)
 
-🎉 **ENTERTAINMENT / PARTY / CELEBRATION EVENTS**
-Think like: MTV, festival designers, entertainment brand teams
-Typography: Bold display fonts, playful scripts, dynamic varied weights
-Colors: Vibrant party colors (magenta #FF2D55, electric yellow #FFCC00, party purple #AF52DE)
-Patterns: Confetti, sparkles, dynamic shapes, party textures
-Decorative: Balloons, streamers, stars, celebration bursts
-Background: Stage lights, party atmospheres, colorful abstract backgrounds
-Energy: Fun, exciting, celebratory, energetic, joyful
+** Context Layers **:
+  - Event formality: Casual / Professional / Premium / Exclusive
+    - Energy level: Calm / Moderate / High / Explosive
+      - Time horizon: Past(heritage) / Present(current) / Future(visionary)
+        - Scope: Personal / Community / Regional / Global / Universal
 
-🌱 **ENVIRONMENT / SUSTAINABILITY / GREEN EVENTS**
-Think like: WWF, Patagonia, sustainability brand teams
-Typography: Organic rounded fonts, nature-inspired letterforms, eco-friendly aesthetics
-Colors: Natural greens (#34C759, #228B22), earth browns, sky blues, organic tones
-Patterns: Leaf textures, organic shapes, nature patterns, sustainable motifs
-Decorative: Leaves, trees, eco symbols, natural elements
-Background: Nature scenes, sustainable imagery, green environments
-Energy: Hopeful, responsible, natural, earth-conscious
+        **CRITICAL ANTI-HALLUCINATION RULES**:
+        1. **ORGANIZATION ≠ EVENT THEME**:
+           - The "Organization" field (e.g., "Yi Salem", "Tech Corp") tells you WHO is hosting.
+           - It does **NOT** tell you WHAT the event is.
+           - **NEVER** infer the event theme from the Organization Name.
+           - Example: If "Yi Salem" (known for marathons) hosts a "Christmas Party", the theme is **CHRISTMAS**, NOT "Marathon".
 
-=== FORMAT RULES ===
-FORMAT = What the design IS (poster, certificate, thumbnail)
-EVENT TYPE = What CONTENT/DOMAIN it represents (tech, sports, medical)
+        2. **STRICT TEXT ADHERENCE**:
+           - Only use the explicit text provided in the "TITLE" and "DESCRIPTION".
+           - If the Title is "Merry Christmas", the design **MUST** be about Christmas/Holidays.
+           - Do NOT invent a "Charity Run" or "Water Project" just because the organization usually does that.
+
+        3. **DOMAIN INFERENCE**:
+           - Do NOT infer "Sustainability", "Climate", "Tech", or "Health" usage unless EXPLICITLY mentioned in the input text.
+           - If no specific event details are found, default to the **Visual Theme** of the Title itself (e.g., "Christmas" -> Ornaments/Snow/Gold).
+
+## STEP 2: VIBE & MOOD DISCOVERY
+
+Based on the story, determine the FEELING this design should evoke:
+
+** Vibe Keywords ** (3 - 5 descriptive words):
+  - Consider: empowering, prestigious, urgent, playful, authoritative, innovative, caring, bold, elegant, rebellious, traditional, futuristic
+    - Example: "Empowering, authoritative, urgent, hopeful, modern"
+
+      ** Mood Atmosphere **:
+  - Visual atmosphere: (e.g., "Golden spotlight of achievement with environmental undertones")
+    - Emotional temperature: Warm / Neutral / Cool
+      - Energy dynamics: Static / Flowing / Explosive / Pulsing
+
+        ** Audience Resonance **:
+  - What will make THIS audience connect emotionally ?
+    - What visual language speaks to them ?
+
+## STEP 3: TYPOGRAPHY STORYTELLING
+
+Design typography that embodies the story:
+
+** Headline Personality **:
+  - What character should the main headline have ?
+    - Font personality: Bold / Elegant / Playful / Technical / Organic / Geometric
+      - Sizing strategy: Dominant / Balanced / Subtle
+        - CRITICAL: AVOID DEFAULTISM.Do NOT default to "Bold Sans-Serif" for every event.
+- Use SERIF for elegance / heritage, SLAB for industrial / bold, MONO for tech / data, SCRIPT for celebration.
+- Example: "Ultra-bold sans-serif (Montserrat Black) - commanding attention like a leader's call to action"
+
+        ** Multi - Color Typography Strategy **:
+  - Analyze the event name / headline
+    - Which words carry POWER ? (use primary / accent colors)
+  - Which words show ACTION ? (use energetic colors)
+  - Which words create EMOTION ? (use mood colors)
+  - Example: "CLIMATE"(forest green #0B6D41 - environmental) "LEADERSHIP"(gold #FFD700 - achievement) "SUMMIT"(deep blue #003366 - authority)
+
+    ** Hierarchy Flow **:
+  - How should the eye travel through text to tell the story ?
+    - Main headline → Supporting text → Details(flow supports narrative)
+
+## STEP 4: COLOR STORYTELLING
+
+Colors that convey the story's emotion:
+
+    ** Dominant Hues ** (primary story colors):
+  - What color represents the MAIN theme ?
+    - What color adds EMOTIONAL depth ?
+      - What color creates ENERGY / ACTION ?
+
+** Color Psychology Application **:
+  - Leadership / Achievement → Gold(#FFD700), amber, deep blue
+    - Environment / Growth → Forest green(#0B6D41), earth tones, sky blue
+      - Innovation / Tech → Electric blue(#0066FF), cyan, purple
+        - Health / Caring → Soft green(#34C759), healing blue, warm white
+          - Energy / Sports → Red(#FF3B30), orange, electric yellow
+            - Culture / Heritage → Rich burgundy, gold, traditional colors
+              - Youth / Modern → Vibrant, saturated, bold colors
+
+   - How many colors in headline ? (2 - 4 based on complexity)
+   - Color rhythm: Alternating / Gradient / Emphasis - based
+
+    ** BRAND IDENTITY INTEGRATION (CRITICAL) **:
+   - If BRAND COLORS are provided in the brief, you MUST use them as the foundation.
+   - Do not invent random colors if brand colors are specified.
+   - Mix Brand Colors with semantic colors (e.g., Brand Blue + Gold for "Achievement").
+
+## STEP 5: BACKGROUND & ATMOSPHERE
+
+Create a visual world that supports the story:
+
+** Background Treatment ** (choose based on mood):
+- ** Linear Gradient **: Simple, clean(formal events, minimalist mood)
+    - ** Radial Gradient **: Spotlight focus(singular theme, centered narrative)
+      - ** Sunburst Radial **: Achievement, celebration(leadership, success stories)
+        - ** Mesh Gradient **: Complex, artistic(creative, multi - layered narratives)
+          - ** Atmospheric **: Immersive depth(festive, experiential events)
+
+            ** Gradient Specification **:
+  - Describe gradient in detail with color stops, direction, atmosphere
+    - Example: "Golden radial sunburst emanating from upper center (0%: bright gold #FFD700 → 50%: warm amber #FFA500 → 100%: deep navy #003366) with 12 subtle light rays at 3% opacity creating achievement spotlight effect"
+
+      ** Atmospheric Elements **:
+  - Depth layers: How many visual layers ? (1 - 3)
+    - Light rays: Subtle / Prominent / None
+      - Particles: Subtle atmospheric particles / None
+
+## STEP 6: DECORATIVE ELEMENTS(Story - Specific)
+
+Generate decorations that enhance the narrative:
+
+** Thematic Elements ** (based on story analysis):
+  - What visual symbols reinforce the story ?
+    - What imagery creates emotional connection ?
+      - Sophistication level: Refined / Balanced / Playful
+
+        ** Element Examples by Context (RICH DESCRIPTION REQUIRED) **:
+  - Climate + Leadership → "Translucent, crystalline geometric leaves with fine gold veins" (NOT just "leaves")
+    - Tech + Innovation → "Holographic neural nodes connected by glowing cyan data streams" (NOT just "lines")
+      - Health + Community → "Soft, warm-lit silhouettes of caring hands forming a protective circle"
+        - Sports + Energy → "Explosive motion-blur streaks in fiery orange cutting through deep navy"
+          - Culture + Heritage → "Intricate gold foil paisley patterns overlaid on rich burgundy velvet texture"
+            - Youth + Celebration → "Suspended 3D confetti particles with depth-of-field blur and sparkle effects"
+
+              ** Placement Strategy **:
+  - Where do decorations support(not distract from) story ?
+    - Opacity levels that create depth without noise(8 - 15 % typically)
+      - Placement: Corner accents / Background patterns / Focal elements
+
+## STEP 7: LAYOUT NARRATIVE FLOW
+
+Design content flow that tells the story:
+
+** Visual Hierarchy ** (storytelling order):
+  - What grabs attention first ? (The impact / hook)
+  - What builds context ? (The details)
+  - What drives action ? (The CTA)
+
+** Content Area Design **:
+  - Event details container: Style that matches vibe
+    - Speaker prominence: How much spotlight ?
+      - Logo strip treatment: Sophisticated / Modern / Classic / Minimal
+
+        ** Spatial Story **:
+  - Negative space: How much breathing room supports the mood ?
+    - Spatial density: Minimal / Balanced / Rich(based on sophistication)
+
+      === DOMAIN - SPECIFIC DESIGN GUIDANCE(Reference) ===
+
+** AI / Tech Events **: Clean sans - serif, electric blue accents, minimalist gradients, refined glassmorphism
+    ** Sports Events **: Bold condensed fonts, high - energy colors(red, orange), dynamic diagonal stripes
+      ** Medical / Health **: Humanist sans - serif, trust blue(#007AFF), healing green, pulse line motifs
+        ** Cultural / Traditional **: Elegant serifs, rich golds, deep maroons, traditional motifs, ornate borders
+          ** Corporate / Business **: Professional sans - serif, corporate blue, charcoal, subtle geometric grids
+            ** Education / Academic **: Scholarly serifs, academic navy, wisdom gold, laurel wreaths
+              ** Entertainment / Party **: Bold display fonts, vibrant multi - color, confetti, sparkles, energetic lines
+                ** Environment / Sustainability **: Clean slab serifs, deep forest green(#0B3D2E), stone textures, refined leaf motifs
+                  ** Fun Activity / Kids **: ROUNDED sans - serif(Nunito, Quicksand) or playful display, bright primary colors, soft shapes
+                    ** Social Awareness / Cause **: HUMANIST sans - serif(Open Sans) for approachability, clear hierarchy, hopeful visuals
+                      ** Cultural / Arts **: DECORATIVE SERIF or CUSTOM SCRIPT, rich textures, traditional patterns, artistic composition
+                        ** Environment / Sustainability **: Clean slab serifs, deep forest green(#0B3D2E), stone textures, refined leaf motifs
 
 ANALYZE THE FOLLOWING CREATIVE BRIEF:
-{brief}
+  { brief }
 
-=== ULTRA-THINK PROCESS ===
+=== ANALYSIS PROCESS ===
 
-1. **DOMAIN DETECTION**: What domain does this event belong to? (AI/Tech, Sports, Medical, Cultural, Corporate, Education, Entertainment, Environment, or hybrid)
+    Now follow the 7 - step framework above to analyze this brief.Think deeply about:
+  1. The STORY being told
+  2. The VIBE and MOOD to evoke
+  3. TYPOGRAPHY that tells the story
+  4. COLORS that convey emotion
+  5. BACKGROUND atmosphere
+  6. DECORATIVE elements that enhance narrative
+  7. LAYOUT that supports the story flow
 
-2. **DESIGNER PERSONA**: Now BECOME that domain's top designer. Think in their visual language.
+    === DESIGN SOPHISTICATION RULES(MANDATORY) ===
 
-3. **VISUAL VOCABULARY**: What specific visual elements does this domain use? Be EXTREMELY specific - not "tech imagery" but "neural network with glowing blue nodes and connecting data streams"
+      1. ** NEGATIVE SPACE IS A FEATURE **: 40 % of the design should feel "breathable" and uncluttered
+  2. ** THE 3 - SECOND TEST **: Viewer must identify WHAT(Header) and WHEN(Details) in 3 seconds
+  3. ** MICRO - DETAIL > MACRO - CLUTTER **: Use one high - quality visual element instead of many busy ones
+  4. ** SACROSANCT ZONES **: Keep top 15 % (Logo Zone) and bottom 10 % (Contact Zone) clean
+  5. ** TYPOGRAPHY HIERARCHY **: One hero size(Massive), one primary size(Medium), everything else (Small / Clean)
 
-4. **TYPOGRAPHY DNA**: What fonts does this domain use? What's the headline weight, tracking, and style?
+    === CRITICAL RULES ===
+      - Be HYPER - SPECIFIC: NEVER use single nouns like "leaves". Use "translucent geometric leaves".
+        - Not "technology elements" but "holographic AI brain visualization with cyan neural pathways"
+        - Be CONTEXT - AWARE: Same event type can have different stories based on audience / purpose
+          - Be VIEWER - FOCUSED: What will viewer IMMEDIATELY understand about this event ?
+            - FULL - BLEED design that fills the canvas edge - to - edge
+              - NEVER describe poster "on a wall" - describe what's IN the design
 
-5. **COLOR PSYCHOLOGY**: What colors trigger the right emotions for this domain?
+                === MULTI - COLOR TYPOGRAPHY(CRITICAL) ===
+                  Each text role MUST have a distinct color for visual hierarchy:
 
-6. **PATTERN LANGUAGE**: What subtle patterns reinforce the domain identity?
+** HERO TEXT **: MOST PROMINENT color, 7: 1 contrast minimum(e.g., Pure white, bold gold, electric cyan)
+    ** HEADLINE TEXT **: COMPLEMENTARY color, 7: 1 contrast(e.g., Light blue, off - white, bright yellow)
+      ** BODY TEXT **: READABLE color, 4.5: 1 contrast(e.g., Light gray #E0E0E0, medium gray #666)
+        ** CTA TEXT **: ATTENTION - GRABBING color, 7: 1 contrast(e.g., Bright gold, electric green, vibrant orange)
+          ** CAPTION TEXT **: SUBTLE color, 4.5: 1 contrast(e.g., Muted gray #999, soft brown, dim blue)
 
-7. **DECORATIVE SIGNATURE**: What decorative elements are this domain's visual signature?
+            === LAYOUT RULES ===
+              - If SPEAKER PHOTO position is LEFT: Content flows RIGHT
+                - If SPEAKER PHOTO position is RIGHT: Content flows LEFT
+                  - If SPEAKER PHOTO position is CENTER: Content frames around center
+                    - NEVER generate illustrated faces if speaker photo will be added
+                      - Keep HEADER area clean for logos
+                        - Use VISUAL language only in layoutGuidance(no "px", "zone", "overlay")
 
-=== ULTRA-CREATIVE THINKING (MANDATORY) ===
-
-Before generating, THINK DEEPLY about creating something UNIQUE:
-
-1. **VISUAL METAPHOR**: What single powerful image captures this event's essence?
-   - For AI/Tech: Not just "neural network" but "a human consciousness merging with digital infinity"
-   - For Health: Not just "medical symbols" but "the moment when care transforms into healing"
-   - For Sports: Not just "athletic energy" but "the split-second before victory"
-
-2. **UNEXPECTED COMBINATION**: Mix two concepts that create surprise:
-   - Technology + organic nature (circuits that grow like vines)
-   - Digital + handcrafted (holographic calligraphy)
-   - Future + heritage (ancient patterns made of light)
-   - Abstract + human emotion (data streams that feel like hope)
-
-3. **EMOTIONAL MOMENT**: What specific moment does this design capture?
-   - The breakthrough instant when understanding dawns
-   - The connection forming between minds
-   - The future arriving in the present
-   - The transformation happening before your eyes
-
-4. **UNIQUE SIGNATURE**: What ONE visual element makes this unmistakably THIS event?
-   - Something never seen before in similar designs
-   - Something that tells the story instantly
-   - Something memorable that viewers will recall
-
-Generate designs that FEEL like ART, not templates. Each design should be a fresh creative vision.
-
-=== CRITICAL RULES ===
-- Be HYPER-SPECIFIC: Not "technology elements" but "holographic AI brain visualization with cyan neural pathways"
-- Be DOMAIN-AUTHENTIC: A sports event should FEEL athletic, a tech event should FEEL futuristic
-- Be VIEWER-FOCUSED: What will the viewer IMMEDIATELY understand about this event?
-- FULL-BLEED design that fills the canvas edge-to-edge
-- NEVER describe poster "on a wall" - describe what's IN the design
-
-=== LAYOUT RULES ===
-- If SPEAKER PHOTO position is LEFT: Content flows RIGHT
-- If SPEAKER PHOTO position is RIGHT: Content flows LEFT
-- If SPEAKER PHOTO position is CENTER: Content frames around center
-- NEVER generate illustrated faces if speaker photo will be added
-- Keep HEADER area clean for logos
-- Use VISUAL language only in layoutGuidance (no "px", "zone", "overlay")
-
-Return ONLY valid JSON:
-{
-  "corePurpose": "What emotional job this design MUST accomplish - be domain-specific",
-  "desiredAction": "Specific action viewers should take",
-  "emotionalJob": "How viewers should FEEL - tied to the domain's energy",
-  "visualElements": ["SPECIFIC domain element 1", "SPECIFIC domain element 2", "SPECIFIC element 3", "SPECIFIC element 4", "SPECIFIC element 5"],
-  "backgroundSetting": "Detailed DOMAIN-APPROPRIATE background - immersive and contextual",
-  "iconicImagery": ["domain-specific icon 1", "domain-specific icon 2", "domain-specific icon 3"],
-  "colorMood": "DOMAIN-SPECIFIC color psychology with hex codes",
-  "designStrategy": "Strategic approach that matches the domain's design language",
-  "successMetric": "What viewer thinks in 3 seconds - domain-relevant",
-  "layoutGuidance": "Visual composition using design language only",
-  "typographyGuidance": {
-    "headlineStyle": "DOMAIN-SPECIFIC headline font style (e.g., 'Futuristic bold sans-serif with tight tracking for tech' or 'Impact condensed italic for sports energy')",
-    "bodyStyle": "DOMAIN-APPROPRIATE body text that ensures readability while matching the vibe",
-    "hierarchy": "Size/weight hierarchy that matches domain conventions"
-  },
-  "decorativeElements": {
-    "corners": "DOMAIN-SPECIFIC corner treatment (e.g., 'Geometric circuit-trace corners for AI events' or 'Dynamic swoosh corners for sports')",
-    "patterns": "DOMAIN-AUTHENTIC pattern at low opacity (e.g., 'Neural mesh pattern at 10% for tech' or 'Stadium turf texture at 8% for sports')",
-    "accents": "DOMAIN-SIGNATURE accent elements (e.g., 'Neon glow lines for tech' or 'Athletic stripe accents for sports')"
-  },
-  "creativeTwist": "ONE unexpected visual element that makes this design UNIQUE and MEMORABLE - something viewers haven't seen before (e.g., 'AI neurons that bloom like flowers' or 'data streams that form a human heartbeat pattern')"
-}`
-
-// ============================================================
-// MAIN SERVICE
-// ============================================================
-
-/**
- * Generate design context using AI analysis
- *
- * OPTIMIZATIONS (v3.7):
- * - Response caching for similar requests
- * - Dynamic temperature based on format type
- * - Schema validation with auto-fix
- * - Feedback pattern integration
- * - A/B testing support
- *
- * @param brief - The creative brief to analyze
- * @param provider - LLM provider to use (default: claude)
- * @param organizationId - Optional org ID for feedback patterns
- * @returns Structured design context for image generation with usage tracking
- */
-export async function generateDesignContext(
-  brief: DesignBrief,
-  provider: LLMProvider = 'claude',
-  organizationId?: string
-): Promise<DesignContextResult> {
-  console.log('[Design Intelligence] === STAGE 1: GENERATING DESIGN CONTEXT ===')
-  console.log('[Design Intelligence] FORMAT:', brief.formatId || 'event_poster (default)')
-  console.log('[Design Intelligence] Format Name:', brief.formatName || 'not specified')
-  console.log('[Design Intelligence] Format Category:', brief.formatCategory || 'not specified')
-  console.log('[Design Intelligence] Event Type:', brief.eventType || 'unknown')
-  console.log('[Design Intelligence] Event Name:', brief.eventName || 'not provided')
-  console.log('[Design Intelligence] Theme:', brief.theme || 'default')
-  console.log('[Design Intelligence] Style:', brief.style || 'default')
-
-  // === OPTIMIZATION 1: Check cache first ===
-  const cacheKey = generateDesignContextCacheKey({
-    formatId: brief.formatId,
-    eventType: brief.eventType,
-    eventName: brief.eventName,
-    theme: brief.theme,
-    style: brief.style,
-    hasSpeakerPhoto: brief.hasSpeakerPhoto,
-  })
-
-  const cachedContext = getCachedDesignContext(cacheKey) as DesignContext | null
-  if (cachedContext) {
-    console.log('[Design Intelligence] Using CACHED context')
-    return {
-      context: cachedContext,
-      usage: {
-        provider: provider === 'gemini' ? 'gemini' : 'claude',
-        model: 'cached',
-        tokenUsage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0, totalTokens: 0 },
-        durationMs: 0,
-      },
-    }
-  }
-
-  // === OPTIMIZATION 2: Get dynamic temperature config ===
-  let tempConfig = getTemperatureConfig(brief.formatId)
-  console.log('[Design Intelligence] Temperature config:', tempConfig.description)
-
-  // === OPTIMIZATION 3: A/B test variant selection ===
-  const abVariant = selectABVariant('creative_twist_emphasis_v1')
-  if (abVariant) {
-    console.log('[Design Intelligence] A/B test variant:', abVariant.variantId)
-    tempConfig = { ...tempConfig, ...abVariant.config }
-  }
-
-  // Build the full brief text
-  const briefText = buildBriefText(brief)
-  console.log('[Design Intelligence] Brief Text:', briefText.substring(0, 200) + '...')
-
-  // Generate the prompt
-  const prompt = DESIGN_INTELLIGENCE_PROMPT.replace('{brief}', briefText)
-
-  // Call the appropriate LLM provider with dynamic temperature
-  let llmResponse: LLMResponse
-  let effectiveProvider: 'gemini' | 'claude' = provider === 'gemini' ? 'gemini' : 'claude'
-  console.log('[Design Intelligence] Provider:', provider)
-  console.log('[Design Intelligence] Temperature:', tempConfig.designIntelligence)
-
-  switch (provider) {
-    case 'gemini':
-      llmResponse = await callGemini(prompt, tempConfig.designIntelligence, tempConfig.topP)
-      effectiveProvider = 'gemini'
-      break
-    case 'claude':
-      llmResponse = await callClaude(prompt, tempConfig.designIntelligence)
-      effectiveProvider = 'claude'
-      break
-    case 'openai':
-      llmResponse = await callOpenAI(prompt)
-      effectiveProvider = 'claude' // OpenAI not implemented, would fallback
-      break
-    default:
-      llmResponse = await callGemini(prompt, tempConfig.designIntelligence, tempConfig.topP)
-      effectiveProvider = 'gemini'
-  }
-
-  // === OPTIMIZATION 4: Schema validation with auto-fix ===
-  const parsedContext = parseDesignContext(llmResponse.text)
-  const validatedContext = validateAndFixDesignContext(parsedContext)
-
-  if (!validatedContext) {
-    console.warn('[Design Intelligence] Validation failed, using fallback context')
-    return {
-      context: generateFallbackContext(brief),
-      usage: {
-        provider: effectiveProvider,
-        model: llmResponse.model,
-        tokenUsage: llmResponse.tokenUsage,
-        durationMs: llmResponse.durationMs,
-      },
-    }
-  }
-
-  // === OPTIMIZATION 5: Integrate feedback patterns ===
-  let finalContext = validatedContext as DesignContext
-  if (organizationId && brief.formatId) {
-    const { enhancedContext, appliedPatterns } = await integratePattersWithDesignContext(
-      validatedContext as Record<string, unknown>,
-      {
-        formatId: brief.formatId,
-        eventType: brief.eventType,
-        organizationId,
+Return ONLY valid JSON with BOTH legacy fields(for backward compatibility) AND new story - driven fields:
+  {
+    "corePurpose": "What emotional job this design MUST accomplish",
+      "desiredAction": "Specific action viewers should take",
+        "emotionalJob": "How viewers should FEEL",
+          "visualElements": ["SPECIFIC element 1", "SPECIFIC element 2", "SPECIFIC element 3", "SPECIFIC element 4", "SPECIFIC element 5"],
+            "backgroundSetting": "Detailed background description - immersive and contextual",
+              "iconicImagery": ["specific icon 1", "specific icon 2", "specific icon 3"],
+                "colorMood": "Color psychology with hex codes",
+                  "designStrategy": "Strategic visual approach",
+                    "successMetric": "What viewer thinks in 3 seconds",
+                      "layoutGuidance": "Visual composition using design language only",
+                        "typographyGuidance": {
+      "headlineStyle": "specific font style and weight description",
+        "bodyStyle": "readable font style description",
+          "typographyStyle": "Pick ONE: serif | sans | slab | mono | script | display",
+            "alignment": "Pick ONE: center | left | right | asymmetric",
+              "hierarchy": "size and weight hierarchy mapping",
+                "colorMapping": {
+        "hero": { "color": "hex code or name", "contrastRatio": 7.0, "description": "rationale" },
+        "headline": { "color": "hex code or name", "contrastRatio": 7.0, "description": "rationale" },
+        "body": { "color": "hex or name", "contrastRatio": 4.5, "description": "rationale" },
+        "cta": { "color": "hex or name", "contrastRatio": 7.0, "description": "rationale" },
+        "caption": { "color": "hex or name", "contrastRatio": 4.5, "description": "rationale" }
       }
-    )
-    if (appliedPatterns.length > 0) {
-      console.log('[Design Intelligence] Applied feedback patterns:', appliedPatterns.join(', '))
-      finalContext = enhancedContext as unknown as DesignContext
-    }
-  }
-
-  console.log('[Design Intelligence] === CONTEXT GENERATED SUCCESSFULLY ===')
-  console.log('[Design Intelligence] Core Purpose:', finalContext.corePurpose)
-  console.log('[Design Intelligence] Visual Elements:', finalContext.visualElements.join(', '))
-  console.log('[Design Intelligence] Background:', finalContext.backgroundSetting.substring(0, 100) + '...')
-
-  // === OPTIMIZATION 6: Cache the result ===
-  setCachedDesignContext(cacheKey, finalContext)
-
-  return {
-    context: finalContext,
-    usage: {
-      provider: effectiveProvider,
-      model: llmResponse.model,
-      tokenUsage: llmResponse.tokenUsage,
-      durationMs: llmResponse.durationMs,
     },
+    "decorativeElements": {
+      "corners": "corner treatment description",
+        "patterns": "pattern description with opacity",
+          "accents": "accent elements description"
+    },
+    "creativeTwist": "ONE unexpected visual element that makes this design UNIQUE",
+
+      "storyAnalysis": {
+      "narrative": "Core story in one sentence",
+        "emotionalArc": "Beginning → Middle → End emotional journey",
+          "themes": ["primary theme", "secondary theme"],
+            "transformation": "Before state → After state",
+              "context": {
+        "formality": "casual | professional | premium | exclusive",
+          "energyLevel": "calm | moderate | high | explosive",
+            "timeHorizon": "past | present | future",
+              "scope": "personal | community | regional | global | universal"
+      }
+    },
+
+    "vibeAndMood": {
+      "vibeKeywords": ["keyword1", "keyword2", "keyword3"],
+        "moodAtmosphere": "Visual atmosphere description",
+          "emotionalTemperature": "warm | neutral | cool",
+            "energyDynamics": "static | flowing | explosive | pulsing",
+              "audienceResonance": "What makes audience connect emotionally"
+    },
+
+    "typographyStrategy": {
+      "headlinePersonality": "Font character description",
+        "fontRecommendations": {
+        "headline": "Font name with reasoning",
+          "subheading": "Font name with reasoning",
+            "body": "Font name with reasoning"
+      },
+      "multiColorStrategy": {
+        "words": [
+          { "word": "WORD", "color": "#HEX", "reasoning": "Why this color for this word" }
+        ],
+          "colorRhythm": "alternating | gradient | emphasis-based"
+      },
+      "hierarchyFlow": "How eye travels through text",
+        "sizingStrategy": "dominant | balanced | subtle"
+    },
+
+    "colorStorytelling": {
+      "dominantHues": [
+        { "color": "#HEX", "role": "theme role", "usage": "where used" }
+      ]
+    },
+
+    "decorativeElementsContext": {
+      "sophisticationLevel": "minimalist | balanced | rich | playful | refined",
+      "placementStrategy": "Guide for where elements should go (e.g., 'Corners only', 'Background texture', 'Flowing across')",
+      "thematicElements": [
+        { 
+          "element": "HIGHLY DETAILED visual element description (e.g., 'Translucent neon neural nodes with glowing edges')", 
+          "placement": "Specific location (e.g., 'Top-right corner bleeding off edge')",
+          "opacity": 0.1,
+          "reasoning": "Why this element tells the story"
+        }
+      ]
+    },
+
+    "layoutNarrative": {
+      "visualHierarchy": ["first", "second", "third"],
+        "spatialStory": "How space supports mood",
+          "flowDirection": "left-to-right | center-out | asymmetric"
+    }
   }
-}
+  `
+
+// ============================================================
+// VALIDATION
+// ============================================================
 
 /**
- * Build formatted brief text from structured input
- * FORMAT takes PRIORITY over event type for design direction
+ * Validate that design context matches the current event
+ * Prevents context bleeding from cached/wrong contexts
  */
-function buildBriefText(brief: DesignBrief): string {
-  const parts: string[] = []
+function validateContextMatchesEvent(
+  context: DesignContext,
+  eventName: string,
+  eventType?: string
+): { valid: boolean; reason?: string } {
+  // Safety: Allow if no event name
+  if (!eventName || eventName.trim().length === 0) {
+    return { valid: true }
+  }
 
-  // === FORMAT TAKES PRIORITY (defines design TYPE) ===
-  if (brief.formatId) {
-    parts.push('=== OUTPUT FORMAT (DEFINES DESIGN TYPE) ===')
-    parts.push(`FORMAT: ${brief.formatName?.toUpperCase() || brief.formatId.toUpperCase().replace(/_/g, ' ')}`)
-    parts.push(`This is a ${brief.formatName || brief.formatId.replace(/_/g, ' ')} design.`)
+  const normalizedEventName = eventName.toLowerCase().trim()
+  const contextString = JSON.stringify(context).toLowerCase()
 
-    if (brief.formatCategory) {
-      parts.push(`Category: ${brief.formatCategory.replace(/_/g, ' ')}`)
+  // Extract meaningful keywords (>3 chars to avoid "for", "the")
+  const eventKeywords = normalizedEventName
+    .split(/\s+/)
+    .filter(word => word.length > 3)
+
+  if (eventKeywords.length === 0) {
+    return { valid: true }
+  }
+
+  // RULE 1: At least ONE keyword must appear in context
+  const hasEventReference = eventKeywords.some(keyword =>
+    contextString.includes(keyword)
+  )
+
+  if (!hasEventReference) {
+    return {
+      valid: false,
+      reason: `Context missing event keywords. Expected: ${eventKeywords.join(', ')}`
     }
+  }
 
-    if (brief.formatGuidance) {
-      parts.push(`Format Requirements: ${brief.formatGuidance}`)
+  // RULE 2: Check for contradicting themes
+  const contradictions = [
+    { event: 'christmas', contradicts: ['marathon', 'run', 'water', 'sports', 'race'] },
+    { event: 'marathon', contradicts: ['christmas', 'festive', 'holiday'] },
+    { event: 'tech', contradicts: ['sports', 'marathon', 'athletic'] },
+    { event: 'wedding', contradicts: ['business', 'corporate', 'conference'] },
+  ]
+
+  for (const pattern of contradictions) {
+    if (normalizedEventName.includes(pattern.event)) {
+      const foundContradiction = pattern.contradicts.find(word =>
+        contextString.includes(word)
+      )
+      if (foundContradiction) {
+        return {
+          valid: false,
+          reason: `Context contains contradicting keyword "${foundContradiction}" for "${pattern.event}" event`
+        }
+      }
     }
-
-    parts.push('')  // Empty line for separation
-    parts.push('The above FORMAT defines what the design LOOKS LIKE.')
-    parts.push('The below event/content details are what goes ON the design.')
-    parts.push('')  // Empty line for separation
   }
 
-  // === EVENT CONTENT (fills the format) ===
-  parts.push('=== CONTENT TO DISPLAY ===')
-
-  if (brief.eventType) {
-    parts.push(`Content Theme: ${brief.eventType.replace(/_/g, ' ')}`)
-  }
-
-  if (brief.eventName) {
-    parts.push(`Event/Title: ${brief.eventName}`)
-  }
-
-  if (brief.organizationName) {
-    parts.push(`Organization: ${brief.organizationName}`)
-  }
-
-  // Guest info with designation - ONLY include when speaker photo is enabled
-  // This prevents speaker data from leaking into AI prompts when speaker feature is disabled
-  if (brief.guestName && brief.hasSpeakerPhoto) {
-    const guestInfo = brief.guestDesignation
-      ? `${brief.guestName} (${brief.guestDesignation})`
-      : brief.guestName
-    parts.push(`Guest/Speaker: ${guestInfo}`)
-  }
-
-  if (brief.venue) {
-    parts.push(`Venue: ${brief.venue}`)
-  }
-
-  if (brief.theme) {
-    parts.push(`Design Theme: ${brief.theme}`)
-  }
-
-  if (brief.style) {
-    parts.push(`Visual Style: ${brief.style}`)
-  }
-
-  if (brief.details) {
-    parts.push(`Details: ${brief.details}`)
-  }
-
-  if (brief.additionalContext) {
-    parts.push(`Additional Context: ${brief.additionalContext}`)
-  }
-
-  // === VISUAL LAYOUT CONTEXT (CRITICAL FOR IMAGE GENERATION) ===
-  parts.push('')  // Empty line for separation
-  parts.push('=== VISUAL LAYOUT REQUIREMENTS ===')
-
-  // Speaker photo context
-  if (brief.hasSpeakerPhoto) {
-    const position = brief.speakerPhotoPosition || 'center'
-    const shape = brief.speakerPhotoShape || 'circle'
-    const size = brief.speakerPhotoSize || 150
-
-    parts.push(`SPEAKER PHOTO: ENABLED`)
-    parts.push(`- Position: ${position.toUpperCase()} side of the poster`)
-    parts.push(`- Shape: ${shape} (approximately ${size}px)`)
-    parts.push(`- IMPORTANT: Leave appropriate space on the ${position.toUpperCase()} side for the speaker photo overlay`)
-    parts.push(`- DO NOT generate an illustrated face/person in that area - the actual speaker photo will be overlaid`)
-
-    // Position-specific guidance
-    if (position === 'left') {
-      parts.push(`- Main content (title, event details) should be positioned on the RIGHT side`)
-      parts.push(`- The LEFT portion should have a complementary but neutral background suitable for photo overlay`)
-    } else if (position === 'right') {
-      parts.push(`- Main content (title, event details) should be positioned on the LEFT side`)
-      parts.push(`- The RIGHT portion should have a complementary but neutral background suitable for photo overlay`)
-    } else if (position === 'center') {
-      parts.push(`- Design should frame around the CENTER`)
-      parts.push(`- Title and key info above the center, details below`)
-      parts.push(`- The CENTER area should be neutral/subtle for photo overlay`)
-    }
-  } else {
-    parts.push(`SPEAKER PHOTO: Not enabled (no photo overlay expected)`)
-  }
-
-  // Header logo zone
-  if (brief.hasHeaderLogo && brief.headerHeight && brief.headerHeight > 0) {
-    parts.push(`HEADER LOGO ZONE: Reserve top ${brief.headerHeight}px for organization logo(s)`)
-    parts.push(`- Keep top area clean and suitable for logo placement`)
-    parts.push(`- Avoid complex imagery or important text in the header zone`)
-  }
-
-  // Footer logo zone
-  if (brief.hasFooterLogo && brief.footerHeight && brief.footerHeight > 0) {
-    parts.push(`FOOTER ZONE: Reserve bottom ${brief.footerHeight}px for contact info and branding`)
-    parts.push(`- Keep bottom area suitable for text overlays (website, contact, sponsors)`)
-    parts.push(`- Use a slightly darker or lighter tone that ensures text readability`)
-  }
-
-  // Additional layout preferences
-  if (brief.layoutPreferences) {
-    parts.push(`Layout Preferences: ${brief.layoutPreferences}`)
-  }
-
-  // === LOGO SAFE ZONES (Smart Layout - CRITICAL FOR AI AWARENESS) ===
-  if (brief.logoSafeZoneGuidance) {
-    parts.push('')  // Empty line for separation
-    parts.push('=== LOGO SAFE ZONES (DO NOT PLACE CONTENT HERE) ===')
-    parts.push(brief.logoSafeZoneGuidance)
-    parts.push('')
-    parts.push('IMPORTANT: Logos will be digitally overlaid AFTER image generation.')
-    parts.push('Your job is to create a design where these areas have clean, simple backgrounds.')
-    parts.push('Do NOT place headlines, key text, or important visuals in logo zones.')
-  }
-
-  return parts.join('\n')
+  return { valid: true }
 }
 
-/**
- * Parse AI response into DesignContext
- */
-function parseDesignContext(response: string): DesignContext {
-  // Try to extract JSON from response (handle potential markdown wrapping)
-  let jsonStr = response.trim()
+// ============================================================
+// MAIN GENERATOR FUNCTION
+// ============================================================
 
-  // Remove markdown code block if present
-  if (jsonStr.startsWith('```json')) {
-    jsonStr = jsonStr.slice(7)
-  } else if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.slice(3)
-  }
-  if (jsonStr.endsWith('```')) {
-    jsonStr = jsonStr.slice(0, -3)
-  }
-  jsonStr = jsonStr.trim()
-
-  // Extract JSON object using regex as fallback
-  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    console.error('Failed to extract JSON from response:', response)
-    throw new Error('Failed to parse design context from AI response')
-  }
+export async function generateDesignContext(
+  input: DesignBrief
+): Promise<DesignIntelligenceResult> {
+  const startTime = Date.now()
+  let llmResponse: LLMResponse
 
   try {
-    const parsed = JSON.parse(jsonMatch[0])
+    // Stage 1: Construct the Prompt
+    const prompt = buildDesignContextPrompt(DESIGN_INTELLIGENCE_PROMPT, input)
 
-    // Validate required fields
-    const required = [
-      'corePurpose',
-      'desiredAction',
-      'emotionalJob',
-      'visualElements',
-      'backgroundSetting',
-      'iconicImagery',
-      'colorMood',
-      'designStrategy',
-      'successMetric'
-    ]
-
-    for (const field of required) {
-      if (!(field in parsed)) {
-        throw new Error(`Missing required field: ${field}`)
-      }
+    // Stage 2: Call LLM (Gemini preferred, Claude fallback)
+    // We prioritize speed/cost for this step since it's "thinking" not "rendering"
+    try {
+      llmResponse = await callGemini(prompt)
+    } catch (e) {
+      console.warn('[Design Intelligence] Gemini failed, falling back to Claude', e)
+      llmResponse = await callClaude(prompt)
     }
 
-    // Ensure arrays are arrays
-    if (!Array.isArray(parsed.visualElements)) {
-      parsed.visualElements = [parsed.visualElements].filter(Boolean)
-    }
-    if (!Array.isArray(parsed.iconicImagery)) {
-      parsed.iconicImagery = [parsed.iconicImagery].filter(Boolean)
+    // Stage 3: Parse & Validate
+    const designContext = parseDesignContext(llmResponse.text)
+
+    // NEW: Validate context matches event
+    const validation = validateContextMatchesEvent(
+      designContext,
+      input.eventName,
+      input.eventType
+    )
+
+    if (!validation.valid) {
+      console.error('[Design Intelligence] ⚠️  CONTEXT VALIDATION FAILED!')
+      console.error('[Design Intelligence] Reason:', validation.reason)
+      console.error('[Design Intelligence] Event Name:', input.eventName)
+      console.error('[Design Intelligence] Triggering fallback...')
+
+      // Trigger fallback by throwing error
+      throw new Error(`Context validation failed: ${validation.reason}`)
     }
 
-    // layoutGuidance is optional but should be a string if present
-    if (parsed.layoutGuidance && typeof parsed.layoutGuidance !== 'string') {
-      parsed.layoutGuidance = String(parsed.layoutGuidance)
+    // Stage 4: Return Enriched Context
+    return {
+      context: designContext,
+      usage: {
+        model: llmResponse.model,
+        provider: llmResponse.model.includes('claude') ? 'claude' : 'gemini',
+        tokenUsage: llmResponse.tokenUsage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        durationMs: Date.now() - startTime,
+      },
     }
-
-    return parsed as DesignContext
   } catch (error) {
-    console.error('JSON parse error:', error, 'Response:', jsonStr)
-    throw new Error(`Failed to parse design context: ${error}`)
+    console.error('[Design Intelligence] Failed to generate context:', error)
+    // Return safe fallback to prevent app crash
+    // Return safe fallback to prevent app crash
+    const fallbackContext = generateFallbackContext({
+      title: input.eventName,
+      description: input.details,
+      venue: input.venue,
+      additionalContext: input.additionalContext,
+    })
+
+    return {
+      context: fallbackContext,
+      usage: {
+        model: 'fallback',
+        provider: 'gemini',
+        tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        durationMs: Date.now() - startTime,
+      },
+    }
   }
 }
 
 // ============================================================
-// LLM PROVIDER IMPLEMENTATIONS
+// HELPERS
 // ============================================================
 
-/**
- * Call Gemini Flash for design intelligence
- * Using Gemini 2.0 Flash - fast, cheap, and excellent for structured output
- *
- * @param prompt - The prompt to send
- * @param temperature - Dynamic temperature (default: 1.3 for creative formats)
- * @param topP - Top-P sampling parameter (default: 0.95)
- */
-async function callGemini(
-  prompt: string,
-  temperature: number = 1.3,
-  topP: number = 0.95
-): Promise<LLMResponse> {
-  // Support both GEMINI_API_KEY (primary) and GOOGLE_AI_API_KEY (fallback)
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
-  const modelName = 'gemini-2.0-flash-exp'
-
-  console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
-
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY or GOOGLE_AI_API_KEY is not configured')
-  }
+async function callGemini(prompt: string): Promise<LLMResponse> {
+  const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error('Missing Gemini API Key')
 
   const genAI = new GoogleGenerativeAI(apiKey)
-
-  // Use Gemini 2.0 Flash for fast, cost-effective analysis
-  // Temperature is now dynamic based on format type
   const model = genAI.getGenerativeModel({
-    model: modelName,
+    model: GEMINI_MODEL,
     generationConfig: {
-      temperature, // Dynamic temperature for format-appropriate creativity
-      topP, // Dynamic top-P for word choice variation
-      maxOutputTokens: 1024, // Enough for structured response
-    }
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 4096, // v3.6: Increased for deeper reasoning
+      responseMimeType: 'application/json', // v3.6: Native JSON Mode!
+    },
+    // v3.6: Explicit Safety Settings (BLOCK_ONLY_HIGH allows creative freedom)
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+    ]
   })
-
-  console.log('[Design Intelligence] Calling Gemini 2.0 Flash...')
-  const startTime = Date.now()
 
   const result = await model.generateContent(prompt)
   const response = result.response
 
-  const durationMs = Date.now() - startTime
   const text = response.text()
 
-  // Extract token usage from response metadata
+  // Calculate approximate token usage (Gemini doesn't always return usage in this call style, but we can try)
   const usageMetadata = response.usageMetadata
   const tokenUsage: TokenUsage = {
-    inputTokens: usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4),
-    outputTokens: usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 4),
-    cachedTokens: usageMetadata?.cachedContentTokenCount || 0,
-    totalTokens: usageMetadata?.totalTokenCount || Math.ceil((prompt.length + text.length) / 4),
+    inputTokens: usageMetadata?.promptTokenCount || 0,
+    outputTokens: usageMetadata?.candidatesTokenCount || 0,
+    totalTokens: usageMetadata?.totalTokenCount || 0,
   }
-
-  console.log(`[Design Intelligence] Response received in ${durationMs}ms`)
-  console.log('[Design Intelligence] Response length:', text.length, 'chars')
-  console.log('[Design Intelligence] Token usage:', JSON.stringify(tokenUsage))
 
   return {
     text,
     tokenUsage,
-    model: modelName,
-    durationMs,
+    model: GEMINI_MODEL,
+    durationMs: 0, // Calculated by caller
   }
 }
 
-/**
- * Call Claude for design intelligence
- * Using Claude Haiku 4.5 - fast, cost-effective, and excellent reasoning
- *
- * OPTIMIZATION: Uses prompt caching for system prompt to reduce costs
- *
- * @param prompt - The prompt to send
- * @param temperature - Dynamic temperature (default: 1.0)
- */
-async function callClaude(
-  prompt: string,
-  temperature: number = 1.0
-): Promise<LLMResponse> {
+async function callClaude(prompt: string): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const modelName = 'claude-haiku-4-5-20251001'
+  if (!apiKey) throw new Error('Missing Anthropic API Key')
 
-  console.log('[Design Intelligence] API Key Check:', apiKey ? `Present (***${apiKey.slice(-4)})` : 'MISSING!')
+  const anthropic = new Anthropic({ apiKey })
 
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY is not configured')
-  }
-
-  const client = new Anthropic({ apiKey })
-
-  console.log('[Design Intelligence] Calling Claude Haiku 4.5 (temp:', temperature, ')...')
   const startTime = Date.now()
-
-  // Extract system prompt and user content for caching
-  // The system prompt (DESIGN_INTELLIGENCE_PROMPT) is cacheable
-  const systemPromptEnd = prompt.indexOf('=== OUTPUT FORMAT')
-  const systemPrompt = systemPromptEnd > 0 ? prompt.substring(0, systemPromptEnd) : ''
-  const userContent = systemPromptEnd > 0 ? prompt.substring(systemPromptEnd) : prompt
-
-  // Use prompt caching for system prompt if it's substantial
-  const usePromptCaching = systemPrompt.length > 1000
-
-  const response = await client.messages.create({
-    model: modelName,
-    max_tokens: 4096,  // v3.6: Increased from 2048 - complex design contexts need 8000+ chars
-    // Apply prompt caching to system prompt for cost reduction
-    ...(usePromptCaching ? {
-      system: [
-        {
-          type: 'text' as const,
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' as const },
-        },
-      ],
+  const response = await anthropic.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 4096,
+    system: "You are a JSON-only API. return VALID, PARSEABLE JSON matching the schema.",
+    // v3.7: Enable Prompt Caching for the 4k system prompt (save cost/latency)
+    ...(process.env.ANTHROPIC_PROMPT_CACHING === 'true' ? {
       messages: [
         {
-          role: 'user' as const,
-          content: userContent,
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: prompt,
+              cache_control: { type: 'ephemeral' }
+            }
+          ]
         },
-      ],
+        {
+          role: 'assistant',
+          content: '{', // v3.7: Force JSON start to prevent preamble/hallucination
+        },
+      ]
     } : {
       messages: [
         {
-          role: 'user' as const,
+          role: 'user',
           content: prompt,
+        },
+        {
+          role: 'assistant',
+          content: '{', // v3.7: Force JSON start to prevent preamble/hallucination
         },
       ],
     }),
   })
 
   const durationMs = Date.now() - startTime
-  console.log(`[Design Intelligence] Response received in ${durationMs}ms`)
+
+  console.log(`[Design Intelligence] Response received in ${durationMs} ms`)
 
   // Extract text from response
   const textBlock = response.content.find(block => block.type === 'text')
@@ -855,6 +667,14 @@ async function callClaude(
   }
 
   const text = textBlock.text
+
+  // v3.7: If we forced the start with '{', we need to prepend it back if it's missing
+  // Claude usually continues from the pre-fill, so the response is just the REST of the JSON.
+  // We need to check if the response starts with the key, e.g. `"corePurpose":...`
+  // or if it includes the brace. 
+  // With prompt caching, the pre-fill behavior is tricky, so we handle both cases.
+
+  const finalJson = text.trim().startsWith('{') ? text : `{${text} `
 
   // Extract token usage from Claude's response
   const tokenUsage: TokenUsage = {
@@ -868,9 +688,9 @@ async function callClaude(
   console.log('[Design Intelligence] Token usage:', JSON.stringify(tokenUsage))
 
   return {
-    text,
+    text: finalJson, // v3.7: Return the repaired JSON string
     tokenUsage,
-    model: modelName,
+    model: CLAUDE_MODEL,
     durationMs,
   }
 }
@@ -889,343 +709,165 @@ async function callOpenAI(prompt: string): Promise<LLMResponse> {
 // FALLBACK / DEFAULT CONTEXT
 // ============================================================
 
-/**
- * Event-type specific fallback contexts
- * Provides contextually relevant visual elements when AI analysis fails
- */
-const EVENT_TYPE_FALLBACKS: Record<string, Partial<DesignContext>> = {
-  conference: {
-    visualElements: ['podium with microphone', 'seated audience', 'presentation screen', 'stage lighting', 'conference badges'],
-    backgroundSetting: 'Modern convention center with professional stage setup, ambient blue lighting',
-    iconicImagery: ['keynote speaker silhouette', 'networking crowd', 'conference banner'],
-    colorMood: 'Professional blues and grays with energetic accent colors',
-  },
-  seminar: {
-    visualElements: ['speaker at podium', 'whiteboard or screen', 'attentive audience', 'educational materials'],
-    backgroundSetting: 'Academic auditorium or modern lecture hall with focused lighting',
-    iconicImagery: ['graduation cap', 'open book', 'knowledge sharing'],
-    colorMood: 'Scholarly tones - deep blues, burgundy, gold accents',
-  },
-  workshop: {
-    visualElements: ['hands-on activity', 'workstations', 'participants collaborating', 'tools and materials'],
-    backgroundSetting: 'Creative studio space or training room with natural lighting',
-    iconicImagery: ['hands working', 'creative tools', 'collaboration'],
-    colorMood: 'Energetic and creative - warm oranges, teals, vibrant accents',
-  },
-  blood_donation: {
-    visualElements: ['blood donation bag', 'red cross symbol', 'helping hands', 'heart shape', 'medical equipment'],
-    backgroundSetting: 'Clean medical facility or community center with warm, welcoming atmosphere',
-    iconicImagery: ['blood drop', 'heart symbol', 'life-saving hands'],
-    colorMood: 'Medical red as hero color, clean white, compassionate pink accents',
-  },
-  awareness: {
-    visualElements: ['symbolic ribbon', 'people united', 'informational graphics', 'hands raised'],
-    backgroundSetting: 'Community gathering space with hopeful lighting',
-    iconicImagery: ['awareness ribbon', 'united hands', 'knowledge symbol'],
-    colorMood: 'Cause-appropriate colors with emotional depth',
-  },
-  camp: {
-    visualElements: ['outdoor setting', 'group activities', 'tents or facilities', 'nature elements'],
-    backgroundSetting: 'Natural outdoor environment with trees, open sky',
-    iconicImagery: ['campfire', 'nature', 'adventure'],
-    colorMood: 'Earth tones with vibrant accent colors',
-  },
-  inauguration: {
-    visualElements: ['ribbon cutting ceremony', 'dignitaries', 'building facade', 'ceremonial elements'],
-    backgroundSetting: 'Grand entrance or building with formal decorations',
-    iconicImagery: ['scissors and ribbon', 'grand opening', 'celebration'],
-    colorMood: 'Prestigious gold, deep blue, ceremonial red',
-  },
-  festival: {
-    visualElements: ['colorful decorations', 'cultural elements', 'celebration crowd', 'festive lighting'],
-    backgroundSetting: 'Vibrant festival grounds with colorful lighting and decorations',
-    iconicImagery: ['fireworks', 'traditional elements', 'celebration'],
-    colorMood: 'Vibrant, celebratory colors - bright yellows, reds, oranges',
-  },
-  webinar: {
-    visualElements: ['laptop screen', 'video call interface', 'speaker headshot', 'digital graphics'],
-    backgroundSetting: 'Modern home office or professional studio setup',
-    iconicImagery: ['webcam', 'digital connection', 'online learning'],
-    colorMood: 'Tech-forward blues and purples with clean whites',
-  },
-  hackathon: {
-    visualElements: ['laptops and coding', 'team collaboration', 'whiteboards with ideas', 'coffee cups'],
-    backgroundSetting: 'Tech workspace with multiple screens, energetic atmosphere',
-    iconicImagery: ['code brackets', 'lightbulb innovation', 'team coding'],
-    colorMood: 'Tech neon accents - electric blue, green, purple on dark background',
-  },
-  competition: {
-    visualElements: ['trophy', 'contestants', 'stage or arena', 'scoring display'],
-    backgroundSetting: 'Competition venue with dramatic lighting and stage setup',
-    iconicImagery: ['trophy', 'winner podium', 'achievement medal'],
-    colorMood: 'Champion gold, competitive red, victory blue',
-  },
-}
-
-/**
- * FORMAT-specific design contexts
- * When a FORMAT is specified, these take PRIORITY over event type fallbacks
- * The FORMAT defines what the design LOOKS LIKE, not the content
- */
-const FORMAT_DESIGN_CONTEXTS: Record<string, Partial<DesignContext>> = {
-  // === DOCUMENT FORMATS ===
-  certificate: {
-    corePurpose: 'Create a formal, prestigious document that honors achievement and conveys official recognition',
-    visualElements: ['elegant decorative border', 'gold or silver accents', 'laurel wreaths', 'ribbon corners', 'seal placeholder', 'formal typography hierarchy'],
-    backgroundSetting: 'Cream or ivory textured paper background with subtle watermark pattern, formal document style',
-    iconicImagery: ['official seal', 'laurel wreath', 'decorative flourishes', 'ribbon elements'],
-    colorMood: 'Prestigious gold, cream/ivory, deep navy or burgundy accents - formal and distinguished',
-    designStrategy: 'Formal, symmetrical layout with recipient name as hero element, decorative borders framing the content',
-    desiredAction: 'Display proudly and feel honored',
-    emotionalJob: 'Valued, accomplished, and officially recognized',
-    successMetric: 'Viewer sees a formal certificate worthy of framing, not a poster or promotional material',
-  },
-
-  // === THUMBNAIL FORMATS ===
-  youtube_thumbnail: {
-    corePurpose: 'Create a click-worthy thumbnail that demands attention in 1-2 seconds and drives video views',
-    visualElements: ['expressive human face taking 50%+ of frame', 'bold outlined text with stroke', 'high contrast elements', 'dramatic lighting on face'],
-    backgroundSetting: 'Bold solid color or dramatic gradient background that makes the subject pop instantly',
-    iconicImagery: ['reaction face with emotion', 'action moment captured', 'dramatic lighting effects'],
-    colorMood: 'Bright, saturated, high contrast colors optimized for YouTube algorithm - yellows, reds, bright blues',
-    designStrategy: 'Face-focused composition with minimal but impactful text, designed for thumb-stopping power at small sizes',
-    desiredAction: 'Click to watch the video immediately',
-    emotionalJob: 'Curious, intrigued, and compelled to click',
-    successMetric: 'Viewer instantly understands the video topic and feels compelled to click - NOT a poster',
-  },
-  tiktok_cover: {
-    corePurpose: 'Create a vertical-first cover that stops scrolling and represents the video content',
-    visualElements: ['vertical human figure or face', 'bold text overlay', 'mobile-optimized elements', 'high contrast'],
-    backgroundSetting: 'Bold, clean background optimized for mobile vertical viewing',
-    iconicImagery: ['expressive face', 'trending visual style', 'mobile-native elements'],
-    colorMood: 'Vibrant, trendy colors that pop on mobile screens',
-    designStrategy: 'Vertical-first design with elements positioned for mobile feed viewing',
-    desiredAction: 'Stop scrolling and watch the video',
-    emotionalJob: 'Entertained, curious, engaged',
-    successMetric: 'Viewer stops scrolling to watch - designed for vertical mobile feed',
-  },
-
-  // === PROFESSIONAL FORMATS ===
-  business_card: {
-    corePurpose: 'Create a memorable, professional networking tool that fits in a wallet',
-    visualElements: ['clean name hierarchy', 'contact information layout', 'brand logo space', 'professional typography'],
-    backgroundSetting: 'Clean, minimal background with brand colors, business card dimensions',
-    iconicImagery: ['professional patterns', 'subtle brand elements', 'clean geometric accents'],
-    colorMood: 'Professional, memorable brand colors with clean contrast',
-    designStrategy: 'Compact, scannable layout with clear information hierarchy, all text must be readable at card size',
-    desiredAction: 'Save this contact and remember this professional',
-    emotionalJob: 'Impressed and confident in this professional',
-    successMetric: 'Viewer sees a professional business card, NOT a poster or promotional flyer',
-  },
-  letterhead: {
-    corePurpose: 'Create a professional document header that establishes brand credibility',
-    visualElements: ['company logo space', 'contact information bar', 'subtle brand elements', 'formal typography'],
-    backgroundSetting: 'Clean white background with minimal brand color accents',
-    iconicImagery: ['professional logo placeholder', 'subtle watermark', 'corporate elements'],
-    colorMood: 'Professional, clean, brand-consistent colors',
-    designStrategy: 'Top-heavy design with branding, leaving ample space for document content below',
-    desiredAction: 'Trust this organization',
-    emotionalJob: 'Confident in the professionalism of this organization',
-    successMetric: 'Viewer recognizes this as professional letterhead stationery',
-  },
-
-  // === SOCIAL MEDIA FORMATS ===
-  instagram_story: {
-    corePurpose: 'Create a vertical, swipe-stopping story that drives engagement in the Instagram Stories feed',
-    visualElements: ['vertical focal point', 'bold overlay text', 'interactive element hints', 'mobile-optimized imagery'],
-    backgroundSetting: 'Full-bleed vertical background optimized for 9:16 mobile viewing',
-    iconicImagery: ['story-native elements', 'swipe-up hints', 'engagement prompts'],
-    colorMood: 'Vibrant, Instagram-native colors that stand out in Stories',
-    designStrategy: 'Vertical composition with key content in safe zones, designed for quick consumption',
-    desiredAction: 'Engage with story (swipe, reply, react)',
-    emotionalJob: 'Engaged, entertained, connected',
-    successMetric: 'Viewer stops on this story and engages - NOT a square or landscape poster',
-  },
-  instagram_post: {
-    corePurpose: 'Create a feed-stopping square post that drives likes, comments, and saves',
-    visualElements: ['centered focal point', 'clean composition', 'brand-consistent elements', 'caption-ready design'],
-    backgroundSetting: 'Square format background that works in the Instagram grid',
-    iconicImagery: ['Instagram-native visual style', 'shareable elements', 'aesthetic composition'],
-    colorMood: 'Aesthetic, curated colors that fit Instagram visual culture',
-    designStrategy: 'Square composition optimized for grid view and individual viewing',
-    desiredAction: 'Like, comment, save, or share this post',
-    emotionalJob: 'Inspired, connected, aesthetically pleased',
-    successMetric: 'Viewer engages with the post - designed for Instagram grid',
-  },
-  linkedin_post: {
-    corePurpose: 'Create a professional, thought-leadership post that drives engagement in the LinkedIn feed',
-    visualElements: ['professional imagery', 'clear headline text', 'data visualization elements', 'corporate-appropriate design'],
-    backgroundSetting: 'Professional, clean background appropriate for business context',
-    iconicImagery: ['professional icons', 'business imagery', 'thought leadership visuals'],
-    colorMood: 'Professional blues, corporate colors, trustworthy palette',
-    designStrategy: 'Professional composition that looks good in LinkedIn feed and drives comments',
-    desiredAction: 'Engage with post, comment, or connect',
-    emotionalJob: 'Professionally impressed, thoughtful, engaged',
-    successMetric: 'Viewer sees professional content worthy of LinkedIn engagement',
-  },
-
-  // === MARKETING FORMATS ===
-  flyer: {
-    corePurpose: 'Create an attention-grabbing promotional flyer with contextual decorative elements that reinforce the event message and visual appeal',
-    visualElements: [
-      'bold headline area with event-appropriate styling',
-      'contextual decorative elements based on event type (e.g., medical icons for health events, tech patterns for workshops)',
-      'clear information hierarchy with date/venue/CTA',
-      'prominent call-to-action button or banner',
-      'subtle corner and edge decorations that enhance without overwhelming',
-    ],
-    backgroundSetting: 'Eye-catching gradient background with event-appropriate decorative elements - medical gradients with health symbols for health events, warm orange with hands-on icons for workshops, corporate blue with networking elements for conferences, festive colors with celebration motifs for festivals',
-    iconicImagery: ['event-specific symbols in corners', 'thematic visual elements that reinforce the message', 'subtle decorative patterns along edges'],
-    colorMood: 'Vibrant, attention-grabbing colors appropriate to the event type - medical colors for health events, warm energetic colors for workshops, corporate palette for business, festive for celebrations - all CMYK print-safe',
-    designStrategy: 'Clear hierarchy with headline dominating, contextual decorative elements SUBTLY enhancing mood in corners and edges without overwhelming, details organized for 5-second scanning, prominent CTA',
-    desiredAction: 'Read details quickly and take action (attend, sign up, contact, register)',
-    emotionalJob: 'Interested, informed about the event context through visual cues, and motivated to act',
-    successMetric: 'Viewer immediately understands the event type through contextual visual elements, gets key information in 5 seconds, and knows exactly what action to take',
-  },
-  billboard: {
-    corePurpose: 'Create a high-impact design readable at a glance from distance',
-    visualElements: ['massive bold text', 'single focal image', 'brand logo', 'minimal elements'],
-    backgroundSetting: 'Bold, simple background with maximum contrast for outdoor viewing',
-    iconicImagery: ['single powerful image', 'iconic brand elements', 'dramatic visuals'],
-    colorMood: 'High contrast, bold colors visible from distance',
-    designStrategy: 'Ultra-simple composition with 7 words or less - readable at 60mph',
-    desiredAction: 'Remember the brand/message',
-    emotionalJob: 'Impacted, aware, brand recognition',
-    successMetric: 'Viewer gets the message in 3 seconds from distance',
-  },
-
-  // === PRESENTATION FORMATS ===
-  presentation_slide: {
-    corePurpose: 'Create a clear, scannable slide that supports presenter without overwhelming',
-    visualElements: ['bullet points or key text', 'supporting graphic', 'slide number', 'minimal design'],
-    backgroundSetting: 'Clean, professional background that doesn\'t distract from content',
-    iconicImagery: ['supporting icons', 'data visualizations', 'professional graphics'],
-    colorMood: 'Professional, readable colors with good contrast for projection',
-    designStrategy: 'Content-focused with clear hierarchy, designed to be spoken TO not read FROM',
-    desiredAction: 'Understand the key point and listen to presenter',
-    emotionalJob: 'Informed, focused, engaged with presenter',
-    successMetric: 'Viewer can grasp the slide point in 3 seconds - NOT a document to read',
-  },
-
-  // === EVENT FORMATS (default poster behavior) ===
-  event_poster: {
-    corePurpose: 'Create an attention-grabbing event poster that drives attendance',
-    visualElements: ['bold event title', 'event imagery', 'date and venue', 'call to action'],
-    backgroundSetting: 'Event-appropriate background with visual impact',
-    iconicImagery: ['event-specific icons', 'thematic elements', 'action imagery'],
-    colorMood: 'Event-appropriate colors that create excitement and urgency',
-    designStrategy: 'Visual hierarchy leading to registration/attendance CTA',
-    desiredAction: 'Register or attend the event',
-    emotionalJob: 'Excited, informed, motivated to attend',
-    successMetric: 'Viewer knows what the event is, when it is, and wants to attend',
-  },
-}
-
-/**
- * Generate a fallback design context when AI fails
- * FORMAT takes PRIORITY over event type for design direction
- */
-export function generateFallbackContext(brief: DesignBrief): DesignContext {
-  const eventType = brief.eventType?.replace(/_/g, ' ') || 'event'
-  const eventTypeKey = brief.eventType?.toLowerCase() || ''
-  const eventName = brief.eventName || 'Special Event'
-  const formatId = brief.formatId?.toLowerCase() || ''
-  const formatName = brief.formatName || brief.formatId?.replace(/_/g, ' ') || 'design'
-
-  // PRIORITY 1: Try FORMAT-specific fallback first (defines design TYPE)
-  const formatFallback = FORMAT_DESIGN_CONTEXTS[formatId]
-
-  if (formatFallback) {
-    console.log('[Design Intelligence] Using FORMAT-specific fallback for:', formatId)
-    console.log('[Design Intelligence] Event content:', eventTypeKey || 'general')
-
-    // Merge format design with event content context
-    return {
-      corePurpose: formatFallback.corePurpose || `Create a professional ${formatName}`,
-      desiredAction: formatFallback.desiredAction || `Engage with this ${formatName}`,
-      emotionalJob: formatFallback.emotionalJob || 'Professionally impressed',
-      visualElements: formatFallback.visualElements || [],
-      backgroundSetting: formatFallback.backgroundSetting || 'Professional background',
-      iconicImagery: formatFallback.iconicImagery || [],
-      colorMood: formatFallback.colorMood || 'Professional colors',
-      designStrategy: formatFallback.designStrategy || 'Clear, professional layout',
-      successMetric: formatFallback.successMetric || `Viewer recognizes this as a ${formatName}`
-    }
-  }
-
-  // PRIORITY 2: Try event-type specific fallback (for posters/general creatives)
-  const specificFallback = EVENT_TYPE_FALLBACKS[eventTypeKey]
-
-  if (specificFallback) {
-    console.log('[Design Intelligence] Using event-specific fallback for:', eventTypeKey)
-    return {
-      corePurpose: `Create an impactful ${eventType} design that inspires action and communicates the event's significance`,
-      desiredAction: `Register and participate in ${eventName}`,
-      emotionalJob: 'Excited, motivated, and eager to participate',
-      visualElements: specificFallback.visualElements || [],
-      backgroundSetting: specificFallback.backgroundSetting || 'Professional event environment',
-      iconicImagery: specificFallback.iconicImagery || [],
-      colorMood: specificFallback.colorMood || 'Professional colors with energetic accents',
-      designStrategy: 'Lead with impactful visual elements that immediately communicate the event type',
-      successMetric: `Viewer immediately understands this is a ${eventType} and feels compelled to attend`
-    }
-  }
-
-  // PRIORITY 3: Generic fallback for unknown format/event types
-  console.log('[Design Intelligence] Using generic fallback (no specific type found for format:', formatId, 'event:', eventTypeKey, ')')
-  return {
-    corePurpose: `Create an engaging ${eventType} design that captures attention and communicates professionalism`,
-    desiredAction: `Attend and participate in ${eventName}`,
-    emotionalJob: 'Interested, engaged, and professionally impressed',
-    visualElements: [
-      'prominent event title',
-      'professional speaker or host',
-      'relevant thematic imagery',
-      'clear call-to-action',
-      'event details display'
-    ],
-    backgroundSetting: 'Professional, modern environment with sophisticated lighting and depth',
-    iconicImagery: [
-      'event-related symbols',
-      'people engaged',
-      'dynamic visual elements'
-    ],
-    colorMood: 'Brand colors with professional harmony, creating trust and engagement',
-    designStrategy: 'Balance visual impact with clear information hierarchy, ensuring immediate comprehension',
-    successMetric: `Viewer immediately understands this is a noteworthy ${eventType} worth attending`
-  }
-}
-
-/**
- * Safe wrapper that returns fallback on error
- * Returns DesignContextResult with zero usage for fallback cases
- */
-export async function generateDesignContextSafe(
-  brief: DesignBrief,
-  provider: LLMProvider = 'claude'
-): Promise<DesignContextResult> {
+function parseDesignContext(json: string): DesignContext {
   try {
-    return await generateDesignContext(brief, provider)
-  } catch (error) {
-    console.error('[Design Intelligence] === ERROR - USING FALLBACK ===')
-    console.error('[Design Intelligence] Error:', error instanceof Error ? error.message : error)
-    console.warn('[Design Intelligence] WARNING: AI context generation failed, using generic fallback!')
-    console.warn('[Design Intelligence] This will result in less contextual designs.')
+    // STEP 1: Clean the JSON (remove markdown, comments)
+    let cleanedJSON = json.trim()
 
-    // Return fallback with zero usage
-    return {
-      context: generateFallbackContext(brief),
-      usage: {
-        provider: provider === 'gemini' ? 'gemini' : 'claude',
-        model: 'fallback',
-        tokenUsage: {
-          inputTokens: 0,
-          outputTokens: 0,
-          cachedTokens: 0,
-          totalTokens: 0,
-        },
-        durationMs: 0,
-      },
+    // Remove markdown code blocks if present
+    if (cleanedJSON.startsWith('```json')) {
+      cleanedJSON = cleanedJSON.slice(7) // Remove ```json
+    } else if (cleanedJSON.startsWith('```')) {
+      cleanedJSON = cleanedJSON.slice(3) // Remove ```
     }
+
+    if (cleanedJSON.endsWith('```')) {
+      cleanedJSON = cleanedJSON.slice(0, -3) // Remove trailing ```
+    }
+
+    cleanedJSON = cleanedJSON.trim()
+    console.log('[Design Intelligence] Cleaned JSON length:', cleanedJSON.length, 'chars')
+
+    // STEP 2: Parse the cleaned JSON (with fallback repair)
+    const parsed = safeJsonParse<any>(cleanedJSON)
+
+
+    // Validate required fields
+    const required = [
+      'corePurpose',
+      'visualElements',
+    ]
+
+    const missing = required.filter(field => !parsed[field])
+    if (missing.length > 0) {
+      console.warn('[Design Intelligence] Missing required fields:', missing)
+      // We could throw here, or just let validation fail later
+    }
+
+    return parsed as DesignContext
+  } catch (error) {
+    console.error('[Design Intelligence] JSON Parse Error:', error)
+    console.error('[Design Intelligence] Raw JSON:', json.substring(0, 100) + '...')
+    throw new Error('Failed to parse design context JSON')
   }
 }
+
+/**
+ * Get format-specific design guidance to prevent event_poster contamination
+ */
+function getFormatSpecificGuidance(formatId?: string, formatName?: string): string {
+  if (!formatId || formatId === 'event_poster') return ''
+
+  const guidance: Record<string, string> = {
+    certificate: `
+=== CERTIFICATE DESIGN CONTEXT ===
+Certificates require:
+- Formal borders, elegant typography, credibility signals (seals, signatures)
+- Center-aligned, symmetrical, prestigious feel
+- Professional colors (navy, gold, burgundy), NOT vibrant event colors
+- Academic symbols (laurels, ribbons, shields), NOT event decorations
+- Achievement-focused language, NOT promotional language
+CRITICAL: Design a CERTIFICATE, not an event poster!`,
+
+    instagram_post: `
+=== INSTAGRAM POST DESIGN CONTEXT ===
+Instagram posts require:
+- Bold headlines, minimal text, scroll-stopping visuals
+- Vertical/square optimized for mobile feeds
+- Vibrant, high-contrast colors for engagement
+- Modern, trendy graphics and patterns
+- Eye-catching compositions that stop scrolling
+CRITICAL: Design for INSTAGRAM mobile feed, not an event poster!`,
+
+    linkedin_post: `
+=== LINKEDIN POST DESIGN CONTEXT ===
+LinkedIn posts require:
+- Professional credibility, clear value proposition
+- Business-appropriate tone and colors (blues, grays, corporate palette)
+- Data visualizations, professional icons, clean layouts
+- Authority signals, NOT entertainment visuals
+- B2B messaging, NOT consumer event promotions
+CRITICAL: Design for LINKEDIN professional feed, not an event poster!`,
+
+    youtube_thumbnail: `
+=== YOUTUBE THUMBNAIL DESIGN CONTEXT ===
+YouTube thumbnails require:
+- Emotion-driven facial expressions if people present
+- Bold, large text readable at tiny sizes
+- High saturation, complementary color contrasts
+- Expressive faces, bold arrows/frames for attention
+- Click-through rate optimization (CTR patterns)
+CRITICAL: Design for YOUTUBE search/browse tiny thumbnails, not posters!`,
+
+    business_card: `
+=== BUSINESS CARD DESIGN CONTEXT ===
+Business cards require:
+- Minimal, professional layouts with clear hierarchy
+- Contact information prominence (name, title, phone, email)
+- Corporate/personal branding consistency
+- Print-optimized (high DPI, CMYK-safe colors)
+- Professional typography, NOT decorative event fonts
+CRITICAL: Design a BUSINESS CARD, not an event poster!`,
+
+    flyer: `
+=== FLYER DESIGN CONTEXT ===
+Flyers require:
+- Clear call-to-action (CTA) prominence
+- Scannable information hierarchy
+- Promotional/marketing tone
+- Print or digital distribution optimization
+- Quick-glance readability
+CRITICAL: Design a FLYER with clear CTA, following flyer best practices!`,
+
+    invitation: `
+=== INVITATION DESIGN CONTEXT ===
+Invitations require:
+- Elegant, welcoming aesthetics
+- Clear RSVP information and event details
+- Sophisticated typography (script, serif combinations)
+- Premium feel (gold accents, textures)
+- Formal or semi-formal tone depending on event type
+CRITICAL: Design an INVITATION that feels welcoming and elegant!`,
+
+    brochure: `
+=== BROCHURE DESIGN CONTEXT ===
+Brochures require:
+- Multi-section content organization
+- Visual storytelling across panels
+- Professional corporate aesthetic
+- Clear information hierarchy
+- Print-optimized layouts with margins
+CRITICAL: Design a BROCHURE with multi-panel storytelling!`
+  }
+
+  return guidance[formatId] || `
+=== ${(formatName || formatId).toUpperCase()} DESIGN CONTEXT ===
+This is a ${formatName || formatId}, NOT an event poster.
+Consider the unique requirements of this format type.
+Adapt visual style, typography, colors, and decorations accordingly.`
+}
+
+/**
+ * Get category name for a format ID
+ */
+function getCategoryName(formatId: string): string {
+  if (['instagram_post', 'linkedin_post', 'facebook_post', 'twitter_post', 'story'].includes(formatId)) {
+    return 'Social Media'
+  }
+  if (['certificate', 'invitation', 'brochure', 'flyer', 'event_poster'].includes(formatId)) {
+    return 'Print Material'
+  }
+  if (['youtube_thumbnail', 'video_cover'].includes(formatId)) {
+    return 'Video Thumbnail'
+  }
+  if (['business_card', 'letterhead', 'resume'].includes(formatId)) {
+    return 'Professional Document'
+  }
+  return 'Marketing Material'
+}
+
+/**
+ * Alias for backward compatibility / explicit safety
+ */
+export const generateDesignContextSafe = generateDesignContext
+

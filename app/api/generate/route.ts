@@ -10,6 +10,7 @@ import {
   calculateImageCost,
   type AIProvider,
 } from '@/lib/config/ai-pricing'
+import { resolveColorConfig, buildResolvedColorNarrative, isValidHex, type ResolvedColors } from '@/lib/utils/resolve-color-config'
 // Lazy load sharp to reduce cold start time (40-60MB native binary)
 // Only loaded when actually needed for template processing
 let sharpInstance: typeof sharp | null = null
@@ -24,7 +25,11 @@ import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition 
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
 import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
-import { ASPECT_RATIOS, DIMENSION_QUALITY } from '@/lib/config/design-constants'
+import {
+  ASPECT_RATIOS,
+  DIMENSION_QUALITY,
+  getLogoStripStyleByVibe // NEW: for auto-selecting strip shape based on vibe
+} from '@/lib/config/design-constants'
 import {
   generatePrompt,
   isGeminiPrompt,
@@ -149,6 +154,15 @@ export async function POST(request: NextRequest) {
       useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
     }
 
+    // NEW v3.10: Extract color configuration from design data
+    const colorConfig = designData?.colorConfig || null
+
+    console.log('[Generate API] Color Config Received:', {
+      useBrandColors: colorConfig?.useBrandColors,
+      selectedPalette: colorConfig?.selectedPalette,
+      hasCustomColors: !!colorConfig?.customColors,
+    })
+
     // Get format if specified
     const selectedFormat = formatId ? getFormatById(formatId) : null
     const formatDimensions = customDimensions || (selectedFormat ? { width: selectedFormat.width, height: selectedFormat.height } : null)
@@ -206,6 +220,38 @@ export async function POST(request: NextRequest) {
     } | null
     const fontPreference = brandConfig?.fontPrimary || undefined
 
+    // NEW v3.10: Resolve actual color values from ColorConfig
+    const resolvedColors = resolveColorConfig(colorConfig, brandConfig || undefined)
+
+    console.log('[Generate API] Resolved Colors:', {
+      primary: resolvedColors.primaryColor,
+      secondary: resolvedColors.secondaryColor,
+      accent: resolvedColors.accentColor,
+      source: resolvedColors.source,
+    })
+
+    // NEW v3.10: Validate resolved colors before proceeding
+    if (!resolvedColors.primaryColor || !resolvedColors.secondaryColor) {
+      console.warn('[Generate API] WARNING: Color resolution failed, using fallback colors')
+    }
+
+    // Validate hex format for resolved colors
+    if (!isValidHex(resolvedColors.primaryColor)) {
+      console.error('[Generate API] Invalid primary color format:', resolvedColors.primaryColor)
+      return NextResponse.json(
+        { error: 'Invalid color configuration: Primary color must be a valid hex code' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidHex(resolvedColors.secondaryColor)) {
+      console.error('[Generate API] Invalid secondary color format:', resolvedColors.secondaryColor)
+      return NextResponse.json(
+        { error: 'Invalid color configuration: Secondary color must be a valid hex code' },
+        { status: 400 }
+      )
+    }
+
     // Extract effective footer contact values based on useBrand* toggle:
     // - useBrand* = true (or undefined/default) → use brand configured value
     // - useBrand* = false → use custom per-creative value
@@ -225,22 +271,23 @@ export async function POST(request: NextRequest) {
         : (footerConfig?.customAddress || ''),
       social: (footerConfig?.useBrandSocial ?? true)
         ? (brandConfig?.footerSocial ? {
-            instagram: brandConfig.footerSocial.instagram || '',
-            linkedin: brandConfig.footerSocial.linkedin || '',
-            facebook: brandConfig.footerSocial.facebook || '',
-            twitter: brandConfig.footerSocial.twitter || '',
-          } : null)
+          instagram: brandConfig.footerSocial.instagram || '',
+          linkedin: brandConfig.footerSocial.linkedin || '',
+          facebook: brandConfig.footerSocial.facebook || '',
+          twitter: brandConfig.footerSocial.twitter || '',
+        } : null)
         : (footerConfig?.customSocial ? {
-            instagram: footerConfig.customSocial.instagram || '',
-            linkedin: footerConfig.customSocial.linkedin || '',
-            facebook: footerConfig.customSocial.facebook || '',
-            twitter: footerConfig.customSocial.twitter || '',
-          } : null),
+          instagram: footerConfig.customSocial.instagram || '',
+          linkedin: footerConfig.customSocial.linkedin || '',
+          facebook: footerConfig.customSocial.facebook || '',
+          twitter: footerConfig.customSocial.twitter || '',
+        } : null),
     }
 
     // ========================================================
     // API USAGE TRACKING - Track token usage and costs
     // ========================================================
+    let designContext: DesignContext | undefined // Hoisted for access in logo overlay logic
     const usageTracker = createUsageTracker({
       organizationId,
       userId: user.id,
@@ -359,15 +406,15 @@ export async function POST(request: NextRequest) {
       // If user has their own photo, disable speaker photo in prompt to avoid AI generating placeholder
       const promptDesignData = userHasSpeakerPhoto && effectiveDesignData
         ? {
-            ...effectiveDesignData,
-            customization: {
-              ...effectiveDesignData.customization,
-              speakerPhoto: {
-                ...effectiveDesignData.customization?.speakerPhoto,
-                enabled: false, // Don't tell AI about speaker photo if user will overlay their own
-              },
+          ...effectiveDesignData,
+          customization: {
+            ...effectiveDesignData.customization,
+            speakerPhoto: {
+              ...effectiveDesignData.customization?.speakerPhoto,
+              enabled: false, // Don't tell AI about speaker photo if user will overlay their own
             },
-          }
+          },
+        }
         : effectiveDesignData
 
       // ========================================================
@@ -506,7 +553,7 @@ export async function POST(request: NextRequest) {
         // Event content - PRIORITY: User form data > Compiled data > AI-refined > Parsed
         // This ensures actual user input is never overwritten by AI-generated values
         eventType: formDataContent.eventType || parsedContent.eventType,
-        eventName: formDataContent.eventName || compiledData.eventName || ultraProPrompt.primaryText || parsedContent.eventName,
+        eventName: formDataContent.eventName || compiledData.eventName || ultraProPrompt.primaryText || parsedContent.eventName || 'Event',
         organizationName: compiledData.organizationName || 'Yi Creatives',
         details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt for visual guidance
         theme: finalTheme,
@@ -517,6 +564,18 @@ export async function POST(request: NextRequest) {
         guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
         venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
         additionalContext: `${ultraProPrompt.visualScene}. ${ultraProPrompt.designGuidance}`,
+
+        // v4.2: Brand context for color-aware intelligence
+        brandContext: {
+          organizationName: compiledData.organizationName || 'Organization',
+          primaryColor: resolvedColors.primaryColor,
+          secondaryColor: resolvedColors.secondaryColor,
+          accentColor: resolvedColors.accentColor,
+          fontPreference: fontPreference,
+          useBrandColors: colorConfig?.useBrandColors ?? false,
+          useBrandFont: colorConfig?.useBrandFont ?? true, // Pass user preference
+          colorSource: resolvedColors.source as any,
+        },
 
         // === FORMAT AWARENESS (CRITICAL - defines design TYPE) ===
         // Format takes PRIORITY over event type for design direction
@@ -530,7 +589,7 @@ export async function POST(request: NextRequest) {
         hasSpeakerPhoto: speakerPhotoConfig?.enabled ?? false,
         speakerPhotoPosition: speakerPhotoConfig?.position,
         speakerPhotoShape: speakerPhotoConfig?.shape,
-        speakerPhotoSize: speakerPhotoConfig?.size,
+        speakerPhotoSize: speakerPhotoConfig?.size as any,
         // Logo zone configuration
         hasHeaderLogo: (layoutConfig?.headerHeight ?? 0) > 0,
         headerHeight: layoutConfig?.headerHeight,
@@ -543,7 +602,30 @@ export async function POST(request: NextRequest) {
 
       // Generate AI-powered design context
       const designContextResult = await generateDesignContextSafe(designBrief)
-      const designContext = designContextResult.context
+      designContext = designContextResult.context
+
+      // NEW: Context validation logging
+      console.log('[Generate] ═══ DESIGN CONTEXT VALIDATION ═══')
+      console.log('[Generate] Event Name:', designBrief.eventName)
+      console.log('[Generate] Event Type:', designBrief.eventType)
+      console.log('[Generate] Context Source:', designContextResult.usage.model)
+
+      const contextJson = JSON.stringify(designContext).toLowerCase()
+      const eventKeywords = (designBrief.eventName || '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 3)
+
+      const matchedKeywords = eventKeywords.filter(kw => contextJson.includes(kw))
+
+      console.log('[Generate] Event Keywords:', eventKeywords.join(', '))
+      console.log('[Generate] Matched in Context:', matchedKeywords.length, '/', eventKeywords.length)
+
+      if (matchedKeywords.length === 0 && eventKeywords.length > 0) {
+        console.error('[Generate] ⚠️⚠️⚠️  CONTEXT BLEEDING DETECTED!')
+        console.error('[Generate] Event keywords NOT found in design context!')
+        console.error('[Generate] Expected keywords:', eventKeywords.join(', '))
+      }
 
       // Track Design Intelligence API usage
       if (designContextResult.usage.model !== 'fallback') {
@@ -562,14 +644,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if fallback was used (generic fallback starts with "Create an engaging")
-      const usedFallback = designContext.corePurpose.startsWith('Create an engaging')
+      const usedFallback = designContext?.corePurpose?.startsWith('Create an engaging') ?? false
 
       console.log('[Generate] === DESIGN CONTEXT RESULT ===')
       console.log('[Generate] Used Fallback:', usedFallback ? 'YES (AI failed)' : 'NO (AI succeeded)')
-      console.log('[Generate] Core Purpose:', designContext.corePurpose)
-      console.log('[Generate] Visual Elements:', designContext.visualElements.join(', '))
-      console.log('[Generate] Background Setting:', designContext.backgroundSetting)
-      console.log('[Generate] Iconic Imagery:', designContext.iconicImagery.join(', '))
+      console.log('[Generate] Core Purpose:', designContext?.corePurpose)
+      console.log('[Generate] Visual Elements:', designContext?.visualElements?.join(', ') ?? 'None')
+      console.log('[Generate] Background Setting:', designContext?.backgroundSetting)
+      console.log('[Generate] Iconic Imagery:', designContext?.iconicImagery?.join(', ') ?? 'None')
 
       if (usedFallback) {
         console.warn('[Generate] WARNING: Using generic fallback context - results may be less contextual!')
@@ -638,23 +720,27 @@ export async function POST(request: NextRequest) {
           } : undefined,
 
           // Brand context - always include organization info for awareness
-          // v3.3: useBrandColors now uses organization's brand_config colors (not design customization)
+          // v3.10: Now uses resolved colors from ColorConfig (brand/preset/custom/fallback)
           // fontPreference is ALWAYS applied when available (v3.2 - hybrid approach)
-          brandContext: (() => {
-            const useBrandColors = promptDesignData?.colorConfig?.useBrandColors ?? false
-            return {
-              organizationName: designBrief.organizationName || 'Yi Creatives',
-              brandName: designBrief.organizationName,
-              // v3.3: Use organization brand colors from brand_config when useBrandColors is enabled
-              primaryColor: useBrandColors ? brandConfig?.primaryColor : undefined,
-              secondaryColor: useBrandColors ? brandConfig?.secondaryColor : undefined,
-              accentColor: useBrandColors ? brandConfig?.accentColor : undefined,
-              // Flag to control color application
-              useBrandColors: useBrandColors,
-              // NEW v3.2: Font preference from organization settings (always applied when available)
-              fontPreference: fontPreference,
-            }
-          })(),
+          brandContext: {
+            organizationName: designBrief.organizationName || 'Yi Creatives',
+            brandName: designBrief.organizationName,
+
+            // NEW v3.10: Use resolved colors instead of conditional logic
+            primaryColor: resolvedColors.primaryColor,
+            secondaryColor: resolvedColors.secondaryColor,
+            accentColor: resolvedColors.accentColor,
+
+            // Keep flag for prompt builder logic
+            useBrandColors: colorConfig?.useBrandColors ?? false,
+
+            // NEW v3.10: Add color source for debugging
+            colorSource: resolvedColors.source,
+
+            // Font preference from organization settings (always applied when available)
+            fontPreference: fontPreference,
+            useBrandFont: colorConfig?.useBrandFont ?? true,
+          },
 
           // NEW v3.1: Theme & style preferences
           theme: effectiveDesignData?.theme,
@@ -693,15 +779,21 @@ export async function POST(request: NextRequest) {
           // NEW v3.2: Design context from Design Intelligence stage
           // Contains AI-generated visual elements, background setting, and iconic imagery
           // Used by format builders to inject decorative elements into prompts
-          // v3.7: Skip AI color suggestions when brand colors are enabled to prevent conflict
+          // v3.10: Skip AI color suggestions when user explicitly selected colors (brand/preset/custom)
           designContext: designContext ? {
             corePurpose: designContext.corePurpose,
             visualElements: designContext.visualElements,
             backgroundSetting: designContext.backgroundSetting,
-            iconicImagery: designContext.iconicImagery,
-            // Skip AI color strategy when using brand colors to avoid color conflict
-            colorStrategy: (promptDesignData?.colorConfig?.useBrandColors) ? undefined : designContext.colorMood,
+            iconicImagery: designContext.iconicImagery || [],
+            // v3.4: Typography and decorative guidance (CRITICAL for Phase 6)
+            typographyGuidance: designContext.typographyGuidance,
+            decorativeElements: designContext.decorativeElements,
+            // NEW v3.10: Skip AI color suggestions when user explicitly selected colors
+            colorStrategy: (resolvedColors.source !== 'fallback') ? undefined : designContext.colorMood,
             moodDirection: designContext.designStrategy,
+            creativeTwist: designContext.creativeTwist,
+            emotionalJob: designContext.emotionalJob,
+            designStrategy: designContext.designStrategy,
           } : undefined,
 
           // NEW v3.4: Footer contact information for creative footers
@@ -711,6 +803,13 @@ export async function POST(request: NextRequest) {
           // NEW v4.0: Prevention enhancements from Feedback Learning Agent
           // Contains learned prompt improvements based on past user feedback
           preventionEnhancements: promptEnhancements.length > 0 ? promptEnhancements : undefined,
+
+          // NEW v4.4: ULTRA-PRO CONTEXT (The Missing Link)
+          // Direct pipe from Stage 0.5 Claude analysis to Stage 2 Image Generation
+          ultraProContext: {
+            visualScene: ultraProPrompt.visualScene,
+            designGuidance: ultraProPrompt.designGuidance,
+          },
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
@@ -830,6 +929,7 @@ export async function POST(request: NextRequest) {
             organizationName: 'Yi Creatives', // Template mode uses default
             brandName: 'Yi Creatives',
             useBrandColors: false, // Template mode uses template's colors
+            useBrandFont: colorConfig?.useBrandFont ?? true,
           },
 
           // NEW v3.1: Pass content type and format size for template mode too
@@ -876,9 +976,20 @@ export async function POST(request: NextRequest) {
 
     // If logos need to be overlaid, process with Sharp
     if (logosPlacements && logosPlacements.length > 0) {
+      // NEW v4.8: Design Intelligence for Logo Strips
+      // If user hasn't manually selected a strip shape, infer it from the AI's design strategy/vibe
+      let stripShape = designData?.stripShape
+
+      if (!stripShape && designContext?.designStrategy) {
+        const inferredStyle = getLogoStripStyleByVibe(designContext.designStrategy)
+        stripShape = inferredStyle.shape
+        console.log(`[Design Intelligence] Auto-selected strip shape '${stripShape}' for vibe '${designContext.designStrategy}'`)
+      }
+
       console.log(`Processing ${logosPlacements.length} logo placements with background color: ${logoBackgroundColor || '#FFFFFF'}`)
       console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}`)
-      imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode)
+      console.log(`Logo strip shape: ${stripShape || 'default (curved)'}`) // NEW v3.11
+      imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
     }
 
     // If speaker photo is enabled and user has uploaded a photo, overlay it
@@ -1353,7 +1464,7 @@ function buildDesignPromptWithFormat(
   // Build generation params with AI-generated design context
   const params: GeneratePromptParams = {
     provider,
-    type: 'event_poster',
+    type: (format?.id || 'event_poster') as any,
     content,
     brand: {
       primary_color: designData.customization.background.primaryColor || '#1B998B',
@@ -1787,6 +1898,14 @@ async function generateWithGemini(
     }
   }
 
+  // CRITICAL: Add safety settings to prevent over-blocking of "Medical" or "People" content
+  requestBody.safetySettings = [
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+  ]
+
   // Use the selected Gemini model for image generation
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`,
@@ -1920,7 +2039,8 @@ async function overlayLogos(
   }>,
   supabase: Awaited<ReturnType<typeof createClient>>,
   backgroundColor?: string, // Global background color for all logos
-  stripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] } // Unified strip layout mode
+  stripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] }, // Unified strip layout mode
+  stripShape?: string // NEW v3.11: Logo strip shape (curved, angled, rounded, tapered)
 ): Promise<string> {
   try {
     console.log(`[overlayLogos] Received ${logosPlacements.length} logo placements`)
@@ -1976,8 +2096,8 @@ async function overlayLogos(
       return imageUrl
     }
 
-    // Process image with logo overlays using Sharp (pass background color and strip mode)
-    const processedImageUrl = await processImageWithLogos(imageUrl, placementsWithLogos, backgroundColor, stripMode)
+    // Process image with logo overlays using Sharp (pass background color, strip mode, and strip shape)
+    const processedImageUrl = await processImageWithLogos(imageUrl, placementsWithLogos, backgroundColor, stripMode, stripShape)
 
     return processedImageUrl
   } catch (error) {

@@ -21,6 +21,8 @@ import {
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // FIELD EXTRACTION HELPERS
@@ -130,10 +132,10 @@ function buildTextContentSection(fields: ExtractedField[]): string {
   for (const field of fields) {
     const prominence = field.prominence === 'primary' ? 'LARGEST'
       : field.prominence === 'secondary' ? 'medium'
-      : 'small'
+        : 'small'
     const style = field.prominence === 'primary' ? 'bold, clear, high contrast'
       : field.prominence === 'secondary' ? 'clean, readable'
-      : 'subtle, supporting'
+        : 'subtle, supporting'
 
     lines.push(`<text role="${field.role}" prominence="${prominence}" style="${style}">${field.value}</text>`)
   }
@@ -171,7 +173,7 @@ export function buildGenericPrompt(
 
   // Build context sections
   const logoContext = buildLogoContext(options.logoAwareness)
-  const brandContext = buildBrandContext(options.brandContext)
+  const brandContext = buildBrandContext(options.brandContext, formatId)
   const qualityContext = buildQualityContext(options.resolution, formatId)
 
   // NEW v3.4: Build additional context sections
@@ -180,11 +182,33 @@ export function buildGenericPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
 
-  // NEW v3.4: Build AI-enhanced typography and decorative sections
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
+
+  // NEW v4.2: Build sophistication-aware decorative elements
+  const decorativeElementsContext = buildDecorativeElementsSection({
+    eventType: (formData.eventType as string) || formatId.replace(/_/g, ' '),
+    designContext: options.designContext,
+    maxElements: sophistication === 'minimalist' ? 2 : (sophistication === 'rich' ? 6 : 4),
+    includeIconicImagery: true,
+    sophistication,
+  })
+
+  // NEW v4.2: Build story-driven background
+  const backgroundSettingContext = buildBackgroundSettingSection(
+    options.designContext,
+    sophistication
+  )
+
+  // NEW v4.2: Build creative twist section
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `<creative_twist>${options.designContext.creativeTwist}</creative_twist>`
+    : ''
+
+  // Keep AI typography guidance for compatibility
   const aiTypographySection = options.designContext?.typographyGuidance
     ? `
 <ai_typography_guidance>
@@ -192,16 +216,6 @@ Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
 Body Style: ${options.designContext.typographyGuidance.bodyStyle}
 Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 </ai_typography_guidance>
-`
-    : ''
-
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
 `
     : ''
 
@@ -231,6 +245,10 @@ Accent Elements: ${options.designContext.decorativeElements.accents}
   return `
 <task>Generate a professional ${formattedFormat} design</task>
 
+Design approach: ${sophistication === 'minimalist' ? 'Clean, vast negative space, minimal decorations' : sophistication === 'rich' ? 'Layered, atmospheric, visually rich with decorative elements' : 'Balanced professional design with moderate decorations'}
+
+${creativeTwistSection}
+
 <format>
 Type: ${formattedFormat}
 Aspect Ratio: ${aspectRatio}
@@ -253,9 +271,11 @@ ${layoutContext}
 
 ${forbiddenZonesContext}
 
-${aiTypographySection}
+${backgroundSettingContext}
 
-${aiDecorativeSection}
+${decorativeElementsContext}
+
+${aiTypographySection}
 
 <subject>
 A professional graphic for: "${title}"
@@ -264,7 +284,7 @@ The design should be visually appealing, clear, and effective for its purpose.
 </subject>
 
 <composition>
-Layout: Clean, organized layout with clear visual hierarchy
+Layout: ${options.designContext?.layoutSuggestion || 'Clean, organized layout with clear visual hierarchy'}
 - Main title/headline as the most prominent element
 - Supporting content appropriately sized
 - Brand elements positioned properly
@@ -272,7 +292,7 @@ ${options.logoAwareness?.hasLogo ? `- Logo zone: ${options.logoAwareness.logoPos
 - Adequate spacing and margins
 - Balanced composition
 
-Background: ${style} background ${options.brandContext ? `using brand colors (${options.brandContext.primaryColor})` : 'appropriate for the format'}
+Background: ${options.designContext?.backgroundSetting || style} background ${options.brandContext ? `using brand colors (${options.brandContext.primaryColor})` : 'appropriate for the format'}
 Visual Treatment: Professional, clean, purposeful
 </composition>
 
