@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
-import { TopNav } from './top-nav'
+
 import { MobileNav } from './mobile-nav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
@@ -85,8 +85,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             {/* Offline Detection Banner (E04) */}
             <OfflineBanner />
 
-            {/* Top Navigation */}
-            <TopNav />
+
 
             {/* Page Content */}
             <main className={cn(

@@ -83,16 +83,16 @@ The design must:
     name: 'Yi Climate Action',
     additionalContext: `
 <vertical_context>
-This is for Yi Climate initiative promoting environmental sustainability.
-The design must:
-- Convey environmental responsibility
-- Feel hopeful and action-oriented (not doom and gloom)
-- Emphasize positive action and solutions
-- Connect with nature and sustainability
+This is for Yi Climate initiative.
+The design MUST reflect:
+- High-impact environmental leadership
+- Professional, corporate-standard sustainability
+- HOPEFUL power - capturing the majesty of nature without over-cluttering
+- Sophisticated "Global Statement" aesthetic
 </vertical_context>`,
-    colorPreferences: 'Environmental: earth greens, sky blues, natural earth tones, sustainable colors.',
-    imageryGuidance: 'Imagery: nature, sustainability, renewable energy, green actions, thriving ecosystems.',
-    avoidance: 'Disaster imagery, doom messaging, dying nature, depressing environmental content',
+    colorPreferences: 'Deep Forest Green (#0B3D2E), Earthy Stone (#4A4A4A), Clean White, Sky Blue (#0A84FF). Focus on deep, authoritative tones.',
+    imageryGuidance: 'High-impact nature photography (macro textures of leaves/stone), clean horizons, or single powerful nature symbols. AVOID busy forests.',
+    avoidance: 'Low-quality stock photos, "doom" messaging, cluttered nature scenes, non-professional environmental clipart',
   },
 
   innovation: {
@@ -100,16 +100,16 @@ The design must:
     name: 'Yi Innovation',
     additionalContext: `
 <vertical_context>
-This is for Yi Innovation, promoting technology and entrepreneurship.
-The design must:
-- Feel cutting-edge and forward-thinking
-- Appeal to tech-savvy audience
-- Convey innovation and disruption
-- Be modern and sleek
+This is for Yi Innovation, promoting technology and startups.
+The design MUST reflect:
+- "Silicon Valley" sophistication (minimalist, clean, bold)
+- Cutting-edge, elite technology
+- Professional disruption - clean gradients and focus
+- Contemporary "Artist-Engineer" aesthetic
 </vertical_context>`,
-    colorPreferences: 'Tech-forward: electric blue, neon accents, futuristic palette, modern gradients.',
-    imageryGuidance: 'Imagery: technology, innovation, startups, digital transformation, futuristic elements.',
-    avoidance: 'Outdated tech, old computers, non-innovative imagery',
+    colorPreferences: 'Deep Slate (#1A1A1B), Pure White (#FFFFFF), Electric Blue (#0066FF) as sharp accent, monochromatic grays.',
+    imageryGuidance: 'Single focal focal technological symbol (e.g., a refined neural node, a clean circuit line), generous negative space, matte gradients.',
+    avoidance: 'Busy "Cyberpunk" clutter, glowing neon grids that overwhelm text, outdated tech metaphors, over-saturated party colors',
   },
 
   education: {
@@ -144,6 +144,27 @@ The design must:
     colorPreferences: 'Empowering: bold purples, strong pinks, elegant golds, confident colors.',
     imageryGuidance: 'Imagery: strong women, leadership, success, diversity, empowerment symbols.',
     avoidance: 'Stereotypical imagery, demeaning representations, weak portrayals',
+  },
+
+  // ============================================================
+  // SPECIAL EDITION: NEW YEAR 2026
+  // ============================================================
+  new_year_2026: {
+    verticalId: 'new_year_2026',
+    name: 'New Year 2026 Celebration',
+    additionalContext: `
+<vertical_context>
+Special edition vertical for New Year 2026 Gala and Summit events.
+The design strategy must be EXTREMELY PREMIUM:
+- Use HIGH-IMPACT MINIMALISM with vast negative space
+- Enforce the SOLID WHITE LOGO STRIPE for branding
+- Prioritize ELEGANT SERIF typography for headlines
+- Use CENTERED ALIGNMENT for a majestic, celebratory feel
+- Inject AMBIENT TEXTURES like grain and geometric highlights
+</vertical_context>`,
+    colorPreferences: 'Palette: Deep Slate (#1A1A1B), New Year Gold (#CFB53B), and Crisp White. High-contrast premium look.',
+    imageryGuidance: 'Imagery: Minimalist golden starbursts, abstract geometric fireworks, architectural gradients.',
+    avoidance: 'Party clutter, balloons, cheap clip-art, cartoon clocks, busy patterns, multiple overlapping photos.',
   },
 }
 

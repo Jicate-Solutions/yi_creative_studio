@@ -1,0 +1,186 @@
+=== 7-STEP STORY-DRIVEN DESIGN FRAMEWORK ===
+
+## STEP 1: STORY ANALYSIS (Think deeply about the narrative)
+
+Analyze the narrative this event is telling:
+
+**Story Identification**:
+- What is the core narrative? (e.g., "Young leaders conquering climate crisis")
+- What's the emotional arc? (e.g., Challenge → Empowerment → Victory)
+- Who are the characters? (e.g., Ambitious professionals becoming heroes)
+
+**Message Extraction**:
+- What's the primary message? (1 sentence)
+- What secondary themes exist? (list 2-3)
+- What transformation occurs? (before → after)
+
+**Context Layers**:
+- Event formality: Casual / Professional / Premium / Exclusive
+- Energy level: Calm / Moderate / High / Explosive
+- Time horizon: Past (heritage) / Present (current) / Future (visionary)
+- Scope: Personal / Community / Regional / Global / Universal
+
+## STEP 2: VIBE & MOOD DISCOVERY
+
+Based on the story, determine the FEELING this design should evoke:
+
+**Vibe Keywords** (3-5 descriptive words):
+- Consider: empowering, prestigious, urgent, playful, authoritative, innovative, caring, bold, elegant, rebellious, traditional, futuristic
+- Example: "Empowering, authoritative, urgent, hopeful, modern"
+
+**Mood Atmosphere**:
+- Visual atmosphere: (e.g., "Golden spotlight of achievement with environmental undertones")
+- Emotional temperature: Warm / Neutral / Cool
+- Energy dynamics: Static / Flowing / Explosive / Pulsing
+
+**Audience Resonance**:
+- What will make THIS audience connect emotionally?
+- What visual language speaks to them?
+
+## STEP 3: TYPOGRAPHY STORYTELLING
+
+Design typography that embodies the story:
+
+**Headline Personality**:
+- What character should the main headline have?
+- Font personality: Bold / Elegant / Playful / Technical / Organic / Geometric
+- Sizing strategy: Dominant / Balanced / Subtle
+- Example: "Ultra-bold sans-serif (Montserrat Black) - commanding attention like a leader's call to action"
+
+**Multi-Color Typography Strategy**:
+- Analyze the event name/headline
+- Which words carry POWER? (use primary/accent colors)
+- Which words show ACTION? (use energetic colors)
+- Which words create EMOTION? (use mood colors)
+- Example: "CLIMATE" (forest green #0B6D41 - environmental) "LEADERSHIP" (gold #FFD700 - achievement) "SUMMIT" (deep blue #003366 - authority)
+
+**Hierarchy Flow**:
+- How should the eye travel through text to tell the story?
+- Main headline → Supporting text → Details (flow supports narrative)
+
+## STEP 4: COLOR STORYTELLING
+
+Colors that convey the story's emotion:
+
+**Dominant Hues** (primary story colors):
+- What color represents the MAIN theme?
+- What color adds EMOTIONAL depth?
+- What color creates ENERGY/ACTION?
+
+**Color Psychology Application**:
+- Leadership/Achievement → Gold (#FFD700), amber, deep blue
+- Environment/Growth → Forest green (#0B6D41), earth tones, sky blue
+- Innovation/Tech → Electric blue (#0066FF), cyan, purple
+- Health/Caring → Soft green (#34C759), healing blue, warm white
+- Energy/Sports → Red (#FF3B30), orange, electric yellow
+- Culture/Heritage → Rich burgundy, gold, traditional colors
+- Youth/Modern → Vibrant, saturated, bold colors
+
+**Multi-Color Strategy**:
+- How many colors in headline? (2-4 based on complexity)
+- Color rhythm: Alternating / Gradient / Emphasis-based
+
+## STEP 5: BACKGROUND & ATMOSPHERE
+
+Create a visual world that supports the story:
+
+**Background Treatment** (choose based on mood):
+- **Linear Gradient**: Simple, clean (formal events, minimalist mood)
+- **Radial Gradient**: Spotlight focus (singular theme, centered narrative)
+- **Sunburst Radial**: Achievement, celebration (leadership, success stories)
+- **Mesh Gradient**: Complex, artistic (creative, multi-layered narratives)
+- **Atmospheric**: Immersive depth (festive, experiential events)
+
+**Gradient Specification**:
+- Describe gradient in detail with color stops, direction, atmosphere
+- Example: "Golden radial sunburst emanating from upper center (0%: bright gold #FFD700 → 50%: warm amber #FFA500 → 100%: deep navy #003366) with 12 subtle light rays at 3% opacity creating achievement spotlight effect"
+
+**Atmospheric Elements**:
+- Depth layers: How many visual layers? (1-3)
+- Light rays: Subtle / Prominent / None
+- Particles: Subtle atmospheric particles / None
+
+## STEP 6: DECORATIVE ELEMENTS (Story-Specific)
+
+Generate decorations that enhance the narrative:
+
+**Thematic Elements** (based on story analysis):
+- What visual symbols reinforce the story?
+- What imagery creates emotional connection?
+- Sophistication level: Refined / Balanced / Playful
+
+**Element Examples by Context**:
+- Climate + Leadership → Refined geometric leaf patterns (NOT cartoon leaves)
+- Tech + Innovation → Abstract neural networks, glowing nodes
+- Health + Community → Caring hands silhouettes, heartbeat patterns
+- Sports + Energy → Motion blur streaks, action particles
+- Culture + Heritage → Traditional motifs, ornate patterns
+- Youth + Celebration → Sparkles, confetti, party elements
+
+**Placement Strategy**:
+- Where do decorations support (not distract from) story?
+- Opacity levels that create depth without noise (8-15% typically)
+- Placement: Corner accents / Background patterns / Focal elements
+
+## STEP 7: LAYOUT NARRATIVE FLOW
+
+Design content flow that tells the story:
+
+**Visual Hierarchy** (storytelling order):
+- What grabs attention first? (The impact/hook)
+- What builds context? (The details)
+- What drives action? (The CTA)
+
+**Content Area Design**:
+- Event details container: Style that matches vibe
+- Speaker prominence: How much spotlight?
+- Logo strip treatment: Sophisticated / Modern / Classic / Minimal
+
+**Spatial Story**:
+- Negative space: How much breathing room supports the mood?
+- Spatial density: Minimal / Balanced / Rich (based on sophistication)
+
+=== DOMAIN-SPECIFIC DESIGN GUIDANCE (Reference) ===
+
+**AI/Tech Events**: Clean sans-serif, electric blue accents, minimalist gradients, refined glassmorphism
+**Sports Events**: Bold condensed fonts, high-energy colors (red, orange), dynamic diagonal stripes
+**Medical/Health**: Humanist sans-serif, trust blue (#007AFF), healing green, pulse line motifs
+**Cultural/Traditional**: Elegant serifs, rich golds, deep maroons, traditional motifs, ornate borders
+**Corporate/Business**: Professional sans-serif, corporate blue, charcoal, subtle geometric grids
+**Education/Academic**: Scholarly serifs, academic navy, wisdom gold, laurel wreaths
+**Entertainment/Party**: Bold display fonts, vibrant multi-color, confetti, sparkles, energetic lines
+**Environment/Sustainability**: Clean slab serifs, deep forest green (#0B3D2E), stone textures, refined leaf motifs
+
+=== DESIGN SOPHISTICATION RULES (MANDATORY) ===
+
+1. **NEGATIVE SPACE IS A FEATURE**: 40% of the design should feel "breathable" and uncluttered
+2. **THE 3-SECOND TEST**: Viewer must identify WHAT (Header) and WHEN (Details) in 3 seconds
+3. **MICRO-DETAIL > MACRO-CLUTTER**: Use one high-quality visual element instead of many busy ones
+4. **SACROSANCT ZONES**: Keep top 15% (Logo Zone) and bottom 10% (Contact Zone) clean
+5. **TYPOGRAPHY HIERARCHY**: One hero size (Massive), one primary size (Medium), everything else (Small/Clean)
+
+=== CRITICAL RULES ===
+- Be HYPER-SPECIFIC: Not "technology elements" but "holographic AI brain visualization with cyan neural pathways"
+- Be CONTEXT-AWARE: Same event type can have different stories based on audience/purpose
+- Be VIEWER-FOCUSED: What will viewer IMMEDIATELY understand about this event?
+- FULL-BLEED design that fills the canvas edge-to-edge
+- NEVER describe poster "on a wall" - describe what's IN the design
+
+=== LAYOUT RULES ===
+- If SPEAKER PHOTO position is LEFT: Content flows RIGHT
+- If SPEAKER PHOTO position is RIGHT: Content flows LEFT
+- If SPEAKER PHOTO position is CENTER: Content frames around center
+- NEVER generate illustrated faces if speaker photo will be added
+- Keep HEADER area clean for logos
+- Use VISUAL language only in layoutGuidance (no "px", "zone", "overlay")
+
+=== MULTI-COLOR TYPOGRAPHY (CRITICAL) ===
+Each text role MUST have a distinct color for visual hierarchy:
+
+**HERO TEXT**: MOST PROMINENT color, 7:1 contrast minimum (e.g., Pure white, bold gold, electric cyan)
+**HEADLINE TEXT**: COMPLEMENTARY color, 7:1 contrast (e.g., Light blue, off-white, bright yellow)
+**BODY TEXT**: READABLE color, 4.5:1 contrast (e.g., Light gray #E0E0E0, medium gray #666)
+**CTA TEXT**: ATTENTION-GRABBING color, 7:1 contrast (e.g., Bright gold, electric green, vibrant orange)
+**CAPTION TEXT**: SUBTLE color, 4.5:1 contrast (e.g., Muted gray #999, soft brown, dim blue)
+
+Create a COLOR HIERARCHY that mirrors the SIZE HIERARCHY.

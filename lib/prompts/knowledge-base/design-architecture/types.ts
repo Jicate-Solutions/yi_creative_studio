@@ -133,6 +133,14 @@ export type FontWeight = 'thin' | 'light' | 'regular' | 'medium' | 'semibold' | 
 export type FontStyle = 'serif' | 'sans-serif' | 'script' | 'display' | 'monospace'
 export type LetterSpacing = 'tight' | 'normal' | 'wide' | 'extra-wide'
 
+export interface TypographyColorSpec {
+  primary: string // Main color for this text role (e.g., "white", "#FFFFFF")
+  contrast?: string // Alternative contrast color for variety
+  wcagMinimum: number // Minimum contrast ratio (4.5 or 7)
+  darkMode?: string // Dark mode color override
+  description: string // Description of color usage (e.g., "High contrast white for readability")
+}
+
 export interface TypographyHierarchy {
   level: TypographyLevel
   role: string // e.g., 'event_name', 'recipient_name', 'date'
@@ -142,6 +150,7 @@ export interface TypographyHierarchy {
   spacing: LetterSpacing
   visualWeight: number // 0-100 attention score
   description: string
+  colorSpec?: TypographyColorSpec // NEW: Color specifications for this text role
 }
 
 export interface TextHierarchySystem {
@@ -224,3 +233,123 @@ export interface PlatformPattern {
 export type BorderStyleId = 'classic_ornate' | 'modern_minimal' | 'corporate_professional' | 'academic_traditional'
 export type FormatId = 'certificate' | 'event_poster' | 'youtube_thumbnail' | 'instagram_post' | 'linkedin_post' | 'story' | 'flyer' | 'business_card' | 'presentation' | 'web_banner' | 'social_post'
 export type PlatformId = 'instagram' | 'youtube_thumbnail' | 'linkedin' | 'facebook' | 'twitter' | 'pinterest' | 'tiktok'
+
+// ============================================================
+// STORY-DRIVEN DESIGN INTELLIGENCE TYPES (v4.2)
+// ============================================================
+
+/**
+ * Story analysis - understanding the narrative this event is telling
+ */
+export interface StoryAnalysis {
+  narrative: string // Core story in one sentence
+  emotionalArc: string // Beginning → Middle → End
+  themes: string[] // ["primary theme", "secondary theme"]
+  transformation?: string // Before state → After state
+  context?: {
+    formality: 'casual' | 'professional' | 'premium' | 'exclusive'
+    energyLevel: 'calm' | 'moderate' | 'high' | 'explosive'
+    timeHorizon: 'past' | 'present' | 'future'
+    scope: 'personal' | 'community' | 'regional' | 'global' | 'universal'
+  }
+}
+
+/**
+ * Vibe and mood - the emotional feeling this design should evoke
+ */
+export interface VibeAndMood {
+  vibeKeywords: string[] // 3-5 descriptive words like "empowering, authoritative, urgent"
+  moodAtmosphere: string // Visual atmosphere description
+  emotionalTemperature: 'warm' | 'neutral' | 'cool'
+  energyDynamics: 'static' | 'flowing' | 'explosive' | 'pulsing'
+  audienceResonance?: string // What will make audience connect emotionally
+}
+
+/**
+ * Multi-color word strategy for headlines
+ */
+export interface MultiColorWord {
+  word: string // The word to color
+  color: string // Hex color code
+  reasoning: string // Why this color for this word
+}
+
+/**
+ * Typography strategy - fonts and hierarchy that tell the story
+ */
+export interface TypographyStrategy {
+  headlinePersonality: string // Font character description
+  fontRecommendations: {
+    headline: string // Font name (reasoning)
+    subheading: string
+    body: string
+  }
+  multiColorStrategy?: {
+    words: MultiColorWord[]
+    colorRhythm: 'alternating' | 'gradient' | 'emphasis-based'
+  }
+  hierarchyFlow: string // How eye travels through text
+  sizingStrategy: 'dominant' | 'balanced' | 'subtle'
+}
+
+/**
+ * Color storytelling - colors that convey the story's emotion
+ */
+export interface DominantHue {
+  color: string // Hex code
+  role: string // e.g., "Leadership/achievement"
+  usage: string // e.g., "Primary headlines"
+}
+
+export interface ColorStorytelling {
+  dominantHues: DominantHue[]
+  colorPsychology: string // How colors convey the story emotion
+  paletteStrategy?: string // Overall color palette approach
+}
+
+/**
+ * Background treatment - gradient types and atmospheric effects
+ */
+export type GradientType = 'linear' | 'radial' | 'sunburst' | 'mesh' | 'atmospheric'
+
+export interface AtmosphericEffects {
+  depth?: boolean // Layered depth
+  lightRays?: boolean // Emanating light rays
+  particles?: boolean // Subtle atmospheric particles
+}
+
+export interface BackgroundTreatment {
+  type: GradientType
+  specification: string // Detailed gradient description with color stops, direction, effects
+  atmosphericEffects?: AtmosphericEffects
+  colorStops?: Array<{ position: string; color: string }>
+}
+
+/**
+ * Thematic decorative element
+ */
+export interface ThematicElement {
+  element: string // Element description (e.g., "Refined leaf geometry")
+  placement: string // Where to place it (e.g., "top-right corner")
+  opacity: number // Opacity level (0-1)
+  reasoning: string // Why this element for this story
+}
+
+/**
+ * Decorative elements context - story-specific decorations
+ */
+export interface DecorativeElementsContext {
+  thematicElements: ThematicElement[]
+  sophisticationLevel: 'refined' | 'balanced' | 'playful'
+  placementStrategy?: string
+}
+
+/**
+ * Layout narrative - content flow that tells the story
+ */
+export interface LayoutNarrative {
+  visualHierarchy: string[] // Storytelling order ["Impact headline", "Speaker photos", "Event details", "CTA"]
+  contentAreaStyle: string // Container styling that matches vibe
+  logoStripTreatment: 'sophisticated' | 'modern' | 'classic' | 'minimal'
+  spatialDensity: 'minimal' | 'balanced' | 'rich'
+}

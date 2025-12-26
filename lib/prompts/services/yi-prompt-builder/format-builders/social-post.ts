@@ -18,6 +18,9 @@ import { INSTAGRAM_POST_EXAMPLES } from '../examples' // Social posts use simila
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+
 
 // ============================================================
 // PLATFORM CONTEXTS
@@ -76,9 +79,13 @@ export function buildSocialPostPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'rich')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
+
+
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -145,10 +152,11 @@ Must capture attention within 0.5-1 second of viewing in a busy feed.
 </subject>
 
 <composition>
-Layout: Bold, uncluttered design with clear focal point
+Layout: ${options.designContext?.layoutSuggestion || 'Bold, uncluttered design with clear focal point'}
 
 Structure:
-- BACKGROUND: ${platformContext.style} background ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor})` : 'that stands out in feed'}
+- BACKGROUND: ${options.designContext?.backgroundSetting || platformContext.style} ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor})` : 'that stands out in feed'}
+- VISUALS: ${options.designContext?.visualElements?.join(', ') || 'Impactful imagery'}
 - HEADLINE: "${data.postTitle}" - primary message, dominant element
 ${data.postCaption ? `- SUPPORTING: "${data.postCaption}" - smaller supporting text` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
@@ -201,6 +209,14 @@ DO NOT render as visible text:
 - Instruction phrases (Generate, Create, Include, Apply)
 - Platform terminology (scroll-stop, engagement, mobile-first)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

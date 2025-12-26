@@ -111,6 +111,7 @@ export function generateDesignContextCacheKey(params: {
   hasSpeakerPhoto?: boolean
 }): string {
   const parts = [
+    'v2', // Cache version - change to invalidate old entries
     CACHE_CONFIG.keyPrefix,
     'dc', // design context
     params.formatId || 'default',
@@ -120,11 +121,10 @@ export function generateDesignContextCacheKey(params: {
     params.hasSpeakerPhoto ? 'speaker' : 'no_speaker',
   ]
 
-  // Don't cache by eventName - too specific
-  // But include a hash of it for slight variations
-  if (params.eventName) {
-    const nameHash = simpleHash(params.eventName)
-    parts.push(nameHash.toString(16))
+  // Use full event name with strong hash for collision resistance
+  if (params.eventName && params.eventName.trim().length > 0) {
+    const nameHash = strongHash(params.eventName)
+    parts.push(`event_${nameHash}`)
   }
 
   return parts.join(':')
@@ -151,24 +151,36 @@ export function generateUltraProCacheKey(params: {
   ]
 
   if (params.eventName) {
-    const nameHash = simpleHash(params.eventName)
-    parts.push(nameHash.toString(16))
+    const nameHash = strongHash(params.eventName)
+    parts.push(nameHash)
   }
 
   return parts.join(':')
 }
 
 /**
- * Simple hash function for cache key generation
+ * Strong hash function for cache key generation
+ * Uses DJB2 + FNV-1a combination for collision resistance
  */
-function simpleHash(str: string): number {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32bit integer
+function strongHash(str: string): string {
+  // Use DJB2 hash (better distribution)
+  let hash = 5381
+  const normalized = str.toLowerCase().trim()
+
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash) + normalized.charCodeAt(i)
   }
-  return Math.abs(hash)
+
+  // Second pass with FNV-1a for collision resistance
+  let hash2 = 2166136261
+  for (let i = 0; i < normalized.length; i++) {
+    hash2 ^= normalized.charCodeAt(i)
+    hash2 += (hash2 << 1) + (hash2 << 4) + (hash2 << 7) + (hash2 << 8) + (hash2 << 24)
+  }
+
+  // Combine and encode
+  const combined = (Math.abs(hash) ^ Math.abs(hash2)).toString(36)
+  return combined.substring(0, 12)
 }
 
 // ============================================================

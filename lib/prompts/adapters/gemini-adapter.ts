@@ -105,17 +105,17 @@ function sanitizeLayoutGuidance(guidance: string): string {
  */
 function buildDesignIntelligenceSection(context: DesignContext): string {
   // Build the base section with natural language
-  let section = `Design goal: ${context.corePurpose}
+  let section = `Design goal: ${context.corePurpose ?? 'create impactful design'}
 
-The design should inspire viewers to ${context.desiredAction} and make them feel ${context.emotionalJob}.
+The design should inspire viewers to ${context.desiredAction ?? 'engage'} and make them feel ${context.emotionalJob ?? 'inspired'}.
 
-Visual elements to include: ${context.visualElements.join(', ')}
+Visual elements to include: ${context.visualElements?.join(', ') ?? 'relevant visual elements'}
 
-Background and setting: ${context.backgroundSetting}
+Background and setting: ${context.backgroundSetting ?? 'professional setting'}
 
-Supporting imagery: ${context.iconicImagery.join(', ')}
+Supporting imagery: ${context.iconicImagery?.join(', ') ?? 'supporting visuals'}
 
-Color atmosphere: ${context.colorMood}
+Color atmosphere: ${context.colorMood ?? 'professional and engaging'}
 
 Design approach: ${context.designStrategy}`
 
@@ -131,7 +131,7 @@ Composition guidance: ${sanitizedGuidance}`
 
   section += `
 
-Success looks like: ${context.successMetric}`
+Success looks like: ${context.successMetric ?? 'achieving the design goal'}`
 
   return section
 }
@@ -299,59 +299,46 @@ This ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} de
 function buildCompactPrompt(intent: PromptIntent): string {
   const parts: string[] = []
 
-  // Core directive
-  parts.push(`Create a ${intent.theme.label.toLowerCase()}, ${intent.style.label.toLowerCase()} event poster for ${intent.organizationName}.`)
+  // 1. Core Subject & Composition (The "What" and "How")
+  parts.push(`Create a professional ${intent.creativeType.replace(/_/g, ' ')} design for "${intent.organizationName}".`)
+  parts.push(`Subject: ${intent.designContext?.corePurpose || intent.content.eventName || 'Event Poster'}`)
+  parts.push(`Composition: Full canvas edge-to-edge design (${intent.aspectRatio}). No margins, borders, or gray space.`)
 
-  // Canvas coverage
-  parts.push(`Design fills the entire ${intent.aspectRatio} canvas edge-to-edge with no gray borders or margins. Use ${intent.brand.backgroundColor} for any neutral areas.`)
-
-  // Logo safe zones
-  if (intent.logoAwareness?.hasLogos && intent.logoAwareness.layoutGuidance) {
-    const sanitizedGuidance = sanitizeLayoutGuidance(intent.logoAwareness.layoutGuidance)
-    if (sanitizedGuidance) {
-      parts.push(sanitizedGuidance)
+  // 2. Design Intelligence (The "Vibe")
+  if (intent.designContext) {
+    if (intent.designContext.backgroundSetting) parts.push(`Background: ${intent.designContext.backgroundSetting}`)
+    if (intent.designContext.colorMood) parts.push(`Color Mood: ${intent.designContext.colorMood}`)
+    if (intent.designContext.visualElements?.length) {
+      parts.push(`Visual Elements: ${intent.designContext.visualElements.join(', ')}`)
+    }
+    // Add layout guidance if present (sanitized)
+    if (intent.designContext.layoutGuidance) {
+      const sanitized = sanitizeLayoutGuidance(intent.designContext.layoutGuidance)
+      if (sanitized) parts.push(`Layout Guide: ${sanitized}`)
     }
   }
 
-  // Design context
-  if (intent.designContext) {
-    parts.push(`Design goal: ${intent.designContext.corePurpose}`)
-    parts.push(`Include these visual elements: ${intent.designContext.visualElements.join(', ')}`)
-    parts.push(`Setting: ${intent.designContext.backgroundSetting}`)
-    parts.push(`Imagery: ${intent.designContext.iconicImagery.join(', ')}`)
-    parts.push(`Color feeling: ${intent.designContext.colorMood}`)
-  }
-
-  // Text content
+  // 3. Text Content (The "Copy")
   const textItems: string[] = []
-  if (intent.content.eventName) {
-    textItems.push(`Headline: "${intent.content.eventName}"`)
-  }
-  if (intent.content.date) {
-    textItems.push(`Date: "${intent.content.date}"`)
-  }
-  if (intent.content.time) {
-    textItems.push(`Time: "${intent.content.time}"`)
-  }
-  if (intent.content.venue) {
-    textItems.push(`Venue: "${intent.content.venue}"`)
-  }
-  if (intent.content.guestName) {
-    textItems.push(`Guest: "${intent.content.guestName}"${intent.content.guestDesignation ? ` - "${intent.content.guestDesignation}"` : ''}`)
-  }
+  if (intent.content.eventName) textItems.push(`- Headline: "${intent.content.eventName}"`)
+  if (intent.content.date) textItems.push(`- Date: "${intent.content.date}"`)
+  if (intent.content.time) textItems.push(`- Time: "${intent.content.time}"`)
+  if (intent.content.venue) textItems.push(`- Venue: "${intent.content.venue}"`)
+  // Add post caption if available (from our recent fix)
+  if (intent.content.additionalText) textItems.push(`- Caption/Details: "${intent.content.additionalText}"`)
+
   if (textItems.length > 0) {
-    parts.push(`Text to render:\n${textItems.join('\n')}`)
+    parts.push(`Text to Render (Must be legible and exactly as quoted):\n${textItems.join('\n')}`)
   }
 
-  // Visual style
-  parts.push(`Style: ${intent.style.treatment}`)
-  parts.push(`Atmosphere: ${intent.theme.atmosphere.mood} with ${intent.theme.atmosphere.lighting}`)
+  // 4. Style & Technical (The "Look")
+  parts.push(`Style: ${intent.style.treatment} (${intent.style.label})`)
+  parts.push(`Atmosphere: ${intent.theme.atmosphere.mood}`)
+  parts.push(`Lighting: ${intent.theme.atmosphere.lighting}`)
 
-  // Colors
-  parts.push(`Colors: ${intent.brand.primaryColor} (primary), ${intent.brand.secondaryColor} (secondary), ${intent.brand.accentColor} (accent)`)
-
-  // Quality
-  parts.push(`Professional design with perfectly legible text, excellent contrast, and clear visual hierarchy.`)
+  // 5. Brand Colors 
+  parts.push(`Primary Brand Colors: ${intent.brand.primaryColor}, ${intent.brand.secondaryColor}`)
+  if (intent.brand.backgroundColor) parts.push(`Background Tone: ${intent.brand.backgroundColor}`)
 
   return parts.join('\n\n')
 }

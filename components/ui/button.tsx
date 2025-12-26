@@ -38,6 +38,10 @@ const buttonVariants = cva(
         success: "bg-success text-success-foreground shadow-sm hover:bg-success/90 hover:shadow-md",
         warning: "bg-warning text-warning-foreground shadow-sm hover:bg-warning/90 hover:shadow-md",
         info: "bg-info text-info-foreground shadow-sm hover:bg-info/90 hover:shadow-md",
+        // Generation state variant - Loading/Generating indicator
+        "generating": "relative overflow-hidden bg-gradient-to-r from-[#005B96] to-[#1B998B] text-white font-semibold shadow-[0_8px_32px_rgba(0,91,150,0.3)] pointer-events-none cursor-wait",
+        // Dark mode CTA variant
+        "dark-cta": "bg-gradient-to-br from-[#FF6B35] to-[#FF8C5A] text-white shadow-[0_8px_24px_rgba(255,107,53,0.35)] hover:shadow-[0_12px_32px_rgba(255,107,53,0.45)] dark:from-[#FF6B35] dark:to-[#FF8C5A]",
       },
       size: {
         default: "h-11 px-4 py-2 has-[>svg]:px-3",

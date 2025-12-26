@@ -32,14 +32,16 @@ function DialogClose({
 
 function DialogOverlay({
   className,
+  noBlur = false,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+}: React.ComponentProps<typeof DialogPrimitive.Overlay> & { noBlur?: boolean }) {
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        // Base overlay with enhanced glassmorphism
-        "fixed inset-0 z-50 bg-black/40 backdrop-blur-md",
+        // Base overlay - with or without blur
+        "fixed inset-0 z-50",
+        noBlur ? "bg-black/80" : "bg-black/40 backdrop-blur-md",
         // Animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -56,6 +58,8 @@ interface DialogContentProps extends React.ComponentProps<typeof DialogPrimitive
   fullScreenMobile?: boolean
   /** Use solid background instead of glass effect - better for modals with lots of content */
   solidBackground?: boolean
+  /** Disable backdrop blur on overlay - better for image viewing modals */
+  noOverlayBlur?: boolean
 }
 
 function DialogContent({
@@ -64,11 +68,12 @@ function DialogContent({
   showCloseButton = true,
   fullScreenMobile = false,
   solidBackground = false,
+  noOverlayBlur = false,
   ...props
 }: DialogContentProps) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay noBlur={noOverlayBlur} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

@@ -10,6 +10,7 @@ import {
   type LogoBackgroundStyle,
   DEFAULT_LOGO_BACKGROUND,
 } from '@/lib/constants/logoConstants'
+import { type LogoStripShape, DEFAULT_LOGO_STRIP_SHAPE } from '@/lib/config/design-constants'
 
 // Logo position grid (18 positions - 6 columns × 3 rows) - matches lib/config/constants.ts
 export type LogoPosition =
@@ -20,7 +21,7 @@ export type LogoPosition =
   // Footer strip (Row 3)
   | 'bottom-1' | 'bottom-2' | 'bottom-3' | 'bottom-4' | 'bottom-5' | 'bottom-6'
 
-interface LogoPlacement {
+export interface LogoPlacement {
   logoId: string
   position: LogoPosition
   size?: LogoSizePreset | number // Size preset or custom pixel value
@@ -38,6 +39,119 @@ export type LogoStripRow = 'header' | 'middle' | 'footer'
 interface LogoStripModeConfig {
   enabled: boolean
   rows: LogoStripRow[] // Which rows use strip mode
+  opacity?: number // Strip opacity 0-100 (default: 100 = fully opaque)
+  logoBound?: boolean // When true, strip only covers logo area; when false, edge-to-edge
+}
+
+/**
+ * Convert hex color to rgba with opacity
+ */
+function hexToRgba(hex: string, opacity: number): string {
+  const cleanHex = hex.replace('#', '')
+  const r = parseInt(cleanHex.substring(0, 2), 16)
+  const g = parseInt(cleanHex.substring(2, 4), 16)
+  const b = parseInt(cleanHex.substring(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
+}
+
+/**
+ * Generate SVG mask for different logo strip shapes
+ * Creates a mask that will be applied to the rectangular strip
+ */
+function generateStripShapeSVG(
+  width: number,
+  height: number,
+  shape: LogoStripShape,
+  backgroundColor: string,
+  opacity: number = 100 // 0-100
+): string {
+  // Apply opacity to the background color
+  const fillColor = opacity < 100 ? hexToRgba(backgroundColor, opacity) : backgroundColor
+  switch (shape) {
+    case 'curved': {
+      // Smooth wave at top and bottom edges
+      const waveDepth = Math.min(height * 0.15, 15) // 15% of height or max 15px
+      return `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <path d="
+            M 0,${waveDepth}
+            Q ${width * 0.25},0 ${width * 0.5},${waveDepth}
+            T ${width},${waveDepth}
+            L ${width},${height - waveDepth}
+            Q ${width * 0.75},${height} ${width * 0.5},${height - waveDepth}
+            T 0,${height - waveDepth}
+            Z
+          " fill="${fillColor}"/>
+        </svg>
+      `
+    }
+
+    case 'angled': {
+      // Diagonal cut edges (parallelogram)
+      const angleOffset = Math.min(height * 0.4, 30) // 40% of height or max 30px
+      return `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <path d="
+            M ${angleOffset},0
+            L ${width},0
+            L ${width - angleOffset},${height}
+            L 0,${height}
+            Z
+          " fill="${fillColor}"/>
+        </svg>
+      `
+    }
+
+    case 'rounded': {
+      // Rounded rectangle with corner radius
+      const cornerRadius = Math.min(height * 0.25, 20) // 25% of height or max 20px
+      return `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect
+            x="0"
+            y="0"
+            width="${width}"
+            height="${height}"
+            rx="${cornerRadius}"
+            ry="${cornerRadius}"
+            fill="${fillColor}"
+          />
+        </svg>
+      `
+    }
+
+    case 'tapered': {
+      // Trapezoid shape (wider at bottom)
+      const taperAmount = Math.min(width * 0.05, 40) // 5% of width or max 40px
+      return `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <path d="
+            M ${taperAmount},0
+            L ${width - taperAmount},0
+            L ${width},${height}
+            L 0,${height}
+            Z
+          " fill="${fillColor}"/>
+        </svg>
+      `
+    }
+
+    case 'rectangle':
+    default: {
+      // Standard rectangle (no shape transformation)
+      return `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect
+            x="0"
+            y="0"
+            width="${width}"
+            height="${height}"
+            fill="${fillColor}"
+          />
+        </svg>
+      `
+    }
+  }
 }
 
 interface OverlayConfig {
@@ -47,6 +161,7 @@ interface OverlayConfig {
   padding?: LogoPaddingPreset | number // Padding preset or custom pixels
   backgroundColor?: string // Global background color for all logos (hex)
   stripMode?: LogoStripModeConfig // Unified strip layout mode
+  stripShape?: LogoStripShape // NEW v3.11: Shape of the logo strip (curved, angled, rounded, tapered)
 }
 
 /**
@@ -265,13 +380,20 @@ async function createLogoWithBackground(
  * - Each logo is placed at the CENTER of its designated column
  * - Multiple logos in the same column are distributed within that column
  * - This respects user's column selection instead of equal spacing
+ *
+ * LOGO-BOUND MODE (v5.4):
+ * - When enabled, strip only spans from first logo to last logo (plus padding)
+ * - When disabled, strip spans full image width (edge-to-edge)
  */
 async function createLogoStrip(
   imageWidth: number,
-  logos: { buffer: Buffer; width: number; height: number; column: number }[],
+  logos: { buffer: Buffer; width: number; height: number; column: number; logoId?: string }[],
   backgroundColor: string,
-  stripPadding: number = 20
-): Promise<{ stripBuffer: Buffer; stripHeight: number }> {
+  stripPadding: number = 15, // Reduced from 20px to give more horizontal space for 6 logos
+  stripShape: LogoStripShape = DEFAULT_LOGO_STRIP_SHAPE, // NEW v3.11: Strip shape
+  stripOpacity: number = 100, // NEW v5.4: Strip opacity 0-100
+  logoBound: boolean = false // NEW v5.4: When true, strip only covers logo area
+): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
   if (logos.length === 0) {
     // Return an empty 1px strip if no logos
     const emptyStrip = await sharp({
@@ -282,81 +404,279 @@ async function createLogoStrip(
         background: { r: 255, g: 255, b: 255, alpha: 0 },
       },
     }).png().toBuffer()
-    return { stripBuffer: emptyStrip, stripHeight: 0 }
+    return { stripBuffer: emptyStrip, stripHeight: 0, stripLeft: 0 }
   }
 
-  // Calculate strip height based on tallest logo + padding (compact strip)
+  // Calculate strip height based on tallest logo + padding (compact)
+  // v5.3: Ultra-tight strip height - just logo height + minimal padding (2px top/bottom)
   const maxLogoHeight = Math.max(...logos.map(l => l.height))
-  const stripHeight = maxLogoHeight + stripPadding // Single padding for compact height
+  const stripHeight = maxLogoHeight + 4 // v5.3: Just 2px padding on each side
+
+  // --- NEW v5.4: LOGO-BOUND STRIP CALCULATION ---
+  // Calculate the extent of logos for logo-bound mode
+  let stripLeft = 0 // Left offset of the strip (0 for edge-to-edge)
+  let stripWidth = imageWidth // Full width by default
+
+  if (logoBound && logos.length > 0) {
+    // Find the leftmost and rightmost logo positions
+    const minColumn = Math.min(...logos.map(l => l.column))
+    const maxColumn = Math.max(...logos.map(l => l.column))
+
+    // Calculate column positions
+    const colWidth = (imageWidth - stripPadding * 2) / 6
+    const logoAreaPadding = 30 // Extra padding around logos
+
+    // Calculate strip bounds based on logo columns
+    stripLeft = Math.max(0, stripPadding + (minColumn - 1) * colWidth - logoAreaPadding)
+    const stripRight = Math.min(imageWidth, stripPadding + maxColumn * colWidth + logoAreaPadding)
+    stripWidth = stripRight - stripLeft
+
+    console.log(`[Strip] Logo-bound mode: columns ${minColumn}-${maxColumn}, strip from ${stripLeft}px to ${stripRight}px (width: ${stripWidth}px)`)
+  }
 
   // Column-aware positioning: divide strip into 6 equal columns
-  const availableWidth = imageWidth - stripPadding * 2
-  const columnWidth = availableWidth / 6
+  const availableWidth = stripWidth - stripPadding * 2
 
-  console.log(`[Strip] Creating column-aware strip: ${imageWidth}x${stripHeight}, ${logos.length} logos, columnWidth: ${columnWidth.toFixed(0)}px`)
+  // --- NEW v4.8: SHAPE SAFE ZONES ---
+  // Angled and Curved shapes cut into the strip at the edges.
+  // We must reserve space so logos don't sit on the transparent cut-out.
+  let edgeSafeMargin = 0
+  if (stripShape === 'angled') edgeSafeMargin = 40 // Matches angleOffset roughly
+  if (stripShape === 'curved') edgeSafeMargin = 20 // Matches waveDepth roughly
 
-  // Parse background color (hex to RGB)
-  const bgColor = backgroundColor.startsWith('#') ? backgroundColor.slice(1) : backgroundColor
-  const r = parseInt(bgColor.slice(0, 2), 16) || 255
-  const g = parseInt(bgColor.slice(2, 4), 16) || 255
-  const b = parseInt(bgColor.slice(4, 6), 16) || 255
+  // Effective width available for logos
+  const effectiveWidth = availableWidth - (edgeSafeMargin * 2)
+  const startX = stripPadding + edgeSafeMargin
 
-  // Create the strip background
-  const stripBuffer = await sharp({
-    create: {
-      width: imageWidth,
-      height: stripHeight,
-      channels: 4,
-      background: { r, g, b, alpha: 1 },
-    },
-  }).png().toBuffer()
+  console.log(`[Strip] Creating column-aware strip: ${stripWidth}x${stripHeight}, ${logos.length} logos, opacity: ${stripOpacity}%`)
+  console.log(`[Strip] Shape: ${stripShape}, Edge Margin: ${edgeSafeMargin}px, Effective Width: ${effectiveWidth}px, Logo-bound: ${logoBound}`)
 
-  // Group logos by their column
-  const logosByColumn: Map<number, typeof logos> = new Map()
-  for (const logo of logos) {
-    const col = logo.column
+  // Generate shaped strip background using SVG with opacity support
+  const shapeSVG = generateStripShapeSVG(stripWidth, stripHeight, stripShape, backgroundColor, stripOpacity)
+  const stripBuffer = await sharp(Buffer.from(shapeSVG))
+    .png()
+    .toBuffer()
+
+  /**
+   * Redistribute logo columns to use full strip width
+   * Maps user-specified columns to evenly-spaced virtual columns
+   */
+  function redistributeColumnsForFullWidth(
+    logos: Array<{ column: number; [key: string]: any }>,
+    totalColumns: number = 6
+  ): Array<{ column: number; virtualColumn: number; [key: string]: any }> {
+    // Extract unique columns used
+    const usedColumns = Array.from(new Set(logos.map(l => l.column))).sort((a, b) => a - b)
+
+    // If already using full width (columns 1 and 6), no redistribution needed
+    if (usedColumns.includes(1) && usedColumns.includes(totalColumns)) {
+      return logos.map(l => ({ ...l, virtualColumn: l.column }))
+    }
+
+    // Calculate even distribution
+    const logoCount = usedColumns.length
+    const virtualColumns: number[] = []
+
+    if (logoCount === 1) {
+      // Single logo: center it
+      virtualColumns.push(3)
+    } else if (logoCount === 2) {
+      // Two logos: use edges
+      virtualColumns.push(1, 6)
+    } else if (logoCount === 3) {
+      // Three logos: left, center-right, right
+      virtualColumns.push(1, 4, 6)
+    } else if (logoCount === 4) {
+      // Four logos: evenly distributed
+      virtualColumns.push(1, 2, 5, 6)
+    } else if (logoCount === 5) {
+      // Five logos
+      virtualColumns.push(1, 2, 3, 5, 6)
+    } else {
+      // Six or more: use all columns
+      for (let i = 1; i <= Math.min(logoCount, totalColumns); i++) {
+        virtualColumns.push(i)
+      }
+    }
+
+    // Create mapping: original column → virtual column
+    const columnMap = new Map<number, number>()
+    usedColumns.forEach((origCol, idx) => {
+      columnMap.set(origCol, virtualColumns[idx])
+    })
+
+    // Apply mapping to logos
+    return logos.map(logo => ({
+      ...logo,
+      virtualColumn: columnMap.get(logo.column) || logo.column
+    }))
+  }
+
+  // Step 1: Redistribute columns for full-width spacing
+  const redistributedLogos = redistributeColumnsForFullWidth(logos, 6)
+
+  // Log redistribution for debugging
+  console.log('[Logo Overlay] ═══ COLUMN REDISTRIBUTION ═══')
+  console.log('[Logo Overlay] Original Columns:', logos.map(l => l.column).join(', '))
+  console.log('[Logo Overlay] Virtual Columns:', redistributedLogos.map(l => l.virtualColumn).join(', '))
+  console.log('[Logo Overlay] Distribution Pattern:',
+    redistributedLogos.length === 3 ? '[1, 4, 6] - Left, Center-Right, Right' :
+    redistributedLogos.length === 2 ? '[1, 6] - Edges' :
+    redistributedLogos.length === 1 ? '[3] - Center' :
+    redistributedLogos.length === 4 ? '[1, 2, 5, 6] - Evenly Distributed' :
+    'Custom')
+
+  // Step 2: Group by VIRTUAL columns (not original columns)
+  const logosByColumn: Map<number, typeof redistributedLogos> = new Map()
+  for (const logo of redistributedLogos) {
+    const col = logo.virtualColumn  // Use virtual column!
     if (!logosByColumn.has(col)) {
       logosByColumn.set(col, [])
     }
     logosByColumn.get(col)!.push(logo)
   }
 
-  console.log(`[Strip] Logos by column: ${Array.from(logosByColumn.entries()).map(([col, l]) => `col${col}:${l.length}`).join(', ')}`)
+  // --- NEW v4.8: AUTO-SCALING LOGIC ---
+  // 1. Calculate the TOTAL REQUIRED WIDTH for all logos + gaps
+  const sortedEntries = Array.from(logosByColumn.entries()).sort((a, b) => a[0] - b[0])
 
-  // Position each logo at its column center
+  const activeGroups = sortedEntries.map(([col, groupLogos]) => ({
+    col,
+    logos: groupLogos,
+    // Original width of this group
+    originalWidth: groupLogos.reduce((sum, l) => sum + l.width, 0) + (Math.max(0, groupLogos.length - 1) * 10)
+  }))
+
+  const totalRequiredWidth = activeGroups.reduce((sum, g) => sum + g.originalWidth, 0)
+
+  // 2. Check overlap risk
+  // We need at least 20px gaps between groups
+  const minTotalGap = Math.max(0, activeGroups.length - 1) * 20
+  const isOvercrowded = (totalRequiredWidth + minTotalGap) > effectiveWidth
+
+  // 3. Calculate Scale Factor
+  let scaleFactor = 1.0
+  if (isOvercrowded) {
+    // scale * totalWidth + minTotalGap = effectiveWidth
+    // scale = (effectiveWidth - minTotalGap) / totalWidth
+    scaleFactor = (effectiveWidth - minTotalGap) / totalRequiredWidth
+
+    // Cap minimum scale to avoid microscopic logos (e.g. 0.5)
+    // If it requires < 0.5, we just let them overlap slightly as fallback or use 0.5
+    scaleFactor = Math.max(0.6, scaleFactor)
+
+    console.log(`[Strip] OVERCROWD DETECTED! Scaling down by factor: ${scaleFactor.toFixed(2)}`)
+  }
+
+  // Position logos
   const compositeOperations: sharp.OverlayOptions[] = []
 
-  for (const [column, columnLogos] of logosByColumn) {
-    // Calculate column center X position (column is 1-indexed)
-    const columnCenterX = stripPadding + (column - 0.5) * columnWidth
+  // Logic for spacing distribution
+  // If we scaled down, we use the specific "Tight Fit" spacing
+  // Otherwise we use "Space Around"
 
-    if (columnLogos.length === 1) {
-      // Single logo: center in column
-      const logo = columnLogos[0]
-      const y = Math.floor((stripHeight - logo.height) / 2)
-      const x = Math.floor(columnCenterX - logo.width / 2)
+  /**
+   * Validate minimum spacing between logos
+   * Returns true if spacing is acceptable, false if cramped
+   */
+  function validateLogoSpacing(
+    activeGroups: Array<{ col: number; finalWidth: number }>,
+    minimumGap: number = 50
+  ): { valid: boolean; reason?: string } {
+    if (activeGroups.length < 2) return { valid: true }
 
-      compositeOperations.push({
-        input: logo.buffer,
-        top: y,
-        left: Math.max(0, x), // Ensure not negative
-      })
-    } else {
-      // Multiple logos in same column: distribute within column width
-      const totalWidth = columnLogos.reduce((sum, l) => sum + l.width, 0)
-      const gap = Math.max(5, (columnWidth - totalWidth) / (columnLogos.length + 1))
-      let offsetX = columnCenterX - (totalWidth + gap * (columnLogos.length - 1)) / 2
+    // Check gaps between consecutive groups
+    for (let i = 0; i < activeGroups.length - 1; i++) {
+      const currentGroup = activeGroups[i]
+      const nextGroup = activeGroups[i + 1]
 
-      for (const logo of columnLogos) {
-        const y = Math.floor((stripHeight - logo.height) / 2)
-        compositeOperations.push({
-          input: logo.buffer,
-          top: y,
-          left: Math.max(0, Math.floor(offsetX)),
-        })
-        offsetX += logo.width + gap
+      // Calculate actual pixel positions (simplified check)
+      // In reality, the spacing is calculated later, but we check theoretical minimum
+      const gap = Math.abs(nextGroup.col - currentGroup.col) * (effectiveWidth / 6) - currentGroup.finalWidth
+
+      if (gap < minimumGap) {
+        return {
+          valid: false,
+          reason: `Gap between logo groups ${i} and ${i + 1} is only ${Math.floor(gap)}px (minimum: ${minimumGap}px)`
+        }
       }
     }
+
+    return { valid: true }
+  }
+
+  // Recalculate group widths with scale factor
+  let scaledGroups = activeGroups.map(g => ({
+    ...g,
+    finalWidth: Math.floor(g.originalWidth * scaleFactor)
+  }))
+
+  // Validate spacing after initial scaling
+  const spacingCheck = validateLogoSpacing(scaledGroups, 50)
+  if (!spacingCheck.valid) {
+    console.warn('[Logo Overlay] Spacing validation failed:', spacingCheck.reason)
+    console.warn('[Logo Overlay] Reducing scale factor to create more space...')
+
+    // Reduce scale factor by 10% to create more space
+    scaleFactor = Math.max(0.5, scaleFactor * 0.9)
+
+    // Recalculate with reduced scale
+    scaledGroups = activeGroups.map(g => ({
+      ...g,
+      finalWidth: Math.floor(g.originalWidth * scaleFactor)
+    }))
+
+    console.log('[Logo Overlay] New scale factor:', scaleFactor.toFixed(2))
+  }
+
+  const totalScaledWidth = scaledGroups.reduce((sum, g) => sum + g.finalWidth, 0)
+  const finalAvailableSpace = effectiveWidth - totalScaledWidth
+
+  // Distribute remaining space
+  const groupSpacing = Math.max(20, finalAvailableSpace / (scaledGroups.length + 1))
+
+  let currentX = startX + groupSpacing
+
+  for (const group of scaledGroups) {
+    const { logos: groupLogos } = group
+    const internalGap = Math.floor(10 * scaleFactor)
+
+    let internalX = currentX
+
+    for (const logo of groupLogos) {
+      // Resize logo if scale factor < 1.0
+      let logoBuffer = logo.buffer
+      let logoW = logo.width
+      let logoH = logo.height
+
+      if (scaleFactor < 0.99) {
+        try {
+          const newW = Math.floor(logo.width * scaleFactor)
+          const newH = Math.floor(logo.height * scaleFactor)
+          // We must resize the buffer
+          logoBuffer = await sharp(logo.buffer)
+            .resize(newW, newH)
+            .png()
+            .toBuffer()
+          logoW = newW
+          logoH = newH
+        } catch (e) {
+          console.error('Failed to resize logo during auto-scale', e)
+        }
+      }
+
+      const y = Math.floor((stripHeight - logoH) / 2)
+
+      compositeOperations.push({
+        input: logoBuffer,
+        top: y,
+        left: Math.max(0, Math.floor(internalX)),
+      })
+
+      internalX += logoW + internalGap
+    }
+
+    currentX += group.finalWidth + groupSpacing
   }
 
   // Composite logos onto strip
@@ -365,7 +685,248 @@ async function createLogoStrip(
     .png()
     .toBuffer()
 
-  return { stripBuffer: finalStrip, stripHeight }
+  return { stripBuffer: finalStrip, stripHeight, stripLeft }
+}
+
+/**
+ * Create a MULTI-ROW SINGLE STRIP containing logos from multiple rows
+ *
+ * This solves the gap problem by creating ONE strip background for both rows
+ * instead of two separate strips with a gap between them.
+ *
+ * Example: Header (5 logos) + Middle (2 logos) = One tall strip with both rows
+ *
+ * @param imageWidth - Width of the base image
+ * @param logosByRow - Map of row name → logos for that row
+ * @param backgroundColor - Strip background color
+ * @param stripPadding - Horizontal padding
+ * @param stripShape - Shape of the strip
+ * @param rowLeading - Vertical spacing between rows within the strip (default 12px)
+ * @param stripOpacity - Strip opacity 0-100 (default: 100)
+ * @param logoBound - When true, strip only covers logo area (default: false)
+ */
+async function createMultiRowStrip(
+  imageWidth: number,
+  logosByRow: Map<LogoStripRow, Array<{ buffer: Buffer; width: number; height: number; column: number }>>,
+  backgroundColor: string,
+  stripPadding: number,
+  stripShape: LogoStripShape = 'rectangle',
+  rowLeading: number = 12,
+  stripOpacity: number = 100,
+  logoBound: boolean = false
+): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
+  console.log('[Multi-Row Strip] Creating combined strip for', logosByRow.size, 'rows, opacity:', stripOpacity, '%, logoBound:', logoBound)
+
+  // Calculate height for each row
+  // v5.3: Ultra-tight row height - just logo height + minimal padding
+  const rowHeights = new Map<LogoStripRow, number>()
+  for (const [rowName, logos] of logosByRow.entries()) {
+    const maxLogoHeight = Math.max(...logos.map(l => l.height))
+    const rowHeight = maxLogoHeight + 4 // v5.3: Just 2px padding top+bottom per row
+    rowHeights.set(rowName, rowHeight)
+    console.log(`[Multi-Row Strip] Row "${rowName}": ${logos.length} logos, height ${rowHeight}px`)
+  }
+
+  // Calculate total strip height
+  const rowNames = Array.from(logosByRow.keys())
+  const totalRowHeight = Array.from(rowHeights.values()).reduce((sum, h) => sum + h, 0)
+  const totalLeading = (rowNames.length - 1) * rowLeading // Leading between rows
+  const stripHeight = totalRowHeight + totalLeading
+
+  // --- NEW v5.4: LOGO-BOUND STRIP CALCULATION FOR MULTI-ROW ---
+  let stripLeft = 0
+  let stripWidth = imageWidth
+
+  if (logoBound) {
+    // Find min/max columns across ALL rows
+    const allLogos = Array.from(logosByRow.values()).flat()
+    if (allLogos.length > 0) {
+      const minColumn = Math.min(...allLogos.map(l => l.column))
+      const maxColumn = Math.max(...allLogos.map(l => l.column))
+
+      const colWidth = (imageWidth - stripPadding * 2) / 6
+      const logoAreaPadding = 30 // Extra padding around logos
+
+      stripLeft = Math.max(0, stripPadding + (minColumn - 1) * colWidth - logoAreaPadding)
+      const stripRight = Math.min(imageWidth, stripPadding + maxColumn * colWidth + logoAreaPadding)
+      stripWidth = stripRight - stripLeft
+
+      console.log(`[Multi-Row Strip] Logo-bound mode: columns ${minColumn}-${maxColumn}, strip from ${stripLeft}px to ${stripRight}px (width: ${stripWidth}px)`)
+    }
+  }
+
+  console.log(`[Multi-Row Strip] Total height: ${stripHeight}px (${totalRowHeight}px rows + ${totalLeading}px leading)`)
+
+  // Generate strip background with opacity support
+  const shapeSVG = generateStripShapeSVG(stripWidth, stripHeight, stripShape, backgroundColor, stripOpacity)
+  const stripBuffer = await sharp(Buffer.from(shapeSVG))
+    .png()
+    .toBuffer()
+
+  // Composite operations for all logos across all rows
+  const compositeOperations: sharp.OverlayOptions[] = []
+
+  let currentY = 0
+
+  for (const rowName of rowNames) {
+    const rowLogos = logosByRow.get(rowName) || []
+    const rowHeight = rowHeights.get(rowName) || 0
+
+    if (rowLogos.length === 0) continue
+
+    // Redistribute columns for this row
+    const redistributed = redistributeColumnsForFullWidth(rowLogos, 6)
+
+    console.log(`[Multi-Row Strip] Row "${rowName}" at Y=${currentY}px`)
+    console.log(`[Multi-Row Strip] Virtual columns:`, redistributed.map(l => l.virtualColumn).join(', '))
+
+    // Group by virtual column
+    const logosByColumn: Map<number, typeof redistributed> = new Map()
+    for (const logo of redistributed) {
+      const col = logo.virtualColumn
+      if (!logosByColumn.has(col)) {
+        logosByColumn.set(col, [])
+      }
+      logosByColumn.get(col)!.push(logo)
+    }
+
+    // Calculate positions for this row
+    const sortedEntries = Array.from(logosByColumn.entries()).sort((a, b) => a[0] - b[0])
+    const activeGroups = sortedEntries.map(([col, groupLogos]) => ({
+      col,
+      logos: groupLogos,
+      originalWidth: groupLogos.reduce((sum, l) => sum + l.width, 0) + (Math.max(0, groupLogos.length - 1) * 10)
+    }))
+
+    const effectiveWidth = imageWidth - (stripPadding * 2)
+    const totalRequiredWidth = activeGroups.reduce((sum, g) => sum + g.originalWidth, 0)
+
+    let scaleFactor = 1.0
+    if (totalRequiredWidth > effectiveWidth) {
+      scaleFactor = effectiveWidth / totalRequiredWidth
+      scaleFactor = Math.max(0.6, scaleFactor)
+    }
+
+    const scaledGroups = activeGroups.map(g => ({
+      ...g,
+      finalWidth: Math.floor(g.originalWidth * scaleFactor)
+    }))
+
+    const totalScaledWidth = scaledGroups.reduce((sum, g) => sum + g.finalWidth, 0)
+    const finalAvailableSpace = effectiveWidth - totalScaledWidth
+    const groupSpacing = Math.max(20, finalAvailableSpace / (scaledGroups.length + 1))
+
+    let currentX = stripPadding + groupSpacing
+
+    // Position logos for this row
+    for (const group of scaledGroups) {
+      const internalGap = Math.floor(10 * scaleFactor)
+      let internalX = currentX
+
+      for (const logo of group.logos) {
+        let logoBuffer = logo.buffer
+        let logoW = logo.width
+        let logoH = logo.height
+
+        // Resize if needed
+        if (scaleFactor < 0.99) {
+          try {
+            const newW = Math.floor(logo.width * scaleFactor)
+            const newH = Math.floor(logo.height * scaleFactor)
+            logoBuffer = await sharp(logo.buffer)
+              .resize(newW, newH)
+              .png()
+              .toBuffer()
+            logoW = newW
+            logoH = newH
+          } catch (e) {
+            console.error('Failed to resize logo', e)
+          }
+        }
+
+        // Y position within this row (vertically centered)
+        const yInRow = Math.floor((rowHeight - logoH) / 2)
+
+        compositeOperations.push({
+          input: logoBuffer,
+          top: currentY + yInRow,
+          left: Math.max(0, Math.floor(internalX)),
+        })
+
+        internalX += logoW + internalGap
+      }
+
+      currentX += group.finalWidth + groupSpacing
+    }
+
+    // Move to next row
+    currentY += rowHeight + rowLeading
+  }
+
+  // Composite all logos onto the strip
+  const finalStrip = await sharp(stripBuffer)
+    .composite(compositeOperations)
+    .png()
+    .toBuffer()
+
+  console.log('[Multi-Row Strip] ✅ Combined strip created successfully')
+
+  return { stripBuffer: finalStrip, stripHeight, stripLeft }
+}
+
+/**
+ * Redistribute logo columns to use full strip width
+ * Maps user-specified columns to evenly-spaced virtual columns
+ */
+function redistributeColumnsForFullWidth(
+  logos: Array<{ column: number; [key: string]: any }>,
+  totalColumns: number = 6
+): Array<{ column: number; virtualColumn: number; [key: string]: any }> {
+  // Extract unique columns used
+  const usedColumns = Array.from(new Set(logos.map(l => l.column))).sort((a, b) => a - b)
+
+  // If already using full width (columns 1 and 6), no redistribution needed
+  if (usedColumns.includes(1) && usedColumns.includes(totalColumns)) {
+    return logos.map(l => ({ ...l, virtualColumn: l.column }))
+  }
+
+  // Calculate even distribution
+  const logoCount = usedColumns.length
+  const virtualColumns: number[] = []
+
+  if (logoCount === 1) {
+    // Single logo: center it
+    virtualColumns.push(3)
+  } else if (logoCount === 2) {
+    // Two logos: use edges
+    virtualColumns.push(1, 6)
+  } else if (logoCount === 3) {
+    // Three logos: left, center-right, right
+    virtualColumns.push(1, 4, 6)
+  } else if (logoCount === 4) {
+    // Four logos: evenly distributed
+    virtualColumns.push(1, 2, 5, 6)
+  } else if (logoCount === 5) {
+    // Five logos
+    virtualColumns.push(1, 2, 3, 5, 6)
+  } else {
+    // Six or more: use all columns
+    for (let i = 1; i <= Math.min(logoCount, totalColumns); i++) {
+      virtualColumns.push(i)
+    }
+  }
+
+  // Create mapping: original column → virtual column
+  const columnMap = new Map<number, number>()
+  usedColumns.forEach((origCol, idx) => {
+    columnMap.set(origCol, virtualColumns[idx])
+  })
+
+  // Apply mapping to logos
+  return logos.map(logo => ({
+    ...logo,
+    virtualColumn: columnMap.get(logo.column) || logo.column
+  }))
 }
 
 /**
@@ -389,13 +950,16 @@ function getStripYPosition(
   row: LogoStripRow,
   stripHeight: number,
   imageHeight: number,
-  padding: number
+  stripGap: number = 20, // Gap between strips (default 20px for tight spacing)
+  topOffset: number = 0 // Offset from top (for 'middle' strip below header)
 ): number {
   switch (row) {
     case 'header':
       return 0 // Top of image
     case 'middle':
-      return Math.floor((imageHeight - stripHeight) / 2) // Center
+      // If topOffset is provided, position just below it (with minimal gap)
+      // Otherwise fallback to center (legacy behavior)
+      return topOffset > 0 ? topOffset + stripGap : Math.floor((imageHeight - stripHeight) / 2)
     case 'footer':
       return imageHeight - stripHeight // Bottom of image
   }
@@ -418,170 +982,317 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
   const imageHeight = metadata.height || 1350
 
   // ==================================================
-  // STRIP MODE: Create unified horizontal strip with ALL logos
+  // MULTI-MODE PROCESSING: Strips + Individual Logos
   // ==================================================
-  // When strip mode is enabled, put ALL logos into a single strip at the
-  // first selected row position. This matches user expectation of a unified
-  // banner containing all logos, regardless of their individual grid positions.
-  if (stripMode?.enabled && stripMode.rows.length > 0) {
-    // Use the first selected row for strip placement (usually 'header')
-    const primaryRow = stripMode.rows[0]
-    console.log(`[Strip Mode] Creating unified strip at ${primaryRow} with ALL ${logosPlacements.length} logos`)
+  // NEW v4.7: Independent Row Processing
+  // Instead of a single unified strip, we process each row (header, middle, footer)
+  // independently based on the user's configuration. This allows for:
+  // 1. Multiple strips (e.g., Header Strip + Footer Strip)
+  // 2. Hybrid layouts (e.g., Header Strip + Individual Floating Logos in Middle)
 
-    // Sort logos by position to maintain correct order (Yi at left, CII at right)
-    const positionOrder: Record<string, number> = {
-      'top-1': 0, 'top-2': 1, 'top-3': 2, 'top-4': 3, 'top-5': 4, 'top-6': 5,
-      'mid-1': 6, 'mid-2': 7, 'mid-3': 8, 'mid-4': 9, 'mid-5': 10, 'mid-6': 11,
-      'bottom-1': 12, 'bottom-2': 13, 'bottom-3': 14, 'bottom-4': 15, 'bottom-5': 16, 'bottom-6': 17,
-    }
-    const sortedPlacements = [...logosPlacements].sort((a, b) =>
-      (positionOrder[a.position] ?? 99) - (positionOrder[b.position] ?? 99)
-    )
+  const compositeOperations: sharp.OverlayOptions[] = []
 
-    console.log(`[Strip Mode] Logo order: ${sortedPlacements.map(p => `${p.logoId}@${p.position}`).join(', ')}`)
+  // Helper to categorize logos by row
+  const getRowForPosition = (pos: LogoPosition): LogoStripRow => {
+    if (pos.startsWith('top-')) return 'header'
+    if (pos.startsWith('mid-')) return 'middle'
+    return 'footer'
+  }
 
-    // Download and resize ALL logos (sorted by position)
-    // Include column info for column-aware positioning in createLogoStrip()
-    const processedLogos: { buffer: Buffer; width: number; height: number; column: number }[] = []
+  // Group placements by row
+  const logosByRow: Record<LogoStripRow, LogoPlacement[]> = {
+    header: [],
+    middle: [],
+    footer: []
+  }
 
-    for (const placement of sortedPlacements) {
-      if (!placement.logo?.file_url) continue
+  for (const placement of logosPlacements) {
+    const row = getRowForPosition(placement.position)
+    logosByRow[row].push(placement)
+  }
 
-      try {
-        const logoBuffer = await downloadImage(placement.logo.file_url)
-        const logoSizeValue = placement.size ?? defaultLogoSize
-        const logoSizePixels = getLogoSizePixels(logoSizeValue)
+  // Process a list of logos (either as a strip or individually)
+  // Returns the BOTTOM Y coordinate of the processed element (for stacking)
+  const processLogos = async (
+    rowName: LogoStripRow,
+    placements: LogoPlacement[],
+    useStrip: boolean,
+    topOffset: number = 0
+  ): Promise<number> => {
+    if (placements.length === 0) return topOffset
 
-        const resizedLogo = await sharp(logoBuffer)
-          .resize(logoSizePixels, logoSizePixels, {
-            fit: 'inside',
-            withoutEnlargement: true,
+    let contentHeight = 0
+
+    if (useStrip) {
+      // --- STRIP MODE for this row ---
+      console.log(`[Logo System] Creating ${rowName} strip with ${placements.length} logos`)
+
+      const processedLogos: { buffer: Buffer; width: number; height: number; column: number; logoId: string }[] = []
+
+      for (const placement of placements) {
+        if (!placement.logo?.file_url) continue
+        try {
+          const logoBuffer = await downloadImage(placement.logo.file_url)
+          const logoSizeValue = placement.size ?? defaultLogoSize
+          const logoSizePixels = getLogoSizePixels(logoSizeValue)
+
+          const resizedLogo = await sharp(logoBuffer)
+            .resize(logoSizePixels, logoSizePixels, { fit: 'inside', withoutEnlargement: true })
+            .png()
+            .toBuffer()
+
+          const logoMetadata = await sharp(resizedLogo).metadata()
+          const column = parseInt(placement.position.split('-')[1]) || 1
+
+          processedLogos.push({
+            buffer: resizedLogo,
+            width: logoMetadata.width || logoSizePixels,
+            height: logoMetadata.height || logoSizePixels,
+            column,
+            logoId: placement.logoId
           })
-          .png()
-          .toBuffer()
+        } catch (e) {
+          console.error(`Failed to load logo for strip:`, e)
+        }
+      }
 
-        const logoMetadata = await sharp(resizedLogo).metadata()
+      if (processedLogos.length > 0) {
+        const stripShape = config.stripShape || DEFAULT_LOGO_STRIP_SHAPE
+        const stripOpacity = config.stripMode?.opacity ?? 100
+        const logoBound = config.stripMode?.logoBound ?? false
 
-        // Extract column number from position (e.g., 'top-3' → 3, 'mid-1' → 1, 'bottom-6' → 6)
-        const column = parseInt(placement.position.split('-')[1]) || 1
+        const { stripBuffer, stripHeight, stripLeft } = await createLogoStrip(
+          imageWidth,
+          processedLogos,
+          backgroundColor, // Use global background for strip
+          paddingPixels,
+          stripShape,
+          stripOpacity,
+          logoBound
+        )
 
-        processedLogos.push({
-          buffer: resizedLogo,
-          width: logoMetadata.width || logoSizePixels,
-          height: logoMetadata.height || logoSizePixels,
-          column, // Pass column for column-aware strip positioning
+        contentHeight = stripHeight
+
+        // Use topOffset for 'middle', 0 for 'header'
+        // Strip gap: 15px for tight spacing between header and middle strips
+        const stripGap = 15 // Minimal gap between strips (was using paddingPixels ~40px before)
+        const stripY = getStripYPosition(rowName, stripHeight, imageHeight, stripGap, topOffset)
+
+        console.log(`[Logo Overlay] Strip "${rowName}" positioned at Y=${stripY}px, X=${stripLeft}px (gap: ${stripGap}px, opacity: ${stripOpacity}%, logoBound: ${logoBound})`)
+
+        compositeOperations.push({
+          input: stripBuffer,
+          top: stripY,
+          left: stripLeft
         })
-      } catch (error) {
-        console.error(`[Strip Mode] Failed to process logo ${placement.logoId}:`, error)
+      }
+
+    } else {
+      // --- INDIVIDUAL MODE for this row ---
+      console.log(`[Logo System] Placing ${placements.length} individual logos in ${rowName}`)
+
+      for (const placement of placements) {
+        if (!placement.logo?.file_url) continue
+        try {
+          const logoSizeValue = placement.size ?? defaultLogoSize
+          const logoSizePixels = getLogoSizePixels(logoSizeValue)
+          const bgShape = placement.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape
+          const bgStyle = placement.backgroundStyle || DEFAULT_LOGO_BACKGROUND.style
+
+          const logoBuffer = await downloadImage(placement.logo.file_url)
+          const resizedLogo = await sharp(logoBuffer)
+            .resize(logoSizePixels, logoSizePixels, { fit: 'inside', withoutEnlargement: true })
+            .png()
+            .toBuffer()
+
+          const finalLogo = await createLogoWithBackground(
+            resizedLogo,
+            logoSizePixels,
+            bgShape,
+            bgStyle,
+            backgroundColor
+          )
+
+          const finalMetadata = await sharp(finalLogo).metadata()
+          const finalWidth = finalMetadata.width || logoSizePixels
+          const finalHeight = finalMetadata.height || logoSizePixels
+
+          const { x, y } = calculatePosition(
+            placement.position,
+            imageWidth,
+            imageHeight,
+            Math.max(finalWidth, finalHeight),
+            paddingPixels
+          )
+
+          contentHeight = Math.max(contentHeight, finalHeight)
+
+          compositeOperations.push({
+            input: finalLogo,
+            top: Math.max(0, y),
+            left: Math.max(0, x)
+          })
+
+        } catch (e) {
+          console.error(`Failed to place individual logo:`, e)
+        }
       }
     }
 
-    if (processedLogos.length === 0) {
-      console.log(`[Strip Mode] No logos to process, returning original image`)
-      return await baseImage.png().toBuffer()
+    // Return the bottom edge of this content
+    // For individual logos, we approximate using the generic row height
+    // For strips, we know exact height
+    if (rowName === 'header') {
+      return contentHeight > 0 ? contentHeight : topOffset
+    }
+    return topOffset // Only header offset matters for middle
+  }
+
+  // Execute processing for each row
+  // Check which rows are enabled for strip mode
+  // NEW v4.9: Auto-detect rows with logos when strip mode is globally enabled
+  const stripEnabledRows = new Set<LogoStripRow>(
+    (stripMode?.enabled && stripMode.rows) ? (stripMode.rows as LogoStripRow[]) : []
+  )
+
+  // Auto-add rows that have logos if strip mode is globally enabled
+  if (stripMode?.enabled) {
+    const rowsWithLogos: LogoStripRow[] = []
+    if (logosByRow.header.length > 0) rowsWithLogos.push('header')
+    if (logosByRow.middle.length > 0) rowsWithLogos.push('middle')
+    if (logosByRow.footer.length > 0) rowsWithLogos.push('footer')
+
+    for (const row of rowsWithLogos) {
+      stripEnabledRows.add(row)
     }
 
-    // Create the unified strip with ALL logos
-    const { stripBuffer, stripHeight } = await createLogoStrip(
+    console.log(`[Logo System] Auto-enabled strip mode for rows with logos: ${rowsWithLogos.join(', ')}`)
+  }
+
+  // v5.0: Check if we should merge header + middle into ONE unified strip
+  const shouldMergeHeaderMiddle = stripMode?.enabled &&
+    logosByRow.header.length > 0 &&
+    logosByRow.middle.length > 0 &&
+    stripEnabledRows.has('header') &&
+    stripEnabledRows.has('middle')
+
+  console.log('[Logo System] v5.0 Merge Check:', {
+    stripModeEnabled: stripMode?.enabled,
+    headerLogos: logosByRow.header.length,
+    middleLogos: logosByRow.middle.length,
+    headerInSet: stripEnabledRows.has('header'),
+    middleInSet: stripEnabledRows.has('middle'),
+    shouldMerge: shouldMergeHeaderMiddle
+  })
+
+  if (shouldMergeHeaderMiddle) {
+    // Use createMultiRowStrip to merge header and middle into ONE strip
+    console.log('[Logo System] v5.3: Merging header + middle into ONE unified strip')
+
+    const mergedLogosMap = new Map<LogoStripRow, Array<{ buffer: Buffer; width: number; height: number; column: number }>>()
+    const stripShape = config.stripShape || DEFAULT_LOGO_STRIP_SHAPE
+    const stripPadding = 10 // v5.3: Minimal padding for unified strip
+
+    // v5.3: Force SAME logo size for all logos in unified strip (compact, uniform height)
+    const UNIFIED_STRIP_LOGO_SIZE = 80 // Compact size for multi-row strips
+
+    // Prepare header logos
+    const headerLogosForStrip: Array<{ buffer: Buffer; width: number; height: number; column: number }> = []
+    for (const placement of logosByRow.header) {
+      if (!placement.logo?.file_url) continue
+      try {
+        const logoBuffer = await downloadImage(placement.logo.file_url)
+        const logoSizePixels = UNIFIED_STRIP_LOGO_SIZE // v5.3: Force same size
+        const resizedLogo = await sharp(logoBuffer)
+          .resize(logoSizePixels, logoSizePixels, { fit: 'inside', withoutEnlargement: true })
+          .png()
+          .toBuffer()
+        const metadata = await sharp(resizedLogo).metadata()
+        const column = parseInt(placement.position.split('-')[1]) || 1
+        headerLogosForStrip.push({
+          buffer: resizedLogo,
+          width: metadata.width || logoSizePixels,
+          height: metadata.height || logoSizePixels,
+          column
+        })
+      } catch (e) {
+        console.error('Failed to prepare header logo:', e)
+      }
+    }
+
+    // Prepare middle logos
+    const middleLogosForStrip: Array<{ buffer: Buffer; width: number; height: number; column: number }> = []
+    for (const placement of logosByRow.middle) {
+      if (!placement.logo?.file_url) continue
+      try {
+        const logoBuffer = await downloadImage(placement.logo.file_url)
+        const logoSizePixels = UNIFIED_STRIP_LOGO_SIZE // v5.3: Force same size
+        const resizedLogo = await sharp(logoBuffer)
+          .resize(logoSizePixels, logoSizePixels, { fit: 'inside', withoutEnlargement: true })
+          .png()
+          .toBuffer()
+        const metadata = await sharp(resizedLogo).metadata()
+        const column = parseInt(placement.position.split('-')[1]) || 1
+        middleLogosForStrip.push({
+          buffer: resizedLogo,
+          width: metadata.width || logoSizePixels,
+          height: metadata.height || logoSizePixels,
+          column
+        })
+      } catch (e) {
+        console.error('Failed to prepare middle logo:', e)
+      }
+    }
+
+    if (headerLogosForStrip.length > 0) mergedLogosMap.set('header', headerLogosForStrip)
+    if (middleLogosForStrip.length > 0) mergedLogosMap.set('middle', middleLogosForStrip)
+
+    // Get strip opacity and logoBound settings
+    const stripOpacity = config.stripMode?.opacity ?? 100
+    const logoBound = config.stripMode?.logoBound ?? false
+
+    // Create unified strip with rowLeading=0 (no gap between rows)
+    const { stripBuffer, stripHeight, stripLeft } = await createMultiRowStrip(
       imageWidth,
-      processedLogos,
-      backgroundColor,
-      paddingPixels
+      mergedLogosMap,
+      backgroundColor || '#FFFFFF',
+      stripPadding,
+      stripShape,
+      0, // rowLeading = 0 for seamless unified strip
+      stripOpacity,
+      logoBound
     )
 
-    // Calculate Y position for the strip based on selected row
-    const stripY = getStripYPosition(primaryRow, stripHeight, imageHeight, paddingPixels)
-
-    console.log(`[Strip Mode] Unified ${primaryRow} strip: ${imageWidth}x${stripHeight} at y=${stripY}, ${processedLogos.length} logos`)
-
-    // Composite strip onto base image and return
-    return await baseImage.composite([{
+    compositeOperations.push({
       input: stripBuffer,
-      top: stripY,
-      left: 0,
-    }]).png().toBuffer()
-  }
+      top: 0,
+      left: stripLeft
+    })
 
-  // ==================================================
-  // STANDARD MODE: Individual logo placements
-  // ==================================================
-  // Prepare composite operations
-  const compositeOperations: sharp.OverlayOptions[] = []
+    console.log(`[Logo System] v5.0: Unified strip created, height: ${stripHeight}px`)
 
-  console.log(`Processing ${logosPlacements.length} logo placements`)
-
-  for (const placement of logosPlacements) {
-    if (!placement.logo?.file_url) {
-      console.log(`Skipping logo ${placement.logoId}: no file_url`)
-      continue
+    // Process footer separately if it exists
+    if (logosByRow.footer.length > 0) {
+      await processLogos('footer', logosByRow.footer, stripEnabledRows.has('footer'))
     }
 
-    // Get the logo size for this specific placement
-    // Use placement's size if specified, otherwise fall back to default
-    const logoSizeValue = placement.size ?? defaultLogoSize
-    const logoSizePixels = getLogoSizePixels(logoSizeValue)
+  } else {
+    // Original separate processing for single-row cases
+    // 1. Process Header -> Get Bottom Y
+    const headerBottom = await processLogos('header', logosByRow.header, stripEnabledRows.has('header'))
 
-    // Get background settings (default to no background)
-    const backgroundShape = placement.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape
-    const backgroundStyle = placement.backgroundStyle || DEFAULT_LOGO_BACKGROUND.style
+    // 2. Process Middle -> Pass Header Bottom as Top Offset
+    await processLogos('middle', logosByRow.middle, stripEnabledRows.has('middle'), headerBottom)
 
-    console.log(`Processing logo ${placement.logoId} at position ${placement.position} with size ${logoSizePixels}px, background: ${backgroundShape}`)
-
-    try {
-      // Download logo image
-      const logoBuffer = await downloadImage(placement.logo.file_url)
-
-      // Resize logo while maintaining aspect ratio using individual size
-      const resizedLogo = await sharp(logoBuffer)
-        .resize(logoSizePixels, logoSizePixels, {
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .png() // Ensure PNG format for transparency
-        .toBuffer()
-
-      // Apply background if specified (using global background color)
-      const finalLogo = await createLogoWithBackground(
-        resizedLogo,
-        logoSizePixels,
-        backgroundShape,
-        backgroundStyle,
-        backgroundColor
-      )
-
-      // Get final logo dimensions (may be larger with background)
-      const finalMetadata = await sharp(finalLogo).metadata()
-      const finalWidth = finalMetadata.width || logoSizePixels
-      const finalHeight = finalMetadata.height || logoSizePixels
-
-      // Calculate position using final logo dimensions
-      const { x, y } = calculatePosition(
-        placement.position,
-        imageWidth,
-        imageHeight,
-        Math.max(finalWidth, finalHeight), // Use the larger dimension for positioning
-        paddingPixels
-      )
-
-      compositeOperations.push({
-        input: finalLogo,
-        top: Math.max(0, y),
-        left: Math.max(0, x),
-      })
-    } catch (error) {
-      console.error(`Failed to process logo ${placement.logoId}:`, error)
-      // Continue with other logos if one fails
-    }
+    // 3. Process Footer -> Position fixed at bottom (offset doesn't matter)
+    await processLogos('footer', logosByRow.footer, stripEnabledRows.has('footer'))
   }
 
-  // Apply all logo overlays
-  console.log(`Total composite operations: ${compositeOperations.length}`)
+  // Apply all composite operations
   if (compositeOperations.length > 0) {
     return await baseImage.composite(compositeOperations).png().toBuffer()
   }
 
-  // Return original image if no logos to overlay
-  console.log('No logos to overlay, returning original image')
   return await baseImage.png().toBuffer()
 }
 
@@ -592,7 +1303,8 @@ export async function processImageWithLogos(
   imageDataUrl: string,
   logosPlacements: LogoPlacement[],
   backgroundColor?: string, // Global background color for all logos
-  stripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] } // Unified strip layout mode
+  stripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] }, // Unified strip layout mode
+  stripShape?: string // NEW v3.11: Logo strip shape
 ): Promise<string> {
   // Extract base64 data from data URL
   let imageBuffer: Buffer
@@ -607,12 +1319,13 @@ export async function processImageWithLogos(
     throw new Error('Invalid image format')
   }
 
-  // Overlay logos with optional background color and strip mode
+  // Overlay logos with optional background color, strip mode, and strip shape
   const resultBuffer = await overlayLogosOnImage({
     baseImageBuffer: imageBuffer,
     logosPlacements,
     backgroundColor,
     stripMode: stripMode ? { enabled: stripMode.enabled, rows: stripMode.rows as LogoStripRow[] } : undefined,
+    stripShape: stripShape as LogoStripShape | undefined, // NEW v3.11
   })
 
   // Return as data URL

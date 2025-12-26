@@ -5,7 +5,7 @@ import type { LogoPosition } from '@/lib/config/constants'
 import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
-import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape } from '@/lib/config/design-constants'
 import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
@@ -63,6 +63,8 @@ export type LogoStripRow = 'header' | 'middle' | 'footer'
 export interface LogoStripMode {
   enabled: boolean
   rows: LogoStripRow[] // Which rows use strip mode (header, middle, footer)
+  opacity: number // Strip opacity 0-100 (default: 100 = fully opaque)
+  logoBound: boolean // When true, strip only covers logo area; when false, edge-to-edge
 }
 
 interface CreativeFormData {
@@ -224,6 +226,9 @@ interface CreativeState {
   // Logo strip mode actions
   setLogoStripMode: (stripMode: LogoStripMode) => void
   toggleLogoStripRow: (row: LogoStripRow) => void
+  setLogoStripShape: (shape: LogoStripShape) => void
+  setLogoStripOpacity: (opacity: number) => void
+  setLogoStripLogoBound: (logoBound: boolean) => void
   // AI Logo Position Optimization
   applyOptimizedPlacements: (optimizedPlacements: Array<{
     logoId: string
@@ -263,6 +268,7 @@ interface CreativeState {
 
   // Color Configuration Actions
   setUseBrandColors: (enabled: boolean) => void
+  setUseBrandFont: (enabled: boolean) => void
   setColorPalette: (paletteId: string | null) => void
   setCustomColors: (colors: CustomColors) => void
   resetColorConfig: () => void
@@ -303,6 +309,8 @@ interface CreativeState {
 const DEFAULT_LOGO_STRIP_MODE: LogoStripMode = {
   enabled: false,
   rows: ['header'], // Default to header row when enabled
+  opacity: 100, // Fully opaque by default
+  logoBound: false, // Edge-to-edge by default
 }
 
 const initialFormData: CreativeFormData = {
@@ -666,6 +674,39 @@ export const useCreativeStore = create<CreativeState>()(
           }
         }),
 
+      setLogoStripShape: (shape) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            designData: {
+              ...state.formData.designData,
+              stripShape: shape,
+            },
+          },
+        })),
+
+      setLogoStripOpacity: (opacity) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logoStripMode: {
+              ...state.formData.logoStripMode,
+              opacity: Math.max(0, Math.min(100, opacity)), // Clamp 0-100
+            },
+          },
+        })),
+
+      setLogoStripLogoBound: (logoBound) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            logoStripMode: {
+              ...state.formData.logoStripMode,
+              logoBound,
+            },
+          },
+        })),
+
       // AI Logo Position Optimization - apply optimized placements from the optimizer
       applyOptimizedPlacements: (optimizedPlacements) =>
         set((state) => {
@@ -914,6 +955,20 @@ export const useCreativeStore = create<CreativeState>()(
                 useBrandColors: enabled,
                 // Clear palette and custom colors when enabling brand colors
                 ...(enabled ? { selectedPalette: null, customColors: null } : {}),
+              },
+            },
+          },
+        })),
+
+      setUseBrandFont: (enabled) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            designData: {
+              ...state.formData.designData,
+              colorConfig: {
+                ...state.formData.designData.colorConfig,
+                useBrandFont: enabled,
               },
             },
           },
@@ -1430,6 +1485,14 @@ export const useCreativeStore = create<CreativeState>()(
             ...state.templateResize,
             isResizing: false,
             resizeError: null,
+          }
+
+          // Migrate old creatives without useBrandFont (backward compatibility)
+          if (state.formData?.designData?.colorConfig) {
+            const colorConfig = state.formData.designData.colorConfig
+            if (colorConfig.useBrandFont === undefined) {
+              colorConfig.useBrandFont = true // Default to enabled for backward compatibility
+            }
           }
 
           // Migrate old placements without isLocked or logoType properties

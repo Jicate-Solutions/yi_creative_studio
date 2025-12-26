@@ -13,9 +13,9 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="light"
+      defaultTheme="system"
       enableSystem
-      disableTransitionOnChange
+      disableTransitionOnChange={false}
     >
       <BugReporterWrapper>
         <AuthProvider>

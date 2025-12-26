@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { Check, ChevronDown, Droplets, Paintbrush, Palette, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Droplets, Paintbrush, Palette, Sparkles, Type, Brain } from 'lucide-react'
 import {
   Collapsible,
   CollapsibleContent,
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ColorPicker } from '@/components/create/color-picker'
 import {
   COLOR_PALETTES,
   type ColorConfig,
@@ -28,7 +29,9 @@ interface BrandColors {
 interface ColorSectionProps {
   colorConfig: ColorConfig
   brandColors?: BrandColors
+  brandFont?: string
   onToggleBrandColors: (enabled: boolean) => void
+  onToggleBrandFont: (enabled: boolean) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
   colorMood?: string
@@ -94,6 +97,55 @@ function PaletteCard({
   )
 }
 
+function AIColorCard({
+  isSelected,
+  onSelect,
+}: {
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'relative flex flex-col items-center p-3 rounded-xl border-2 transition-all overflow-hidden group',
+        'hover:shadow-md hover:scale-[1.02]',
+        isSelected
+          ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-900/20 shadow-md ring-2 ring-violet-500/20'
+          : 'border-transparent bg-gradient-to-br from-violet-50/50 to-fuchsia-50/50 dark:from-violet-900/20 dark:to-fuchsia-900/20 hover:border-violet-300/50'
+      )}
+    >
+      {isSelected && (
+        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-violet-600 rounded-full flex items-center justify-center shadow-lg z-10">
+          <Check className="w-3 h-3 text-white" />
+        </div>
+      )}
+
+      {/* Animated Gradient Background Effect */}
+      <div className={cn(
+        "absolute inset-0 bg-gradient-to-tr from-violet-200/20 via-fuchsia-200/20 to-cyan-200/20 opacity-0 transition-opacity duration-300",
+        isSelected ? "opacity-100" : "group-hover:opacity-100"
+      )} />
+
+      <div className="relative flex -space-x-2 mb-2">
+        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white">
+          <Brain className="w-4 h-4" />
+        </div>
+        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center bg-gradient-to-br from-fuchsia-500 to-pink-600 opacity-80">
+          <Sparkles className="w-4 h-4 text-white" />
+        </div>
+        <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center bg-gradient-to-br from-pink-500 to-orange-500 opacity-60">
+          <Palette className="w-4 h-4 text-white" />
+        </div>
+      </div>
+      <span className="relative text-xs font-medium text-center bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-fuchsia-600 dark:from-violet-400 dark:to-fuchsia-400">
+        AI Auto
+      </span>
+    </button>
+  )
+}
+
 function CustomPaletteCard({
   isSelected,
   customColors,
@@ -143,7 +195,9 @@ function CustomPaletteCard({
 export function ColorSection({
   colorConfig,
   brandColors = {},
+  brandFont,
   onToggleBrandColors,
+  onToggleBrandFont,
   onSelectPalette,
   onCustomColorChange,
   colorMood,
@@ -151,6 +205,16 @@ export function ColorSection({
 }: ColorSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [showAllPalettes, setShowAllPalettes] = useState(false)
+
+  // NEW v3.10: Debug logging when colors change
+  useEffect(() => {
+    console.log('[ColorSection] Current ColorConfig:', {
+      useBrandColors: colorConfig.useBrandColors,
+      selectedPalette: colorConfig.selectedPalette,
+      hasCustomColors: !!colorConfig.customColors,
+      customColors: colorConfig.customColors,
+    })
+  }, [colorConfig])
 
   const hasBrandColors = brandColors.primary_color || brandColors.secondary_color
   const palettes = Object.values(COLOR_PALETTES)
@@ -163,6 +227,13 @@ export function ColorSection({
         primary: brandColors.primary_color || '#000',
         secondary: brandColors.secondary_color || '#666',
         accent: brandColors.accent_color || '#999',
+      }
+    }
+    if (colorConfig.selectedPalette === 'ai_auto') {
+      return {
+        primary: '#8B5CF6',    // Violet
+        secondary: '#EC4899',  // Pink
+        accent: '#06B6D4',     // Cyan
       }
     }
     if (colorConfig.selectedPalette === 'custom' && colorConfig.customColors) {
@@ -179,6 +250,7 @@ export function ColorSection({
   // Get display text for header
   const getDisplayText = () => {
     if (colorConfig.useBrandColors) return 'Brand Colors'
+    if (colorConfig.selectedPalette === 'ai_auto') return 'AI Auto Mode'
     if (colorConfig.selectedPalette === 'custom') return 'Custom Colors'
     if (colorConfig.selectedPalette) {
       return COLOR_PALETTES[colorConfig.selectedPalette as ColorPaletteId]?.name || 'Palette'
@@ -246,6 +318,33 @@ export function ColorSection({
             </div>
           )}
 
+          {/* Brand Font Toggle */}
+          {brandFont && (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Type className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                    {brandFont}
+                  </span>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Use Brand Font</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {colorConfig.useBrandFont
+                      ? `Using ${brandFont} from organization settings`
+                      : 'AI chooses fonts based on design mood'
+                    }
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={colorConfig.useBrandFont}
+                onCheckedChange={onToggleBrandFont}
+              />
+            </div>
+          )}
+
           {/* Palette Selection (when not using brand colors) */}
           {!colorConfig.useBrandColors && (
             <div className="space-y-3">
@@ -267,6 +366,12 @@ export function ColorSection({
 
               {/* Palette Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* AI Auto Option */}
+                <AIColorCard
+                  isSelected={colorConfig.selectedPalette === 'ai_auto'}
+                  onSelect={() => onSelectPalette('ai_auto')}
+                />
+
                 {displayedPalettes.map((palette) => (
                   <PaletteCard
                     key={palette.id}
@@ -284,7 +389,7 @@ export function ColorSection({
               </div>
 
               {/* See All / Show Less button */}
-              {palettes.length > 4 && (
+              {palettes.length > 3 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -298,7 +403,7 @@ export function ColorSection({
                     </>
                   ) : (
                     <>
-                      +{palettes.length - 4} more palettes
+                      +{palettes.length - 3} more palettes
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </>
                   )}
@@ -314,25 +419,18 @@ export function ColorSection({
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     {(['primary', 'secondary', 'accent'] as const).map((colorType) => (
-                      <div key={colorType} className="space-y-2">
-                        <Label className="text-xs capitalize text-muted-foreground">{colorType}</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="color"
-                            value={colorConfig.customColors?.[colorType] || (colorType === 'primary' ? '#1B998B' : colorType === 'secondary' ? '#FF6B35' : '#3366FF')}
-                            onChange={(e) => onCustomColorChange({
-                              primary: colorConfig.customColors?.primary || '#1B998B',
-                              secondary: colorConfig.customColors?.secondary || '#FF6B35',
-                              accent: colorConfig.customColors?.accent || '#3366FF',
-                              [colorType]: e.target.value,
-                            })}
-                            className="w-10 h-10 p-1 cursor-pointer rounded-lg border-2 hover:border-primary/50 transition-colors"
-                          />
-                          <span className="text-xs font-mono text-muted-foreground uppercase">
-                            {colorConfig.customColors?.[colorType] || (colorType === 'primary' ? '#1B998B' : colorType === 'secondary' ? '#FF6B35' : '#3366FF')}
-                          </span>
-                        </div>
-                      </div>
+                      <ColorPicker
+                        key={colorType}
+                        label={colorType}
+                        value={colorConfig.customColors?.[colorType] || (colorType === 'primary' ? '#1B998B' : colorType === 'secondary' ? '#FF6B35' : '#3366FF')}
+                        onChange={(color) => onCustomColorChange({
+                          primary: colorConfig.customColors?.primary || '#1B998B',
+                          secondary: colorConfig.customColors?.secondary || '#FF6B35',
+                          accent: colorConfig.customColors?.accent || '#3366FF',
+                          [colorType]: color,
+                        })}
+                        brandColors={brandColors}
+                      />
                     ))}
                   </div>
                 </div>

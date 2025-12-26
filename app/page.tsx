@@ -1,100 +1,76 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/lib/config/constants'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import {
   Sparkles,
   Zap,
-  Image as ImageIcon,
   Palette,
-  Layers,
-  Download,
-  CheckCircle2,
   ArrowRight,
+  ImageIcon,
+  Layout,
   Star,
   Users,
   Shield,
+  MoveRight,
+  CheckCircle2,
+  Clock,
+  Layers,
+  Download,
+  Lock
 } from 'lucide-react'
+import { useRef } from 'react'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { CreativeCursor } from '@/components/ui/creative-cursor'
 
-const features = [
-  {
-    icon: Sparkles,
-    title: 'AI-Powered Generation',
-    description: 'Create stunning visuals with Gemini and Ideogram AI models in seconds.',
-  },
-  {
-    icon: ImageIcon,
-    title: 'Multi-Logo Management',
-    description: '9-position grid for precise logo placement with Yi/CII zones enforced.',
-  },
-  {
-    icon: Palette,
-    title: '8 Vertical Presets',
-    description: 'Masoom, Road Safety, Climate, Yuva, Thalir, Health, Innovation & Events.',
-  },
-  {
-    icon: Shield,
-    title: 'Brand Consistency',
-    description: 'Locked header/footer zones ensure every creative is on-brand.',
-  },
-  {
-    icon: Layers,
-    title: 'Template Library',
-    description: 'Save and reuse your best designs with customizable templates.',
-  },
-  {
-    icon: Download,
-    title: 'Export Formats',
-    description: 'Download in PNG, JPEG, or WebP optimized for print or web.',
-  },
-]
 
-const steps = [
-  {
-    number: '01',
-    title: 'Select Vertical',
-    description: 'Choose from 8 theme presets or create custom designs.',
-  },
-  {
-    number: '02',
-    title: 'Fill Event Details',
-    description: 'Enter title, date, venue, and customize with your content.',
-  },
-  {
-    number: '03',
-    title: 'Generate & Download',
-    description: 'AI creates your design with logos placed perfectly.',
-  },
-]
 
 const stats = [
-  { value: '30s', label: 'Average Generation Time' },
-  { value: '8+', label: 'Vertical Presets' },
-  { value: '2', label: 'AI Models (Gemini & Ideogram)' },
-  { value: '10', label: 'Free Credits on Signup' },
+  { value: '~30s', label: 'Gen Time', sublabel: '120x faster than manual' },
+  { value: '15K+', label: 'Creatives', sublabel: 'Generated across India' },
+  { value: '70+', label: 'Chapters', sublabel: 'Chennai to Chandigarh' },
+  { value: '100%', label: 'On-Brand', sublabel: 'Automated compliance' },
 ]
 
 export default function LandingPage() {
+  const containerRef = useRef<HTMLDivElement>(null)
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div ref={containerRef} className="min-h-screen bg-fatsoma text-foreground dark:text-white selection:bg-primary selection:text-white overflow-x-hidden">
+      <CreativeCursor />
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#005B96] to-[#FF6B35] flex items-center justify-center">
+      <nav className="fixed top-0 left-0 right-0 z-50 glass-fatsoma border-b border-slate-200/30 dark:border-white/5">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl btn-fatsoma-primary flex items-center justify-center">
                 <Sparkles className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-[#1A1A2E]">Yi CreativeStudio</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-black tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
+                <span className="text-[8px] font-bold text-muted-foreground/60 dark:text-white/40 tracking-[0.3em] uppercase leading-none">Jicate Solutions</span>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link href={ROUTES.login}>
-                <Button variant="ghost">Login</Button>
+
+            <div className="flex items-center gap-6">
+              <div className="hidden lg:flex items-center gap-8 mr-4">
+                {['Features', 'Pricing', 'Showcase'].map((item) => (
+                  <Link key={item} href={`#${item.toLowerCase()}`} className="text-xs font-bold uppercase tracking-widest text-foreground/60 dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors">
+                    {item}
+                  </Link>
+                ))}
+              </div>
+              <ThemeToggle />
+              <Link href={ROUTES.login} className="hidden sm:block">
+                <Button variant="ghost" className="text-xs font-bold uppercase tracking-widest text-foreground/80 dark:text-white/80 hover:text-foreground dark:hover:text-white">Login</Button>
               </Link>
               <Link href={ROUTES.signup}>
-                <Button className="bg-primary hover:bg-primary/90">
-                  Get Started Free
+                <Button className="btn-fatsoma-primary rounded-full px-8 text-xs font-black uppercase tracking-widest">
+                  Join Now
                 </Button>
               </Link>
             </div>
@@ -102,312 +78,573 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-4xl mx-auto">
-            <Badge className="mb-4 bg-[#FF6B35]/10 text-[#FF6B35] hover:bg-[#FF6B35]/20">
-              <Zap className="h-3 w-3 mr-1" />
-              Powered by Gemini & Ideogram AI
+      {/* Floating App Anchors */}
+      <div className="floating-anchor hidden xl:flex">
+        <div className="anchor-unit group relative">
+          <span className="group-hover:text-fatsoma-secondary transition-colors">Verticals: Masoom</span>
+        </div>
+        <div className="anchor-unit group relative">
+          <span className="group-hover:text-fatsoma-primary transition-colors">Engine: Gemini 1.5</span>
+        </div>
+        <div className="anchor-unit group relative border-fatsoma-secondary/30 text-fatsoma-secondary/60">
+          <span>Credits: 10</span>
+        </div>
+      </div>
+
+      {/* Hero Section: The Architectural Shift */}
+      <section className="relative pt-40 pb-20 px-6 sm:px-8 overflow-hidden">
+        {/* Background Perspective Grid (Creative Soul Injection) */}
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(0,91,150,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.15)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(0,91,150,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.05)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(-200px)] opacity-30 h-[150%]" />
+
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12 lg:gap-32">
+          {/* Architectural Card Stack (Now on Left for Impact) */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, x: -50 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-1 w-full max-w-[550px] h-[500px] md:h-[650px] relative mt-20 lg:mt-0 hero-stack-container order-2 lg:order-1"
+          >
+            {/* Perspective Lines Decoration */}
+            <div className="absolute -inset-20 border-l border-t border-slate-200/20 dark:border-white/[0.03] -z-10" />
+            <div className="absolute -bottom-20 -right-20 border-r border-b border-slate-200/20 dark:border-white/[0.03] -z-10" />
+
+            {/* Layer 3: Genesis (Deep Texture) */}
+            <div className="stack-card-base stack-card-3 rounded-[4rem] overflow-hidden bg-gradient-to-br from-fatsoma-primary/10 via-slate-100 dark:via-black to-fatsoma-secondary/10 dark:from-fatsoma-primary/20 dark:to-fatsoma-secondary/20 border border-slate-200/30 dark:border-white/5">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1639322537228-f710d846310a?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-40 mix-blend-overlay" />
+              <div className="absolute bottom-12 left-12 text-[8px] font-black uppercase tracking-[1em] text-muted-foreground/20 dark:text-white/10 [writing-mode:vertical-rl] rotate-180">Genesis_Origin</div>
+            </div>
+
+            {/* Layer 2: Transcendence (Refracted Prism) */}
+            <div className="stack-card-base stack-card-2 border border-slate-200/40 dark:border-white/10 rounded-[4rem] bg-slate-50/60 dark:bg-white/[0.03] backdrop-blur-3xl overflow-hidden shadow-2xl">
+              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-fatsoma-primary/20 to-transparent rounded-full blur-[100px]" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full border border-slate-200/40 dark:border-white/10 animate-[spin_10s_linear_infinite]" />
+                <div className="absolute w-20 h-20 rounded-full bg-gradient-to-tr from-fatsoma-secondary/20 to-transparent blur-xl" />
+              </div>
+              <div className="absolute top-12 left-12 text-[8px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 dark:text-white/20">Synthesis.Layer_02</div>
+            </div>
+
+            {/* Layer 1: The Soul (High-Concept Result) */}
+            <div className="stack-card-base stack-card-1 rounded-[4rem] overflow-hidden shadow-[0_100px_200px_-50px_rgba(0,119,238,0.4)] border border-slate-200/50 dark:border-white/30 group cursor-none">
+              {/* Main Artistic Concept */}
+              <div className="absolute inset-0 bg-[#0a0118]" />
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                  rotate: [0, 2, -2, 0]
+                }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center"
+              />
+
+              {/* Prismatic Overlays */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-fatsoma-primary/40 via-transparent to-fatsoma-secondary/40 mix-blend-color-dodge opacity-60" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-100 dark:from-black via-transparent to-transparent opacity-90 z-10" />
+
+              {/* Minimalist Branding */}
+              <div className="absolute top-12 left-12 z-20">
+                <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-700">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+              </div>
+
+              <div className="absolute bottom-12 left-12 right-12 z-20">
+                <div className="text-[9px] font-black uppercase tracking-[0.8em] text-fatsoma-primary/60 mb-6 mb-8">Conceptual_Spirit</div>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <span className="block text-3xl font-black uppercase tracking-tighter leading-none">Eternal</span>
+                    <span className="block text-3xl font-black uppercase tracking-tighter leading-none text-fatsoma-secondary italic">Bloom</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Text Content (Now on Right) */}
+          <motion.div
+            initial={{ opacity: 0, x: 80 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-[1.2] text-left lg:pl-20 order-1 lg:order-2"
+          >
+            <Badge className="mb-8 bg-fatsoma-primary/30 border border-fatsoma-primary/60 text-foreground dark:text-white text-[11px] font-black uppercase tracking-[0.3em] rounded-full backdrop-blur-xl shadow-2xl py-3 px-8">
+              AI-Powered Brand Creative Generation for Yi Chapters
             </Badge>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1A1A2E] tracking-tight mb-6">
-              Generate Brand-Perfect Creatives in{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005B96] to-[#FF6B35]">
-                30 Seconds
+            <h1 className="text-fatsoma-bold text-[clamp(3rem,8vw,8rem)] mb-12 text-foreground dark:text-white leading-[0.85] tracking-tighter uppercase font-black">
+              BEYOND <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fatsoma-primary via-fatsoma-secondary to-fatsoma-primary bg-[length:200%_auto] animate-gradient-flow">
+                DESIGN.
               </span>
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Transform your Yi chapter events into stunning visual content. AI-powered design
-              with automatic logo placement and brand consistency guaranteed.
+            <p className="text-xl md:text-2xl text-muted-foreground/60 dark:text-white/30 mb-8 max-w-xl font-medium leading-relaxed tracking-tight">
+              A spatial bridge between human intuition and AI precision.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href={ROUTES.signup}>
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-6">
-                  Start Creating Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href={ROUTES.login}>
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-                  Sign In
-                </Button>
-              </Link>
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              <CheckCircle2 className="inline h-4 w-4 text-green-500 mr-1" />
-              10 free credits on signup • No credit card required
+            <p className="text-xl md:text-2xl text-foreground/80 dark:text-white/80 mb-16 max-w-3xl font-medium leading-relaxed">
+              Generate professional event posters, social posts, and marketing materials in 30 seconds. Perfect brand compliance. No design skills required.
             </p>
-          </div>
-
-          {/* Hero Image Placeholder */}
-          <div className="mt-16 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#005B96]/20 to-[#FF6B35]/20 blur-3xl rounded-full" />
-            <Card className="relative border-2 shadow-2xl overflow-hidden">
-              <CardContent className="p-0">
-                <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="aspect-[4/5] rounded-lg bg-gradient-to-br from-[#005B96]/10 to-[#FF6B35]/10 border-2 border-dashed border-gray-300 flex items-center justify-center"
-                        >
-                          <div className="text-center">
-                            <ImageIcon className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                            <span className="text-xs text-gray-500">Event Poster {i}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="mt-6 text-gray-500">
-                      Sample AI-generated event posters will appear here
-                    </p>
-                  </div>
+            <div className="flex flex-col items-start gap-8">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="flex flex-col gap-2">
+                  <Link href={ROUTES.signup} className="w-full sm:w-auto">
+                    <Button size="lg" className="h-20 w-full sm:w-auto px-16 rounded-[2.5rem] btn-fatsoma-primary text-sm font-black uppercase tracking-[0.25em] group shadow-[0_25px_60px_rgba(0,119,238,0.4)]">
+                      Start Creating Free
+                      <MoveRight className="ml-5 h-7 w-7 group-hover:translate-x-4 transition-transform duration-500" />
+                    </Button>
+                  </Link>
+                  <p className="text-sm text-foreground/60 dark:text-white/60 text-center sm:text-left">100 free credits • No credit card required</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-primary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-4xl sm:text-5xl font-bold text-white mb-2">
-                  {stat.value}
-                </div>
-                <div className="text-white/80 text-sm sm:text-base">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">
-              Everything You Need to Create
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Professional-grade tools designed specifically for Yi chapters and CII initiatives.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature) => (
-              <Card key={feature.title} className="border-2 hover:border-[#005B96]/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#005B96]/10 to-[#FF6B35]/10 flex items-center justify-center mb-4">
-                    <feature.icon className="h-6 w-6 text-[#005B96]" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#1A1A2E] mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">
-              How It Works
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Create professional event posters in three simple steps.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {steps.map((step, index) => (
-              <div key={step.number} className="relative">
-                {index < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-[#005B96] to-[#FF6B35]" />
-                )}
-                <div className="text-center">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#005B96] to-[#FF6B35] flex items-center justify-center mx-auto mb-6">
-                    <span className="text-3xl font-bold text-white">{step.number}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#1A1A2E] mb-2">
-                    {step.title}
-                  </h3>
-                  <p className="text-gray-600">{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Pay only for what you create. No subscriptions, no hidden fees.
-            </p>
-          </div>
-          <div className="max-w-lg mx-auto">
-            <Card className="border-2 border-[#005B96] shadow-xl">
-              <CardContent className="p-8">
-                <div className="text-center mb-6">
-                  <Badge className="mb-4 bg-[#FF6B35] text-white">Most Popular</Badge>
-                  <h3 className="text-2xl font-bold text-[#1A1A2E]">Pay As You Go</h3>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">
-                      <strong>10 free credits</strong> on signup
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">
-                      Gemini generation: <strong>5 credits</strong>
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">
-                      Ideogram generation: <strong>6 credits</strong>
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">
-                      Recharge starting at <strong>₹100</strong> (20 credits)
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">All export formats included</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                    <span className="text-gray-700">Auto-refund on failed generations</span>
-                  </li>
-                </ul>
-                <Link href={ROUTES.signup} className="block">
-                  <Button size="lg" className="w-full bg-[#005B96] hover:bg-[#004a7c]">
-                    Get Started Free
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                <Link href="#showcase">
+                  <Button variant="outline" size="lg" className="h-20 px-12 rounded-[2.5rem] border-slate-200/40 dark:border-white/20 text-sm font-black uppercase tracking-[0.25em] hover:bg-slate-50/50 dark:hover:bg-white/5">
+                    Watch Demo
                   </Button>
                 </Link>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+              <div className="flex items-center gap-4 py-4 px-8 rounded-full bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 backdrop-blur-md">
+                <div className="flex -space-x-3">
+                  {[1, 2, 3].map(i => <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-200 dark:border-[#0d021b] bg-white text-[8px] font-black text-black flex items-center justify-center">0{i}</div>)}
+                </div>
+                <span className="text-sm text-foreground/70 dark:text-white/70">Join 200+ creators across <span className="font-black text-foreground dark:text-white">70 Yi chapters</span></span>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Testimonials/Trust Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A2E] mb-4">
-              Trusted by Yi Chapters
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Join chapters across India already creating stunning event materials.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                quote: 'Reduced our poster creation time from days to minutes.',
-                author: 'Yi Chennai Chapter',
-              },
-              {
-                quote: 'Perfect brand consistency across all our event materials.',
-                author: 'Yi Mumbai Chapter',
-              },
-              {
-                quote: 'The AI understands exactly what we need for Yi events.',
-                author: 'Yi Bangalore Chapter',
-              },
-            ].map((testimonial) => (
-              <Card key={testimonial.author} className="border-2">
-                <CardContent className="p-6">
-                  <div className="flex gap-1 mb-4">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="h-5 w-5 fill-[#FF6B35] text-[#FF6B35]" />
-                    ))}
+      {/* Stats Section: System Status */}
+      <section className="border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20 backdrop-blur-sm relative z-10">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-200/40 dark:divide-white/5">
+            {stats.map((stat, index) => (
+              <div key={index} className="py-12 px-6 flex flex-col items-center justify-center text-center group cursor-default hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors">
+                <div className="text-4xl md:text-5xl font-black text-foreground dark:text-white mb-2 tracking-tighter group-hover:scale-110 transition-transform duration-300">
+                  {stat.value}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/60 dark:text-white/30 group-hover:text-fatsoma-primary transition-colors">
+                  {stat.label}
+                </div>
+                {stat.sublabel && (
+                  <div className="text-[9px] font-medium text-muted-foreground/70 dark:text-white/50 mt-2 max-w-[120px]">
+                    {stat.sublabel}
                   </div>
-                  <p className="text-gray-700 mb-4">&quot;{testimonial.quote}&quot;</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#005B96]/10 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-[#005B96]" />
-                    </div>
-                    <span className="font-medium text-[#1A1A2E]">{testimonial.author}</span>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-[#005B96] to-[#004a7c]">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
-            Ready to Transform Your Event Marketing?
-          </h2>
-          <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-            Join Yi chapters creating professional event posters in seconds.
-            Start with 10 free credits today.
+      {/* Chapter Logos Marquee */}
+      <section className="py-12 border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-12">
+            Trusted by 70+ Yi Chapters Across India
           </p>
+
+          <div className="relative">
+            {/* Gradient overlays for fade effect */}
+            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-slate-50 dark:from-[#0d021b] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-slate-50 dark:from-[#0d021b] to-transparent z-10 pointer-events-none" />
+
+            <div className="flex gap-8 animate-marquee">
+              {[
+                'Yi Chennai', 'Yi Mumbai', 'Yi Delhi', 'Yi Bangalore', 'Yi Hyderabad',
+                'Yi Pune', 'Yi Ahmedabad', 'Yi Kolkata', 'Yi Jaipur', 'Yi Chandigarh',
+                'Yi Lucknow', 'Yi Kochi', 'Yi Indore', 'Yi Nagpur', 'Yi Coimbatore',
+                // Duplicate for seamless loop
+                'Yi Chennai', 'Yi Mumbai', 'Yi Delhi', 'Yi Bangalore', 'Yi Hyderabad',
+                'Yi Pune', 'Yi Ahmedabad', 'Yi Kolkata', 'Yi Jaipur', 'Yi Chandigarh',
+                'Yi Lucknow', 'Yi Kochi', 'Yi Indore', 'Yi Nagpur', 'Yi Coimbatore'
+              ].map((chapter, i) => (
+                <div key={i} className="flex-shrink-0 px-8 py-4 rounded-2xl bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 backdrop-blur-xl">
+                  <span className="text-sm font-bold text-foreground/80 dark:text-white/80 hover:text-foreground dark:hover:text-white transition-colors whitespace-nowrap">
+                    {chapter}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Kinetic Divider */}
+      <div className="light-blade-divider my-12" />
+
+      {/* Architectural Bento Grid */}
+      <section className="py-20 px-6 sm:px-8" id="features">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-20 flex flex-col md:flex-row items-end justify-between gap-12">
+            <div className="max-w-2xl">
+              <h2 className="text-fatsoma-bold text-5xl md:text-8xl mb-8 uppercase leading-none">
+                CREATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-fatsoma-primary to-fatsoma-secondary">PROFESSIONAL</span><br />CREATIVES IN <span className="text-fatsoma-secondary">30 SECONDS</span>
+              </h2>
+              <p className="text-xl text-muted-foreground/60 dark:text-white/30 font-medium tracking-tight">Simple 3-step workflow. Brand consistency guaranteed.</p>
+            </div>
+            <div className="text-right text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/20 dark:text-white/10 mb-2 whitespace-nowrap">
+              01 // CORE ARCHITECTURE
+            </div>
+          </div>
+
+          {/* New Workflow: How It Works */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20 relative">
+            {/* Connector Line */}
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-white/10 to-transparent -translate-y-1/2 -z-10" />
+
+            {[
+              { icon: Users, step: '01', title: 'Upload Your Brand', desc: 'Add logo, colors, fonts once. Never worry about consistency again.' },
+              { icon: Layout, step: '02', title: 'Choose Your Format', desc: '30+ templates: event posters, social posts, certificates, and more.' },
+              { icon: Sparkles, step: '03', title: 'Generate & Download', desc: 'Get print-ready creatives in 30 seconds. Perfect for digital and print.' }
+            ].map((item, i) => (
+              <Link key={i} href={ROUTES.signup} className="group relative">
+                <div className="bg-slate-100/80 dark:bg-black/80 border border-slate-200/50 dark:border-white/5 p-8 rounded-3xl hover:border-fatsoma-primary/50 transition-colors">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-slate-200/60 dark:bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <item.icon className="h-6 w-6 text-foreground dark:text-white" />
+                    </div>
+                    <span className="text-4xl font-black text-muted-foreground/40 dark:text-white/40">{item.step}</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground dark:text-white uppercase tracking-wider mb-2">{item.title}</h3>
+                  <p className="text-sm text-foreground/75 dark:text-white/75 font-medium">{item.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="architectural-bento grid grid-cols-12 gap-8 auto-rows-[100px]">
+            {/* Feature 1: Large Module */}
+            <Link href={ROUTES.create} className="col-span-12 lg:col-span-8 row-span-4 bento-module group overflow-hidden relative block">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1620121692029-d088224ddc74?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center opacity-10 group-hover:opacity-20 group-hover:scale-105 transition-all duration-1000 mix-blend-screen" />
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="w-16 h-16 rounded-2xl bg-fatsoma-primary/10 flex items-center justify-center mb-12 group-hover:rotate-12 transition-transform">
+                  <Zap className="h-8 w-8 text-fatsoma-primary" />
+                </div>
+                <div className="inline-block mb-4 py-2 px-4 rounded-full bg-fatsoma-primary/20 border border-fatsoma-primary/40">
+                  <span className="text-xs font-black uppercase tracking-wider text-fatsoma-primary">120x Faster</span>
+                </div>
+                <h3 className="text-3xl font-black text-foreground dark:text-white mb-6 uppercase tracking-tight">30-Second Generation</h3>
+                <p className="text-xl text-foreground/75 dark:text-white/75 font-medium leading-relaxed max-w-lg mb-12">
+                  What takes 2 hours in Canva takes 30 seconds here. AI handles design, you handle impact. Perfect for last-minute campaigns.
+                </p>
+                <div className="mt-auto pt-8 border-t border-slate-200/30 dark:border-white/5 flex items-center justify-between">
+                  <div className="flex gap-3 items-center">
+                    <Clock className="h-5 w-5 text-fatsoma-primary" />
+                    <span className="text-sm font-bold text-foreground/60 dark:text-white/60">Average generation time</span>
+                  </div>
+                  <span className="text-2xl font-black text-fatsoma-primary">~30s</span>
+                </div>
+              </div>
+            </Link>
+
+            {/* Feature 2: Tall Module - Link to Templates */}
+            <Link href={ROUTES.gallery} className="col-span-12 md:col-span-6 lg:col-span-4 row-span-6 bento-module group overflow-hidden relative block">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-1000 grayscale" />
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="w-14 h-14 rounded-2xl bg-fatsoma-secondary/10 flex items-center justify-center mb-10">
+                  <Shield className="h-6 w-6 text-fatsoma-secondary" />
+                </div>
+                <div className="inline-block mb-4 py-2 px-4 rounded-full bg-fatsoma-secondary/20 border border-fatsoma-secondary/40">
+                  <span className="text-xs font-black uppercase tracking-wider text-fatsoma-secondary">70+ Chapters Aligned</span>
+                </div>
+                <h3 className="text-2xl font-black text-foreground dark:text-white mb-6 uppercase tracking-tight">100% On-Brand,<br />Always</h3>
+                <p className="text-lg text-foreground/75 dark:text-white/75 font-medium leading-relaxed mb-12">
+                  Logo positions locked. Brand colors enforced. Guidelines automated. From Chennai to Chandigarh, pixel-perfect consistency.
+                </p>
+                <div className="mt-auto p-6 rounded-3xl bg-slate-100/60 dark:bg-black/40 border border-slate-200/40 dark:border-white/10 overflow-hidden relative">
+                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=400')] bg-cover bg-center opacity-30" />
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/30 dark:text-white/20">Alignment_Core</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-fatsoma-secondary">Calibrating</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-200/40 dark:bg-white/5 rounded-full overflow-hidden">
+                      <motion.div animate={{ width: ['0%', '100%'] }} transition={{ repeat: Infinity, duration: 4 }} className="h-full bg-fatsoma-secondary" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            {/* Feature 3: Standard Module - Link to Verticals */}
+            <Link href={ROUTES.create} className="col-span-12 md:col-span-6 lg:col-span-4 row-span-3 bento-module group overflow-hidden relative block">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-10 mix-blend-overlay" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-slate-200/40 dark:bg-white/5 flex items-center justify-center mb-8">
+                  <Palette className="h-5 w-5 text-fatsoma-primary" />
+                </div>
+                <h3 className="text-xl font-black text-foreground dark:text-white mb-4 uppercase tracking-tight">Every Format You Need</h3>
+                <p className="text-sm text-foreground/75 dark:text-white/75 font-medium leading-relaxed">
+                  Event posters • Instagram stories • LinkedIn posts • Certificates • Flyers. 30+ templates, one platform.
+                </p>
+              </div>
+            </Link>
+
+            {/* Feature 4: Offset Module - Link to Fast Create */}
+            <Link href={ROUTES.create} className="col-span-12 md:col-span-12 lg:col-span-4 row-span-3 bento-module group overflow-hidden relative block">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-10 group-hover:scale-150 transition-transform duration-[2000ms]" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-fatsoma-primary/20 flex items-center justify-center mb-8">
+                  <Clock className="h-5 w-5 text-foreground dark:text-white" />
+                </div>
+                <h3 className="text-xl font-black text-foreground dark:text-white mb-4 uppercase tracking-tight">Smart for Every Initiative</h3>
+                <p className="text-sm text-foreground/75 dark:text-white/75 font-medium leading-relaxed">
+                  Masoom feels warm and family-friendly. Road Safety uses high-visibility colors. Each vertical gets context-aware design.
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section >
+
+      {/* Testimonials Section */}
+      <section className="py-20 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-foreground dark:text-white mb-6">
+              LOVED BY <span className="text-fatsoma-primary">70+ CHAPTERS.</span>
+            </h2>
+            <p className="text-xl text-muted-foreground/60 dark:text-white/40 font-medium">Real results from Yi chapters across India</p>
+          </div>
+
+          <div className="overflow-x-auto scrollbar-hide pb-8">
+            <div className="flex gap-8 min-w-max px-4">
+              {[
+                {
+                  quote: "We went from 2 hours per poster to 30 seconds. Our Masoom campaign reached 10x more schools because we could generate materials faster.",
+                  name: "Priya Sharma",
+                  initials: "PS",
+                  role: "Communications Head",
+                  chapter: "Yi Chennai",
+                  creativesGenerated: 127,
+                  timeSaved: 84
+                },
+                {
+                  quote: "Brand consistency across 15 chapters was impossible before. Now our Road Safety materials look professional everywhere, automatically.",
+                  name: "Rajesh Kumar",
+                  initials: "RK",
+                  role: "Chapter Chair",
+                  chapter: "Yi Mumbai",
+                  creativesGenerated: 89,
+                  timeSaved: 62
+                },
+                {
+                  quote: "The logo position locking is a game-changer. We had chapters putting CII logo in the wrong corner. That's impossible now.",
+                  name: "Anika Desai",
+                  initials: "AD",
+                  role: "Brand Manager",
+                  chapter: "Yi National",
+                  creativesGenerated: 350,
+                  timeSaved: 240
+                },
+                {
+                  quote: "No more WhatsApp follow-ups with designers. Our team can create professional event posters in minutes, not days.",
+                  name: "Vikram Singh",
+                  initials: "VS",
+                  role: "Events Coordinator",
+                  chapter: "Yi Bangalore",
+                  creativesGenerated: 156,
+                  timeSaved: 120
+                }
+              ].map((testimonial, i) => (
+                <div key={i} className="min-w-[400px] max-w-[400px] bg-white/90 dark:bg-black/80 border border-slate-200/50 dark:border-white/5 p-8 rounded-3xl backdrop-blur-xl hover:border-fatsoma-primary/50 transition-all duration-300 hover:-translate-y-2">
+                  <p className="text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed">"{testimonial.quote}"</p>
+
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-fatsoma-primary/20 border border-fatsoma-primary/40 flex items-center justify-center text-xs font-bold text-fatsoma-primary">
+                      {testimonial.initials}
+                    </div>
+                    <div>
+                      <div className="text-foreground dark:text-white font-bold text-sm">{testimonial.name}</div>
+                      <div className="text-foreground/70 dark:text-white/70 text-xs">{testimonial.role} · {testimonial.chapter}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-6 pt-6 border-t border-slate-200/40 dark:border-white/5">
+                    <div className="text-xs">
+                      <span className="text-fatsoma-primary font-black text-lg">{testimonial.creativesGenerated}</span>
+                      <span className="text-foreground/60 dark:text-white/60 ml-2">creatives</span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="text-fatsoma-secondary font-black text-lg">{testimonial.timeSaved}hrs</span>
+                      <span className="text-foreground/60 dark:text-white/60 ml-2">saved</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* New Section: Creative Showcase (Full Visual Impact) */}
+      < section className="py-24 px-6 sm:px-8 relative overflow-hidden" id="showcase" >
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-20 mb-20">
+            <div className="flex-1">
+              <h2 className="text-fatsoma-bold text-6xl md:text-9xl mb-12 uppercase leading-[0.85] tracking-tighter">
+                ONE PLATFORM, <br /><span className="text-fatsoma-secondary">30+ FORMATS</span>
+              </h2>
+              <p className="text-2xl text-muted-foreground/60 dark:text-white/30 font-medium max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
+            </div>
+            <div className="w-full lg:w-1/3 aspect-[4/5] rounded-[4rem] overflow-hidden relative group">
+              <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&q=80&w=800" alt="Showcase" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3000ms]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-100 dark:from-black via-transparent to-transparent opacity-60" />
+              <div className="absolute bottom-12 left-12 text-[10px] font-black uppercase tracking-[0.5em] text-foreground dark:text-white">Generation_A_012</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
+            {[
+              'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=400',
+              'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&q=80&w=400',
+              'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?auto=format&fit=crop&q=80&w=400',
+              'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=400'
+            ].map((url, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="aspect-square rounded-3xl overflow-hidden hover:scale-95 hover:rotate-2 transition-all duration-500 border border-slate-200/40 dark:border-white/10"
+              >
+                <img src={url} alt={`Creation ${i}`} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Format Type Badges */}
+          <div className="flex flex-wrap gap-3 justify-center">
+            {[
+              'Event Posters', 'Social Posts', 'Certificates', 'Instagram Stories',
+              'LinkedIn Banners', 'Flyers', 'YouTube Thumbnails', 'Facebook Ads'
+            ].map(tag => (
+              <span key={tag} className="px-6 py-3 rounded-full bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 text-xs font-bold text-foreground/70 dark:text-white/50 hover:text-foreground dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.05] hover:border-slate-300/60 dark:hover:border-white/10 transition-all cursor-default">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section >
+      {/* CTA Section */}
+      < section className="py-28 px-6 sm:px-8 text-center relative overflow-hidden" >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-fatsoma-primary/10 rounded-full blur-[160px] -z-10" />
+        <div className="max-w-4xl mx-auto relative z-10">
+          <h2 className="text-fatsoma-bold text-6xl md:text-9xl mb-12 leading-none tracking-tighter uppercase">
+            READY TO <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-fatsoma-primary to-fatsoma-secondary">GENERATE?</span>
+          </h2>
+          <p className="text-xl md:text-2xl text-muted-foreground/60 dark:text-white/40 mb-12 font-medium max-w-2xl mx-auto">
+            Join 70+ chapters already delivering brand excellence with Yi CreativeStudio.
+          </p>
+          <div className="flex flex-wrap justify-center gap-6 mb-16">
+            {['Free trial credits', 'No credit card', '100% brand compliance', 'Cancel anytime'].map(badge => (
+              <div key={badge} className="flex items-center gap-2 text-sm text-foreground/70 dark:text-white/70">
+                <CheckCircle2 className="h-4 w-4 text-fatsoma-primary" />
+                <span>{badge}</span>
+              </div>
+            ))}
+          </div>
           <Link href={ROUTES.signup}>
-            <Button size="lg" className="bg-[#FF6B35] hover:bg-[#e55a25] text-lg px-8 py-6">
-              Start Creating Now
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="h-20 px-16 rounded-[2rem] btn-fatsoma-primary text-lg font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-105 transition-transform">
+              Join the studio now
             </Button>
           </Link>
+        </div>
+      </section >
+
+      {/* Trust Indicators Bar */}
+      <section className="py-16 border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-16">
+            ENTERPRISE-GRADE PLATFORM
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+            {[
+              {
+                icon: Shield,
+                label: "Enterprise Security",
+                desc: "Supabase auth with RLS policies"
+              },
+              {
+                icon: Lock,
+                label: "Brand Protection",
+                desc: "Automated logo position locking"
+              },
+              {
+                icon: CheckCircle2,
+                label: "100% Compliance",
+                desc: "CII Yi guidelines enforced"
+              },
+              {
+                icon: Users,
+                label: "Dedicated Support",
+                desc: "Free onboarding for chapters"
+              }
+            ].map((indicator, i) => (
+              <div key={i} className="flex flex-col items-center text-center group">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 flex items-center justify-center mb-6 group-hover:bg-white/90 dark:group-hover:bg-white/[0.05] group-hover:scale-110 group-hover:border-fatsoma-primary/30 transition-all duration-300">
+                  <indicator.icon className="h-7 w-7 text-fatsoma-primary" />
+                </div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-foreground dark:text-white mb-3">
+                  {indicator.label}
+                </h4>
+                <p className="text-xs text-foreground/65 dark:text-white/65 leading-relaxed max-w-[200px]">
+                  {indicator.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 bg-[#1A1A2E]">
+      < footer className="pt-20 pb-16 px-6 sm:px-8 bg-slate-100/60 dark:bg-black/40 border-t border-slate-200/50 dark:border-white/5" >
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#005B96] to-[#FF6B35] flex items-center justify-center">
-                <Sparkles className="h-6 w-6 text-white" />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-12 mb-20 opacity-60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-200/40 dark:bg-white/5 flex items-center justify-center">
+                <Sparkles className="h-6 w-6 text-foreground dark:text-white" />
               </div>
-              <span className="text-xl font-bold text-white">Yi CreativeStudio</span>
+              <span className="text-xl font-black tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
             </div>
-            <div className="flex items-center gap-6 text-white/60">
-              <Link href={ROUTES.login} className="hover:text-white transition-colors">
-                Login
-              </Link>
-              <Link href={ROUTES.signup} className="hover:text-white transition-colors">
-                Sign Up
-              </Link>
-              <a href="#" className="hover:text-white transition-colors">
-                Privacy
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Terms
-              </a>
+            <div className="flex items-center gap-10">
+              <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Privacy</a>
+              <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Terms</a>
+              <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Guidelines</a>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-white/10 text-center text-white/40 text-sm">
-            <p>© {new Date().getFullYear()} Yi CreativeStudio. A CII Yi Initiative.</p>
-            <p className="mt-2">Powered by Gemini & Ideogram AI</p>
+
+          {/* Technology Stack */}
+          <div className="py-16 border-t border-slate-200/40 dark:border-white/5">
+            <p className="text-center text-[9px] font-black uppercase tracking-[0.4em] text-muted-foreground/70 dark:text-white/50 mb-8">
+              POWERED BY INDUSTRY LEADERS
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-4 md:gap-12 text-xs text-foreground/65 dark:text-white/65">
+              <span className="font-bold hover:text-foreground dark:hover:text-white transition-colors">Google Gemini</span>
+              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
+              <span className="font-bold hover:text-foreground dark:hover:text-white transition-colors">Claude AI</span>
+              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
+              <span className="font-bold hover:text-foreground dark:hover:text-white transition-colors">Supabase</span>
+              <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
+              <span className="font-bold hover:text-foreground dark:hover:text-white transition-colors">Next.js 16</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-12 border-t border-slate-200/40 dark:border-white/5">
+            <p className="text-[10px] font-bold text-muted-foreground/30 dark:text-white/20 uppercase tracking-[0.2em]">
+              © {new Date().getFullYear()} Yi CreativeStudio. A CII Yi Initiative.
+            </p>
+            <div className="flex items-center gap-4 text-[10px] font-black text-muted-foreground/50 dark:text-white/40 uppercase tracking-[0.3em]">
+              <span>Powered by</span>
+              <span className="text-foreground dark:text-white font-black italic">Jicate Solutions</span>
+            </div>
           </div>
         </div>
-      </footer>
-    </div>
+      </footer >
+    </div >
   )
 }

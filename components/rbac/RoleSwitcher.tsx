@@ -15,25 +15,11 @@ import {
   ChevronDown,
   RotateCcw,
   Check,
-  Crown,
-  Edit,
   Eye,
   Loader2,
-  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Icon mapping for roles
-const ROLE_ICONS = {
-  crown: Crown,
-  edit: Edit,
-  eye: Eye,
-  shield: Shield,
-} as const
-
-function getRoleIcon(iconName: string) {
-  return ROLE_ICONS[iconName as keyof typeof ROLE_ICONS] || Shield
-}
 
 export function RoleSwitcher() {
   const {
@@ -62,10 +48,8 @@ export function RoleSwitcher() {
 
   if (!activeRole) return null
 
-  const RoleIcon = getRoleIcon(activeRole.icon)
-
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" suppressHydrationWarning>
       {/* Simulation Indicator - Mobile */}
       {isSimulating && (
         <Badge
@@ -97,14 +81,6 @@ export function RoleSwitcher() {
               isSimulating && 'ring-2 ring-amber-500/30 border-amber-500/50'
             )}
           >
-            <div
-              className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center',
-                activeRole.color
-              )}
-            >
-              <RoleIcon className="w-3.5 h-3.5 text-white" />
-            </div>
             <span className="hidden sm:inline">{activeRole.displayName}</span>
             <ChevronDown className="w-4 h-4 opacity-50" />
           </Button>
@@ -124,7 +100,6 @@ export function RoleSwitcher() {
           {/* Role List */}
           <div className="max-h-80 overflow-y-auto">
             {availableRoles.map((role) => {
-              const Icon = getRoleIcon(role.icon)
               const isActive = role.id === activeRole.id
               const isActual = role.id === actualRole?.id
 
@@ -137,14 +112,6 @@ export function RoleSwitcher() {
                     isActive && 'bg-accent'
                   )}
                 >
-                  <div
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                      role.color
-                    )}
-                  >
-                    <Icon className="w-4 h-4 text-white" />
-                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm truncate">

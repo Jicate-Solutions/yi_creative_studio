@@ -25,25 +25,27 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Build query
-    let query = (supabase.from as Function)('learning_patterns')
+    // Build query - using learned_patterns table
+    // Note: TypeScript types have 'effectiveness' as Json field
+    let query = supabase.from('learned_patterns')
       .select('*', { count: 'exact' })
-      .order('success_count', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    // Apply filters
+    // Apply filters - status column uses 'active', 'deprecated', 'testing'
     if (status === 'active') {
-      query = query.eq('is_active', true)
+      query = query.eq('status', 'active')
     } else if (status === 'deprecated') {
-      query = query.eq('is_active', false)
+      query = query.eq('status', 'deprecated')
     }
 
     if (formatId) {
-      query = query.eq('format_id', formatId)
+      // Format ID would be stored in issue_signature jsonb
+      query = query.contains('issue_signature', { format_id: formatId })
     }
 
     if (issueType) {
-      query = query.eq('issue_type', issueType)
+      query = query.eq('pattern_type', issueType)
     }
 
     const { data: patterns, error, count } = await query
@@ -51,12 +53,15 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     // Calculate effectiveness rate for each pattern
-    const patternsWithStats = patterns?.map((pattern: { application_count?: number; success_count?: number }) => ({
-      ...pattern,
-      effectiveness_rate: (pattern.application_count ?? 0) > 0
-        ? Math.round(((pattern.success_count ?? 0) / (pattern.application_count ?? 1)) * 100)
-        : 0,
-    })) || []
+    // effectiveness is a Json field: { times_applied, success_rate, ... }
+    type EffectivenessData = { times_applied?: number; success_rate?: number }
+    const patternsWithStats = patterns?.map((pattern) => {
+      const eff = pattern.effectiveness as EffectivenessData | null
+      return {
+        ...pattern,
+        effectiveness_rate: Math.round((eff?.success_rate ?? 0) * 100),
+      }
+    }) || []
 
     return NextResponse.json({
       success: true,
@@ -91,11 +96,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Missing patternId or action' }, { status: 400 })
     }
 
-    const isActive = action === 'activate'
+    const newStatus = action === 'activate' ? 'active' : 'deprecated'
 
-    const { data, error } = await (supabase.from as Function)('learning_patterns')
+    // Using learned_patterns table with status column
+    const { data, error } = await supabase.from('learned_patterns')
       .update({
-        is_active: isActive,
+        status: newStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('id', patternId)
@@ -107,7 +113,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       success: true,
       pattern: data,
-      message: `Pattern ${isActive ? 'activated' : 'deprecated'} successfully`,
+      message: `Pattern ${action === 'activate' ? 'activated' : 'deprecated'} successfully`,
     })
   } catch (error) {
     console.error('[Learning Patterns API] Error:', error)

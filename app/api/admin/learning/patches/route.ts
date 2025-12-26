@@ -24,15 +24,15 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Build query
-    let query = (supabase.from as Function)('learning_patch_queue')
+    // Build query - using knowledge_patches table (actual table name)
+    let query = supabase.from('knowledge_patches')
       .select(`
         *,
-        source_feedback:creative_feedback(
+        learned_pattern:learned_patterns(
           id,
-          feedback_type,
-          feedback_text,
-          creative_id
+          pattern_type,
+          issue_signature,
+          confidence
         )
       `, { count: 'exact' })
       .eq('status', status)
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (formatId) {
-      query = query.eq('format_id', formatId)
+      query = query.eq('target_file', formatId)
     }
 
     const { data: patches, error, count } = await query
@@ -80,8 +80,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Missing patchId or action' }, { status: 400 })
     }
 
-    // Get the patch details
-    const { data: patch, error: fetchError } = await (supabase.from as Function)('learning_patch_queue')
+    // Get the patch details - using knowledge_patches table
+    const { data: patch, error: fetchError } = await supabase.from('knowledge_patches')
       .select('*')
       .eq('id', patchId)
       .single()
@@ -91,19 +91,23 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === 'approve') {
-      // Create a new pattern from the approved patch
-      const { data: newPattern, error: patternError } = await (supabase.from as Function)('learning_patterns')
+      // Create a new pattern from the approved patch - using learned_patterns table
+      // Note: effectiveness is a Json field that stores { times_applied, success_rate, ... }
+      const { data: newPattern, error: patternError } = await supabase.from('learned_patterns')
         .insert({
-          organization_id: patch.organization_id,
-          format_id: patch.format_id,
-          issue_type: patch.issue_type,
-          issue_pattern: patch.issue_pattern,
-          prevention_strategy: patch.prevention_strategy,
-          confidence: patch.confidence,
-          is_active: true,
-          application_count: 0,
-          success_count: 0,
-          source_feedback_ids: [patch.source_feedback_id],
+          pattern_type: patch.patch_type || 'issue',
+          issue_signature: {
+            target_file: patch.target_file,
+            original_content: patch.original_content,
+          },
+          fix_mapping: {
+            proposed_content: patch.proposed_content,
+            reasoning: patch.reasoning,
+          },
+          confidence: patch.pattern_confidence || 0.7,
+          status: 'active',
+          effectiveness: { times_applied: 0, success_rate: 0 },
+          created_from_feedback_ids: patch.feedback_ids || [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -112,14 +116,15 @@ export async function PATCH(request: NextRequest) {
 
       if (patternError) throw patternError
 
-      // Update patch status
-      const { error: updateError } = await (supabase.from as Function)('learning_patch_queue')
+      // Update patch status - use admin_reviewed_by/at columns (per TypeScript types)
+      const { error: updateError } = await supabase.from('knowledge_patches')
         .update({
           status: 'applied',
-          applied_pattern_id: newPattern.id,
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
+          learned_pattern_id: newPattern.id,
+          admin_reviewed_by: user.id,
+          admin_reviewed_at: new Date().toISOString(),
           review_notes: notes || null,
+          applied_at: new Date().toISOString(),
         })
         .eq('id', patchId)
 
@@ -131,12 +136,12 @@ export async function PATCH(request: NextRequest) {
         pattern: newPattern,
       })
     } else if (action === 'reject') {
-      // Update patch status to rejected
-      const { error: updateError } = await (supabase.from as Function)('learning_patch_queue')
+      // Update patch status to rejected - use admin_reviewed_by/at columns
+      const { error: updateError } = await supabase.from('knowledge_patches')
         .update({
           status: 'rejected',
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
+          admin_reviewed_by: user.id,
+          admin_reviewed_at: new Date().toISOString(),
           review_notes: notes || null,
         })
         .eq('id', patchId)

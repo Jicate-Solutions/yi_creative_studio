@@ -38,6 +38,14 @@ export interface AIPlacementInput {
   }
 }
 
+export interface StripRecommendation {
+  widthPercentage: number // Optimal strip width as % of image width (60-100)
+  spacingStrategy: 'tight' | 'normal' | 'loose' // Spacing between logos
+  alignment: 'left' | 'center' | 'right' | 'justified' // How logos should align
+  paddingHorizontal: number // Left/right padding in pixels
+  gapBelow?: number // Optional: Gap in pixels before next strip (10-30px, default 15)
+}
+
 export interface AIPlacementResult {
   placements: Array<{
     logoId: string
@@ -45,6 +53,11 @@ export interface AIPlacementResult {
     size?: LogoSizePreset
     backgroundShape?: LogoBackgroundShape
   }>
+  stripRecommendations?: {
+    header?: StripRecommendation  // For top-1 to top-6
+    middle?: StripRecommendation  // For mid-1 to mid-6
+    footer?: StripRecommendation  // For bottom-1 to bottom-6
+  }
   reasoning: string
   confidence: number
 }
@@ -105,6 +118,7 @@ The design uses a 6-column × 3-row grid (18 positions total):
 2. **Distribute evenly** - avoid clustering logos on one side
 3. **Balance visual weight** - larger/important logos at edges or center
 4. **Maintain hierarchy** - brand logos most prominent, sponsors smaller
+5. **Fill the center** - If you have 3+ logos, use mid-slots (top-3, top-4) to bridge the gap between edges. Avoid [1,2...5,6] clustering.
 
 ## Size Recommendations
 Based on logo count per strip:
@@ -117,18 +131,104 @@ Based on logo count per strip:
 - Vertical/program logos: "rounded" or "none"
 - Sponsor/partner logos: "rectangle" or "rounded" (for visibility)
 
+## Strip Width & Spacing Intelligence (CRITICAL)
+You must analyze the logo count and provide optimal strip configuration:
+
+**Strip Width Guidelines:**
+- 1-2 logos: Use 60-70% width (avoid too wide, looks sparse)
+- 3-4 logos: Use 75-85% width (balanced distribution)
+- 5-6 logos: Use 90-100% width (full width needed)
+
+**Spacing Strategy:**
+- "tight": 20-30px gaps (for 5-6 logos, space-constrained)
+- "normal": 40-60px gaps (for 3-4 logos, balanced)
+- "loose": 80-120px gaps (for 1-2 logos, spacious)
+
+**Alignment Strategy:**
+- "left": Logos start from left edge (for asymmetric designs)
+- "center": Logos centered in strip (for symmetric, balanced look)
+- "right": Logos aligned to right (rare, special cases)
+- "justified": Logos spread edge-to-edge (for full-width strips with 3+ logos)
+
+**Padding Recommendations:**
+- 1-2 logos: 40-60px horizontal padding (generous breathing room)
+- 3-4 logos: 30-40px horizontal padding (moderate)
+- 5-6 logos: 20-30px horizontal padding (minimal, maximize space)
+
+**Strip Gap (Vertical Spacing):**
+- Gap below header before middle: 10-15px (tight, layered header effect)
+- Gap below middle before footer: 20-30px (moderate separation)
+- For single strip: No gap needed
+
+**Critical Thinking Required:**
+- DON'T make strips too wide for few logos (causes awkward gaps)
+- DON'T make strips too narrow for many logos (causes cramping)
+- THINK about visual balance: width + spacing + alignment together
+- CONSIDER the logo positions you're using (if using only columns 1-3, recommend narrower width)
+
 ## Output Format
 Respond with ONLY a valid JSON object (no markdown, no explanation):
+
+**For logos on ONE strip:**
 {
   "placements": [
     { "logoId": "...", "position": "top-1", "size": "large", "backgroundShape": "none" },
     ...
   ],
-  "reasoning": "Brief 1-2 sentence explanation of the strategy used",
+  "stripRecommendations": {
+    "header": {
+      "widthPercentage": 80,
+      "spacingStrategy": "normal",
+      "alignment": "justified",
+      "paddingHorizontal": 40
+    }
+  },
+  "reasoning": "Brief explanation of placement + width/spacing strategy",
   "confidence": 0.95
 }
 
-Important: The confidence should be between 0.0 and 1.0, where 1.0 means perfect placement.`
+**For logos on TWO strips (e.g., header + middle):**
+{
+  "placements": [
+    { "logoId": "yi-logo", "position": "top-1", "size": "medium", "backgroundShape": "none" },
+    { "logoId": "cii-logo", "position": "top-6", "size": "medium", "backgroundShape": "none" },
+    { "logoId": "vertical1", "position": "mid-2", "size": "small", "backgroundShape": "rounded" },
+    { "logoId": "vertical2", "position": "mid-5", "size": "small", "backgroundShape": "rounded" }
+  ],
+  "stripRecommendations": {
+    "header": {
+      "widthPercentage": 70,
+      "spacingStrategy": "normal",
+      "alignment": "justified",
+      "paddingHorizontal": 40,
+      "gapBelow": 12
+    },
+    "middle": {
+      "widthPercentage": 60,
+      "spacingStrategy": "loose",
+      "alignment": "center",
+      "paddingHorizontal": 50
+    }
+  },
+  "reasoning": "Header: 2 brand logos at edges with 70% width. Middle: 2 verticals centered at 60% width. Tight 12px gap creates layered header effect.",
+  "confidence": 0.95
+}
+
+**For logos on THREE strips:**
+{
+  "stripRecommendations": {
+    "header": { "widthPercentage": 85, "spacingStrategy": "normal", "alignment": "justified", "paddingHorizontal": 35, "gapBelow": 15 },
+    "middle": { "widthPercentage": 75, "spacingStrategy": "normal", "alignment": "center", "paddingHorizontal": 40, "gapBelow": 25 },
+    "footer": { "widthPercentage": 90, "spacingStrategy": "tight", "alignment": "justified", "paddingHorizontal": 30 }
+  },
+  ...
+}
+
+Important:
+- The confidence should be between 0.0 and 1.0, where 1.0 means perfect placement
+- Provide SEPARATE recommendations for each strip that has logos
+- Analyze each strip independently: header logos may need different width than footer logos
+- Think about strip hierarchy: brand logos (header) usually wider/more prominent than sponsors (footer)`
 }
 
 // ============================================================================
@@ -256,4 +356,73 @@ export function detectBrandLogos(logos: Array<{ id: string; name: string }>): {
   }
 
   return constraints
+}
+
+/**
+ * Apply AI strip recommendations to logo overlay configuration
+ * Converts AI's width/spacing/alignment recommendations into practical values
+ */
+export function applyStripRecommendations(
+  recommendation: StripRecommendation | undefined,
+  imageWidth: number
+): {
+  stripWidth: number
+  horizontalPadding: number
+  spacingGuideline: { min: number; max: number }
+} {
+  // Default values if no recommendations
+  if (!recommendation) {
+    return {
+      stripWidth: imageWidth,
+      horizontalPadding: 40,
+      spacingGuideline: { min: 40, max: 60 },
+    }
+  }
+
+  const { widthPercentage, spacingStrategy, paddingHorizontal } = recommendation
+
+  // Calculate actual strip width
+  const stripWidth = Math.floor((imageWidth * widthPercentage) / 100)
+
+  // Convert spacing strategy to pixel ranges
+  const spacingGuidelines = {
+    tight: { min: 20, max: 30 },
+    normal: { min: 40, max: 60 },
+    loose: { min: 80, max: 120 },
+  }
+
+  return {
+    stripWidth,
+    horizontalPadding: paddingHorizontal,
+    spacingGuideline: spacingGuidelines[spacingStrategy] || spacingGuidelines.normal,
+  }
+}
+
+/**
+ * Get strip recommendation by row (for multi-strip scenarios)
+ */
+export function getStripRecommendationByRow(
+  recommendations: AIPlacementResult['stripRecommendations'],
+  row: 'header' | 'middle' | 'footer'
+): StripRecommendation | undefined {
+  if (!recommendations) return undefined
+  return recommendations[row]
+}
+
+/**
+ * Get spacing multiplier based on AI recommendations
+ * Use this to adjust the existing logo-overlay spacing calculations
+ */
+export function getSpacingMultiplier(
+  recommendation: StripRecommendation | undefined
+): number {
+  if (!recommendation) return 1.0
+
+  const multipliers = {
+    tight: 0.7,   // Reduce spacing by 30%
+    normal: 1.0,  // Keep default spacing
+    loose: 1.5,   // Increase spacing by 50%
+  }
+
+  return multipliers[recommendation.spacingStrategy] || 1.0
 }

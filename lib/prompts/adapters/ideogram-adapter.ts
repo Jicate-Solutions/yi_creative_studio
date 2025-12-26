@@ -135,17 +135,17 @@ function buildDesignContextSection(context: DesignContext): string {
   const parts: string[] = []
 
   // Core purpose as design directive
-  parts.push(context.corePurpose)
+  parts.push(context.corePurpose ?? 'impactful design')
 
   // Visual elements (top 3-4 for conciseness)
-  const topElements = context.visualElements.slice(0, 4).join(', ')
+  const topElements = context.visualElements?.slice(0, 4).join(', ') ?? 'visual elements'
   parts.push(`featuring ${topElements}`)
 
   // Background setting
-  parts.push(`set in ${context.backgroundSetting}`)
+  parts.push(`set in ${context.backgroundSetting ?? 'professional setting'}`)
 
   // Iconic imagery (concise)
-  if (context.iconicImagery.length > 0) {
+  if (context.iconicImagery && context.iconicImagery.length > 0) {
     parts.push(`with ${context.iconicImagery.slice(0, 2).join(' and ')}`)
   }
 

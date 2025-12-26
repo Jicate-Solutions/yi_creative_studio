@@ -514,6 +514,7 @@ export interface CustomColors {
 
 export interface ColorConfig {
   useBrandColors: boolean // Toggle state: true = use organization brand colors
+  useBrandFont: boolean // Toggle state: true = use brand font, false = AI chooses
   selectedPalette: string | null // e.g., 'teal_orange', 'navy_gold', or 'custom'
   customColors: CustomColors | null // Custom colors when selectedPalette is 'custom'
 }
@@ -582,13 +583,272 @@ export type ColorPaletteId = keyof typeof COLOR_PALETTES
 
 export const DEFAULT_COLOR_CONFIG: ColorConfig = {
   useBrandColors: true, // Default to using brand colors
+  useBrandFont: true, // Default to using brand font (backward compatible)
   selectedPalette: null,
   customColors: null,
+}
+
+// NEW v3.10: Color resolution types (re-exported from resolve-color-config for convenience)
+export type ColorSource = 'brand' | 'preset' | 'custom' | 'fallback'
+
+export interface ResolvedColorConfig extends ColorConfig {
+  resolvedPrimaryColor: string
+  resolvedSecondaryColor: string
+  resolvedAccentColor: string
+  colorSource: ColorSource
 }
 
 // Helper to get palette by ID
 export const getColorPaletteById = (id: string) =>
   COLOR_PALETTES[id as ColorPaletteId] || null
+
+// NEW v3.10: Export hex color validation function
+export function isValidHexColor(color: string): boolean {
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color)
+}
+
+// ============================================================
+// LOGO STRIP SHAPES
+// ============================================================
+
+export type LogoStripShape = 'rectangle' | 'curved' | 'angled' | 'rounded' | 'tapered'
+
+export interface LogoStripShapeOption {
+  value: LogoStripShape
+  label: string
+  description: string
+  icon: string
+  preview: string // SVG path or description for preview
+}
+
+export const LOGO_STRIP_SHAPES: Record<LogoStripShape, LogoStripShapeOption> = {
+  rectangle: {
+    value: 'rectangle',
+    label: 'Rectangle',
+    description: 'Clean rectangular strip - classic and professional',
+    icon: 'Square',
+    preview: 'M 0,0 L 100,0 L 100,30 L 0,30 Z',
+  },
+  curved: {
+    value: 'curved',
+    label: 'Curved/Wave',
+    description: 'Smooth curved edges - modern and dynamic',
+    icon: 'Waves',
+    preview: 'M 0,5 Q 25,0 50,5 T 100,5 L 100,25 Q 75,30 50,25 T 0,25 Z',
+  },
+  angled: {
+    value: 'angled',
+    label: 'Angled/Diagonal',
+    description: 'Diagonal cut edges - energetic and bold',
+    icon: 'Slash',
+    preview: 'M 0,10 L 100,0 L 100,20 L 0,30 Z',
+  },
+  rounded: {
+    value: 'rounded',
+    label: 'Rounded Rectangle',
+    description: 'Rounded corners - friendly and approachable',
+    icon: 'RectangleEllipsis',
+    preview: 'M 10,0 L 90,0 Q 100,0 100,10 L 100,20 Q 100,30 90,30 L 10,30 Q 0,30 0,20 L 0,10 Q 0,0 10,0 Z',
+  },
+  tapered: {
+    value: 'tapered',
+    label: 'Tapered/Trapezoid',
+    description: 'Directional flow - unique and distinctive',
+    icon: 'Triangle',
+    preview: 'M 10,0 L 90,0 L 100,30 L 0,30 Z',
+  },
+} as const
+
+// Default logo strip shape
+export const DEFAULT_LOGO_STRIP_SHAPE: LogoStripShape = 'curved'
+
+// Get logo strip shape by value
+export const getLogoStripShapeByValue = (value: string) =>
+  LOGO_STRIP_SHAPES[value as LogoStripShape] || LOGO_STRIP_SHAPES.rectangle
+
+// ============================================================
+// LOGO STRIP DYNAMIC STYLING (v4.2 - Story-Driven)
+// ============================================================
+
+/**
+ * Logo strip style variants based on event vibe/mood
+ * Enables dynamic styling that matches the event's narrative
+ */
+export type LogoStripStyle = 'sophisticated' | 'modern' | 'classic' | 'minimal'
+
+/**
+ * Complete logo strip styling configuration
+ * Combines shape with visual treatment options
+ */
+export interface LogoStripStyleConfig {
+  shape: LogoStripShape
+  style: LogoStripStyle
+  shadow?: 'subtle' | 'medium' | 'prominent' | 'none'
+  gradient?: boolean // Use gradient instead of solid white
+  border?: boolean // Add border to logo strip
+}
+
+/**
+ * Map event vibe keywords to logo strip styling
+ * AI-analyzed vibe from Design Intelligence determines the style
+ *
+ * Usage: When AI determines event has "prestigious" vibe, apply sophisticated curved strip
+ */
+export const VIBE_TO_LOGO_STRIP_STYLE: Record<string, LogoStripStyleConfig> = {
+  prestigious: {
+    shape: 'curved',
+    style: 'sophisticated',
+    shadow: 'subtle',
+    gradient: false,
+    border: false,
+  },
+  empowering: {
+    shape: 'curved',
+    style: 'sophisticated',
+    shadow: 'medium',
+    gradient: false,
+    border: false,
+  },
+  authoritative: {
+    shape: 'angled',
+    style: 'modern',
+    shadow: 'medium',
+    gradient: false,
+    border: false,
+  },
+  modern: {
+    shape: 'angled',
+    style: 'modern',
+    shadow: 'medium',
+    gradient: true,
+    border: false,
+  },
+  innovative: {
+    shape: 'angled',
+    style: 'modern',
+    shadow: 'prominent',
+    gradient: true,
+    border: false,
+  },
+  futuristic: {
+    shape: 'angled',
+    style: 'modern',
+    shadow: 'prominent',
+    gradient: true,
+    border: false,
+  },
+  traditional: {
+    shape: 'rounded',
+    style: 'classic',
+    shadow: 'subtle',
+    gradient: false,
+    border: true,
+  },
+  cultural: {
+    shape: 'rounded',
+    style: 'classic',
+    shadow: 'subtle',
+    gradient: false,
+    border: true,
+  },
+  heritage: {
+    shape: 'rounded',
+    style: 'classic',
+    shadow: 'subtle',
+    gradient: false,
+    border: true,
+  },
+  minimal: {
+    shape: 'rectangle',
+    style: 'minimal',
+    shadow: 'none',
+    gradient: false,
+    border: false,
+  },
+  clean: {
+    shape: 'rectangle',
+    style: 'minimal',
+    shadow: 'none',
+    gradient: false,
+    border: false,
+  },
+  elegant: {
+    shape: 'curved',
+    style: 'sophisticated',
+    shadow: 'subtle',
+    gradient: false,
+    border: false,
+  },
+  playful: {
+    shape: 'rounded',
+    style: 'modern',
+    shadow: 'medium',
+    gradient: true,
+    border: false,
+  },
+  energetic: {
+    shape: 'tapered',
+    style: 'modern',
+    shadow: 'prominent',
+    gradient: true,
+    border: false,
+  },
+  bold: {
+    shape: 'angled',
+    style: 'modern',
+    shadow: 'prominent',
+    gradient: false,
+    border: false,
+  },
+  caring: {
+    shape: 'rounded',
+    style: 'sophisticated',
+    shadow: 'subtle',
+    gradient: false,
+    border: false,
+  },
+  professional: {
+    shape: 'rectangle',
+    style: 'sophisticated',
+    shadow: 'subtle',
+    gradient: false,
+    border: false,
+  },
+  corporate: {
+    shape: 'rectangle',
+    style: 'sophisticated',
+    shadow: 'subtle',
+    gradient: false,
+    border: true,
+  },
+}
+
+/**
+ * Get logo strip style configuration based on event vibe
+ * Falls back to default if vibe not found
+ */
+export const getLogoStripStyleByVibe = (vibe?: string): LogoStripStyleConfig => {
+  if (!vibe) {
+    return {
+      shape: DEFAULT_LOGO_STRIP_SHAPE,
+      style: 'sophisticated',
+      shadow: 'subtle',
+      gradient: false,
+      border: false,
+    }
+  }
+
+  const normalizedVibe = vibe.toLowerCase().trim()
+  return (
+    VIBE_TO_LOGO_STRIP_STYLE[normalizedVibe] || {
+      shape: DEFAULT_LOGO_STRIP_SHAPE,
+      style: 'sophisticated',
+      shadow: 'subtle',
+      gradient: false,
+      border: false,
+    }
+  )
+}
 
 // ============================================================
 // DESIGN DATA INTERFACE
@@ -602,6 +862,7 @@ export interface DesignData {
   customization: CustomizationData
   exportSettings: ExportSettings
   colorConfig: ColorConfig // NEW: Color configuration
+  stripShape?: LogoStripShape // NEW v3.11: Logo strip shape for event posters with logo bands
 }
 
 export const DEFAULT_DESIGN_DATA: DesignData = {
@@ -612,4 +873,5 @@ export const DEFAULT_DESIGN_DATA: DesignData = {
   customization: DEFAULT_CUSTOMIZATION,
   exportSettings: DEFAULT_EXPORT_SETTINGS,
   colorConfig: DEFAULT_COLOR_CONFIG,
+  stripShape: DEFAULT_LOGO_STRIP_SHAPE, // NEW v3.11: Default to curved strip
 }

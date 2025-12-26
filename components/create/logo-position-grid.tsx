@@ -25,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
-import { X, Image as ImageIcon, Check, Wand2, MousePointerClick, LayoutGrid, Circle, Square, RectangleHorizontal, CircleOff, Trash2, Settings2, Palette, Sparkles, Loader2, Rows3 } from 'lucide-react'
+import { X, Image as ImageIcon, Check, Wand2, MousePointerClick, LayoutGrid, Circle, Square, RectangleHorizontal, CircleOff, Trash2, Settings2, Palette, Sparkles, Loader2, Rows3, Info, RotateCcw } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { LOGO_POSITIONS, LOGO_CATEGORIES, type LogoPosition, type LogoCategory, migrateLogoPosition } from '@/lib/config/constants'
@@ -38,29 +38,42 @@ import {
 } from '@/lib/constants/logoConstants'
 import { LogoPresetSelector } from './logo-preset-selector'
 import { SavePresetDialog } from './save-preset-dialog'
+import { LogoStripShapeSelector } from './logo-strip-shape-selector'
 
 // Zone configuration for visual grouping
-const ZONES = {
+interface ZoneConfig {
+  label: string
+  description: string
+  positions: LogoPosition[]
+  color: string
+  hoverColor: string
+  badgeVariant: "default" | "secondary" | "outline" | "destructive" | null | undefined
+}
+
+const ZONES: Record<string, ZoneConfig> = {
   header: {
-    label: 'Header Zone',
-    description: 'Brand logos',
+    label: 'Header Zone (Brand)',
+    description: 'Best for main organization logos',
     positions: ['top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6'] as LogoPosition[],
-    color: 'bg-blue-500/10 border-blue-500/30',
-    hoverColor: 'hover:bg-blue-500/20',
+    color: 'bg-indigo-50/50 border-indigo-200/50 text-indigo-700',
+    hoverColor: 'hover:bg-indigo-50/80',
+    badgeVariant: 'default',
   },
   middle: {
-    label: 'Middle Zone',
-    description: 'Program logos',
+    label: 'Middle Zone (Content)',
+    description: 'For program or event specific logos',
     positions: ['mid-1', 'mid-2', 'mid-3', 'mid-4', 'mid-5', 'mid-6'] as LogoPosition[],
-    color: 'bg-slate-500/10 border-slate-500/30',
-    hoverColor: 'hover:bg-slate-500/20',
+    color: 'bg-slate-50/50 border-slate-200/50 text-slate-700',
+    hoverColor: 'hover:bg-slate-50/80',
+    badgeVariant: 'secondary',
   },
   footer: {
-    label: 'Footer Zone',
-    description: 'Sponsors & Partners',
+    label: 'Footer Zone (Partners)',
+    description: 'Sponsors and supporting partners',
     positions: ['bottom-1', 'bottom-2', 'bottom-3', 'bottom-4', 'bottom-5', 'bottom-6'] as LogoPosition[],
-    color: 'bg-orange-500/10 border-orange-500/30',
-    hoverColor: 'hover:bg-orange-500/20',
+    color: 'bg-orange-50/50 border-orange-200/50 text-orange-700',
+    hoverColor: 'hover:bg-orange-50/80',
+    badgeVariant: 'outline',
   },
 }
 
@@ -85,6 +98,7 @@ export function LogoPositionGrid() {
     formData,
     addLogoPlacement,
     removeLogoPlacement,
+    clearLogoPlacements,
     updateLogoPosition,
     updateLogoSize,
     updateLogoBackground,
@@ -249,13 +263,25 @@ export function LogoPositionGrid() {
         <div>
           <h3 className="text-sm font-medium">Position Your Logos</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedLogoId
-              ? `Click a cell to place "${selectedLogo?.name}"`
-              : 'Select a logo, then click where to place it'
-            }
+            Select a logo from the left, then click a grid cell to place it.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {formData.logosPlacements.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm('Remove all placed logos?')) {
+                  clearLogoPlacements()
+                }
+              }}
+              className="gap-2 text-muted-foreground hover:text-destructive"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear All</span>
+            </Button>
+          )}
           <LogoPresetSelector onSaveClick={() => setSaveDialogOpen(true)} />
           {/* AI Optimize Button */}
           <Button
@@ -282,6 +308,21 @@ export function LogoPositionGrid() {
 
       {/* Save Preset Dialog */}
       <SavePresetDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} />
+
+      {/* Helper Banner */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3 shadow-sm">
+        <div className="p-2 bg-white rounded-full shadow-sm shrink-0">
+          <Info className="h-4 w-4 text-blue-500" />
+        </div>
+        <div className="text-xs text-blue-900">
+          <span className="font-semibold block mb-1 text-sm">Design Canvas Instructions</span>
+          <ol className="list-decimal list-inside space-y-1 opacity-90">
+            <li>Select a logo from the <strong>Your Logos</strong> rail on the left</li>
+            <li>Tap any grid cell on the <strong>Canvas</strong> to place it instantly</li>
+            <li>Click a placed logo to fine-tune its size or style</li>
+          </ol>
+        </div>
+      </div>
 
       {/* SIDE-BY-SIDE LAYOUT: Logos (left) | Grid (right) */}
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
@@ -382,8 +423,10 @@ export function LogoPositionGrid() {
                 checked={formData.logoStripMode?.enabled ?? false}
                 onCheckedChange={(checked) => {
                   setLogoStripMode({
+                    opacity: formData.logoStripMode?.opacity ?? 100,
+                    logoBound: formData.logoStripMode?.logoBound ?? false,
                     enabled: checked,
-                    rows: checked ? ['header'] : [],
+                    rows: checked ? (formData.logoStripMode?.rows?.length ? formData.logoStripMode.rows : ['header']) : [],
                   })
                 }}
               />
@@ -407,6 +450,8 @@ export function LogoPositionGrid() {
                             : [...currentRows, row]
                           if (newRows.length > 0) {
                             setLogoStripMode({
+                              opacity: formData.logoStripMode?.opacity ?? 100,
+                              logoBound: formData.logoStripMode?.logoBound ?? false,
                               enabled: true,
                               rows: newRows,
                             })
@@ -427,6 +472,9 @@ export function LogoPositionGrid() {
               </div>
             )}
 
+            {/* Logo Strip Shape Selector */}
+            <LogoStripShapeSelector />
+
             {/* Divider */}
             <Separator className="my-1" />
 
@@ -446,9 +494,19 @@ export function LogoPositionGrid() {
             </div>
           </div>
 
-          {/* Poster Preview with Zones */}
-          <div className="relative bg-gradient-to-b from-muted/30 to-muted/60 rounded-xl border-2 border-dashed border-muted-foreground/20 p-2">
-            <div className="space-y-1.5">
+          {/* Poster Preview with Dot Matrix Glass Canvas */}
+          <div className="relative rounded-xl overflow-hidden shadow-2xl shadow-black/5 border border-white/20 dark:border-white/10">
+            {/* Dot Matrix Background */}
+            <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-xl z-0" />
+            <div
+              className="absolute inset-0 opacity-[0.15] dark:opacity-[0.2] pointer-events-none z-0"
+              style={{
+                backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
+                backgroundSize: '20px 20px'
+              }}
+            />
+
+            <div className="relative z-10 p-4 space-y-4">
               {/* Header Zone */}
               <ZoneRow
                 zone={ZONES.header}
@@ -477,11 +535,13 @@ export function LogoPositionGrid() {
                 placedPositions={placedPositions}
               />
 
-              {/* Content placeholder - Compact to fit viewport */}
-              <div className="h-16 lg:h-20 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 flex items-center justify-center">
+              {/* Content placeholder - Glass Slab */}
+              <div className="h-24 rounded-xl border border-dashed border-white/30 bg-white/10 flex items-center justify-center backdrop-blur-sm">
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground/70">Main Content Area</p>
-                  <p className="text-[8px] text-muted-foreground/50">AI designs this space</p>
+                  <div className="w-8 h-8 rounded-full bg-white/20 mx-auto mb-2 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white/70" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">AI Content Generation Area</p>
                 </div>
               </div>
 
@@ -549,12 +609,16 @@ function ZoneRow({
   placedPositions: LogoPosition[]
 }) {
   return (
-    <div className={cn('rounded-lg border p-1.5', zone.color)}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[9px] font-medium text-muted-foreground">{zone.label}</span>
-        <span className="text-[8px] text-muted-foreground/70">{zone.description}</span>
+    <div className={cn('rounded-lg p-2 transition-all duration-200', zone.color.replace('border-', 'border-0 ring-1 ring-inset ring-'))}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Badge variant={zone.badgeVariant as any} className="text-[10px] h-5 px-1.5 font-medium border-0 bg-white/50 dark:bg-black/20 backdrop-blur-sm shadow-none">
+            {zone.label.split(' ')[0]}
+          </Badge>
+          <span className="text-[9px] text-muted-foreground/70 uppercase tracking-wider font-medium">{zone.description}</span>
+        </div>
       </div>
-      <div className="grid grid-cols-6 gap-0.5">
+      <div className="grid grid-cols-6 gap-1.5">
         {zone.positions.map((position) => {
           const placement = getLogoAtPosition(position)
           const logo = placement?.logo || logos.find((l) => l.id === placement?.logoId)
@@ -571,13 +635,16 @@ function ZoneRow({
               key={position}
               onClick={() => canPlace && onCellClick(position)}
               className={cn(
-                'aspect-[2/1] rounded-md border-2 flex items-center justify-center transition-all',
-                isOccupied
-                  ? 'border-primary/50 bg-background'
-                  : 'border-dashed border-muted-foreground/30',
-                isAvailable && 'border-primary cursor-pointer animate-pulse',
-                canPlace && 'cursor-pointer',
-                !isOccupied && zone.hoverColor
+                'aspect-[2/1] rounded-lg transition-all duration-300 flex items-center justify-center relative overflow-hidden',
+                // BASE STATE: Glass tile
+                'bg-white/40 dark:bg-white/5 backdrop-blur-sm shadow-sm',
+                // OCCUPIED: Clean look
+                isOccupied && 'bg-white/60 dark:bg-white/10 shadow-md ring-1 ring-black/5 dark:ring-white/10',
+                // AVAILABLE (Drafting Mode): Pulsing ring
+                isAvailable && 'ring-2 ring-primary/50 bg-primary/5 animate-pulse cursor-pointer',
+                // HOVER STATES
+                canPlace && !isOccupied && 'hover:bg-primary/10 hover:ring-2 hover:ring-primary/30 cursor-pointer',
+                !isOccupied && !isAvailable && 'opacity-60 grayscale-[0.5]'
               )}
             >
               {logo && placement ? (
@@ -795,11 +862,15 @@ function LogoCard({
     <div
       onClick={isDisabled ? undefined : onSelect}
       className={cn(
-        'relative rounded-md border p-1 transition-all group',
-        isSelected && 'ring-2 ring-primary ring-offset-1 border-primary',
-        isPlaced && !isSelected && 'border-primary/50 bg-primary/5',
-        !isPlaced && !isSelected && 'border-border hover:border-primary/50 hover:bg-muted/50',
-        isDisabled && 'opacity-50 cursor-not-allowed',
+        'relative rounded-lg border transition-all duration-200 group overflow-hidden',
+        // Selected State
+        isSelected && 'ring-2 ring-primary ring-offset-1 border-primary shadow-md scale-[1.02] z-10',
+        // Placed State
+        isPlaced && !isSelected && 'border-primary/20 bg-primary/5',
+        // Empty State
+        !isPlaced && !isSelected && 'border-border/60 hover:border-primary/40 hover:bg-primary/5 hover:scale-[1.02]',
+        // Disabled State
+        isDisabled && 'opacity-40 cursor-not-allowed grayscale',
         !isDisabled && 'cursor-pointer'
       )}
     >

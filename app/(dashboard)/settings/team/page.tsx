@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useOrganization } from '@/hooks/use-organization'
+import { useClientAdmin } from '@/hooks/use-client-admin'
 import {
   Card,
   CardContent,
@@ -74,8 +75,8 @@ interface TeamMember {
 export default function TeamPage() {
   const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user } = useAuthStore()
-  const { organization, canManage } = useOrganization()
-  const isAdmin = canManage()
+  const { organization } = useOrganization()
+  const { isAdmin, isReady } = useClientAdmin()
 
   const [members, setMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -143,7 +144,7 @@ export default function TeamPage() {
   }
 
   const regenerateInviteCode = async () => {
-    if (!currentOrganization?.id || !isAdmin) return
+    if (!currentOrganization?.id || !isReady || !isAdmin) return
 
     const newCode = Math.random().toString(36).substring(2, 8).toUpperCase()
 
@@ -163,7 +164,7 @@ export default function TeamPage() {
   }
 
   const updateMemberRole = async () => {
-    if (!editingMember || !isAdmin) return
+    if (!editingMember || !isReady || !isAdmin) return
 
     const { error } = await supabase
       .from('organization_members')
@@ -181,7 +182,7 @@ export default function TeamPage() {
   }
 
   const removeMember = async (memberId: string, memberUserId: string) => {
-    if (!isAdmin) return
+    if (!isReady || !isAdmin) return
 
     // Can't remove yourself
     if (memberUserId === user?.id) {
@@ -229,7 +230,7 @@ export default function TeamPage() {
       </div>
 
       {/* Invite Code Card */}
-      {isAdmin && (
+      {isReady && isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -291,7 +292,7 @@ export default function TeamPage() {
                   <TableHead>Member</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Joined</TableHead>
-                  {isAdmin && <TableHead className="w-[50px]" />}
+                  {isReady && isAdmin && <TableHead className="w-[50px]" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -330,7 +331,7 @@ export default function TeamPage() {
                       <TableCell className="text-muted-foreground">
                         {format(new Date(member.joined_at), 'MMM d, yyyy')}
                       </TableCell>
-                      {isAdmin && (
+                      {isReady && isAdmin && (
                         <TableCell>
                           {!isCurrentUser && (
                             <DropdownMenu>

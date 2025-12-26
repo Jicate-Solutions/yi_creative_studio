@@ -141,7 +141,12 @@ export async function POST(request: NextRequest) {
       verticalSlug: string
       logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url: string; name?: string } }>
       logoBackgroundColor?: string // Global background color for all logos (hex)
-      logoStripMode?: { enabled: boolean; rows: ('header' | 'middle' | 'footer')[] } // Strip layout mode
+      logoStripMode?: {
+        enabled: boolean
+        rows: ('header' | 'middle' | 'footer')[]
+        opacity?: number // Strip opacity 0-100
+        logoBound?: boolean // When true, strip only covers logo area
+      } // Strip layout mode
       organizationId: string
       templateId: string | null
       templateUrl: string | null
@@ -621,10 +626,25 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] Event Keywords:', eventKeywords.join(', '))
       console.log('[Generate] Matched in Context:', matchedKeywords.length, '/', eventKeywords.length)
 
-      if (matchedKeywords.length === 0 && eventKeywords.length > 0) {
+      // v5.2: CRITICAL FIX - When context bleeding is detected, FORCE use fallback
+      const contextBleedingDetected = matchedKeywords.length === 0 && eventKeywords.length > 0
+
+      if (contextBleedingDetected) {
         console.error('[Generate] ⚠️⚠️⚠️  CONTEXT BLEEDING DETECTED!')
         console.error('[Generate] Event keywords NOT found in design context!')
         console.error('[Generate] Expected keywords:', eventKeywords.join(', '))
+        console.log('[Generate] 🔄 FORCING FALLBACK CONTEXT to fix context bleeding...')
+
+        // Import and use the fallback context generator
+        const { generateFallbackContext } = await import('@/lib/prompts/services/yi-prompt-builder/context-helpers')
+        designContext = generateFallbackContext({
+          title: designBrief.eventName || '',
+          description: designBrief.details,
+          venue: designBrief.venue,
+          additionalContext: designBrief.eventType,
+        })
+        console.log('[Generate] ✅ Fallback context generated for:', designBrief.eventName)
+        console.log('[Generate] New Core Purpose:', designContext?.corePurpose)
       }
 
       // Track Design Intelligence API usage
@@ -987,7 +1007,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`Processing ${logosPlacements.length} logo placements with background color: ${logoBackgroundColor || '#FFFFFF'}`)
-      console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}`)
+      console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}, opacity: ${logoStripMode?.opacity ?? 100}%, logoBound: ${logoStripMode?.logoBound ?? false}`)
       console.log(`Logo strip shape: ${stripShape || 'default (curved)'}`) // NEW v3.11
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
     }
@@ -1178,7 +1198,7 @@ function extractFromFormData(formData: Record<string, unknown> | undefined): Par
   // Standard field extractions (for backwards compatibility)
   const result: Partial<CreativeContent> = {
     // Event name: check multiple possible field names
-    eventName: extractFirst(['title', 'eventName', 'eventTitle', 'name']),
+    eventName: extractFirst(['title', 'eventName', 'eventTitle', 'name', 'postTitle']),
 
     // Event type: infer from explicit field
     eventType: extractFirst(['eventType', 'type']),
@@ -1195,7 +1215,7 @@ function extractFromFormData(formData: Record<string, unknown> | undefined): Par
     guestDesignation: extractFirst(['designation', 'guestDesignation', 'speakerDesignation']),
 
     // Description
-    additionalText: extractFirst(['description', 'additionalInfo', 'details']),
+    additionalText: extractFirst(['description', 'additionalInfo', 'details', 'postCaption']),
   }
 
   // v4.0: Capture ALL remaining fields in customFields

@@ -25,7 +25,7 @@ export const LOGO_SIZE_OPTIONS: Record<LogoSizePreset, LogoSizeOption> = {
   small: {
     value: 'small',
     label: 'Small',
-    pixels: 60,
+    pixels: 70, // Increased from 60px for better visibility in 6-logo strips
     description: 'Subtle branding',
     useCase: 'Watermarks, corner marks',
   },

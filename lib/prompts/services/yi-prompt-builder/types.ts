@@ -52,6 +52,10 @@ export interface BrandContextPrompt {
   logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center-top'
   // Flag to indicate if brand colors should be applied (default: false)
   useBrandColors?: boolean
+  // Flag to indicate if brand font should be applied (default: true)
+  useBrandFont?: boolean
+  // NEW v3.10: Track color source for debugging and enforcement levels
+  colorSource?: 'brand' | 'preset' | 'custom' | 'fallback'
 }
 
 // ============================================================
@@ -121,6 +125,17 @@ export interface TypographyGuidance {
   headlineStyle?: string
   bodyStyle?: string
   hierarchy?: string
+  // v4.2: Explicit font category and alignment
+  typographyStyle?: 'serif' | 'sans' | 'slab' | 'mono' | 'script' | 'display'
+  alignment?: 'center' | 'left' | 'right' | 'asymmetric'
+  // v3.9: Role-based color mapping for multi-color typography
+  colorMapping?: {
+    hero: { color: string; contrastRatio: number; description: string }
+    headline: { color: string; contrastRatio: number; description: string }
+    body: { color: string; contrastRatio: number; description: string }
+    cta: { color: string; contrastRatio: number; description: string }
+    caption: { color: string; contrastRatio: number; description: string }
+  }
 }
 
 /**
@@ -133,24 +148,64 @@ export interface DecorativeElements {
 }
 
 /**
+ * Input for brief analysis
+ */
+export interface BriefAnalysisInput {
+  title: string
+  description?: string
+  venue?: string
+  additionalContext?: string
+}
+
+/**
  * Design context from Design Intelligence stage
  * Contains AI-generated visual elements and mood for the creative
  */
+export type DesignContext = DesignContextForPrompt;
+
 export interface DesignContextForPrompt {
   corePurpose?: string
+  desiredAction?: string           // Specific action viewers should take
   visualElements?: string[]
   backgroundSetting?: string
   iconicImagery?: string[]
   colorStrategy?: string
   moodDirection?: string
-  // v3.4: Typography and decorative element guidance
-  typographyGuidance?: TypographyGuidance
-  decorativeElements?: DecorativeElements
   // v3.5: Extended design context for event posters
   creativeTwist?: string
   colorMood?: string
-  designStrategy?: string
-  emotionalJob?: string
+  designStrategy: string           // Strategic visual approach
+  successMetric?: string           // What viewer thinks in 3 seconds
+  layoutGuidance?: string          // Visual composition guidanc
+  layoutSuggestion?: string        // Specific layout recommendation from agent
+  decorativeElements?: {           // Recommended decorative elements
+    corners?: string
+    patterns?: string
+    accents?: string
+  }
+  typographyGuidance?: {           // Typography strategy
+    headlineStyle: string
+    bodyStyle: string
+    typographyStyle: string
+    alignment: string
+    hierarchy: string
+    colorMapping?: Record<string, any>
+  }
+  emotionalJob?: string            // How viewer should feel
+  // v4.2: Story-driven design intelligence
+  storyAnalysis?: import('../../knowledge-base/design-architecture/types').StoryAnalysis
+  vibeAndMood?: import('../../knowledge-base/design-architecture/types').VibeAndMood
+  typographyStrategy?: import('../../knowledge-base/design-architecture/types').TypographyStrategy
+  colorStorytelling?: import('../../knowledge-base/design-architecture/types').ColorStorytelling
+  backgroundTreatment?: import('../../knowledge-base/design-architecture/types').BackgroundTreatment
+  decorativeElementsContext?: import('../../knowledge-base/design-architecture/types').DecorativeElementsContext
+  decorativeStrategy?: {
+    thematicSymbols: string[]
+    placementReasoning: string
+    opacityStrategy: string
+  }
+  layoutNarrative?: import('../../knowledge-base/design-architecture/types').LayoutNarrative
+  overallDesignStrategy?: string // 2-3 sentences summarizing how all elements work together
 }
 
 /**
@@ -198,6 +253,25 @@ export interface EnhancedBuildOptions {
   // NEW v4.0: Prevention enhancements from Feedback Learning Agent
   // Contains learned prompt improvements based on past user feedback
   preventionEnhancements?: string[]
+
+  // NEW v4.1: Text styling and layout configurations
+  // Text alignment controls for headlines vs details differentiation
+  textAlignment?: import('./types/layout-styling').TextAlignmentMap
+  // Text shadow for white text legibility on photos/gradients
+  textShadow?: import('./types/layout-styling').TextShadowConfig
+  // Header logo band for Yi triple-logo layout (Yi, Bharat Rising, CII)
+  headerLogoBand?: import('./types/layout-styling').HeaderLogoBandConfig
+  // Footer style for standardized Yi footer (skyline, contact, partner)
+  footerStyle?: import('./types/layout-styling').FooterStyleConfig
+  // Event details card for structured date/time/venue display
+  eventDetailsCard?: import('./types/layout-styling').EventDetailsCardConfig
+
+  // NEW v4.4: ULTRA-PRO CONTEXT (The Missing Link)
+  // Direct pipe from Stage 0.5 Claude analysis to Stage 2 Image Generation
+  ultraProContext?: {
+    visualScene?: string
+    designGuidance?: string
+  }
 }
 
 // ============================================================
@@ -237,14 +311,18 @@ export interface EventPosterFormData {
   eventDescription?: string
   eventDate?: string
   eventTime?: string
+  eventEndTime?: string
   venue?: string
   speakerName?: string
   speakerDesignation?: string
   entryFee?: string
   registrationInfo?: string
-  eventType?: string
+  eventType: string  // Mandatory for context lookup
   targetAudience?: string
   eventNote?: string
+  // NEW v4.0: Explicit design intensity controls
+  sophistication?: 'minimalist' | 'balanced' | 'rich'
+  creativeFidelity?: 'high' | 'standard' | 'artistic'
 }
 
 export interface InstagramFormData {
@@ -291,6 +369,7 @@ export interface FlyerFormData {
   flyerDescription?: string
   eventDate?: string
   eventTime?: string
+  eventEndTime?: string
   venue?: string
   price?: string
   callToAction?: string
@@ -432,4 +511,75 @@ export type YiEngine = 'yi_vision' | 'yi_craft'
 export const ENGINE_TO_MODEL: Record<YiEngine, string> = {
   yi_vision: 'gemini-2.5-flash-image',
   yi_craft: 'gemini-3-pro-image-preview',
+}
+
+export interface TokenUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedTokens?: number
+}
+
+export interface LLMResponse {
+  text: string
+  tokenUsage?: TokenUsage
+  model: string
+  durationMs?: number
+}
+
+export interface DesignIntelligenceResponse extends DesignContext {
+  rawResponse?: string
+  tokenUsage?: TokenUsage
+  provider: 'gemini' | 'claude'
+  _meta?: {
+    model: string
+    durationMs: number
+    tokens?: TokenUsage
+  }
+}
+
+export interface DesignBrief {
+  eventType?: string
+  eventName: string
+  organizationName?: string
+  details?: string
+  theme?: string
+  style?: string
+  guestName?: string
+  guestDesignation?: string
+  venue?: string
+  additionalContext?: string
+  brandContext?: {
+    organizationName: string
+    primaryColor?: string
+    secondaryColor?: string
+    accentColor?: string
+    fontPreference?: string
+    useBrandColors?: boolean
+    useBrandFont?: boolean
+    colorSource?: string
+  }
+  formatId?: string
+  formatName?: string
+  formatCategory?: string
+  formatGuidance?: string
+  hasSpeakerPhoto?: boolean
+  speakerPhotoPosition?: string
+  speakerPhotoShape?: string
+  speakerPhotoSize?: string
+  hasHeaderLogo?: boolean
+  headerHeight?: number
+  hasFooterLogo?: boolean
+  footerHeight?: number
+  logoSafeZoneGuidance?: string
+}
+
+export interface DesignIntelligenceResult {
+  context: DesignContext
+  usage: {
+    model: string
+    provider: 'gemini' | 'claude'
+    tokenUsage: TokenUsage
+    durationMs: number
+  }
 }

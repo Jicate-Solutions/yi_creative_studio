@@ -111,6 +111,16 @@ export const useAuthStore = create<AuthState>()(
         // Mark store as hydrated after localStorage data is restored
         // Use setState to properly trigger Zustand reactivity (direct mutation doesn't work)
         useAuthStore.setState({ _hasHydrated: true })
+
+        // Debug logging in development only
+        if (process.env.NODE_ENV === 'development') {
+          const state = useAuthStore.getState()
+          console.log('[auth-store] ✓ Zustand rehydration complete', {
+            currentOrganization: state.currentOrganization?.name || 'none',
+            hasServerData: state.serverHydrated,
+            timestamp: new Date().toISOString()
+          })
+        }
       },
     }
   )

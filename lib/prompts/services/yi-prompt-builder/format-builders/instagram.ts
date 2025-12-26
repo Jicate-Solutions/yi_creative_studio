@@ -30,6 +30,12 @@ import {
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
+// Import enhanced typography enforcer (v4.0) - NEW
+import { buildEnhancedTypographyPrompt } from '../../../helpers/enhanced-typography-enforcer'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
+
 // ============================================================
 // INSTAGRAM CONTEXTS
 // ============================================================
@@ -126,7 +132,7 @@ export function buildInstagramPrompt(
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
-  const brandContext = buildBrandContext(options.brandContext)
+  const brandContext = buildBrandContext(options.brandContext, 'instagram_post')
   const qualityContext = buildQualityContext(options.resolution, 'instagram_post')
 
   // NEW v3.1: Build additional context sections
@@ -135,9 +141,32 @@ export function buildInstagramPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic (Shared with Event Posters)
+  // Determines if we should go "Rich/Immersive" or "Minimalist"
+  const sophistication = (() => {
+    // If Design Intelligence suggests "High-Fidelity" or "Rich", use that
+    if (options.designContext?.designStrategy?.includes('Rich') ||
+      options.designContext?.designStrategy?.includes('Immersive')) return 'rich' as const;
+
+    // Default Instagram vibe is usually "Balanced" or "Rich" for engagement
+    return 'rich' as const; // Default to Rich for Instagram to avoid boring templates
+  })()
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  let forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  let zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
+  if (sophistication === 'rich') {
+    // Override strict "Keep Clean" instructions with "Integration" instructions
+    zoneReminderContext = `
+LOGO INTEGRATION GUIDANCE:
+- Logos in ${options.logoAwareness?.logoPosition || 'corners'} must be integrated into the background art.
+- Do NOT draw white boxes behind logos.
+- Ensure the background extends fully to the edges.
+- Use a subtle gradient or shadow if needed for logo contrast, but NO rigid bars.`
+
+    forbiddenZonesContext = forbiddenZonesContext.replace(/clean/gi, 'integrated')
+  }
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -150,19 +179,21 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 `
     : ''
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  // This replaces legacy manual construction to ensure "Ideogram-like" context understanding
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: data.postType, // Fallback type
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: true,
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   // Get platform-specific scroll-stop patterns and typography
   const scrollStopPatterns = getScrollStopPromptFragment('instagram')
-  const typographyRules = getTypographyPromptFragment('instagram_post')
+  // Enhanced typography enforcement (v4.0) - combines original rules with strict enforcement
+  const typographyRules = buildEnhancedTypographyPrompt('instagram_post', 1080)
   const antiPatterns = getPlatformAntiPatterns('instagram')
 
   // Determine colors - use brand colors if available
@@ -199,7 +230,9 @@ ${forbiddenZonesContext}
 
 ${aiTypographySection}
 
-${aiDecorativeSection}
+${decorativeSection}
+
+${backgroundSection}
 
 <platform_optimization>
 ${scrollStopPatterns}
@@ -218,14 +251,15 @@ This is a mobile-first platform - design for thumb-scrolling users.
 </subject>
 
 <composition>
-Layout: ${postContext.layout}
+Layout: ${options.designContext?.layoutSuggestion || postContext.layout}
 
 Structure:
-- BACKGROUND: ${postContext.background} ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'})` : ''}
+- BACKGROUND: ${options.designContext?.backgroundSetting || postContext.background} ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'})` : ''}
+- VISUALS: ${options.designContext?.visualElements?.join(', ') || postContext.visualTreatment}
 - HEADLINE: "${data.postTitle}" - LARGE, BOLD, instantly readable on phone screen
 ${data.postCaption ? `- SUPPORTING TEXT: "${data.postCaption}" - smaller but still readable on mobile` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
-- LOGO ZONE: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} kept clear for logo overlay` : 'Small brand element in corner'}
+- LOGO ZONE: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} integrated overlay` : 'Small brand element'}
 - BREATHING ROOM: Generous white/negative space - NOT cramped
 
 Text Sizing Rule: All text must be readable on a phone screen WITHOUT zooming
@@ -280,6 +314,14 @@ DO NOT render as visible text:
 - Platform terminology (scroll-stop, engagement, mobile-first)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 - Any content from platform_optimization or typography_hierarchy sections
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

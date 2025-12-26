@@ -7,9 +7,10 @@ interface LogoProps {
   className?: string
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
+  disableLink?: boolean
 }
 
-export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
+export function Logo({ className, showText = true, size = 'md', disableLink = false }: LogoProps) {
   const sizeClasses = {
     sm: 'h-6 w-6',
     md: 'h-8 w-8',
@@ -22,8 +23,8 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
     lg: 'text-2xl',
   }
 
-  return (
-    <Link href="/" className={cn('flex items-center gap-2', className)}>
+  const content = (
+    <>
       {/* Yi Logo Mark */}
       <div
         className={cn(
@@ -40,6 +41,16 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
           <span className="text-foreground">Studio</span>
         </span>
       )}
+    </>
+  )
+
+  if (disableLink) {
+    return <div className={cn('flex items-center gap-2', className)}>{content}</div>
+  }
+
+  return (
+    <Link href="/" className={cn('flex items-center gap-2', className)}>
+      {content}
     </Link>
   )
 }

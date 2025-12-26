@@ -82,6 +82,28 @@ export interface UltraProPromptResult {
 const ULTRA_PRO_PROMPT_SYSTEM = `You are an expert at creating image generation prompts for professional creative designs.
 Your job is to transform user-provided event/creative details into a powerful, precise prompt that will generate stunning visuals.
 
+DESIGN SOPHISTICATION RULES (CRITICAL):
+The user can specify a "sophistication" level which MUST dictate your visual strategy:
+
+1. MINIMALIST MODE (Default for Professional/Tech/Climate):
+   - Focus on HIGH-IMPACT MINIMALISM and VAST NEGATIVE SPACE (at least 40% of canvas).
+   - Use clean, solid backgrounds (matte white, light gray, or deep slate).
+   - Use ONE primary high-quality visual symbol instead of busy patterns.
+   - LOGO STRIPE: Always suggest a solid white or light-color "Logo Stripe" band at the top for branding.
+   - MOOD TYPOGRAPHY: Suggest ultra-clean Serif for elegance or Bold Sans for modern tech.
+   - Avoid "atmospheric clutter," "particle effects," or "busy textures."
+   - Prioritize ultra-clean typography hierarchy and strategic alignment (Center/Left).
+
+2. BALANCED MODE:
+   - Standard professional design with modern aesthetic.
+   - Balanced use of background elements and white space.
+   - Professional lighting and depth without over-generation.
+
+3. RICH MODE:
+   - Immersive, multi-layered, and atmospheric designs.
+   - Deep dimension with glows, textures, and many visual elements.
+   - High energy and vivid color harmony.
+
 CRITICAL RULES:
 1. The user's EXACT text values (event name, speaker name, date, venue) MUST be preserved exactly as provided
 2. Prioritize TEXT ACCURACY - every word the user typed should be rendered correctly in the final image
@@ -94,7 +116,7 @@ OUTPUT FORMAT:
 Return a valid JSON object with these exact fields:
 {
   "primaryText": "The main headline text that MUST appear prominently (user's event name exactly as provided)",
-  "secondaryText": ["Array of secondary text elements - date, venue, speaker, etc."],
+  "secondaryText": ["Array of ONLY essential text - LIMIT to: date, time, venue, speaker name/designation. DO NOT include: taglines, descriptions, registration details, topics, or long notes"],
   "visualScene": "Description of the visual scene/background that complements the event type",
   "designGuidance": "Creative direction for layout, typography, and visual treatment",
   "textPlacementHints": "Where text should be positioned in the image",
@@ -102,6 +124,12 @@ Return a valid JSON object with these exact fields:
   "mustIncludeElements": ["Array of visual elements that must appear"],
   "enhancedPrompt": "A complete, detailed prompt combining all the above for image generation"
 }
+
+CRITICAL SECONDARY TEXT RULES:
+- ONLY include: Date, Time, Venue, Speaker Name + Designation (if speaker exists)
+- NEVER include: Event taglines, descriptions, topics lists, registration fees, notes, or any long-form content
+- Keep secondaryText array to maximum 4-5 SHORT elements (each under 50 characters)
+- Long content should be referenced in visualScene or designGuidance, NOT in secondaryText
 
 IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
 - The exact event name and all text that must appear
@@ -171,6 +199,10 @@ export async function generateUltraProPrompt(
 
 USER'S CREATIVE BRIEF:
 ${userBrief}
+
+SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
+TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
+ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
 
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
@@ -440,6 +472,7 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
   const eventName = compiledData.eventName || 'Event'
   const secondaryText: string[] = []
 
+  // ONLY essential info in secondaryText (date, time, venue, speaker)
   if (compiledData.date) secondaryText.push(compiledData.date)
   if (compiledData.time) secondaryText.push(compiledData.time)
   if (compiledData.venue) secondaryText.push(compiledData.venue)
@@ -450,10 +483,8 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
     secondaryText.push(speakerLine)
   }
 
-  // Event note (footer content)
-  if (compiledData.eventNote?.trim()) {
-    secondaryText.push(compiledData.eventNote.trim())
-  }
+  // DO NOT add eventNote or other long content to secondaryText
+  // (they'll be referenced in visualScene/designGuidance instead)
 
   return {
     primaryText: eventName,
@@ -530,6 +561,14 @@ function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
   const styleDescriptors: string[] = []
   if (compiledData.theme) styleDescriptors.push(compiledData.theme)
   if (compiledData.style) styleDescriptors.push(compiledData.style)
+
+  // NEW v4.0: Sophistication-aware fallbacks
+  if (compiledData.sophistication === 'minimalist') {
+    styleDescriptors.push('high-impact minimalism', 'generous negative space', 'ultra-clean layout', 'solid white logo stripe')
+  } else if (compiledData.sophistication === 'rich') {
+    styleDescriptors.push('rich immersive atmosphere', 'multi-layered background', 'vivid lighting', 'ambient textures')
+  }
+
   if (styleDescriptors.length > 0) {
     parts.push(`${styleDescriptors.join(', ')} aesthetic with professional layout.`)
   }

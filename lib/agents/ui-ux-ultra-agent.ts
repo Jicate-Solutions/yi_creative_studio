@@ -44,7 +44,10 @@ import {
   GLASSMORPHISM_CLASSES,
   SHADOW_CLASSES,
   ANIMATION_UTILITIES,
+  type AnimationKeyframes,
 } from '@/types/ui-ux-agent.types'
+import { safeJsonParse } from '@/lib/utils/json-repair'
+
 
 // ============================================================
 // CONSTANTS
@@ -206,9 +209,12 @@ export class UIUXUltraAgent {
 
     const response = await this.client.messages.create({
       model: ANALYSIS_MODEL, // Use fast model for analysis
-      max_tokens: 2048,
+      max_tokens: 4096, // v3.8: Increased from 2048 to prevent truncation
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [
+        { role: 'user', content: userPrompt },
+        { role: 'assistant', content: '{' } // v3.8: Force JSON mode
+      ],
     })
 
     const durationMs = Date.now() - startTime
@@ -219,7 +225,9 @@ export class UIUXUltraAgent {
       throw new Error('No text response from Claude')
     }
 
-    return this.parseActorCriticResponse(textBlock.text, durationMs)
+    // v3.8: Use safeJsonParse to handle potential truncation
+    // Also handle the pre-fill brace if we use it (we should add it to messages below)
+    return safeJsonParse<ActorCriticAnalysis>(textBlock.text)
   }
 
   /**
@@ -406,7 +414,10 @@ Think deeply about:
       model: this.modelName, // Use main model for code generation
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [
+        { role: 'user', content: userPrompt },
+        { role: 'assistant', content: '[' } // v3.8: Force Array start
+      ],
     })
 
     const durationMs = Date.now() - startTime
@@ -417,7 +428,13 @@ Think deeply about:
       throw new Error('No text response from Claude')
     }
 
-    return this.parseComponentResponse(textBlock.text)
+    // v3.8: Use safeJsonParse to handle potential truncation
+    // Note: Since we force start with '[', the response text will be the REST of the array.
+    // safeJsonParse/cleanJSON handles this if we implement strict cleaning, or we prepend '[' if missing.
+    // Claude usually appends to the pre-fill.
+    const text = textBlock.text.trim().startsWith('[') ? textBlock.text : `[${textBlock.text}`
+
+    return this.parseComponentResponse(text)
   }
 
   /**
@@ -468,8 +485,8 @@ ${stylePreferences.animations === 'none' ? '   No animations' : `
 
 4. BORDERS: ${stylePreferences.borderStyle}
 ${stylePreferences.borderStyle === 'gradient' ? '   Use: bg-gradient-to-r from-yi-blue to-yi-teal p-[1px]' :
-  stylePreferences.borderStyle === 'glow' ? '   Use: ring-2 ring-yi-blue/20 shadow-[0_0_15px_rgba(0,91,150,0.3)]' :
-  stylePreferences.borderStyle === 'solid' ? '   Use: border border-border' : '   No border'}
+        stylePreferences.borderStyle === 'glow' ? '   Use: ring-2 ring-yi-blue/20 shadow-[0_0_15px_rgba(0,91,150,0.3)]' :
+          stylePreferences.borderStyle === 'solid' ? '   Use: border border-border' : '   No border'}
 
 === ACCESSIBILITY REQUIREMENTS ===
 - Minimum contrast: ${accessibility.minContrastRatio}:1 (WCAG AA)
@@ -479,9 +496,9 @@ ${stylePreferences.borderStyle === 'gradient' ? '   Use: bg-gradient-to-r from-y
 
 === TARGET VIEWPORT ===
 ${targetViewport === 'mobile' ? 'Design mobile-first (max-w-sm, touch targets 44px)' :
-  targetViewport === 'tablet' ? 'Design for tablet (md: breakpoint, 768px)' :
-  targetViewport === 'desktop' ? 'Design for desktop (lg: breakpoint, 1024px+)' :
-  'Design responsive for all viewports (mobile-first with sm:, md:, lg: variants)'}
+        targetViewport === 'tablet' ? 'Design for tablet (md: breakpoint, 768px)' :
+          targetViewport === 'desktop' ? 'Design for desktop (lg: breakpoint, 1024px+)' :
+            'Design responsive for all viewports (mobile-first with sm:, md:, lg: variants)'}
 
 ${referenceComponents?.length ? `
 === REFERENCE COMPONENTS ===
@@ -559,14 +576,13 @@ IMPORTANT:
    * Parse component response
    */
   private parseComponentResponse(text: string): ComponentSpec[] {
-    const jsonStr = this.extractJson(text, 'array')
-    const parsed = JSON.parse(jsonStr)
+    const parsed = safeJsonParse<ComponentSpec[]>(text)
 
     if (!Array.isArray(parsed)) {
       throw new Error('Expected array of component specifications')
     }
 
-    return parsed.map((comp: Record<string, unknown>) => ({
+    return parsed.map((comp: any) => ({
       name: String(comp.name || 'Component'),
       description: String(comp.description || ''),
       filePath: String(comp.filePath || 'components/ui/component.tsx'),
@@ -576,15 +592,15 @@ IMPORTANT:
       cssVariables: Array.isArray(comp.cssVariables) ? comp.cssVariables.map(String) : [],
       dependencies: Array.isArray(comp.dependencies) ? comp.dependencies.map(String) : [],
       shadcnComponents: Array.isArray(comp.shadcnComponents) ? comp.shadcnComponents.map(String) : [],
-      animations: Array.isArray(comp.animations) ? comp.animations : undefined,
+      animations: Array.isArray(comp.animations) ? (comp.animations as unknown as AnimationKeyframes[]) : undefined,
       a11y: {
-        ariaLabels: Array.isArray((comp.a11y as Record<string, unknown>)?.ariaLabels)
-          ? ((comp.a11y as Record<string, unknown>).ariaLabels as string[])
+        ariaLabels: Array.isArray((comp.a11y as any)?.ariaLabels)
+          ? ((comp.a11y as any).ariaLabels as string[])
           : [],
-        keyboardShortcuts: Array.isArray((comp.a11y as Record<string, unknown>)?.keyboardShortcuts)
-          ? ((comp.a11y as Record<string, unknown>).keyboardShortcuts as string[])
+        keyboardShortcuts: Array.isArray((comp.a11y as any)?.keyboardShortcuts)
+          ? ((comp.a11y as any).keyboardShortcuts as string[])
           : undefined,
-        focusManagement: String((comp.a11y as Record<string, unknown>)?.focusManagement || 'Standard focus handling'),
+        focusManagement: String((comp.a11y as any)?.focusManagement || 'Standard focus handling'),
       },
     }))
   }

@@ -167,7 +167,7 @@ export {
 
 import type { GeneratePromptParams, PromptOutput, AIProvider } from './types'
 import { buildPromptIntent, getPromptIntentMetadata } from './core/prompt-builder'
-import { adaptForGemini } from './adapters/gemini-adapter'
+import { adaptForGeminiCompact } from './adapters/gemini-adapter'
 import { adaptForIdeogram } from './adapters/ideogram-adapter'
 import { getPreferredModelForStyle } from './data/style-treatments'
 
@@ -204,7 +204,7 @@ export function generatePrompt(params: GeneratePromptParams): PromptOutput {
 
   // Adapt for specific provider
   if (params.provider === 'google') {
-    return adaptForGemini(intent)
+    return adaptForGeminiCompact(intent)
   } else {
     return adaptForIdeogram(intent)
   }
@@ -217,7 +217,7 @@ export function generatePrompt(params: GeneratePromptParams): PromptOutput {
 export function generatePromptsForBothModels(
   params: Omit<GeneratePromptParams, 'provider'>
 ): {
-  gemini: ReturnType<typeof adaptForGemini>
+  gemini: ReturnType<typeof adaptForGeminiCompact>
   ideogram: ReturnType<typeof adaptForIdeogram>
   intent: ReturnType<typeof buildPromptIntent>
 } {
@@ -226,7 +226,7 @@ export function generatePromptsForBothModels(
 
   // Adapt for both providers
   return {
-    gemini: adaptForGemini(intent),
+    gemini: adaptForGeminiCompact(intent),
     ideogram: adaptForIdeogram(intent),
     intent,
   }
@@ -260,7 +260,7 @@ export function generateQuickPrompt(params: GeneratePromptParams): {
   const metadata = getPromptIntentMetadata(intent)
 
   if (params.provider === 'google') {
-    const output = adaptForGemini(intent)
+    const output = adaptForGeminiCompact(intent)
     return {
       provider: 'google',
       prompt: output.userPrompt,

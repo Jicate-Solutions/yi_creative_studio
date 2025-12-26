@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -61,11 +62,9 @@ export function FeedbackDetailModal({
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <DialogTitle className="text-xl">Feedback Details</DialogTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{createdAt.toLocaleDateString()}</span>
-                <span>({timeAgo})</span>
-              </div>
+              <DialogDescription>
+                Submitted on {createdAt.toLocaleDateString()} ({timeAgo})
+              </DialogDescription>
             </div>
             <Button
               variant="ghost"

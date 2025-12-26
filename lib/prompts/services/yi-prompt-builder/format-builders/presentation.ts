@@ -21,6 +21,10 @@ import { PRESENTATION_EXAMPLES } from '../examples'
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // ASPECT RATIO CONTEXTS (v3.1)
@@ -127,9 +131,11 @@ export function buildPresentationPrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -142,15 +148,15 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 `
     : ''
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: 'presentation_slide',
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: true,
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
@@ -186,7 +192,9 @@ ${forbiddenZonesContext}
 
 ${aiTypographySection}
 
-${aiDecorativeSection}
+${decorativeSection}
+
+${backgroundSection}
 
 <subject>
 A professional presentation title slide for: "${data.presentationTitle}"
@@ -197,7 +205,7 @@ Presentation Style: ${typeContext.mood}
 </subject>
 
 <composition>
-Layout: Clean, centered, minimal - designed for projection
+Layout: ${options.designContext?.layoutSuggestion || 'Clean, centered, minimal - designed for projection'}
 Aspect Ratio Note: ${aspectContext.layoutAdvice}
 
 Structure:
@@ -208,7 +216,7 @@ ${data.eventName ? `- EVENT: "${data.eventName}${data.presentationDate ? ' | ' +
 - LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'Organization logo in corner'}
 - SAFE MARGINS: 5% on all sides (for projector cropping)
 
-Background: ${data.backgroundStyle || 'Professional dark gradient (deep blue, charcoal)'} suitable for projection
+Background: ${options.designContext?.backgroundSetting || data.backgroundStyle || 'Professional dark gradient (deep blue, charcoal)'} suitable for projection
 Visual Style: ${typeContext.visualStyle}
 Contrast: HIGH - must be readable on various projectors and screens
 </composition>
@@ -264,6 +272,14 @@ DO NOT render as visible text:
 - Instruction phrases (Generate, Create, Include, Apply)
 - Presentation terminology (projection, aspect ratio, distance)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

@@ -21,6 +21,7 @@ export interface CompiledFormData {
   // Date/Time
   date: string | null
   time: string | null
+  endTime: string | null
 
   // Location
   venue: string | null
@@ -50,6 +51,14 @@ export interface CompiledFormData {
   style: string | null
   language: 'en' | 'ta' | 'hi'
 
+  // NEW v4.0: Design intensity/fidelity controls
+  sophistication: 'minimalist' | 'balanced' | 'rich' | null
+  creativeFidelity: 'high' | 'standard' | 'artistic' | null
+
+  // NEW v4.2: Typography and Layout controls
+  alignment: 'center' | 'left' | 'right' | 'asymmetric' | null
+  fontStyle: 'serif' | 'sans' | 'slab' | 'mono' | 'script' | 'display' | null
+
   // Raw form data for reference
   rawFormData: Record<string, unknown>
 }
@@ -63,17 +72,24 @@ export interface CompiledFormData {
  * This handles dynamic form fields that might use different naming conventions.
  */
 const FIELD_ALIASES: Record<string, string[]> = {
-  eventName: ['title', 'eventName', 'eventTitle', 'name', 'event_name', 'event'],
+  eventName: ['title', 'eventName', 'eventTitle', 'name', 'event_name', 'event', 'postTitle'],
   eventType: ['eventType', 'type', 'event_type', 'category'],
   date: ['date', 'eventDate', 'event_date'],
-  time: ['time', 'eventTime', 'event_time'],
+  time: ['time', 'eventTime', 'event_time', 'startTime', 'start_time'],
+  endTime: ['endTime', 'eventEndTime', 'event_end_time', 'end_time'],
   venue: ['venue', 'location', 'venueName', 'venue_name', 'place', 'address'],
   speakerName: ['speaker', 'guestName', 'speakerName', 'guest', 'chief_guest', 'chiefGuest', 'speaker_name', 'guest_name'],
   speakerDesignation: ['designation', 'guestDesignation', 'speakerDesignation', 'title', 'role', 'position', 'speaker_designation'],
   organizationName: ['organization', 'organizationName', 'org', 'company', 'institution', 'organization_name'],
-  description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message'],
+  description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message', 'postCaption'],
   tagline: ['tagline', 'slogan', 'subtitle', 'subheading', 'motto', 'eventTagline'],
   eventNote: ['eventNote', 'note', 'additionalNote', 'footerNote', 'extraInfo', 'announcement', 'additionalDetails'],
+  // NEW v4.0: Design intensity aliases
+  sophistication: ['sophistication', 'intensity', 'designComplexity', 'minimalism'],
+  creativeFidelity: ['creativeFidelity', 'fidelity', 'qualityLevel', 'artistLogic'],
+  // NEW v4.2: Typography and Layout aliases
+  alignment: ['alignment', 'textAlignment', 'layoutAlignment', 'text_alignment'],
+  fontStyle: ['fontStyle', 'font_style', 'typography', 'typographyStyle', 'vibe'],
 }
 
 // ============================================================
@@ -143,6 +159,7 @@ export function compileFormData(
     // Date/Time
     date: extractedFields.date,
     time: extractedFields.time,
+    endTime: extractedFields.endTime,
 
     // Location
     venue: extractedFields.venue,
@@ -172,6 +189,14 @@ export function compileFormData(
     style: designData?.style || null,
     language: (language as 'en' | 'ta' | 'hi') || 'en',
 
+    // NEW v4.0: Intensity controls (prioritize explicit form fields, then designData, then null)
+    sophistication: (extractedFields.sophistication as any) || null,
+    creativeFidelity: (extractedFields.creativeFidelity as any) || null,
+
+    // NEW v4.2: Typography and Layout controls
+    alignment: (extractedFields.alignment as any) || null,
+    fontStyle: (extractedFields.fontStyle as any) || null,
+
     // Raw form data for reference
     rawFormData: formData,
   }
@@ -187,7 +212,11 @@ export function summarizeCompiledData(data: CompiledFormData): string {
   if (data.eventName) lines.push(`Event: ${data.eventName}`)
   if (data.eventType) lines.push(`Type: ${data.eventType}`)
   if (data.date) lines.push(`Date: ${data.date}`)
-  if (data.time) lines.push(`Time: ${formatEventTime(data.time)}`)
+  if (data.time && data.endTime) {
+    lines.push(`Time: ${formatEventTime(data.time)} - ${formatEventTime(data.endTime)}`)
+  } else if (data.time) {
+    lines.push(`Time: ${formatEventTime(data.time)}`)
+  }
   if (data.venue) lines.push(`Venue: ${data.venue}`)
   if (data.speakerName) {
     let speaker = `Speaker: ${data.speakerName}`
@@ -239,7 +268,12 @@ export function buildTextBriefFromCompiled(data: CompiledFormData): string {
   // Date and time combined naturally (no labels)
   const dateTimeParts: string[] = []
   if (data.date?.trim()) dateTimeParts.push(data.date.trim())
-  if (data.time?.trim()) dateTimeParts.push(formatEventTime(data.time.trim()))
+  // Time range (start - end) or just start time
+  if (data.time?.trim() && data.endTime?.trim()) {
+    dateTimeParts.push(`${formatEventTime(data.time.trim())} - ${formatEventTime(data.endTime.trim())}`)
+  } else if (data.time?.trim()) {
+    dateTimeParts.push(formatEventTime(data.time.trim()))
+  }
   if (dateTimeParts.length > 0) {
     textValues.push(`"${dateTimeParts.join(' | ')}"`)
   }

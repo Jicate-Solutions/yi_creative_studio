@@ -29,9 +29,9 @@ export function CreateSidebar({
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col w-64 h-screen',
-        'fixed top-0 left-0 z-50',
-        'glass-sidebar',
+        'hidden md:flex flex-col w-64 h-[calc(100vh-2rem)]',
+        'fixed top-4 left-4 z-50',
+        'glass-panel border-white/20 dark:border-white/10 shadow-xl',
         className
       )}
     >

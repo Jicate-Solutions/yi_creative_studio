@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useLogos } from '@/hooks'
-import { useAuthStore } from '@/stores/auth-store'
+import { useClientAdmin } from '@/hooks/use-client-admin'
 import {
   Card,
   CardContent,
@@ -61,9 +61,8 @@ export default function LogoManagementPage() {
     setDefaultLogo,
     getLogosByCategory,
   } = useLogos()
-  const { canManage } = useAuthStore()
 
-  const isAdmin = canManage()
+  const { isAdmin, isReady } = useClientAdmin()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [folderUploadOpen, setFolderUploadOpen] = useState(false)
@@ -125,7 +124,7 @@ export default function LogoManagementPage() {
             Upload and manage logos for your brand creatives
           </p>
         </div>
-        {isAdmin && (
+        {isReady && isAdmin && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setFolderUploadOpen(true)}>
               <FolderOpen className="h-4 w-4 mr-2" />
@@ -258,7 +257,7 @@ export default function LogoManagementPage() {
             <p className="text-muted-foreground mb-4">
               Upload your first logo to use in creatives
             </p>
-            {isAdmin && (
+            {isReady && isAdmin && (
               <Button onClick={() => setUploadDialogOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Logo
@@ -299,7 +298,7 @@ export default function LogoManagementPage() {
                               </Badge>
                             )}
                           </div>
-                          {isAdmin && (
+                          {isReady && isAdmin && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">

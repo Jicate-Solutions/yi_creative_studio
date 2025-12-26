@@ -96,10 +96,21 @@ export const FIELD_REGISTRY: Record<string, CanonicalField> = {
 
   eventTime: {
     id: 'eventTime',
-    label: 'Event Time',
+    label: 'Start Time',
     type: 'time',
     category: 'core',
+    placeholder: 'e.g., 10:00 AM',
     aliases: ['time', 'startTime'],
+  },
+
+  eventEndTime: {
+    id: 'eventEndTime',
+    label: 'End Time',
+    type: 'time',
+    category: 'core',
+    placeholder: 'e.g., 5:00 PM',
+    aliases: ['endTime', 'end_time', 'eventEnd'],
+    helpText: 'Optional: Leave blank for open-ended events',
   },
 
   venue: {

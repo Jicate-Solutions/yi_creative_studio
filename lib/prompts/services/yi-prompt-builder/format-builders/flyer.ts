@@ -41,6 +41,7 @@ import { formatEventTime } from '@/lib/utils/time-formatter'
 
 // Import logo zone enforcement helper (v3.5)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // ============================================================
 // SIZE VARIATIONS (v3.1)
@@ -717,9 +718,11 @@ export function buildFlyerPrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
-  // NEW v3.5: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
+
+  // NEW v3.5: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // NEW v3.2: Build AI background section if applicable
   const aiBackgroundResult = buildAIBackgroundSection(data, options)
@@ -731,11 +734,11 @@ export function buildFlyerPrompt(
   // This ensures event-type specific visual elements are injected even for non-AI themes
   const designContextDecorativeSection = !useAIBackground
     ? buildDecorativeElementsSection({
-        eventType: data.eventType,
-        designContext: options.designContext,
-        maxElements: 4,
-        includeIconicImagery: true,
-      })
+      eventType: data.eventType,
+      designContext: options.designContext,
+      maxElements: 4,
+      includeIconicImagery: true,
+    })
     : ''
   const designContextBackgroundSection = !useAIBackground
     ? buildBackgroundSettingSection(options.designContext)
@@ -820,7 +823,7 @@ Zone Structure (optimized for ${flyerSize}):
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
 ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
-${data.eventTime ? `- Time: "${formatEventTime(data.eventTime)}" with clock icon` : ''}
+${data.eventTime ? `- Time: "${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
@@ -835,7 +838,7 @@ Margins: ${sizeContext.margins}
 <text role="headline" prominence="LARGEST" style="bold, impactful, attention-grabbing">${data.flyerTitle}</text>
 ${data.flyerDescription ? `<text role="body" prominence="medium" style="clear, readable">${data.flyerDescription}</text>` : ''}
 ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calendar icon">${data.eventDate}</text>` : ''}
-${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${formatEventTime(data.eventTime)}</text>` : ''}
+${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
@@ -886,6 +889,15 @@ DO NOT render as visible text:
 - Print terminology (CMYK, margins, bleed)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 ${useAIBackground ? '- AI background context instructions (ai_background_context section)' : ''}
+
+STRICT CTA PROHIBITION:
+- Only render the CTA text that appears in <text role="cta">...</text> above
+- DO NOT add additional CTAs beyond what is specified
+- If a default CTA was used, render ONLY that exact text, not variations
+- BLACKLISTED CTA PHRASES (never render unless explicitly in <text role="cta">):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 <ai_control_boundary>
@@ -1039,7 +1051,7 @@ Zone Structure (optimized for ${flyerSize}):
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
 ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
-${data.eventTime ? `- Time: "${formatEventTime(data.eventTime)}" with clock icon` : ''}
+${data.eventTime ? `- Time: "${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
@@ -1054,7 +1066,7 @@ Margins: ${sizeContext.margins}
 <text role="headline" prominence="LARGEST" style="bold, impactful, attention-grabbing">${data.flyerTitle}</text>
 ${data.flyerDescription ? `<text role="body" prominence="medium" style="clear, readable">${data.flyerDescription}</text>` : ''}
 ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calendar icon">${data.eventDate}</text>` : ''}
-${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${formatEventTime(data.eventTime)}</text>` : ''}
+${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
@@ -1100,6 +1112,15 @@ DO NOT render as visible text:
 - Print terminology (CMYK, margins, bleed)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 ${useAIBackground ? '- AI background context instructions (ai_background_context section)' : ''}
+
+STRICT CTA PROHIBITION:
+- Only render the CTA text that appears in <text role="cta">...</text> above
+- DO NOT add additional CTAs beyond what is specified
+- If a default CTA was used, render ONLY that exact text, not variations
+- BLACKLISTED CTA PHRASES (never render unless explicitly in <text role="cta">):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 `.trim()
 }

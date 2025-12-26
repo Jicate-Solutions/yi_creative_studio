@@ -333,7 +333,12 @@ Return ONLY valid JSON with BOTH legacy fields(for backward compatibility) AND n
             "backgroundSetting": "Detailed background description - immersive and contextual",
               "iconicImagery": ["specific icon 1", "specific icon 2", "specific icon 3"],
                 "colorMood": "Color psychology with hex codes",
-                  "designStrategy": "Strategic visual approach",
+                  "designStrategy": "The overall artistic strategy...",
+CRITICAL RULES FOR ACCURACY:
+1. THE EVENT NAME IS THE SUPREME TRUTH. If the event is "Happy New Year", the design MUST be about New Year. Do NOT infer unrelated themes like "Women in Tech" or "Entrepreneurship" unless explicitly stated.
+2. If the user provided a specific theme (e.g., "AI"), apply that visual style TO the event, but do not change the event's meaning. (e.g., "AI themed New Year" is okay; "AI Conference" is NOT).
+3. Do not over-index on the Organization Name. Just because it is "Young Indians", does not mean every event is about youth empowerment.
+4. If the Event Description is sparse, rely on the Event Name literal meaning.,
                     "successMetric": "What viewer thinks in 3 seconds",
                       "layoutGuidance": "Visual composition using design language only",
                         "typographyGuidance": {
@@ -452,12 +457,42 @@ function validateContextMatchesEvent(
     return { valid: true }
   }
 
-  // RULE 1: At least ONE keyword must appear in context
-  const hasEventReference = eventKeywords.some(keyword =>
-    contextString.includes(keyword)
-  )
+  // v4.9: Semantic equivalents for common greetings and events
+  // The AI may use synonyms/related terms instead of exact keywords
+  const semanticEquivalents: Record<string, string[]> = {
+    'happy': ['celebration', 'celebrat', 'festive', 'joyful', 'joy', 'cheerful', 'merry', 'greeting', 'wishes', 'wish'],
+    'year': ['new year', 'annual', 'yearly', 'beginning', 'fresh start', 'renewal', 'new beginnings', '2024', '2025', '2026'],
+    'christmas': ['xmas', 'holiday', 'festive', 'winter', 'seasonal', 'noel'],
+    'diwali': ['deepavali', 'festival of lights', 'festive', 'celebration'],
+    'birthday': ['celebration', 'anniversary', 'special day', 'milestone'],
+    'wedding': ['marriage', 'nuptial', 'ceremony', 'union', 'celebration'],
+    'conference': ['summit', 'symposium', 'convention', 'gathering', 'meeting'],
+    'workshop': ['training', 'session', 'seminar', 'learning', 'hands-on'],
+    'launch': ['unveil', 'reveal', 'debut', 'introduce', 'premiere'],
+    'inauguration': ['opening', 'ceremony', 'dedication', 'commence'],
+  }
+
+  // RULE 1: Check for direct keyword OR semantic equivalent
+  const hasEventReference = eventKeywords.some(keyword => {
+    // Direct match
+    if (contextString.includes(keyword)) return true
+
+    // Check semantic equivalents
+    const equivalents = semanticEquivalents[keyword] || []
+    return equivalents.some(equiv => contextString.includes(equiv))
+  })
 
   if (!hasEventReference) {
+    // v4.9: For greetings (like "Happy New Year"), check if context has ANY celebration/festive theme
+    const isGreetingPattern = normalizedEventName.match(/^(happy|merry|congratulations|best wishes|seasons greetings)/i)
+    if (isGreetingPattern) {
+      const celebrationTerms = ['celebrat', 'festive', 'joy', 'wish', 'greeting', 'occasion', 'season', 'holiday', 'sparkle', 'firework', 'confetti', 'cheers', 'toast', 'renewal', 'beginning']
+      const hasCelebrationTheme = celebrationTerms.some(term => contextString.includes(term))
+      if (hasCelebrationTheme) {
+        return { valid: true } // Allow greeting-style events with celebration themes
+      }
+    }
+
     return {
       valid: false,
       reason: `Context missing event keywords. Expected: ${eventKeywords.join(', ')}`

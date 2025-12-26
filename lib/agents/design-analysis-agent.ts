@@ -15,6 +15,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { VerticalPreset } from '@/types/database.types'
 import type { BrandContextPrompt, LogoAwarenessContext } from '@/lib/prompts/services/yi-prompt-builder/types'
+import { safeJsonParse } from '@/lib/utils/json-repair'
+
 
 // ============================================================
 // TYPES
@@ -63,26 +65,71 @@ export interface EventAnalysisInput {
 }
 
 export interface AgentDesignRecommendation {
-  /** AI-generated background description */
-  background: string
-  /** Contextual decorative elements */
-  decorativeElements: string[]
-  /** Design mood (e.g., "professional-innovative", "warm-community") */
-  mood: string
-  /** Visual style approach */
-  style: string
-  /** Color palette (only if no constraints override) */
+  /** 
+   * The "Creative Brain" - internal monologue and reasoning process.
+   * This mimics the chain-of-thought to ensure creative depth.
+   */
+  thinkingProcess?: string
+
+  /** 
+   * SECTOR 1: RICH DESCRIPTIONS
+   * A detailed, focused image prompt for generating the background/hero visual.
+   * Style: Midjourney/Stable Diffusion (lighting, texture, lens, chaos).
+   */
+  imagePrompt: string
+
+  /** 
+   * SECTOR 2: CONTENT STRATEGY
+   * Strategic messaging and tonal direction.
+   */
+  contentStrategy: {
+    /** Catchy, emotionally resonant headline */
+    headline: string
+    /** The emotional angle (e.g., "Urgent & Exciting", "Calm & Trustworthy") */
+    tone: string
+    /** The marketing hook or focus */
+    angle: string
+  }
+
+  /**
+   * SECTOR 3: DESIGN DECISIONS
+   * Concrete implementation specs.
+   */
   colorPalette?: {
     primary: { hex: string; name: string; reasoning: string }
     secondary: { hex: string; name: string; reasoning: string }
     accent: { hex: string; name: string; reasoning: string }
   }
+
+  /** Suggested layout approach (e.g., "Minimalist centered", "Split screen dynamic") */
+  layoutSuggestion: string
+
+  /** Contextual decorative elements */
+  decorativeElements: string[]
+
+  /** Design mood (e.g., "professional-innovative", "warm-community") */
+  mood: string
+
+  /** Visual style approach */
+  style: string
+
   /** Agent's reasoning for recommendations */
   rationale: string
+
   /** Detected event type */
   detectedEventType: string
+
   /** Secondary context (tech, business, healthcare, creative) */
   secondaryContext?: string
+
+  background: string // Legacy support, populated from imagePrompt summary
+
+  /** 
+   * SMART CONTRAST SIGNAL:
+   * Based on the visual world you have built, is the background Light or Dark?
+   * If 'dark', multiple systems will switch to WHITE logos/text. 
+   */
+  backgroundContrast?: 'light' | 'dark'
 }
 
 export interface AgentAnalysisResult {
@@ -109,19 +156,63 @@ export interface AgentAnalysisResult {
 function buildAgentSystemPrompt(constraints: DesignConstraints): string {
   const parts: string[] = []
 
-  parts.push(`You are Yi CreativeStudio's intelligent design specialist powered by Claude.
+  parts.push(`You are Yi CreativeStudio's intelligent Creative Director powered by Claude.
 
-Your role is to analyze event details and generate contextually appropriate design recommendations for marketing creatives (posters, flyers, social media).
+Your goal is to TRANSPIRE CREATIVITY. You must generate design concepts that rival top-tier social media content (Behance, Awwwards, Dribbble).
+Stop being "safe". Be BOLD, SPECIFIC, and VISUALLY RICH.
 
-You think deeply about:
-- What the event is really about (workshop = hands-on learning, health camp = community care, conference = knowledge sharing)
-- What visual elements naturally BELONG in this context
-- What emotional response the design should evoke
-- What colors, patterns, and decorations reinforce the message`)
+=== THE 7-STEP STORY-DRIVEN DESIGN FRAMEWORK ===
+
+## 1. STORY ANALYSIS (The "Why")
+- Identify the core narrative (e.g., "Young leaders conquering climate crisis").
+- Determine the emotional arc (Challenge -> Victory) and energy level (Calm vs Explosive).
+
+## 2. VIBE & MOOD DISCOVERY
+- Select 3-5 distinct Vibe Keywords (e.g., "Rebellious, Futuristic, High-Fidelity").
+- Define the Atmospheric Temperature (Warm/Cool) and Energy Dynamics (Static/Pulsing).
+
+## 3. VISUAL WORLD BUILDING
+- **Hallucinate the Scene**: Imagine the event as a physical space or high-end 3D render.
+- **Lighting**: "Rembrandt lighting", "Soft diffused", "Neon rim lights", "Volumetric fog".
+- **Physics/Texture**: "Frosted glass", "Liquid metal", "Rough concrete", "Silk fabric".
+- **Depth**: "Multi-plane parallax", "Deep bokeh", "3D floating elements".
+
+## 4. TRENDING VISUAL VOCABULARY (MANDATORY: Use These Styles)
+Do NOT use generic terms like "clean" or "corporate". Use specific design movements:
+1. **Glassmorphism**: Frosted glass, multi-layer depth, vivid background blurs.
+2. **Neo-Brutalism**: High contrast, raw typography, bold outlines, flat colors.
+3. **Acid Graphics**: Distorted type, chrome textures, liquid metal, iridescent gradients.
+4. **Bento Grids**: Structured, modular layouts with rounded corners and distinct zones.
+5. **Swiss Style**: Mathematical grids, asymmetric layouts, vast negative space.
+6. **Dark Mode UI**: Deep surfaces, glowing accents, neon details, high fidelity.
+7. **Holographic/Cyber**: Iridescent foils, glitch effects, scanlines, futuristic data.
+8. **Organic Modernism**: Soft shapes, earth tones, natural textures, fluid lines.
+
+## 5. TYPOGRAPHY STORYTELLING
+- Treat type as an image.
+- "Headline Personality": e.g., "Montserrat Black - commanding attention like a leader".
+- "Color Psychology": Use color on specific words to emphasize meaning (e.g., "GROWTH" in green).
+
+## 6. COLOR STORYTELLING
+- Don't just pick colors. Pick a "Color Story".
+- **Dominant Hue**: The main emotional carrier.
+- **Accent**: The "Action" color.
+- **Gradient Specification**: Describe exact stops (e.g., "Deep Navy to Electric Purple").
+
+## 7. LAYOUT NARRATIVE
+- **Hierarchy over Rigidity**: Don't just center. Use aggressive scale contrast.
+- **Negative Space**: Use it actively to create tension or focus.
+
+=== OUTPUT INSTRUCTION ===
+Translate this visualization into the JSON output.
+For 'imagePrompt', write a Midjourney v6-level prompt: "Cinematic shot, f/1.8, 8k, [Subject], [Lighting], [Texture], [Style]".
+For 'contentStrategy', write a punchy, emotional hook.
+For 'rationale', explain your creative choices using the specific vocabulary above.
+
+`)
 
   // MANDATORY CONSTRAINTS (cannot override)
   parts.push(`
-
 === MANDATORY CONSTRAINTS (You CANNOT Override) ===`)
 
   if (constraints.logoAwareness?.hasLogo) {
@@ -149,76 +240,74 @@ FORMAT: ${constraints.formatName || 'Creative'}
       style?: string
     }
     parts.push(`
-
 === VERTICAL PRESET CONSTRAINTS (High Priority) ===
 Vertical: ${constraints.verticalPreset.name}
 ${config.primaryColor ? `- Primary Color MUST be: ${config.primaryColor}` : ''}
 ${config.secondaryColor ? `- Secondary Color MUST be: ${config.secondaryColor}` : ''}
 ${config.mood ? `- Mood: ${config.mood}` : ''}
 ${config.style ? `- Style: ${config.style}` : ''}
-
 IMPORTANT: Do NOT suggest different primary/secondary colors. Only suggest complementary accent colors.`)
   }
 
   if (constraints.brandContext?.useBrandColors && constraints.brandContext.primaryColor) {
     parts.push(`
-
-=== ORGANIZATION BRAND CONSTRAINTS (High Priority) ===
+=== ORGANIZATION BRAND CONSTRAINTS (Smart Branding) ===
 Organization: ${constraints.brandContext.organizationName}
-${constraints.brandContext.primaryColor ? `- Primary Color MUST be: ${constraints.brandContext.primaryColor}` : ''}
-${constraints.brandContext.secondaryColor ? `- Secondary Color MUST be: ${constraints.brandContext.secondaryColor}` : ''}
-${constraints.brandContext.accentColor ? `- Accent Color: ${constraints.brandContext.accentColor}` : ''}
-
-IMPORTANT: Honor brand colors. Your creativity is in background style and decorative elements.`)
+${constraints.brandContext.primaryColor ? `- Brand Primary: ${constraints.brandContext.primaryColor}` : ''}
+${constraints.brandContext.secondaryColor ? `- Brand Secondary: ${constraints.brandContext.secondaryColor}` : ''}
+${constraints.brandContext.accentColor ? `- Brand Accent: ${constraints.brandContext.accentColor}` : ''}
+IMPORTANT: Use these colors to maintain brand identity, BUT you are free to mix them with event-appropriate colors (e.g. Green for Health, Red for Energy) if it tells a better story. The Background Art can diverge from Brand Colors if the Narrative requires it.`)
   }
 
   // User-selected custom colors (from Color tab)
   if (constraints.userColors?.hasCustomColors && constraints.userColors.primary) {
     parts.push(`
-
 === USER COLOR SELECTION (High Priority) ===
 User has selected specific colors for this design:
 ${constraints.userColors.paletteName ? `- Palette: ${constraints.userColors.paletteName}` : '- Custom Colors Selected'}
 ${constraints.userColors.primary ? `- Primary Color MUST be: ${constraints.userColors.primary}` : ''}
 ${constraints.userColors.secondary ? `- Secondary Color MUST be: ${constraints.userColors.secondary}` : ''}
 ${constraints.userColors.accent ? `- Accent Color: ${constraints.userColors.accent}` : ''}
-
-IMPORTANT: User has explicitly chosen these colors. You MUST use them. Your creativity is in:
-- Background gradients and textures using these colors
-- Decorative elements that complement these colors
-- Layout and composition that showcases these colors effectively`)
+IMPORTANT: User has explicitly chosen these colors. Use them as the foundation for your lighting and atmospheric effects.`)
   }
 
   // Agent creative freedom section
   parts.push(`
-
 === YOUR CREATIVE FREEDOM ===
-When NO color constraints are set, you can suggest colors.
+When NO color constraints are set, you can suggest colors based on your "Creative Visualization".
 Always be creative with:
 - Background composition, gradients, and textures
 - Decorative elements and visual motifs (event-appropriate)
 - Mood and emotional tone
-- Layout composition (within reserved zones)
-- Additional complementary accent colors`)
+- Layout approach
+- Complementary accent colors`)
 
   // Output format
   parts.push(`
-
 === OUTPUT FORMAT ===
-Return ONLY valid JSON (no markdown, no explanation):
+First, write your <thinking>...</thinking> block.
+Then, return ONLY valid JSON (no markdown in JSON, no explanation outside thinking block):
 {
-  "background": "Detailed background description with colors, gradients, textures",
-  "decorativeElements": ["element 1", "element 2", "element 3", "element 4"],
-  "mood": "two-word mood description (e.g., professional-innovative)",
+  "imagePrompt": "Detailed Midjourney-style prompt...",
+  "contentStrategy": {
+    "headline": "Punchy headline",
+    "tone": "Emotional angle",
+    "angle": "Marketing hook"
+  },
+  "layoutSuggestion": "Specific layout approach",
+  "background": "Short summary of the background for reference",
+  "decorativeElements": ["element 1", "element 2"],
+  "mood": "two-word description",
   "style": "visual style approach",
   "colorPalette": {
-    "primary": { "hex": "#...", "name": "Color Name", "reasoning": "Why this color" },
-    "secondary": { "hex": "#...", "name": "Color Name", "reasoning": "..." },
-    "accent": { "hex": "#...", "name": "Color Name", "reasoning": "..." }
+    "primary": { "hex": "#...", "name": "Name", "reasoning": "..." },
+    "secondary": { "hex": "#...", "name": "Name", "reasoning": "..." },
+    "accent": { "hex": "#...", "name": "Name", "reasoning": "..." }
   },
-  "rationale": "Your reasoning for these recommendations in 2-3 sentences",
-  "detectedEventType": "workshop|conference|health_camp|seminar|etc",
-  "secondaryContext": "tech|business|healthcare|creative|community|null"
+  "rationale": "Brief rationale",
+  "detectedEventType": "workshop|conference|etc",
+  "secondaryContext": "tech|business|etc",
+  "backgroundContrast": "light|dark"
 }
 
 CRITICAL: If vertical/brand colors are constrained, set colorPalette to null and work within those colors.`)
@@ -254,19 +343,21 @@ export async function analyzeEventWithAgent(
 
   console.log('[Design Agent] === ANALYZING EVENT ===')
   console.log('[Design Agent] Title:', input.title)
-  console.log('[Design Agent] Has Vertical Preset:', !!constraints.verticalPreset)
-  console.log('[Design Agent] Has Brand Colors:', !!constraints.brandContext?.useBrandColors)
 
   const startTime = Date.now()
 
   const response = await client.messages.create({
     model: modelName,
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: systemPrompt,
     messages: [
       {
         role: 'user',
         content: userMessage
+      },
+      {
+        role: 'assistant',
+        content: '<thinking>' // Prefill to force thinking mode
       }
     ]
   })
@@ -279,13 +370,16 @@ export async function analyzeEventWithAgent(
     throw new Error('No text response from Claude agent')
   }
 
-  // Parse the JSON response
-  const recommendation = parseAgentResponse(textBlock.text, constraints)
+  // Handle the pre-filled <thinking> tag
+  // The model completes after <thinking>, so we reconstruct
+  const fullResponse = `<thinking>${textBlock.text}`
+
+  // Parse using the new logic that separates thinking from JSON
+  const recommendation = parseAgentResponse(fullResponse, constraints)
 
   console.log('[Design Agent] === ANALYSIS COMPLETE ===')
-  console.log('[Design Agent] Detected Event Type:', recommendation.detectedEventType)
-  console.log('[Design Agent] Secondary Context:', recommendation.secondaryContext || 'none')
-  console.log('[Design Agent] Mood:', recommendation.mood)
+  console.log('[Design Agent] Event Type:', recommendation.detectedEventType)
+  console.log('[Design Agent] Strategy:', recommendation.contentStrategy.headline)
   console.log('[Design Agent] Duration:', durationMs, 'ms')
 
   return {
@@ -311,7 +405,7 @@ export async function analyzeEventWithAgent(
 function buildUserMessage(input: EventAnalysisInput): string {
   const parts: string[] = []
 
-  parts.push(`Analyze this event and generate design recommendations:
+  parts.push(`Analyze this event and generate a Creative Director's brief:
 
 TITLE: ${input.title}`)
 
@@ -328,14 +422,9 @@ TITLE: ${input.title}`)
   }
 
   parts.push(`
-Think deeply about:
-1. What type of event is this? (workshop, conference, health camp, seminar, cultural, sports, etc.)
-2. What secondary context applies? (tech, business, healthcare, creative, community)
-3. What visual elements BELONG in this context?
-4. What background style reinforces the message?
-5. What decorative elements add visual interest without overwhelming?
-
-Generate contextually rich design recommendations.`)
+Remember:
+1. Start with <thinking> to visualize the scene in high fidelity (lighting, texture, physics).
+2. Generate the JSON with the 3 Sectors: Rich Visuals, Content Strategy, and Design Decisions.`)
 
   return parts.join('\n')
 }
@@ -347,30 +436,33 @@ function parseAgentResponse(
   responseText: string,
   constraints: DesignConstraints
 ): AgentDesignRecommendation {
-  // Extract JSON from response
-  let jsonStr = responseText.trim()
+  let jsonString = responseText
+  let thinkingProcess = ''
 
-  // Remove markdown code blocks if present
-  if (jsonStr.startsWith('```json')) {
-    jsonStr = jsonStr.slice(7)
-  } else if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.slice(3)
-  }
-  if (jsonStr.endsWith('```')) {
-    jsonStr = jsonStr.slice(0, -3)
-  }
-  jsonStr = jsonStr.trim()
-
-  // Extract JSON object
-  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    throw new Error('Failed to extract JSON from agent response')
+  // 1. Extract <thinking> block
+  const thinkingMatch = responseText.match(/<thinking>([\s\S]*?)<\/thinking>/)
+  if (thinkingMatch) {
+    thinkingProcess = thinkingMatch[1].trim()
+    // Remove the thinking block to get pure JSON
+    jsonString = responseText.replace(/<thinking>[\s\S]*?<\/thinking>/, '').trim()
   }
 
-  const parsed = JSON.parse(jsonMatch[0])
+  // 2. Parse JSON
+  // If JSON is wrapped in markdown code blocks, strip them (safeJsonParse might handle this, but being explicit)
+  if (jsonString.startsWith('```json')) jsonString = jsonString.replace(/^```json/, '').replace(/```$/, '')
 
-  // Apply constraint overrides
+  const parsed = safeJsonParse<any>(jsonString)
+
+  // 3. Apply constraint overrides and defaults
   const recommendation: AgentDesignRecommendation = {
+    thinkingProcess,
+    imagePrompt: parsed.imagePrompt || `High quality, photorealistic background for ${parsed.detectedEventType || 'event'}, cinematic lighting, 8k resolution`,
+    contentStrategy: {
+      headline: parsed.contentStrategy?.headline || 'Join Us',
+      tone: parsed.contentStrategy?.tone || 'Welcoming',
+      angle: parsed.contentStrategy?.angle || 'Community Event'
+    },
+    layoutSuggestion: parsed.layoutSuggestion || 'Standard centered layout with clear hierarchy',
     background: parsed.background || 'Professional gradient background',
     decorativeElements: Array.isArray(parsed.decorativeElements)
       ? parsed.decorativeElements
@@ -401,7 +493,6 @@ function parseAgentResponse(
 
 /**
  * Generate fallback recommendation when agent fails
- * Uses simple keyword matching for basic event type detection
  */
 export function generateFallbackRecommendation(
   input: EventAnalysisInput
@@ -410,84 +501,55 @@ export function generateFallbackRecommendation(
   const description = (input.description || '').toLowerCase()
   const combined = `${title} ${description}`
 
-  // Simple event type detection
+  // Defaults
   let detectedEventType = 'event'
   let secondaryContext: string | undefined
   let mood = 'professional-engaging'
   let background = 'Professional gradient background with subtle patterns'
   let decorativeElements: string[] = []
+  let headline = input.title
+  let tone = 'Professional'
+  let angle = 'General Event'
+  let imagePrompt = 'Professional corporate event background, bokeh lighting, high resolution, 8k, minimalistic'
 
   // Workshop detection
   if (combined.includes('workshop')) {
     detectedEventType = 'workshop'
     mood = 'energetic-collaborative'
-    background = 'Warm orange-coral gradient suggesting hands-on learning and energy'
-    decorativeElements = [
-      'Abstract hands-on activity icons',
-      'Collaborative group silhouettes',
-      'Learning pathway symbols',
-      'Interactive element shapes'
-    ]
+    background = 'Warm orange-coral gradient suggesting hands-on learning'
+    decorativeElements = ['Abstract active icons', 'Group silhouettes']
+    headline = 'Master Your Skills'
+    tone = 'Empowering'
+    angle = 'Hands-on Learning'
+    imagePrompt = 'Creative workshop environment, closeup of hands working on project, warm wooden table textures, soft daylight pouring from window, cinematic depth of field'
 
-    // Tech workshop
-    if (combined.includes('ai') || combined.includes('tech') || combined.includes('digital')) {
+    if (combined.includes('ai') || combined.includes('tech')) {
       secondaryContext = 'tech'
-      decorativeElements.push('Circuit board patterns')
-      decorativeElements.push('Digital network nodes')
+      decorativeElements.push('Circuit patterns')
     }
   }
-
-  // Health/Medical detection
-  else if (
-    combined.includes('health') ||
-    combined.includes('medical') ||
-    combined.includes('blood') ||
-    combined.includes('donation')
-  ) {
-    detectedEventType = 'health_camp'
-    secondaryContext = 'healthcare'
-    mood = 'compassionate-caring'
-    background = 'Clean medical gradient from soft blue to white with healing atmosphere'
-    decorativeElements = [
-      'Medical cross symbols',
-      'Heart health icons',
-      'Caring hands imagery',
-      'Life-saving visual elements'
-    ]
-  }
-
   // Conference detection
   else if (combined.includes('conference') || combined.includes('summit')) {
     detectedEventType = 'conference'
     mood = 'professional-prestigious'
-    background = 'Deep blue to navy gradient with stage lighting effects'
-    decorativeElements = [
-      'Podium and microphone silhouette',
-      'Audience gathering shapes',
-      'Keynote speaker elements',
-      'Professional networking icons'
-    ]
-  }
-
-  // Seminar detection
-  else if (combined.includes('seminar') || combined.includes('lecture')) {
-    detectedEventType = 'seminar'
-    mood = 'academic-enlightening'
-    background = 'Scholarly gradient with subtle book/knowledge patterns'
-    decorativeElements = [
-      'Open book imagery',
-      'Knowledge sharing symbols',
-      'Academic achievement icons',
-      'Wisdom and learning elements'
-    ]
+    background = 'Deep blue gradient with stage lighting'
+    decorativeElements = ['Podium silhouette', 'Audience shapes']
+    headline = 'Shape the Future'
+    tone = 'Visionary'
+    angle = 'Industry Leadership'
+    imagePrompt = 'Futuristic conference stage, dramatic blue spotlights, blurred audience in foreground, sleek geometric shapes, 8k resolution'
   }
 
   return {
+    thinkingProcess: 'Fallback generated due to agent error. Proceeding with safe defaults based on keyword matching.',
+    imagePrompt,
+    contentStrategy: { headline, tone, angle },
+    layoutSuggestion: 'Clean, accessible layout with high contrast text areas',
     background,
     decorativeElements,
     mood,
     style: 'modern-professional',
-    rationale: `Fallback recommendation based on detected event type: ${detectedEventType}`,
+    rationale: `Fallback recommendation based on event type: ${detectedEventType}`,
     detectedEventType,
     secondaryContext
   }

@@ -6,6 +6,7 @@
  * to ensure proper visual hierarchy in generated designs.
  */
 
+export type { TextHierarchySystem, TypographyHierarchy, FormatId } from '../types'
 import type { TextHierarchySystem, TypographyHierarchy, FormatId } from '../types'
 
 // ============================================================

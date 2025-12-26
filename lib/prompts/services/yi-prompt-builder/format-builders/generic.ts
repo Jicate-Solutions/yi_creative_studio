@@ -332,6 +332,14 @@ DO NOT render as visible text:
 - Instruction phrases (Generate, Create, Include, Apply)
 - Design terminology (hierarchy, prominence, focal point)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

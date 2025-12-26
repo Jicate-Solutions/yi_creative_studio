@@ -1,77 +1,27 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import {
-  Images,
-  Coins,
-  ArrowRight,
-  TrendingUp,
-  Clock,
-  Sparkles,
-} from 'lucide-react'
+import { Clock, Images } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
-import { CreateButton } from '@/components/dashboard/create-button'
+import { DashboardContent } from '@/components/dashboard/dashboard-content'
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfDay,
+  format,
+  getWeek,
+  differenceInDays,
+  isWithinInterval,
+  addDays,
+} from 'date-fns'
+import type { ActivityTimeline, WeeklyChapter, DashboardCardId } from '@/types/dashboard.types'
 
 export const metadata = {
   title: 'Dashboard',
-}
-
-// Premium Stat Card Component
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  iconColor = 'gradient',
-  link,
-}: {
-  title: string
-  value: string | number
-  subtitle: string
-  icon: React.ElementType
-  iconColor?: 'gradient' | 'yellow' | 'green' | 'muted'
-  link?: { href: string; text: string }
-}) {
-  const iconContainerClass = iconColor === 'gradient'
-    ? 'gradient-yi shadow-[0_4px_14px_rgba(0,91,150,0.25)]'
-    : iconColor === 'yellow'
-    ? 'bg-gradient-to-br from-amber-400 to-yellow-500 shadow-[0_4px_14px_rgba(245,158,11,0.25)]'
-    : iconColor === 'green'
-    ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-[0_4px_14px_rgba(16,185,129,0.25)]'
-    : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-[0_4px_14px_rgba(100,116,139,0.2)]'
-
-  return (
-    <div className="glass-premium rounded-2xl p-5 md:p-6 hover-lift transition-all duration-300 group">
-      {/* Icon with gradient background */}
-      <div className={`w-11 h-11 md:w-12 md:h-12 rounded-xl ${iconContainerClass} flex items-center justify-center transition-transform duration-300 group-hover:scale-105`}>
-        <Icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
-      </div>
-
-      {/* Stats */}
-      <div className="mt-4">
-        <p className="text-xs md:text-sm text-muted-foreground font-medium tracking-wide uppercase">
-          {title}
-        </p>
-        <p className="text-2xl md:text-3xl font-bold text-gradient-yi mt-1">
-          {typeof value === 'number' ? value.toLocaleString() : value}
-        </p>
-        {link ? (
-          <Link
-            href={link.href}
-            className="text-xs text-primary hover:underline mt-1 inline-block transition-colors"
-          >
-            {link.text}
-          </Link>
-        ) : (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        )}
-      </div>
-    </div>
-  )
 }
 
 // Helper to add timeout to promises
@@ -98,31 +48,137 @@ function DashboardStatsError({ message }: { message: string }) {
   )
 }
 
-async function DashboardStats() {
-  console.log('[DashboardStats] Starting render...')
+// Build activity timeline from creatives
+function buildTimeline(
+  creatives: Array<{ id: string; created_at: string; creative_type: string | null; credits_used: number | null }>,
+  now: Date
+): ActivityTimeline {
+  const monthStart = startOfMonth(now)
+  const monthEnd = endOfMonth(now)
 
+  // Group by week
+  const weeklyData = new Map<number, typeof creatives>()
+
+  creatives.forEach(creative => {
+    const weekNum = getWeek(new Date(creative.created_at), { weekStartsOn: 1 })
+    if (!weeklyData.has(weekNum)) {
+      weeklyData.set(weekNum, [])
+    }
+    weeklyData.get(weekNum)!.push(creative)
+  })
+
+  // Build chapters for each week
+  const chapters: WeeklyChapter[] = []
+  let currentDate = monthStart
+  let weekIndex = 1
+
+  while (currentDate <= monthEnd) {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 })
+    const weekNum = getWeek(currentDate, { weekStartsOn: 1 })
+    const isCurrentWeek = isWithinInterval(now, { start: weekStart, end: weekEnd })
+    const isFutureWeek = weekStart > now
+
+    const weekCreatives = weeklyData.get(weekNum) || []
+
+    // Calculate stats
+    const formatCounts = new Map<string, number>()
+    const dayCounts = new Map<string, number>()
+    let totalCredits = 0
+
+    weekCreatives.forEach(c => {
+      const fmt = c.creative_type || 'unknown'
+      formatCounts.set(fmt, (formatCounts.get(fmt) || 0) + 1)
+
+      const day = format(new Date(c.created_at), 'EEEE')
+      dayCounts.set(day, (dayCounts.get(day) || 0) + 1)
+
+      totalCredits += c.credits_used || 0
+    })
+
+    // Find most used format
+    let mostUsedFormat = 'None'
+    let maxCount = 0
+    formatCounts.forEach((count, fmt) => {
+      if (count > maxCount) {
+        maxCount = count
+        mostUsedFormat = fmt
+      }
+    })
+
+    // Find best day
+    let bestDay: { day: string; count: number } | null = null
+    dayCounts.forEach((count, day) => {
+      if (!bestDay || count > bestDay.count) {
+        bestDay = { day, count }
+      }
+    })
+
+    const titles = [
+      { title: 'The Beginning', subtitle: 'Starting fresh' },
+      { title: 'Building Momentum', subtitle: 'Picking up pace' },
+      { title: 'In Full Swing', subtitle: 'Going strong' },
+      { title: 'The Final Push', subtitle: 'Finish line in sight' },
+      { title: 'Bonus Time', subtitle: 'Extra effort!' },
+    ]
+    const titleIndex = Math.min(weekIndex - 1, titles.length - 1)
+
+    chapters.push({
+      id: `week-${weekNum}`,
+      weekNumber: weekIndex,
+      title: isCurrentWeek ? 'Current Sprint' : titles[titleIndex].title,
+      subtitle: isCurrentWeek ? 'This week' : titles[titleIndex].subtitle,
+      dateRange: {
+        start: format(weekStart < monthStart ? monthStart : weekStart, 'MMM d'),
+        end: format(weekEnd > monthEnd ? monthEnd : weekEnd, 'MMM d'),
+      },
+      stats: {
+        creativesGenerated: weekCreatives.length,
+        creditsUsed: totalCredits,
+        mostUsedFormat: mostUsedFormat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        bestDay,
+      },
+      isCurrentWeek,
+      isFutureWeek,
+    })
+
+    currentDate = addDays(weekEnd, 1)
+    weekIndex++
+  }
+
+  const totalCreatives = creatives.length
+  const totalCredits = creatives.reduce((sum, c) => sum + (c.credits_used || 0), 0)
+  const daysElapsed = differenceInDays(now, monthStart) + 1
+  const averagePerDay = daysElapsed > 0 ? Math.round((totalCreatives / daysElapsed) * 10) / 10 : 0
+
+  return {
+    monthName: format(now, 'MMMM yyyy'),
+    chapters,
+    summary: {
+      totalCreatives,
+      totalCredits,
+      averagePerDay,
+      onTrackForGoal: true,
+    },
+  }
+}
+
+async function DashboardData() {
   try {
-    console.log('[DashboardStats] Creating Supabase client...')
     const supabase = await createClient()
-    console.log('[DashboardStats] Client created successfully')
 
-    // Add timeout to auth check - if DB is slow, fail gracefully
-    console.log('[DashboardStats] Fetching user auth...')
     const authResult = await withTimeout(
       supabase.auth.getUser(),
       3000,
       { data: { user: null }, error: null } as unknown as Awaited<ReturnType<typeof supabase.auth.getUser>>
     )
-    console.log('[DashboardStats] Auth result:', authResult.data?.user ? `User: ${authResult.data.user.id}` : 'No user (timeout or error)')
     const user = authResult.data?.user
 
     if (!user) {
-      console.log('[DashboardStats] No user found - returning error state')
       return <DashboardStatsError message="Unable to load user data" />
     }
 
-    // Get user's organization with timeout
-    console.log('[DashboardStats] Fetching organization...')
+    // Get user's organization
     const orgQuery = supabase
       .from('organization_members')
       .select('organization_id, organizations(*)')
@@ -133,10 +189,8 @@ async function DashboardStats() {
       3000,
       { data: null, error: null } as unknown as Awaited<typeof orgQuery>
     )
-    console.log('[DashboardStats] Org result:', membershipResult.data ? 'Found' : 'Not found (timeout or error)')
 
     if (!membershipResult.data) {
-      console.log('[DashboardStats] No organization - returning error state')
       return <DashboardStatsError message="Unable to load organization" />
     }
 
@@ -145,256 +199,252 @@ async function DashboardStats() {
       name: string
       credits_balance: number
     }
-    console.log('[DashboardStats] Organization:', org.name)
 
-    // Calculate start of month for monthly query
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    const now = new Date()
+    const monthStart = startOfMonth(now)
+    const monthEnd = endOfMonth(now)
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+    const todayStart = startOfDay(now)
+    const previousMonthStart = startOfMonth(addDays(monthStart, -1))
 
-    // PERFORMANCE: Execute all queries in parallel with timeout
-    // If DB is overloaded, show partial data instead of hanging
-    console.log('[DashboardStats] Fetching stats in parallel...')
-    const countQuery = supabase
-      .from('creatives')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', org.id)
-    const recentQuery = supabase
-      .from('creatives')
-      .select('id, title, vertical, creative_type, created_at')
-      .eq('organization_id', org.id)
-      .order('created_at', { ascending: false })
-      .limit(4)
-    const transactionsQuery = supabase
-      .from('credit_transactions')
-      .select('amount')
-      .eq('organization_id', org.id)
-      .eq('type', 'usage')
-      .gte('created_at', startOfMonth.toISOString())
-      .limit(100)
-
-    const [creativeCountResult, recentCreativesResult, monthlyTransactionsResult] = await Promise.all([
-      // Get creative count
+    // Fetch all data in parallel
+    const [
+      totalCreativesResult,
+      monthlyCreativesResult,
+      weeklyCreativesResult,
+      todayCreativesResult,
+      monthlyCreditsResult,
+      previousMonthCreditsResult,
+      recentCreativesResult,
+      preferencesResult,
+    ] = await Promise.all([
       withTimeout(
-        Promise.resolve(countQuery),
+        Promise.resolve(
+          supabase
+            .from('creatives')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', org.id)
+        ),
         3000,
-        { count: null, error: null } as unknown as Awaited<typeof countQuery>
+        { count: null, error: null, data: null, status: 200, statusText: 'OK' } as unknown as { count: number | null; error: unknown }
       ),
-
-      // Get recent creatives - exclude large fields
       withTimeout(
-        Promise.resolve(recentQuery),
+        Promise.resolve(
+          supabase
+            .from('creatives')
+            .select('id, created_at, creative_type, credits_used')
+            .eq('organization_id', org.id)
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString())
+            .order('created_at', { ascending: true })
+        ),
         3000,
-        { data: [], error: null } as unknown as Awaited<typeof recentQuery>
+        { data: [], error: null } as any
       ),
-
-      // Get this month's credits used
       withTimeout(
-        Promise.resolve(transactionsQuery),
+        Promise.resolve(
+          supabase
+            .from('creatives')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', org.id)
+            .gte('created_at', weekStart.toISOString())
+            .lte('created_at', weekEnd.toISOString())
+        ),
         3000,
-        { data: [], error: null } as unknown as Awaited<typeof transactionsQuery>
-      )
+        { count: null, error: null } as any
+      ),
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('creatives')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', org.id)
+            .gte('created_at', todayStart.toISOString())
+        ),
+        3000,
+        { count: null, error: null } as any
+      ),
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('credit_transactions')
+            .select('amount')
+            .eq('organization_id', org.id)
+            .eq('transaction_type', 'debit')
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString())
+        ),
+        3000,
+        { data: [], error: null } as any
+      ),
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('credit_transactions')
+            .select('amount')
+            .eq('organization_id', org.id)
+            .eq('transaction_type', 'debit')
+            .gte('created_at', previousMonthStart.toISOString())
+            .lt('created_at', monthStart.toISOString())
+        ),
+        3000,
+        { data: [], error: null } as any
+      ),
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('creatives')
+            .select('id, title, vertical, creative_type, created_at, image_url, thumbnail_url')
+            .eq('organization_id', org.id)
+            .order('created_at', { ascending: false })
+            .limit(4)
+        ),
+        3000,
+        { data: [], error: null } as any
+      ),
+      // Try to get user preferences (may not exist yet)
+      withTimeout(
+        Promise.resolve(
+          supabase
+            .from('user_dashboard_preferences' as any)
+            .select('*')
+            .eq('user_id', user.id)
+            .single()
+        ),
+        3000,
+        { data: null, error: null } as any
+      ),
     ])
-    console.log('[DashboardStats] All stats fetched successfully')
 
-    const creativeCount = creativeCountResult.count
-    const recentCreatives = recentCreativesResult.data
-    const monthlyTransactions = monthlyTransactionsResult.data
-
-    const monthlyCreditsUsed = monthlyTransactions?.reduce(
-      (sum, t) => sum + Math.abs(t.amount),
+    // Calculate stats
+    const monthlyCreditsUsed = (monthlyCreditsResult.data || []).reduce(
+      (sum: number, t: { amount: number }) => sum + Math.abs(t.amount || 0),
       0
-    ) ?? 0
+    )
+    const previousMonthCredits = (previousMonthCreditsResult.data || []).reduce(
+      (sum: number, t: { amount: number }) => sum + Math.abs(t.amount || 0),
+      0
+    )
+    const percentageChange = previousMonthCredits > 0
+      ? Math.round(((monthlyCreditsUsed - previousMonthCredits) / previousMonthCredits) * 100)
+      : 0
 
-    console.log('[DashboardStats] Data processed - creatives:', creativeCount, 'recent:', recentCreatives?.length, 'monthly usage:', monthlyCreditsUsed)
+    // Build timeline
+    const timeline = buildTimeline(monthlyCreativesResult.data || [], now)
 
-  return (
-    <>
-      {/* Stats Cards - Premium Glass with Stagger Animation */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
-        <StatCard
-          title="Credits Balance"
-          value={org.credits_balance}
-          subtitle="Available credits"
-          icon={Coins}
-          iconColor="yellow"
-          link={{ href: ROUTES.billing, text: 'Buy more credits →' }}
-        />
+    // Prepare data for client component
+    const initialData = {
+      credits: {
+        balance: org.credits_balance,
+        used: monthlyCreditsUsed,
+      },
+      creatives: {
+        total: totalCreativesResult.count || 0,
+        thisMonth: (monthlyCreativesResult.data || []).length,
+        thisWeek: weeklyCreativesResult.count || 0,
+        today: todayCreativesResult.count || 0,
+      },
+      monthly: {
+        creditsUsed: monthlyCreditsUsed,
+        percentageChange,
+      },
+      speed: {
+        average: '~30s',
+      },
+      timeline,
+      recentCreatives: recentCreativesResult.data || [],
+    }
 
-        <StatCard
-          title="Total Creatives"
-          value={creativeCount ?? 0}
-          subtitle="All time generations"
-          icon={Images}
-          iconColor="gradient"
-        />
+    const initialPreferences = preferencesResult.data
+      ? {
+        card_order: preferencesResult.data.card_order as DashboardCardId[],
+        monthly_goal: preferencesResult.data.monthly_goal,
+      }
+      : undefined
 
-        <StatCard
-          title="This Month"
-          value={monthlyCreditsUsed}
-          subtitle="Credits used"
-          icon={TrendingUp}
-          iconColor="green"
-        />
-
-        <StatCard
-          title="Avg. Generation"
-          value="~30s"
-          subtitle="Per creative"
-          icon={Clock}
-          iconColor="muted"
-        />
-      </div>
-
-      {/* Quick Actions - Premium Glass Cards */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-        {/* Quick Start Card */}
-        <div className="lg:col-span-2 glass-card rounded-2xl p-6 md:p-8 transition-all duration-300">
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-5 w-5 text-yi-orange" />
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Quick Start</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Create a new brand creative in just a few clicks
-            </p>
-          </div>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            <CreateButton variant="large" />
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="h-auto py-6 glass-subtle rounded-xl border-0 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all duration-300"
-            >
-              <Link href={ROUTES.gallery} className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
-                  <Images className="h-6 w-6 text-slate-600 dark:text-slate-300" />
-                </div>
-                <span className="font-semibold">View Gallery</span>
-                <span className="text-xs text-muted-foreground">Browse creatives</span>
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Recent Activity Card */}
-        <div className="glass-card rounded-2xl p-6 transition-all duration-300">
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Activity</h3>
-            <p className="text-sm text-muted-foreground">Your latest creatives</p>
-          </div>
-          {recentCreatives && recentCreatives.length > 0 ? (
-            <div className="space-y-3">
-              {recentCreatives.map((creative) => (
-                <div
-                  key={creative.id}
-                  className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors"
-                >
-                  <div className="truncate">
-                    <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {creative.title || 'Untitled'}
-                    </span>
-                    <Badge variant="secondary" className="ml-2 text-xs bg-primary/10 text-primary border-0">
-                      {creative.vertical || creative.creative_type}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2 hover:bg-primary/5 hover:text-primary transition-colors"
-              >
-                <Link href={ROUTES.gallery}>
-                  View all
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
-                <Images className="h-8 w-8 text-slate-400" />
-              </div>
-              <p className="text-sm mb-2">No creatives yet</p>
-              <Button asChild variant="link" size="sm" className="text-primary">
-                <Link href={ROUTES.create}>Create your first one →</Link>
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    </>
-  )
+    return (
+      <DashboardContent
+        initialData={initialData}
+        initialPreferences={initialPreferences}
+      />
+    )
   } catch (error) {
-    console.error('[DashboardStats] Unexpected error:', error)
+    console.error('[DashboardData] Error:', error)
     return <DashboardStatsError message="An unexpected error occurred" />
   }
 }
 
-function StatsLoading() {
+function DashboardLoading() {
   return (
-    <>
-      {/* Premium Glass Skeleton Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="glass-premium rounded-2xl p-5 md:p-6">
-            <Skeleton className="h-11 w-11 md:h-12 md:w-12 rounded-xl" />
-            <div className="mt-4 space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-3 w-28" />
+    <div className="space-y-6">
+      {/* Journey Progress Skeleton */}
+      <div className="glass-card rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <div>
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32 mt-1" />
             </div>
+          </div>
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <Skeleton className="h-3 w-full rounded-full mt-8" />
+        <div className="flex justify-between mt-6">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      </div>
+
+      {/* Stat Cards Skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="glass-premium rounded-xl p-5">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <Skeleton className="h-8 w-20 mt-3" />
+            <Skeleton className="h-4 w-24 mt-2" />
+            <Skeleton className="h-3 w-28 mt-1" />
           </div>
         ))}
       </div>
 
-      {/* Premium Glass Quick Actions Skeleton */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2 glass-card rounded-2xl p-6 md:p-8">
-          <div className="mb-6 space-y-2">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+      {/* Quick Actions + Timeline Skeleton */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <div className="lg:col-span-2 glass-card rounded-xl p-6">
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-48 mb-6" />
+          <div className="grid grid-cols-2 gap-4">
             <Skeleton className="h-32 rounded-xl" />
             <Skeleton className="h-32 rounded-xl" />
           </div>
         </div>
-        <div className="glass-card rounded-2xl p-6">
-          <div className="mb-4 space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-3 w-24" />
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <div>
+              <Skeleton className="h-5 w-36" />
+              <Skeleton className="h-4 w-24 mt-1" />
+            </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full rounded-lg" />
+              <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6 md:space-y-8">
-      {/* Premium Page Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gradient-yi">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground text-sm md:text-base">
-          Welcome back! Here&apos;s an overview of your creative studio.
-        </p>
-      </div>
 
-      {/* Stats & Content */}
-      <Suspense fallback={<StatsLoading />}>
-        <DashboardStats />
+      {/* Dashboard Content */}
+      <Suspense fallback={<DashboardLoading />}>
+        <DashboardData />
       </Suspense>
     </div>
   )

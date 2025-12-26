@@ -221,9 +221,9 @@ function DynamicField({
     <div className="space-y-2">
       {/* Label with suggestion indicator */}
       <div className="flex items-center justify-between">
-        <Label htmlFor={field.id} className="text-sm font-medium">
+        <Label htmlFor={field.id} className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
           {field.label}
-          {field.required && <span className="text-destructive ml-1">*</span>}
+          {field.required && <span className="text-primary ml-0.5">*</span>}
         </Label>
         {suggestion && showSuggestion && (
           <div className="flex items-center gap-1 text-xs">
@@ -257,7 +257,7 @@ function DynamicField({
             placeholder={showSuggestion && suggestion ? '' : field.placeholder}
             maxLength={field.maxLength}
             className={cn(
-              'relative z-10',
+              'relative z-10 border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary transition-colors bg-transparent',
               showSuggestion && suggestion && !value ? 'bg-transparent' : '',
               isLoading ? 'animate-pulse' : '',
               error ? 'border-destructive' : ''
@@ -274,7 +274,7 @@ function DynamicField({
             placeholder={showSuggestion && suggestion ? '' : field.placeholder}
             rows={field.rows || 3}
             className={cn(
-              'relative z-10',
+              'relative z-10 border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary transition-colors bg-transparent resize-y min-h-[60px]',
               showSuggestion && suggestion && !value ? 'bg-transparent' : '',
               isLoading ? 'animate-pulse' : '',
               error ? 'border-destructive' : ''
@@ -304,7 +304,7 @@ function DynamicField({
 
         {field.type === 'select' && field.options && (
           <Select value={value} onValueChange={handleChange} disabled={isLoading}>
-            <SelectTrigger className={cn(error ? 'border-destructive' : '')}>
+            <SelectTrigger className={cn("border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus:ring-0 focus:border-primary bg-transparent", error ? 'border-destructive' : '')}>
               <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
             </SelectTrigger>
             <SelectContent>
@@ -788,6 +788,23 @@ export function DynamicDetailsForm({
             </Badge>
           )}
         </div>
+
+        {/* Progress Indicator */}
+        {!isDynamicSchemaLoading && (
+          <div className="mt-4 mb-2 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Required fields completion</span>
+              <span>{Math.round((effectiveFields.filter(f => f.required && getFieldValue(f.id)).length / effectiveFields.filter(f => f.required).length) * 100) || 0}%</span>
+            </div>
+            <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-[0_0_10px_rgba(139,92,246,0.3)] transition-all duration-500 ease-out"
+                style={{ width: `${Math.round((effectiveFields.filter(f => f.required && getFieldValue(f.id)).length / effectiveFields.filter(f => f.required).length) * 100) || 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {dynamicSchemaError && !isDynamicSchemaFallback && (
           <div className="mt-2 text-sm text-amber-600 bg-amber-50 p-2 rounded-lg">
             {dynamicSchemaError}
@@ -879,22 +896,30 @@ export function DynamicDetailsForm({
 
         {/* AI Trigger Button for section mode - shown above sections */}
         {!isDynamicSchemaLoading && useSections && onRequestSuggestions && (
-          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              <span className="text-sm text-purple-700">
-                {canTriggerAI
-                  ? 'Ready to generate AI suggestions'
-                  : `Enter ${firstUnfilledTextField?.label?.toLowerCase() || titleField?.label?.toLowerCase() || 'content'} to enable AI suggestions`}
-              </span>
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-violet-50 via-purple-50 to-fuchsia-50 border border-purple-100 rounded-xl shadow-sm relative overflow-hidden group">
+            <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="p-2 bg-white rounded-lg shadow-sm">
+                <Sparkles className="h-4 w-4 text-purple-600 animate-pulse" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-purple-900">
+                  AI Content Assistant
+                </span>
+                <span className="text-xs text-purple-700/80">
+                  {canTriggerAI
+                    ? 'Ready to generate smart suggestions for you'
+                    : `Start typing in "${firstUnfilledTextField?.label || 'Title'}" to unlock AI help`}
+                </span>
+              </div>
             </div>
             <Button
               type="button"
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={onRequestSuggestions}
               disabled={!canTriggerAI || isSuggestionsLoading}
-              className="border-purple-200 hover:bg-purple-100 hover:border-purple-300 text-purple-700"
+              className="relative z-10 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-md hover:shadow-lg transition-all"
             >
               <Sparkles
                 className={cn(
@@ -1032,27 +1057,27 @@ export function DynamicDetailsForm({
 
         {/* Schema badge */}
         {!isDynamicSchemaLoading && (
-        <div className="flex justify-end pt-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs",
-              isUsingAISchema && !isDynamicSchemaFallback && "bg-purple-50 border-purple-200",
-              isUsingFormatSchema && "bg-blue-50 border-blue-200"
-            )}
-          >
-            {isUsingAISchema && !isDynamicSchemaFallback
-              ? `AI: ${dynamicSchema?.schemaType || 'Generated'}`
-              : isUsingFormatSchema
-                ? `${displayName}${verticalId ? ` + ${verticalName}` : ''}`
-                : `${staticSchema.displayName} Schema`
-            }
-          </Badge>
-        </div>
+          <div className="flex justify-end pt-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs",
+                isUsingAISchema && !isDynamicSchemaFallback && "bg-purple-50 border-purple-200",
+                isUsingFormatSchema && "bg-blue-50 border-blue-200"
+              )}
+            >
+              {isUsingAISchema && !isDynamicSchemaFallback
+                ? `AI: ${dynamicSchema?.schemaType || 'Generated'}`
+                : isUsingFormatSchema
+                  ? `${displayName}${verticalId ? ` + ${verticalName}` : ''}`
+                  : `${staticSchema.displayName} Schema`
+              }
+            </Badge>
+          </div>
         )}
 
       </CardContent>
-    </Card>
+    </Card >
   )
 }
 

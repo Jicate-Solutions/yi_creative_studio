@@ -28,6 +28,10 @@ import {
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // EXPRESSION HELPERS
@@ -82,9 +86,11 @@ export function buildYouTubeThumbnailPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'rich')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -97,15 +103,15 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 `
     : ''
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: 'youtube_thumbnail',
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: true,
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   // Get platform-specific scroll-stop patterns
   const scrollStopPatterns = getScrollStopPromptFragment('youtube_thumbnail')
@@ -139,7 +145,9 @@ ${forbiddenZonesContext}
 
 ${aiTypographySection}
 
-${aiDecorativeSection}
+${decorativeSection}
+
+${backgroundSection}
 
 <platform_optimization>
 ${scrollStopPatterns}
@@ -153,22 +161,22 @@ ${typographyRules}
 A click-worthy thumbnail for video: "${data.videoTitle}"
 The thumbnail must communicate video value in 0.05 seconds.
 ${hasFace
-    ? `Feature: Expressive human face with ${data.expression || 'excited'} expression, filling 50-60% of frame (LEFT side for photo overlay zone)`
-    : `Feature: Compelling visual subject that draws the eye`}
+      ? `Feature: Expressive human face with ${data.expression || 'excited'} expression, filling 50-60% of frame (LEFT side for photo overlay zone)`
+      : `Feature: Compelling visual subject that draws the eye`}
 ${hasFace ? 'NOTE: Face zone will have photo overlaid. Generate clean, complementary background for face area.' : ''}
 </subject>
 
 <composition>
 Layout: Two-zone composition
 - LEFT 60%: ${hasFace
-    ? `Expressive face - ${getExpressionDescription(data.expression)}, well-lit, looking toward camera, high contrast with background`
-    : `Main visual subject - ${data.mainSubject || 'compelling focal point'}`}
+      ? `Expressive face - ${getExpressionDescription(data.expression)}, well-lit, looking toward camera, high contrast with background`
+      : `Main visual subject - ${data.mainSubject || 'compelling focal point'}`}
 - RIGHT 40%: Bold text hook - 3-5 words maximum, readable at tiny sizes
 - AVOID: Bottom-right corner (YouTube duration badge overlay)
 - AVOID: Bottom 10% (progress bar on hover)
 ${options.logoAwareness?.hasLogo ? `- LOGO ZONE: ${options.logoAwareness.logoPosition} reserved for brand logo` : ''}
 
-Background: ${data.backgroundColor || 'Bright, saturated color that contrasts with subject'}
+Background: ${options.designContext?.backgroundSetting || data.backgroundColor || 'Bright, saturated color that contrasts with subject'}
 Subject Treatment: Well-lit, high contrast, pops from background
 </composition>
 
@@ -220,6 +228,14 @@ DO NOT render as visible text:
 - Platform terminology (CTR, scroll-stop, click-worthy)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 - Any content from platform_optimization or typography_hierarchy sections
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

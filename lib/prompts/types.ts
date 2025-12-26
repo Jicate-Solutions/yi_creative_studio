@@ -6,6 +6,7 @@
 import type { CustomizationData, ColorConfig } from '@/lib/config/design-constants'
 import type { CreativeTemplate } from './knowledge-base/types'
 import type { LogoSafeZone } from './types/logo-awareness'
+import type { DesignContext } from './services/yi-prompt-builder/types'
 
 // ============================================================
 // CREATIVE CONTENT (Event data for poster generation)
@@ -120,33 +121,8 @@ export interface ResolutionModifiers {
 // DESIGN CONTEXT (AI-Generated Design Intelligence)
 // ============================================================
 
-/**
- * AI-generated design context from Stage 1 analysis
- * Contains the core purpose, visual elements, and design strategy
- * that the image generation AI needs to create contextual designs
- */
-export interface DesignContext {
-  /** The emotional job this design must accomplish */
-  corePurpose: string
-  /** What viewers should DO after seeing this */
-  desiredAction: string
-  /** How viewers should FEEL */
-  emotionalJob: string
-  /** Visual elements that BELONG in this type of design */
-  visualElements: string[]
-  /** Appropriate environment/backdrop description */
-  backgroundSetting: string
-  /** Iconic imagery that reinforces the message */
-  iconicImagery: string[]
-  /** Color psychology guidance for this design */
-  colorMood: string
-  /** Strategic visual approach */
-  designStrategy: string
-  /** How to know the design worked */
-  successMetric: string
-  /** Specific layout guidance based on speaker photo position and logo requirements */
-  layoutGuidance?: string
-}
+// Re-map DesignContext for consistency
+export type { DesignContext };
 
 // ============================================================
 // PROMPT INTENT (Model-Agnostic)

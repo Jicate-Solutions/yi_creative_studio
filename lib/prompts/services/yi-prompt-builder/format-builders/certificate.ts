@@ -27,8 +27,11 @@ import {
   normalizeStyleId,
 } from '../../../knowledge-base/design-architecture'
 
-// Import logo zone enforcement helper (v3.2)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // STYLE HELPERS
@@ -120,7 +123,7 @@ export function buildCertificatePrompt(
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
-  const brandContext = buildBrandContext(options.brandContext)
+  const brandContext = buildBrandContext(options.brandContext, 'certificate')
   const qualityContext = buildQualityContext(options.resolution, 'certificate')
 
   // NEW v3.1: Build additional context sections
@@ -129,14 +132,27 @@ export function buildCertificatePrompt(
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
 
-  // NEW v3.2: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // Get enhanced design architecture
   const normalizedStyle = normalizeStyleId(style)
   const borderArchitecture = getBorderStylePromptFragment(normalizedStyle)
   const zoneArchitecture = getCertificateZonePromptFragment()
   const typographyRules = getTypographyPromptFragment('certificate')
+
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: 'certificate',
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: false, // Certificates are formal
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   return `
 <task>Generate a prestigious, professional certificate design</task>
@@ -163,6 +179,10 @@ ${layoutContext}
 ${forbiddenZonesContext}
 
 ${langContext}
+
+${decorativeSection}
+
+${backgroundSection}
 
 <design_architecture>
 ${borderArchitecture}
@@ -194,7 +214,7 @@ Structure:
   ${data.signatoryName2 ? `- Right signature: "${data.signatoryName2}${data.signatoryDesignation2 ? ', ' + data.signatoryDesignation2 : ''}"` : ''}
 - BOTTOM: Date "${data.dateIssued ? formatDate(data.dateIssued) : ''}" and certificate number "${data.certificateNumber || ''}"
 
-Background: ${getCertificateBackground(style)}
+Background: ${options.designContext?.backgroundSetting || getCertificateBackground(style)}
 </composition>
 
 <text_content>
@@ -253,7 +273,16 @@ DO NOT render as visible text:
 - Design terminology (hierarchy, prominence, focal point)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 - Any text from design_architecture or quality_markers sections
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
+${zoneReminderContext}
 `.trim()
 }
 

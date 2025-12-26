@@ -19,6 +19,7 @@ import {
   buildLanguageContext,
   buildSpeakerPhotoZoneContext,
 } from '../context-helpers'
+import { buildAllV41Contexts } from '../context-helpers-v41'
 import { EVENT_POSTER_EXAMPLES } from '../examples'
 
 // Import design architecture for ultra-pro quality
@@ -38,9 +39,19 @@ import { formatEventTime } from '@/lib/utils/time-formatter'
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 
+// Import centralized sophistication helper (v4.5)
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
 // ============================================================
 // EVENT CONTEXT TYPES
 // ============================================================
+
+interface RoleColor {
+  color: string
+  contrast?: string
+  contrastRatio?: number // NEW v3.9: WCAG contrast ratio for AI enforcement
+  description: string
+}
 
 interface EventContext {
   background: string
@@ -49,10 +60,49 @@ interface EventContext {
   mood: string
   energy: string
   headlineFont: string
+  colorPalette: {
+    hero: RoleColor
+    headline: RoleColor
+    body: RoleColor
+    cta: RoleColor
+    caption: RoleColor
+  }
+  // DEPRECATED: Keep for backward compatibility
   headlineColor: string
   ctaColor: string
   ctaStyle: string
   defaultAudience: string
+}
+
+/**
+ * Get default color palette for an event type
+ */
+function getDefaultPalette(primary: string, secondary: string, accent: string): EventContext['colorPalette'] {
+  return {
+    hero: {
+      color: 'white',
+      contrast: accent,
+      description: `High contrast white on ${primary} - most prominent text`,
+    },
+    headline: {
+      color: 'white',
+      contrast: secondary,
+      description: 'Clear white for secondary headlines',
+    },
+    body: {
+      color: '#E0E0E0',
+      description: 'Readable light gray for details',
+    },
+    cta: {
+      color: accent,
+      contrast: primary,
+      description: 'High contrast action button',
+    },
+    caption: {
+      color: '#999999',
+      description: 'Subtle footer text',
+    },
+  }
 }
 
 // ============================================================
@@ -68,6 +118,33 @@ function getEventContext(eventType: string = 'general'): EventContext {
       mood: 'Professional, authoritative, networking-focused',
       energy: 'Professional, polished',
       headlineFont: 'sans-serif',
+      colorPalette: {
+        hero: {
+          color: 'white',
+          contrast: 'gold',
+          description: 'High contrast white for maximum impact on dark blue background - must stand out as the most prominent text',
+        },
+        headline: {
+          color: 'white',
+          contrast: 'light blue (#4A90E2)',
+          description: 'Crisp white for professional clarity - slightly less prominent than hero but still highly visible',
+        },
+        body: {
+          color: 'light gray (#E0E0E0)',
+          contrast: 'white',
+          description: 'Softer light gray for supportive information - readable but not competing with headlines',
+        },
+        cta: {
+          color: 'gold (#D4AF37)',
+          contrast: 'navy (#003366)',
+          description: 'Bold gold button with navy text for action - highest contrast element after hero, demands attention',
+        },
+        caption: {
+          color: 'muted gray (#999999)',
+          contrast: 'white',
+          description: 'Subtle gray for organizational footer - visible but understated',
+        },
+      },
       headlineColor: 'white on dark blue',
       ctaColor: 'gold/yellow',
       ctaStyle: 'contrasting yellow/gold button',
@@ -80,90 +157,98 @@ function getEventContext(eventType: string = 'general'): EventContext {
       mood: 'Educational, interactive, welcoming, hands-on',
       energy: 'Warm, inviting',
       headlineFont: 'sans-serif',
+      colorPalette: getDefaultPalette('blue', 'white', 'orange'),
       headlineColor: 'dark on light OR white on vibrant',
       ctaColor: 'contrasting accent',
       ctaStyle: 'prominent contrasting button',
       defaultAudience: 'Learners, professionals seeking skills',
     },
     health_camp: {
-      background: 'Fresh, clean gradient with soft green and white, subtle medical wellness symbols, clean and trustworthy',
+      background: 'Fresh, clean gradient with soft green and white, soft medical wellness symbols',
       style: 'Healthcare appropriate, clean, trustworthy',
       colors: 'Fresh green (#28a745), white, soft blue accent',
       mood: 'Caring, professional, health-focused, welcoming',
       energy: 'Calm, reassuring',
       headlineFont: 'sans-serif',
+      colorPalette: getDefaultPalette('green', 'white', 'blue'),
       headlineColor: 'dark green on white OR white on green',
       ctaColor: 'blue or green',
       ctaStyle: 'clear, trustworthy button',
       defaultAudience: 'Community members, health-conscious individuals',
     },
     concert: {
-      background: 'Dynamic background with stage lights, light rays, crowd silhouettes, energetic concert atmosphere',
+      background: 'Dynamic background with stage lights, energetic concert atmosphere',
       style: 'Entertainment, high-energy, exciting',
       colors: 'Purple (#8b00ff), electric blue (#00d4ff), pink, neon accents',
-      mood: 'Exciting, energetic, entertainment, can\'t-miss',
+      mood: 'Exciting, energetic, entertainment',
       energy: 'High energy, electric',
       headlineFont: 'bold display sans-serif',
+      colorPalette: getDefaultPalette('purple', 'pink', 'neon cyan'),
       headlineColor: 'bright/neon on dark',
       ctaColor: 'neon accent',
       ctaStyle: 'bold neon button',
       defaultAudience: 'Music lovers, entertainment seekers',
     },
     community: {
-      background: 'Warm welcoming background with community gathering feel, warm earth tones, inclusive atmosphere',
+      background: 'Warm welcoming background, warm earth tones, inclusive atmosphere',
       style: 'Warm, inclusive, community-focused',
       colors: 'Warm orange (#ff8c00), yellow (#ffd700), earth tones',
-      mood: 'Welcoming, inclusive, community spirit, belonging',
+      mood: 'Welcoming, inclusive, community spirit',
       energy: 'Warm, inviting',
       headlineFont: 'friendly sans-serif',
+      colorPalette: getDefaultPalette('orange', 'yellow', 'dark brown'),
       headlineColor: 'dark on warm',
       ctaColor: 'warm accent',
       ctaStyle: 'friendly, welcoming button',
       defaultAudience: 'Community members, families, neighbors',
     },
     tech: {
-      background: 'Futuristic background with circuit patterns, digital elements, subtle code motifs, modern tech aesthetic',
+      background: 'Futuristic background with circuit patterns, modern tech aesthetic',
       style: 'Modern tech, innovative, cutting-edge',
       colors: 'Electric blue (#00d4ff), purple (#7b68ee), dark background',
       mood: 'Innovative, technical, forward-thinking, exciting',
       energy: 'Dynamic, innovative',
       headlineFont: 'modern sans-serif',
+      colorPalette: getDefaultPalette('dark blue', 'purple', 'neon cyan'),
       headlineColor: 'bright on dark',
       ctaColor: 'electric accent',
       ctaStyle: 'tech-styled button',
       defaultAudience: 'Tech professionals, developers, innovators',
     },
     sports: {
-      background: 'Dynamic energetic background with motion blur effects, athletic energy, competition feel',
+      background: 'Dynamic energetic background with motion blur effects, athletic energy',
       style: 'Dynamic, athletic, high-energy',
       colors: 'Bold red (#dc3545), black, white, energetic accents',
-      mood: 'Competitive, energetic, athletic, pumped',
+      mood: 'Competitive, energetic, athletic',
       energy: 'High energy, athletic',
       headlineFont: 'bold impact sans-serif',
+      colorPalette: getDefaultPalette('black', 'white', 'red'),
       headlineColor: 'white or bold on dynamic',
       ctaColor: 'red or high-energy',
       ctaStyle: 'bold action button',
       defaultAudience: 'Athletes, sports enthusiasts, competitors',
     },
     children: {
-      background: 'Playful colorful background with child-friendly elements, safe and fun atmosphere, bright and cheerful',
+      background: 'Playful colorful background, bright and cheerful',
       style: 'Playful, safe, family-friendly',
-      colors: 'Primary colors (red, blue, yellow), pastels, bright and cheerful',
-      mood: 'Fun, safe, engaging for families, child-appropriate',
+      colors: 'Primary colors (red, blue, yellow), pastels',
+      mood: 'Fun, safe, engaging for families',
       energy: 'Playful, joyful',
       headlineFont: 'friendly rounded sans-serif',
+      colorPalette: getDefaultPalette('white', 'pastels', 'bright blue'),
       headlineColor: 'colorful on light',
       ctaColor: 'bright primary',
       ctaStyle: 'fun, friendly button',
       defaultAudience: 'Families, parents, children',
     },
     seminar: {
-      background: 'Professional academic setting with subtle geometric patterns, clean lines',
+      background: 'Professional academic setting with subtle geometric patterns',
       style: 'Academic professional, intellectual',
       colors: 'Navy blue (#1e3a5f), burgundy (#722f37), white, gold accent',
       mood: 'Intellectual, prestigious, knowledge-focused',
       energy: 'Focused, professional',
       headlineFont: 'sans-serif',
+      colorPalette: getDefaultPalette('navy', 'white', 'gold'),
       headlineColor: 'dark on light',
       ctaColor: 'blue or burgundy',
       ctaStyle: 'professional button',
@@ -176,6 +261,7 @@ function getEventContext(eventType: string = 'general'): EventContext {
       mood: 'Celebratory, cultural pride, heritage',
       energy: 'Festive, celebratory',
       headlineFont: 'decorative or bold sans-serif',
+      colorPalette: getDefaultPalette('rich red', 'gold', 'orange'),
       headlineColor: 'gold on rich colors',
       ctaColor: 'gold or contrasting',
       ctaStyle: 'festive button',
@@ -190,6 +276,7 @@ function getEventContext(eventType: string = 'general'): EventContext {
     mood: 'Professional, engaging, promotional',
     energy: 'Balanced, professional',
     headlineFont: 'sans-serif',
+    colorPalette: getDefaultPalette('blue', 'white', 'orange'),
     headlineColor: 'high contrast',
     ctaColor: 'accent',
     ctaStyle: 'prominent button',
@@ -239,7 +326,7 @@ export function buildEventPosterPrompt(
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
-  const brandContext = buildBrandContext(options.brandContext)
+  const brandContext = buildBrandContext(options.brandContext, 'event_poster', options.designContext)  // v4.2: Pass design context for story-driven typography
   const qualityContext = buildQualityContext(options.resolution, 'event_poster')
 
   // NEW v3.1: Build additional context sections
@@ -249,34 +336,258 @@ export function buildEventPosterPrompt(
   const langContext = buildLanguageContext(options.language)
 
   // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+
 
   // Build speaker zone context from options.speakerPhotoConfig (v3.1)
   // This uses the config passed from API route, which preserves the zone even when user has own photo
   const speakerZoneContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
   const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
 
+
+
+  // NEW v4.0: Determine Design Sophistication based on event type and vertical
+  // Prioritize explicit data.sophistication if provided by user/frontend (support aliases)
+  // NEW v4.0: Determine Design Sophistication using centralized helper
+  // This now correctly identifies holidays (Christmas, Diwali) as 'rich'
+  const sophistication = getSophistication({ ...options, ...data } as unknown as EnhancedBuildOptions, 'balanced')
+
+  // NEW v3.4: Build forbidden zones (MOVED HERE to depend on Sophistication)
+  // FIX: If Rich/Immersive, we override the "Clear Zone" instruction to preventing hallucinated white stripes.
+  // NEW v3.4: Build forbidden zones (using helper to override for Rich designs)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
+
   // NEW v3.2: Build decorative elements section from Design Intelligence context
-  // This ensures event-type specific visual elements (neural networks for tech, etc.) reach the AI
+  // v4.0: Now sophistication-aware
   const decorativeElementsContext = buildDecorativeElementsSection({
-    eventType: data.eventType,
+    eventType: data.eventType || 'general',
     designContext: options.designContext,
-    maxElements: 4,
+    // FIX: Significantly increased limits for rich designs to fix "limited decorative elements" issue
+    maxElements: sophistication === 'minimalist' ? 3 : (sophistication === 'rich' ? 8 : 5),
     includeIconicImagery: true,
+    sophistication,
   })
-  const backgroundSettingContext = buildBackgroundSettingSection(options.designContext)
+  const backgroundSettingContext = buildBackgroundSettingSection(options.designContext, sophistication)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
-  const aiTypographySection = options.designContext?.typographyGuidance
-    ? `
-<ai_typography_guidance>
-Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
-Body Style: ${options.designContext.typographyGuidance.bodyStyle}
-Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
-</ai_typography_guidance>
+  // NEW v3.9: Color-aware typography with role-based color specifications
+  let aiTypographySection = ''
+  {
+    if (options.brandContext?.useBrandFont !== false) {
+      aiTypographySection = '' // Skip
+
+      // NEW v3.9: Determine color source
+      // PRIORITY 1: Brand Colors (if enforced)
+      // PRIORITY 2: Design Intelligence AI-generated colors
+      // PRIORITY 3: Hardcoded Event Context defaults
+      let colorSource: any
+
+      // NEW v4.5: Check if footer content actually exists before instructing AI to style it
+      const hasFooter = options.footerContext && (
+        options.footerContext.website ||
+        options.footerContext.phone ||
+        options.footerContext.email ||
+        options.footerContext.address ||
+        (options.footerContext.social && (
+          options.footerContext.social?.instagram ||
+          options.footerContext.social?.linkedin ||
+          options.footerContext.social?.facebook ||
+          options.footerContext.social?.twitter
+        ))
+      )
+
+      // DEFAULT TO BRAND COLORS IF AVAILABLE (Highest Priority)
+      if (options.brandContext?.useBrandColors && options.brandContext.primaryColor) {
+        // Manual override using Brand Colors
+        colorSource = {
+          hero: { color: options.brandContext.primaryColor, description: 'Brand Primary Color (Mandatory)' },
+          headline: { color: options.brandContext.secondaryColor || 'white', description: 'Brand Secondary Color' },
+          body: { color: 'white', description: 'High contrast white for readability' },
+          cta: { color: options.brandContext.accentColor || options.brandContext.secondaryColor || 'white', description: 'Brand Accent Color' },
+          caption: { color: '#E0E0E0', description: 'Light gray for footer details' }
+        }
+      }
+      // EXTENDED LOGIC: If design context provided color mapping, use it (unless overridden by brand colors above)
+      else if (options.designContext?.typographyGuidance?.colorMapping) {
+        colorSource = options.designContext.typographyGuidance.colorMapping
+      }
+      else {
+        // FALLBACK LOGIC
+        colorSource = eventContext.colorPalette
+
+        // v4.8: UNIVERSAL FALLBACK FIX (Synthetic Palette Generation)
+        // If we fell back to eventContext.colorPalette, checks if it's the "Generic" one or just a mismatch.
+        // If DesignContext has ANY style advice/mood, we construct a matching palette 
+        // instead of forcing the generic "Blue/Orange" template.
+
+        if (options.designContext?.colorMood) {
+          // We have a mood (e.g., "Neon Purple and Cyber Blue") but no mapping.
+          // Generate a synthetic palette that respects the mood.
+          const moodDescription = options.designContext.colorMood
+
+          colorSource = {
+            hero: {
+              color: 'white',
+              description: 'Crisp White for maximum contrast against the rich background',
+              contrastRatio: 7
+            },
+            headline: {
+              color: 'white', // Safer default for rich backgrounds
+              description: 'White or very light tint matching the background',
+              contrastRatio: 4.5
+            },
+            body: {
+              color: '#F0F0F0',
+              description: 'Off-white for readability'
+            },
+            cta: {
+              color: 'contrast accent', // AI will interpret this based on mood
+              description: `High contrast accent color derived from: ${moodDescription}`,
+              contrastRatio: 7
+            },
+            caption: {
+              color: '#CCCCCC',
+              description: 'Subtle light gray'
+            }
+          }
+        }
+      }
+
+      // If Design Intelligence provided full typography guidance with colors, use enhanced format
+      if (options.designContext?.typographyGuidance) {
+        // ... existing typography guidance logic ...
+        const tg = options.designContext.typographyGuidance
+        // Smart Alignment Logic:
+        // Minimalist/Tech -> Left Aligned
+        // Rich/Creative -> Asymmetric/Dynamic
+        // Balanced/Formal -> Center Aligned
+        const smartAlignment = tg.alignment || (
+          sophistication === 'minimalist' ? 'left' :
+            sophistication === 'rich' ? 'asymmetric' :
+              'center'
+        )
+        aiTypographySection = `
+<typography_and_color_specifications>
+TYPOGRAPHY SYSTEM (AI-GENERATED):
+
+FONT STYLES (MOOD-BASED):
+- Font Category: ${tg.typographyStyle || 'sans'} (Priority: use high-quality ${tg.typographyStyle || 'sans'} fonts)
+- Alignment Strategy: ${smartAlignment}-aligned layout (varied composition)
+- Headline Style: ${tg.headlineStyle}
+- Body Style: ${tg.bodyStyle}
+- Hierarchy: ${tg.hierarchy}
+
+TEXT HIERARCHY WITH EXPLICIT COLOR INSTRUCTIONS:
+
+HERO TEXT (Event Name "${eventName}"):
+  Size: 3.5x base (LARGEST element on the poster)
+  Weight: Bold
+  Color: ${colorSource.hero.color}
+  Description: ${colorSource.hero.description}
+  Contrast Required: ${(colorSource.hero as any).contrastRatio || 7}:1 WCAG compliance
+
+HEADLINE TEXT (Speaker/Tagline):
+  Size: 2x base
+  Weight: Semibold
+  Color: ${colorSource.headline.color}
+  Description: ${colorSource.headline.description}
+  Contrast Required: ${(colorSource.headline as any).contrastRatio || 7}:1 WCAG compliance
+
+BODY TEXT (Date/Venue/Details):
+  Size: 1.5x base
+  Weight: Medium
+  Color: ${colorSource.body.color}
+  Description: ${colorSource.body.description}
+  Contrast Required: ${(colorSource.body as any).contrastRatio || 4.5}:1 WCAG compliance
+
+${data.registrationInfo ? `
+CTA TEXT (Button "${data.registrationInfo}"):
+  Size: 1.5x base
+  Weight: Bold
+  Color: ${colorSource.cta.color}
+  Description: ${colorSource.cta.description}
+  Contrast Required: ${(colorSource.cta as any).contrastRatio || 7}:1 WCAG compliance
+  Treatment: HIGH CONTRAST button with contrasting background` : ''}
+${hasFooter ? `
+CAPTION TEXT (Organization/Footer):
+  Size: 1x base
+  Weight: Regular
+  Color: ${colorSource.caption.color}
+  Description: ${colorSource.caption.description}
+  Contrast Required: ${(colorSource.caption as any).contrastRatio || 4.5}:1 WCAG compliance` : ''}
+
+MULTI-COLOR TYPOGRAPHY RULES:
+- Each text role has a DIFFERENT color for visual hierarchy and readability
+- Use EXACT colors specified above - do not substitute or approximate
+- Maintain minimum contrast ratios for accessibility
+- Color differentiation helps guide viewer's eye from hero → headline → body → CTA → caption
+- If brand colors are specified, integrate them with these text color guidelines
+</typography_and_color_specifications>
 `
-    : ''
+      } else {
+
+        // Fallback: Build color-aware typography section from event context defaults
+        const fallbackAlignment = sophistication === 'minimalist' ? 'left' :
+          sophistication === 'rich' ? 'asymmetric' :
+            'center'
+
+        aiTypographySection = `
+<typography_and_color_specifications>
+TYPOGRAPHY SYSTEM:
+- Alignment Strategy: ${fallbackAlignment}-aligned layout (varied composition)
+
+TEXT HIERARCHY WITH EXPLICIT COLOR INSTRUCTIONS:
+
+HERO TEXT (Event Name "${eventName}"):
+  Size: 3.5x base (LARGEST element on the poster)
+  Weight: Bold
+  Color: ${colorSource.hero.color}
+  Description: ${colorSource.hero.description}
+  Contrast Required: ${(colorSource.hero as any).contrastRatio || 7}:1 WCAG compliance
+
+HEADLINE TEXT (Speaker/Tagline):
+  Size: 2x base
+  Weight: Semibold
+  Color: ${colorSource.headline.color}
+  Description: ${colorSource.headline.description}
+  Contrast Required: ${(colorSource.headline as any).contrastRatio || 7}:1 WCAG compliance
+
+BODY TEXT (Date/Venue/Details):
+  Size: 1.5x base
+  Weight: Medium
+  Color: ${colorSource.body.color}
+  Description: ${colorSource.body.description}
+  Contrast Required: ${(colorSource.body as any).contrastRatio || 4.5}:1 WCAG compliance
+
+${data.registrationInfo ? `
+CTA TEXT (Button "${data.registrationInfo}"):
+  Size: 1.5x base
+  Weight: Bold
+  Color: ${colorSource.cta.color}
+  Description: ${colorSource.cta.description}
+  Contrast Required: ${(colorSource.cta as any).contrastRatio || 7}:1 WCAG compliance
+  Treatment: HIGH CONTRAST button with contrasting background` : ''}
+
+
+${hasFooter ? `
+CAPTION TEXT (Organization/Footer):
+  Size: 1x base
+  Weight: Regular
+  Color: ${colorSource.caption.color}
+  Description: ${colorSource.caption.description}
+  Contrast Required: ${(colorSource.caption as any).contrastRatio || 4.5}:1 WCAG compliance` : ''}
+
+MULTI-COLOR TYPOGRAPHY RULES:
+- Each text role has a DIFFERENT color for visual hierarchy and readability
+- Use EXACT colors specified above - do not substitute or approximate
+- Maintain minimum contrast ratios for accessibility
+- Color differentiation helps guide viewer's eye from hero → headline → body → CTA → caption
+- If brand colors are specified, integrate them with these text color guidelines
+</typography_and_color_specifications>
+`
+      }
+
+    }
+  }
 
   const aiDecorativeSection = options.designContext?.decorativeElements
     ? `
@@ -299,119 +610,175 @@ Integrate this creative twist prominently into the background or decorative elem
 `
     : ''
 
-  // Get typography hierarchy rules
-  const typographyRules = getTypographyPromptFragment('event_poster')
+  // Build v4.1 contexts with correct overrides
+  const v41Contexts = buildAllV41Contexts({
+    // Text alignment: center headlines, left-aligned details
+    // v4.2: Use AI-suggested alignment if available
+    textAlignment: {
+      headlines: (options.designContext?.typographyGuidance?.alignment as any) || 'center',
+      subtitles: (options.designContext?.typographyGuidance?.alignment as any) === 'asymmetric' ? 'left' : (options.designContext?.typographyGuidance?.alignment as any) || 'center',
+      details: (options.designContext?.typographyGuidance?.alignment as any) === 'asymmetric' ? 'right' : 'left',
+      footer: 'center',
+    },
+    // Text shadow for white text legibility on photos/gradients
+    textShadow: {
+      enabled: true,
+      roles: ['headline', 'subheadline'],
+      intensity: 'subtle',
+    },
+    // Header logo band for Yi triple-logo layout
+    // FIX: Dynamic styling based on sophistication
+    headerLogoBand: {
+      enabled: true,
+      heightPercent: 12,
+      backgroundStyle: sophistication === 'rich'
+        ? 'transparent / integrated header for immersive background (do NOT create a white bar)'
+        : 'clean, solid white LOGO STRIPE spanning the full width',
+      logoLayout: 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right',
+      secondaryLogos: !!options.verticalId,  // Include vertical logos if applicable
+    },
+    // Footer with Yi chapter branding (only if user provided footer data)
+    footerStyle: {
+      enabled: !!options.footerContext, // Only enable if user explicitly provided footer contact data
+      heightPercent: 10,
+      leftSection: 'standard_yi',
+      rightSection: 'partner_logo',
+      chapterDetails: options.footerContext ? {
+        chapterName: options.organizationContext?.name || '', // Default to empty string if no name provided
+        // Hashtag and social handle auto-generated from chapter name
+      } : undefined,
+      partnerInfo: options.footerContext ? {
+        partnerLabel: 'Digital Partner',
+      } : undefined,
+    },
+    // Pass footer contact context (phone, email, website, social)
+    footerContext: options.footerContext,
+    // Event details card (if date/time/venue present)
+    eventDetailsCard: {
+      enabled: !!(data.eventDate || data.eventTime || data.venue),
+      position: 'bottom-center',
+      includeIcons: true,
+      backgroundColor: 'white',
+    },
+    // Event data for the card
+    eventData: {
+      date: data.eventDate,
+      time: data.eventTime,
+      venue: data.venue,
+    },
+  })
 
-  // Determine colors - priority: user brand colors > AI-generated colors > hardcoded fallback
-  const colors = options.brandContext?.primaryColor
-    ? `Brand-adapted: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}, ${options.brandContext.accentColor || eventContext.ctaColor}`
-    : options.designContext?.colorMood
-      ? `AI-suggested: ${options.designContext.colorMood}`
-      : eventContext.colors
+  // Define variables used in the template
+  const typographyRules = aiTypographySection;
+  const colors = eventContext.colors;
+  const tg = options.designContext?.typographyGuidance;
+  const tg_style = tg?.typographyStyle || 'modern';
+  const tg_cat = tg?.typographyStyle || eventContext.headlineFont || 'sans-serif';
+  const tg_align = (tg?.alignment as any) || 'center';
 
   return `
-A VISUALLY STUNNING event poster with rich, atmospheric design that immediately communicates the event type through visual language.
-
-FORMAT: Event Promotional Poster in Portrait 4:5 aspect ratio (optimal for both print and social sharing). Purpose is to announce the upcoming event, attract the target audience, and drive registrations. Event Type: ${data.eventType || 'Professional event'}.
-
-${logoContext}
-
-${brandContext}
-
-${qualityContext}
-
-${themeContext}
-
-${orgContext}
-
-${layoutContext}
-
-${forbiddenZonesContext}
-
-${langContext}
-
-${speakerZoneContext}
-
-${decorativeElementsContext}
-
-${backgroundSettingContext}
-
-${aiTypographySection}
-
-${aiDecorativeSection}
-
-${creativeTwistSection}
-
 TYPOGRAPHY GUIDELINES:
 ${typographyRules}
 
 POSTER DESCRIPTION:
-A visually rich, immersive event poster for "${eventName}". Target Audience: ${data.targetAudience || eventContext.defaultAudience}.
+A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for "${eventName}".Target Audience: ${data.targetAudience || eventContext.defaultAudience}.
 
-The poster achieves these visual storytelling goals: It looks and feels like a ${data.eventType || 'professional'} event through its visual design. The visual_design_elements create an atmospheric, contextually-rich background. The design quality rivals Google AI Studio - layered, dimensional, professional. It passes the 3-SECOND TEST where the viewer instantly understands WHAT, WHEN, WHERE.
+${options.ultraProContext?.visualScene
+      ? `VISUAL SCENE (ULTRA-PRO DIRECTION):
+${options.ultraProContext.visualScene}
+
+DESIGN GUIDANCE:
+${options.ultraProContext.designGuidance || 'Follow the visual scene description strictly.'}`
+      : `The poster achieves these visual storytelling goals: It looks and feels like a ${data.eventType || 'professional'} event through its visual design. ${sophistication === 'minimalist' ? 'It uses VAST NEGATIVE SPACE and a single focal element for maximum impact.' : 'The visual_design_elements create an atmospheric, contextually-rich background. The design feels "Busy" in a professional, high-end way (Organized Complexity).'} The design quality rivals Google AI Studio - layered, dimensional, sophisticated. It passes the 3-SECOND TEST where the viewer instantly understands WHAT, WHEN, WHERE.`
+    }
 
 ${hasSpeakerPhoto ? 'Speaker photo will be overlaid via post-processing. Keep that zone clean but make the REST of the poster visually rich.' : ''}
 
 POSTER LAYOUT AND COMPOSITION:
 
-This poster uses a clear vertical hierarchy optimized for quick scanning. The layout divides into distinct zones from top to bottom:
+  <layout_composition_rules>
+    1. HIERARCHY OVER RIGIDITY:
+  - Do NOT rigidly center everything.Follow the "Alignment Strategy" defined in the typography section above.
+   - If alignment is 'left', align key text elements to a strong left grid line.
+   - If alignment is 'asymmetric', create a dynamic balance between text and visuals.
 
-The top 15% of the poster is a clean header band with only simple background colors or gradients - no text in this area. This header band has clean corners for branding elements.
+2. LOGICAL GROUPING:
+  - Group Date, Time, and Venue together visually(e.g., using icons or a divider).
+   - "${eventName}" must be the dominant focal point.
+   - "${eventName}" must be the dominant focal point.
+${data.registrationInfo ? `   - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
-Below the header band (starting at 15-20% from top), the main event title "${eventName}" appears as the largest, most prominent text. The title is centered horizontally in the middle portion of the poster width, not extending into the corner areas.
+3. HEADER INTEGRATION:
+  - ${sophistication === 'rich' ? 'The top 15% should be PART of the background art (do not leave it white). We will overlay white logos on top.' : 'The top 15% is a safe zone. Keep it clean.'}
 
-${eventDescription ? `The tagline "${eventDescription}" appears below the main title in a supporting role.` : ''}
+    ${eventDescription ? `4. TAGLINE:
+   - Place "${eventDescription}" in a supporting relationship to the title.` : ''
+    }
 
-The middle section contains event details with clear iconography: the date and time "${formatEventDate(data.eventDate)} | ${formatEventTime(data.eventTime)}", and venue "${data.venue || ''}".
+${speakerName ? `5. SPEAKER:
+   - Feature "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}" prominent but secondary to the title.` : ''
+    }
 
-${speakerName ? `The speaker section features "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}"${hasSpeakerPhoto ? ' with space for a photo' : ' as TEXT ONLY (no photo placeholder)'}.` : ''}
+${data.entryFee ? `6. FEE:
+   - "Registration fee: ${data.entryFee}" can be a subtle detail or a badge.` : ''
+    }
+  </layout_composition_rules>
 
-${data.entryFee ? `Registration fee: "${data.entryFee}"` : ''}
+TOPICS AND CONTENT LAYOUT:
+If topics are provided in Additional Details, do NOT render them as a single paragraph.Render them as a clean, scannable list or a 2 - column grid.Use micro - icons or glowing nodes as bullets to guide the eye.Ensure line - height is at least 1.5x for readability.
 
-The call-to-action button reads "${data.registrationInfo || 'REGISTER NOW'}" and stands out with high contrast.
+    ${options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : ''}
 
-${eventNote ? `Footer note: "${eventNote}"` : ''}
-
-${options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : ''}
-
-TEXT TO DISPLAY IN THE IMAGE (render these exact words):
-- Main headline: "${eventName}"
+TEXT TO DISPLAY IN THE IMAGE(render these exact words):
+  - Main headline: "${eventName}"
 ${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
-- Date & Time: "${formatEventDate(data.eventDate)} | ${formatEventTime(data.eventTime)}"
-- Location: "${data.venue || ''}"
+  - Date & Time: "${formatEventDate(data.eventDate)} | ${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}"
+    - Location: "${data.venue || ''}"
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
 ${speakerName ? `- Speaker: "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}"` : ''}
-- Button: "${data.registrationInfo || 'REGISTER NOW'}"
+${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
 ${eventNote ? `- Footer: "${eventNote}"` : ''}
 
 VISUAL STYLE:
-${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette. The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Headlines use bold, modern sans-serif typography that commands attention. Event details are clean and readable with supportive icons. The call-to-action button has bold, high contrast styling. Energy level: ${eventContext.energy}.
+${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette.The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style} -vibe(${tg_cat}) with ${tg_align} -aligned layout that commands attention.Event details are clean and readable with supportive icons.The call - to - action button has bold, high contrast styling.Energy level: ${eventContext.energy}.
 
 ${EVENT_POSTER_EXAMPLES}
 
 QUALITY STANDARDS:
-This poster passes the 3-SECOND TEST where What, When, Where are instantly visible. The event name "${eventName}" is the dominant text element and impossible to miss. The design is readable from both close-up on a phone and at distance as a printed poster. Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom. The call-to-action stands out and drives action. All text is clearly legible against its background. The header band (top 15%) has a simple, clean background suitable for branding elements.
+This poster passes the 3 - SECOND TEST where What, When, Where are instantly visible.The event name "${eventName}" is the dominant text element and impossible to miss.The design is readable from both close - up on a phone and at distance as a printed poster.Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom.The call - to - action stands out and drives action.All text is clearly legible against its background.
+${sophistication === 'rich'
+      ? 'The design MUST be visually stunning. Do not settle for "safe". Create something award-winning.'
+      : 'The header band(top 15 %) has a simple, clean background suitable for branding elements.'
+    }
 
 DESIGN CONSTRAINTS:
-The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.
-${hasSpeakerPhoto ? `The speaker photo zone has a clean background without illustrated faces, people, or human figures - real photos will be overlaid separately.` : ''}
-${speakerName && !hasSpeakerPhoto ? `IMPORTANT - NO SPEAKER PLACEHOLDER: The speaker "${speakerName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person. The speaker information is purely textual - render only the name and designation as text, no photo frame needed.` : ''}
+${sophistication === 'rich'
+      ? `Avoid boring, empty layouts. "Clutter" is allowed if it means "Rich Texture" and "Detail". Do not leave vast empty white spaces unless they are intentional negative space. Avoid: tiny unreadable text, low contrast text, amateur composition.`
+      : `The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.`
+    }
+    ${hasSpeakerPhoto ? `The speaker photo zone has a clean background without illustrated faces, people, or human figures - real photos will be overlaid separately.` : ''}
+${speakerName && !hasSpeakerPhoto ? `IMPORTANT - NO SPEAKER PLACEHOLDER: The speaker "${speakerName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person.` : ''}
 
 ${zoneReminderContext}
 
 ${options?.preventionEnhancements?.length ? `
 LEARNED IMPROVEMENTS (from past feedback):
 ${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
-` : ''}
+` : ''
+    }
 
 CREATIVE DIRECTION:
-The AI has full creative control over creating rich, layered, atmospheric backgrounds (not plain colors). Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType || 'professional event'}-themed visual elements throughout the design to tell the story of what kind of event this is. Control the visual mood, color harmony, lighting effects, and professional finish. Style the typography with appropriate sizes, weights, effects, and glow/shadow.
+${sophistication === 'minimalist'
+      ? `AI MUST focus on PROFESSIONAL MINIMALISM. Use vast negative space (40%+). AVOID busy or immersive backgrounds. Use a clean, solid color or very subtle matte gradient as the background. Integrate ONLY ONE or TWO high-impact visual elements subtly. The design should feel elite, quiet, and powerful.`
+      : `UNLEASH VISUAL IMPACT. The AI has full creative control over creating rich, layered, atmospheric backgrounds. Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType}-themed visual elements throughout the design. Do not fear complexity. Fill the canvas with texture, light, and depth.`
+    }
+Control the visual mood, color harmony, and professional finish.Style the typography with appropriate sizes, weights, and high - contrast rendering.
 
-The image contains no human faces or figures (photos added separately) and no logos (added via post-processing). Only the exact text listed above appears in the image.
+The image contains no human faces or figures(photos added separately) and no logos(added via post - processing).Only the exact text listed above appears in the image.
 
-The goal is a visually stunning poster that immediately communicates "${data.eventType || 'professional event'}" through rich visual language, while keeping the top header band clean for branding.
+The goal is a visually stunning poster that immediately communicates "${data.eventType || 'professional event'}" through ${sophistication === 'minimalist' ? 'clean, professional minimalism' : 'rich visual language'}${sophistication === 'rich' ? ', with a fully integrated, immersive header.' : ', while keeping the top header band clean for branding.'}
 `.trim()
 }
 
 // Export for use elsewhere
-export { EVENT_POSTER_EXAMPLES }
+

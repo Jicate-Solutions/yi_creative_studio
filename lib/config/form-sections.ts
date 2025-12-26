@@ -188,7 +188,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   // ---------------------------------------------------------------------------
 
   event_poster: {
-    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['registrationInfo', 'contactNumber', 'websiteUrl'],
     branding: ['organizationName'],
@@ -196,14 +196,14 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   },
 
   portrait_poster: {
-    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['contactInfo'],
     advanced: ['additionalDetails'],
   },
 
   landscape_poster: {
-    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['contactInfo'],
     advanced: ['additionalDetails'],
@@ -217,7 +217,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   },
 
   invitation: {
-    core: ['eventName', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['registrationInfo', 'dressCode'],
     advanced: ['specialInstructions', 'additionalDetails'],
@@ -339,7 +339,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   },
 
   flyer_a4: {
-    core: ['eventName', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     content: ['eventDescription'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['contactNumber', 'contactEmail', 'websiteUrl'],
@@ -347,7 +347,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   },
 
   flyer_a5: {
-    core: ['eventName', 'eventDate', 'eventTime', 'venue'],
+    core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     content: ['eventDescription'],
     speaker: ['speakerName', 'speakerDesignation'],
     contact: ['contactNumber', 'contactEmail', 'websiteUrl'],

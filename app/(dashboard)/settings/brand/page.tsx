@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useOrganization } from '@/hooks'
-import { useAuthStore } from '@/stores/auth-store'
+import { useClientAdmin } from '@/hooks/use-client-admin'
 import {
   Card,
   CardContent,
@@ -56,10 +56,9 @@ type BrandConfigForm = z.infer<typeof brandConfigSchema>
 
 export default function BrandConfigPage() {
   const { organization, brandConfig, updateBrandConfig } = useOrganization()
-  const { canManage } = useAuthStore()
   const [isSaving, setIsSaving] = useState(false)
 
-  const isAdmin = canManage()
+  const { isAdmin, isReady } = useClientAdmin()
 
   const form = useForm<BrandConfigForm>({
     resolver: zodResolver(brandConfigSchema),
@@ -107,7 +106,7 @@ export default function BrandConfigPage() {
   }, [brandConfig, form])
 
   async function onSubmit(data: BrandConfigForm) {
-    if (!isAdmin) {
+    if (!isReady || !isAdmin) {
       toast.error('Only admins can update brand configuration')
       return
     }
@@ -172,13 +171,13 @@ export default function BrandConfigPage() {
                               value={field.value}
                               onChange={(e) => field.onChange(e.target.value)}
                               className="opacity-0 w-full h-full cursor-pointer"
-                              disabled={!isAdmin}
+                              disabled={!isReady || !isAdmin}
                             />
                           </div>
                           <Input
                             {...field}
                             placeholder="#005B96"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </div>
                       </FormControl>
@@ -204,13 +203,13 @@ export default function BrandConfigPage() {
                               value={field.value}
                               onChange={(e) => field.onChange(e.target.value)}
                               className="opacity-0 w-full h-full cursor-pointer"
-                              disabled={!isAdmin}
+                              disabled={!isReady || !isAdmin}
                             />
                           </div>
                           <Input
                             {...field}
                             placeholder="#FF6B35"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </div>
                       </FormControl>
@@ -236,13 +235,13 @@ export default function BrandConfigPage() {
                               value={field.value}
                               onChange={(e) => field.onChange(e.target.value)}
                               className="opacity-0 w-full h-full cursor-pointer"
-                              disabled={!isAdmin}
+                              disabled={!isReady || !isAdmin}
                             />
                           </div>
                           <Input
                             {...field}
                             placeholder="#00A86B"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </div>
                       </FormControl>
@@ -295,7 +294,7 @@ export default function BrandConfigPage() {
                         <Input
                           {...field}
                           placeholder="Inter"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormDescription>
@@ -316,7 +315,7 @@ export default function BrandConfigPage() {
                         <Input
                           {...field}
                           placeholder="Poppins"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormDescription>
@@ -353,7 +352,7 @@ export default function BrandConfigPage() {
                           min={5}
                           max={30}
                           step={1}
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormDescription>
@@ -377,7 +376,7 @@ export default function BrandConfigPage() {
                           min={5}
                           max={30}
                           step={1}
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormDescription>
@@ -410,7 +409,7 @@ export default function BrandConfigPage() {
                       <Input
                         {...field}
                         placeholder="Yi Chennai"
-                        disabled={!isAdmin}
+                        disabled={!isReady || !isAdmin}
                       />
                     </FormControl>
                     <FormMessage />
@@ -430,7 +429,7 @@ export default function BrandConfigPage() {
                           {...field}
                           type="email"
                           placeholder="contact@yichennai.org"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormMessage />
@@ -448,7 +447,7 @@ export default function BrandConfigPage() {
                         <Input
                           {...field}
                           placeholder="https://yichennai.org"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormMessage />
@@ -469,7 +468,7 @@ export default function BrandConfigPage() {
                           {...field}
                           type="tel"
                           placeholder="+91 98765 43210"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormMessage />
@@ -487,7 +486,7 @@ export default function BrandConfigPage() {
                         <Input
                           {...field}
                           placeholder="123 Business Park, Chennai"
-                          disabled={!isAdmin}
+                          disabled={!isReady || !isAdmin}
                         />
                       </FormControl>
                       <FormMessage />
@@ -510,7 +509,7 @@ export default function BrandConfigPage() {
                           <Input
                             {...field}
                             placeholder="@yichennai"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </FormControl>
                       </FormItem>
@@ -527,7 +526,7 @@ export default function BrandConfigPage() {
                           <Input
                             {...field}
                             placeholder="company/yi-chennai"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </FormControl>
                       </FormItem>
@@ -544,7 +543,7 @@ export default function BrandConfigPage() {
                           <Input
                             {...field}
                             placeholder="yichennai"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </FormControl>
                       </FormItem>
@@ -561,7 +560,7 @@ export default function BrandConfigPage() {
                           <Input
                             {...field}
                             placeholder="@yichennai"
-                            disabled={!isAdmin}
+                            disabled={!isReady || !isAdmin}
                           />
                         </FormControl>
                       </FormItem>
@@ -573,7 +572,7 @@ export default function BrandConfigPage() {
           </Card>
 
           {/* Actions */}
-          {isAdmin && (
+          {isReady && isAdmin && (
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={handleReset}>
                 <RotateCcw className="h-4 w-4 mr-2" />

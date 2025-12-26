@@ -318,7 +318,7 @@ export default function GalleryPage() {
       </div>
 
       {/* Filters - Horizontally scrollable on mobile */}
-      <div className="flex flex-col gap-4 p-4 bg-muted/30 rounded-xl border">
+      <div className="flex flex-col gap-4 p-4 glass-panel">
         {/* Search - Full width on mobile */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -372,9 +372,9 @@ export default function GalleryPage() {
 
       {/* Gallery Grid - Masonry Layout */}
       {isLoading ? (
-        <div className="columns-2 md:columns-3 lg:columns-4 gallery-masonry">
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-4 gallery-masonry space-y-4">
           {[...Array(8)].map((_, i) => (
-            <Card key={i} className="break-inside-avoid mb-4 md:mb-6 gallery-card">
+            <Card key={i} className="break-inside-avoid glass-card border-none shadow-none">
               <div
                 className="bg-muted rounded-t-xl animate-pulse"
                 style={{ height: [200, 280, 320, 240, 260, 300, 220, 290][i % 8] }}
@@ -387,7 +387,7 @@ export default function GalleryPage() {
           ))}
         </div>
       ) : creatives.length === 0 ? (
-        <Card className="py-12">
+        <Card darkVariant="elevated" className="py-12">
           <CardContent className="text-center">
             <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
             <h3 className="text-lg font-medium mb-2">No creatives yet</h3>
@@ -400,11 +400,11 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="columns-2 md:columns-3 lg:columns-4 gallery-masonry">
+        <div className="columns-2 md:columns-3 lg:columns-4 gap-4 gallery-masonry space-y-4">
           {creatives.map((creative) => (
             <div
               key={creative.id}
-              className="break-inside-avoid mb-4 md:mb-6 gallery-card group cursor-pointer"
+              className="break-inside-avoid glass-card group cursor-pointer hover:scale-[1.01] transition-all duration-300"
               onClick={() => setSelectedCreative(creative)}
             >
               {/* Image Container - Natural Height */}
@@ -441,11 +441,10 @@ export default function GalleryPage() {
                     }}
                   >
                     <Heart
-                      className={`h-4 w-4 ${
-                        creative.is_favorite
+                      className={`h-4 w-4 ${creative.is_favorite
                           ? 'fill-red-500 text-red-500'
                           : 'text-gray-600'
-                      }`}
+                        }`}
                     />
                   </Button>
                   <DropdownMenu>
@@ -545,13 +544,18 @@ export default function GalleryPage() {
               "p-0 gap-0 overflow-hidden",
               isFullScreen
                 ? "w-screen h-screen max-w-none max-h-none inset-0 rounded-none bg-black"
-                : "max-w-6xl w-[95vw] max-h-[95vh] h-[85vh] rounded-2xl"
+                : "max-w-6xl w-[95vw] max-h-[95vh] h-[85vh] rounded-2xl bg-background"
             )}
             showCloseButton={false}
+            solidBackground={true}
+            noOverlayBlur={true}
           >
             {/* Hidden accessible title for screen readers */}
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedCreative.title || 'Creative Details'}</DialogTitle>
+              <DialogDescription>
+                View and manage creative details for this generated image
+              </DialogDescription>
             </DialogHeader>
 
             {/* Custom close button - top right */}
@@ -618,11 +622,10 @@ export default function GalleryPage() {
                     aria-label={selectedCreative.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        selectedCreative.is_favorite
+                      className={`h-5 w-5 transition-colors ${selectedCreative.is_favorite
                           ? 'fill-red-500 text-red-500'
                           : ''
-                      }`}
+                        }`}
                     />
                   </button>
                   <DropdownMenu>
@@ -651,80 +654,80 @@ export default function GalleryPage() {
               {/* Bottom Metadata Panel - Dark gradient overlay (hidden in full screen) */}
               {!isFullScreen && (
                 <div className="creative-metadata-panel">
-                <div className="flex items-start justify-between gap-4">
-                  {/* Title and date */}
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-white text-lg md:text-xl font-semibold truncate">
-                      {selectedCreative.title || 'Untitled Creative'}
-                    </h2>
-                    <p className="text-white/60 text-sm mt-1">
-                      Generated {formatDistanceToNow(new Date(selectedCreative.created_at))} ago
-                    </p>
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Title and date */}
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-white text-lg md:text-xl font-semibold truncate">
+                        {selectedCreative.title || 'Untitled Creative'}
+                      </h2>
+                      <p className="text-white/60 text-sm mt-1">
+                        Generated {formatDistanceToNow(new Date(selectedCreative.created_at))} ago
+                      </p>
+                    </div>
+
+                    {/* Primary CTA */}
+                    <Button
+                      variant="glass-primary"
+                      size="lg"
+                      className="shrink-0"
+                      onClick={() => {
+                        setCreativeForExport(selectedCreative)
+                        setExportModalOpen(true)
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
                   </div>
 
-                  {/* Primary CTA */}
-                  <Button
-                    variant="glass-primary"
-                    size="lg"
-                    className="shrink-0"
-                    onClick={() => {
-                      setCreativeForExport(selectedCreative)
-                      setExportModalOpen(true)
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-
-                {/* Metadata chips */}
-                <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
-                  {selectedCreative.vertical && (
-                    <span className="badge-pill badge-pill-primary shrink-0">
-                      {selectedCreative.vertical}
-                    </span>
-                  )}
-                  <span className="badge-pill bg-white/20 text-white shrink-0 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    {selectedCreative.ai_model}
-                  </span>
-                  {selectedCreative.generation_time_ms && (
-                    <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {(selectedCreative.generation_time_ms / 1000).toFixed(1)}s
-                    </span>
-                  )}
-                  <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
-                    <Coins className="h-3 w-3" />
-                    {selectedCreative.credits_used} credits
-                  </span>
-                </div>
-
-                {/* Secondary actions row */}
-                <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-white border-white/20 hover:bg-white/10 hover:text-white"
-                    onClick={() => saveAsTemplate(selectedCreative)}
-                    disabled={isSavingTemplate}
-                  >
-                    {isSavingTemplate ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="h-4 w-4 mr-2" />
+                  {/* Metadata chips */}
+                  <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
+                    {selectedCreative.vertical && (
+                      <span className="badge-pill badge-pill-primary shrink-0">
+                        {selectedCreative.vertical}
+                      </span>
                     )}
-                    Save as Template
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    onClick={() => deleteCreative(selectedCreative.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                    <span className="badge-pill bg-white/20 text-white shrink-0 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      {selectedCreative.ai_model}
+                    </span>
+                    {selectedCreative.generation_time_ms && (
+                      <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {(selectedCreative.generation_time_ms / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                    <span className="badge-pill bg-white/10 text-white/80 shrink-0 flex items-center gap-1">
+                      <Coins className="h-3 w-3" />
+                      {selectedCreative.credits_used} credits
+                    </span>
+                  </div>
+
+                  {/* Secondary actions row */}
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-white border-white/20 hover:bg-white/10 hover:text-white"
+                      onClick={() => saveAsTemplate(selectedCreative)}
+                      disabled={isSavingTemplate}
+                    >
+                      {isSavingTemplate ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4 mr-2" />
+                      )}
+                      Save as Template
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => deleteCreative(selectedCreative.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

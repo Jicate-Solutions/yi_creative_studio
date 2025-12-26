@@ -21,6 +21,10 @@ import { LINKEDIN_POST_EXAMPLES } from '../examples'
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // CONTENT TYPE CONTEXTS (v3.1)
@@ -88,7 +92,7 @@ export function buildLinkedInPrompt(
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
-  const brandContext = buildBrandContext(options.brandContext)
+  const brandContext = buildBrandContext(options.brandContext, 'linkedin_post')
   const qualityContext = buildQualityContext(options.resolution, 'linkedin_post')
 
   // NEW v3.1: Build additional context sections
@@ -97,9 +101,11 @@ export function buildLinkedInPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -112,15 +118,15 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 `
     : ''
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: options.contentType || data.contentType || 'professional',
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: true,
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
@@ -156,7 +162,9 @@ ${forbiddenZonesContext}
 
 ${aiTypographySection}
 
-${aiDecorativeSection}
+${decorativeSection}
+
+${backgroundSection}
 
 <subject>
 A sophisticated professional graphic for: "${data.headline}"
@@ -166,13 +174,13 @@ This should look like it comes from a respected industry leader, not a marketing
 </subject>
 
 <composition>
-Layout: ${contentContext.layout}
+Layout: ${options.designContext?.layoutSuggestion || contentContext.layout}
 
 Structure:
 ${contentContext.structure}
 
 Visual Elements:
-- Background: Professional ${data.backgroundStyle || 'gradient (navy to dark blue)'} with subtle geometric or abstract accents
+- Background: ${options.designContext?.backgroundSetting || data.backgroundStyle || 'Professional gradient (navy to dark blue)'} with subtle geometric or abstract accents
 - Headline: "${data.headline}" - prominent but not shouting
 ${data.keyInsight ? `- Key insight/statistic: "${data.keyInsight}" - highlighted/emphasized` : ''}
 ${data.professionalMessage ? `- Supporting message: "${data.professionalMessage}"` : ''}
@@ -226,6 +234,14 @@ DO NOT render as visible text:
 - Instruction phrases (Generate, Create, Include, Apply)
 - Platform terminology (B2B, thought leadership, credibility)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}

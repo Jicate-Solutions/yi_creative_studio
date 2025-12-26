@@ -82,8 +82,8 @@ const DISTRIBUTION_PATTERNS: Record<number, number[]> = {
   1: [3],                    // Center (0-indexed column 3 = position 4)
   2: [0, 5],                 // Edges
   3: [0, 2, 5],              // Left, center-left, right
-  4: [0, 1, 4, 5],           // Weighted to edges
-  5: [0, 1, 2, 4, 5],        // Skip one in center
+  4: [0, 2, 3, 5],           // Evenly spread (uses center slots 3&4)
+  5: [0, 1, 2, 4, 5],        // Skip one near center
   6: [0, 1, 2, 3, 4, 5],     // All positions
 }
 

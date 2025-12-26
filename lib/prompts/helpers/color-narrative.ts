@@ -6,6 +6,8 @@
 import type { BrandContext, ColorPaletteIntent } from '../types'
 import type { ColorConfig, CustomColors } from '@/lib/config/design-constants'
 import { COLOR_PALETTES, type ColorPaletteId } from '@/lib/config/design-constants'
+import { describeColor, buildColorNarrative as buildAIColorNarrative } from '@/lib/utils/color-names'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 
 /**
  * Color scheme narratives - rich descriptions for each predefined scheme
@@ -27,7 +29,12 @@ const COLOR_SCHEME_NARRATIVES: Record<string, string> = {
  */
 export function buildColorNarrative(colorScheme: string, brand: BrandContext): string {
   if (colorScheme === 'brand_default') {
-    return `a cohesive brand palette anchored by ${brand.primaryColor}, complemented by ${brand.secondaryColor}, with ${brand.accentColor} providing strategic highlights that draw attention to key information. These colors represent the organization's identity and should be used consistently throughout the design`
+    // Use AI-powered color descriptions for better understanding
+    const primaryDesc = describeColor(brand.primaryColor)
+    const secondaryDesc = describeColor(brand.secondaryColor)
+    const accentDesc = describeColor(brand.accentColor)
+
+    return `a cohesive brand palette anchored by ${primaryDesc.name} (${brand.primaryColor}), a ${primaryDesc.personality.slice(0, 3).join(', ')} color that conveys ${primaryDesc.mood.toLowerCase()}. Complemented by ${secondaryDesc.name} (${brand.secondaryColor}), which adds ${secondaryDesc.mood.toLowerCase()}, and ${accentDesc.name} (${brand.accentColor}) providing strategic highlights that draw attention to key information. These colors represent the organization's identity and should be used consistently throughout the design. Visual references: Primary = ${primaryDesc.visualEquivalents[0]}; Secondary = ${secondaryDesc.visualEquivalents[0]}.`
   }
 
   return COLOR_SCHEME_NARRATIVES[colorScheme] ||
@@ -36,13 +43,40 @@ export function buildColorNarrative(colorScheme: string, brand: BrandContext): s
 
 /**
  * Build color palette intent from scheme and brand
+ * v3.10: Now accepts pre-resolved colors for consistency across prompt pipeline
  * Now supports ColorConfig from UI for brand color toggle and custom colors
  */
 export function buildColorPaletteIntent(
   colorScheme: string,
   brand: BrandContext,
-  colorConfig?: ColorConfig
+  colorConfig?: ColorConfig,
+  resolvedColors?: ResolvedColors  // NEW v3.10: Accept pre-resolved colors
 ): ColorPaletteIntent {
+  // NEW v3.10: If resolved colors provided, use them directly
+  if (resolvedColors) {
+    const narrative = buildColorNarrative(
+      resolvedColors.source === 'brand' ? 'brand_default' : 'custom',
+      {
+        ...brand,
+        primaryColor: resolvedColors.primaryColor,
+        secondaryColor: resolvedColors.secondaryColor,
+        accentColor: resolvedColors.accentColor,
+      }
+    )
+
+    return {
+      scheme: resolvedColors.source,
+      colors: {
+        primary: resolvedColors.primaryColor,
+        secondary: resolvedColors.secondaryColor,
+        accent: resolvedColors.accentColor,
+        background: brand.backgroundColor,
+      },
+      narrative,
+    }
+  }
+
+  // Legacy logic below (for backward compatibility when resolvedColors not provided)
   // If colorConfig is provided, use it to determine colors
   if (colorConfig) {
     // If using brand colors, use brand context
@@ -132,7 +166,12 @@ export function buildColorPaletteIntent(
  * Build narrative for custom user-defined colors
  */
 export function buildCustomColorNarrative(colors: CustomColors): string {
-  return `a custom color palette featuring ${colors.primary} as the dominant primary color, complemented by ${colors.secondary} as the secondary color, and ${colors.accent} providing strategic accent highlights. These user-selected colors create a unique and personalized visual identity`
+  // Use AI-powered color descriptions for custom colors too
+  const primaryDesc = describeColor(colors.primary)
+  const secondaryDesc = describeColor(colors.secondary)
+  const accentDesc = describeColor(colors.accent)
+
+  return `a custom color palette featuring ${primaryDesc.name} (${colors.primary}) as the dominant primary color, a ${primaryDesc.personality.slice(0, 2).join(', ')} tone that ${primaryDesc.mood.toLowerCase()}. Complemented by ${secondaryDesc.name} (${colors.secondary}) as the secondary color, and ${accentDesc.name} (${colors.accent}) providing strategic accent highlights. These user-selected colors create a unique and personalized visual identity.`
 }
 
 /**

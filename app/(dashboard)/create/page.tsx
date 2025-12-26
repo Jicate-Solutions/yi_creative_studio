@@ -256,6 +256,7 @@ export default function CreatePage() {
     updateExportSettings,
     // Color configuration actions
     setUseBrandColors,
+    setUseBrandFont,
     setColorPalette,
     setCustomColors,
     // Format selection
@@ -283,6 +284,10 @@ export default function CreatePage() {
     return () => exitCreateMode()
   }, [enterCreateMode, exitCreateMode])
 
+
+
+  // Intelligent Start Logic
+  // Stores a temporary state to ensure we only jump to step 5 once data is synced
   // Reset form when entering create page for a fresh start
   // This clears previous session data (logos, vertical, form fields)
   useEffect(() => {
@@ -321,39 +326,81 @@ export default function CreatePage() {
     organizationType: currentOrganization?.type || 'yi_chapter',
   })
 
-  // Get the title field ID dynamically - prioritize AI-generated schema
+  // Helper: Map API field names to all possible schema field IDs
+  const API_TO_SCHEMA_MAP: Record<string, string[]> = {
+    'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
+    'time': ['eventTime', 'time'],
+    'venue': ['venue', 'eventVenue', 'location'],
+    'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
+    'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+    'title': ['eventName', 'eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle', 'linkedinHeadline', 'pinTitle', 'tweetText'],
+  }
+
+  /**
+   * Finds the first non-empty value for a field by trying multiple possible IDs
+   * @param schemaName - Semantic field name (e.g., 'title', 'date')
+   * @param formDataObj - Form data to search
+   * @param schemaFieldIds - Available field IDs from current schema
+   * @returns { fieldId, value } or null if not found
+   */
+  const findFieldValueBySchemaName = useCallback(
+    (
+      schemaName: keyof typeof API_TO_SCHEMA_MAP,
+      formDataObj: Record<string, unknown>,
+      schemaFieldIds?: string[]
+    ): { fieldId: string; value: string } | null => {
+      const possibleIds = API_TO_SCHEMA_MAP[schemaName]
+      if (!possibleIds || possibleIds.length === 0) return null
+
+      // Priority 1: Match against schema field IDs if available
+      if (schemaFieldIds && schemaFieldIds.length > 0) {
+        const matchingId = possibleIds.find(id => schemaFieldIds.includes(id))
+        if (matchingId) {
+          const value = (formDataObj[matchingId] as string) || ''
+          if (value.trim().length > 0) {
+            return { fieldId: matchingId, value: value.trim() }
+          }
+        }
+      }
+
+      // Priority 2: Try all possible IDs in order
+      for (const fieldId of possibleIds) {
+        const value = (formDataObj[fieldId] as string) || ''
+        if (value.trim().length > 0) {
+          return { fieldId, value: value.trim() }
+        }
+      }
+
+      return null
+    },
+    []
+  )
+
+  // Get the title field ID dynamically - uses smart field finder
   const getTitleFieldId = useCallback(() => {
-    // Priority 1: Use AI-generated dynamic schema (if available)
-    if (dynamicSchema.schema?.fields && dynamicSchema.schema.fields.length > 0) {
-      const aiTitleField = dynamicSchema.schema.fields.find(
-        f => f.suggestable && f.type === 'text' && f.required
-      )
-      if (aiTitleField) return aiTitleField.id
-    }
+    const formDataObj = formData.formData as Record<string, unknown>
+    const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) ||
+      (selectedFormat?.id ? getFormatFields(selectedFormat.id, selectedVertical?.slug).map(f => f.id) : [])
 
-    // Priority 2: Use format-specific fields
-    if (selectedFormat?.id) {
-      const fields = getFormatFields(selectedFormat.id, selectedVertical?.slug)
-      const titleField = fields.find(f => f.suggestable && f.type === 'text' && f.required)
-      if (titleField) return titleField.id
-    }
-
-    // Fallback
-    return 'title'
-  }, [selectedFormat?.id, selectedVertical?.slug, dynamicSchema.schema])
+    const result = findFieldValueBySchemaName('title', formDataObj, schemaFieldIds)
+    return result?.fieldId || API_TO_SCHEMA_MAP['title'][0]
+  }, [selectedFormat?.id, selectedVertical?.slug, dynamicSchema.schema, formData.formData])
 
   // Handle AI suggestion trigger
   const handleRequestSuggestions = useCallback(async () => {
-    const titleFieldId = getTitleFieldId()
     const formDataObj = formData.formData as Record<string, unknown>
-    const title = (formDataObj[titleFieldId] as string) || ''
+    const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) ||
+      (selectedFormat?.id ? getFormatFields(selectedFormat.id, selectedVertical?.slug).map(f => f.id) : [])
 
-    if (title.length < 5) {
+    const titleResult = findFieldValueBySchemaName('title', formDataObj, schemaFieldIds)
+
+    if (!titleResult || titleResult.value.length < 5) {
       toast.error('Enter at least 5 characters in the title to get suggestions')
       return
     }
-    await requestSuggestions(title)
-  }, [formData.formData, requestSuggestions, getTitleFieldId])
+
+    await requestSuggestions(titleResult.value)
+  }, [formData.formData, selectedFormat?.id, selectedVertical?.slug, requestSuggestions, dynamicSchema.schema])
 
   // Get field value helper
   const getFieldValue = useCallback(
@@ -775,6 +822,35 @@ export default function CreatePage() {
     }
   }
 
+  // Handle Enter key to proceed to next step (Continue button)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger on Enter key
+      if (e.key !== 'Enter') return
+
+      // Don't trigger if user is typing in an input field, textarea, or contenteditable
+      const target = e.target as HTMLElement
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('[role="dialog"]') || // Don't trigger in modals
+        target.closest('[role="combobox"]') // Don't trigger in dropdowns
+      ) {
+        return
+      }
+
+      // Only proceed if on steps 1-6 (Continue button visible) and can proceed
+      if (step < 7 && !isGenerating && canProceed()) {
+        e.preventDefault()
+        handleNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [step, isGenerating, selectedFormat, selectedVertical, formData])
+
   return (
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden">
@@ -823,900 +899,897 @@ export default function CreatePage() {
 
           {/* Step Content Area - Scrollable */}
           <div className={cn(
-            "flex-1 overflow-y-auto py-6 bg-[#E8F4FD]",
+            "flex-1 overflow-y-auto py-6 relative z-10 no-scrollbar",
             (step === 1 || step === 3 || step === 4) ? "px-6" : "container"
           )}>
-          <div className="grid grid-cols-1 gap-6">
-            {/* Step Content */}
-            <div className={cn(
-              (step === 1 || step === 3 || step === 4) ? "w-full" : "max-w-4xl mx-auto w-full"
-            )}>
-              {/* Step 1: Select Format */}
-              {step === 1 && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
+            <div className="grid grid-cols-1 gap-6">
+              {/* Step Content */}
+              <div className={cn(
+                (step === 1 || step === 3 || step === 4) ? "w-full" : "max-w-4xl mx-auto w-full"
+              )}>
+                {/* Step 1: Select Format */}
+                {step === 1 && (
+                  <Card darkVariant="elevated">
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <LayoutGrid className="h-5 w-5 text-primary" />
+                            Choose Format
+                          </CardTitle>
+                          <CardDescription>
+                            Select the canvas size and format for your creative
+                          </CardDescription>
+                        </div>
+                        <CustomSizeForm
+                          customDimensions={formData.customDimensions}
+                          onApply={(width, height) => {
+                            selectFormat('custom')
+                            setCustomDimensions(width, height)
+                          }}
+                          onClear={() => { }}
+                          className="shrink-0"
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <FormatSelectionInline onSelect={handleSelectFormat} hideCustomSize />
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Step 2: Select Vertical & Creation Mode */}
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <Card darkVariant="elevated">
+                      <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <LayoutGrid className="h-5 w-5 text-primary" />
-                          Choose Format
+                          <Palette className="h-5 w-5 text-primary" />
+                          Select Vertical
                         </CardTitle>
                         <CardDescription>
-                          Select the canvas size and format for your creative
+                          Choose the Yi initiative category for your creative
                         </CardDescription>
-                      </div>
-                      <CustomSizeForm
-                        customDimensions={formData.customDimensions}
-                        onApply={(width, height) => {
-                          selectFormat('custom')
-                          setCustomDimensions(width, height)
-                        }}
-                        onClear={() => {}}
-                        className="shrink-0"
-                      />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <FormatSelectionInline onSelect={handleSelectFormat} hideCustomSize />
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Step 2: Select Vertical & Creation Mode */}
-              {step === 2 && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Palette className="h-5 w-5 text-primary" />
-                        Select Vertical
-                      </CardTitle>
-                      <CardDescription>
-                        Choose the Yi initiative category for your creative
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isVerticalsLoading ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {[...Array(6)].map((_, i) => (
-                            <Skeleton key={i} className="h-28 rounded-xl" />
-                          ))}
-                        </div>
-                      ) : verticalsError ? (
-                        <div className="text-center py-12">
-                          <p className="text-destructive mb-4">Failed to load verticals: {verticalsError}</p>
-                          <Button variant="outline" onClick={() => fetchVerticals()}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Retry
-                          </Button>
-                        </div>
-                      ) : verticals.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                          <p>No verticals available.</p>
-                          <Button variant="outline" className="mt-4" onClick={() => fetchVerticals()}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Refresh
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {verticals.map((vertical) => (
-                            <Tooltip key={vertical.id}>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => selectVertical(vertical.id)}
-                                  className={cn(
-                                    'group relative p-4 rounded-xl border-2 text-left transition-all duration-200',
-                                    'hover:border-primary hover:shadow-md hover:-translate-y-0.5',
-                                    selectedVertical?.id === vertical.id
-                                      ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
-                                      : 'border-border bg-card'
-                                  )}
-                                >
-                                  {/* Selected indicator */}
-                                  {selectedVertical?.id === vertical.id && (
-                                    <div className="absolute top-2 right-2">
-                                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                        <Check className="h-3 w-3 text-primary-foreground" />
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className="mb-3">
-                                    <div className={cn(
-                                      'w-12 h-12 rounded-lg flex items-center justify-center transition-colors',
-                                      selectedVertical?.id === vertical.id
-                                        ? 'bg-primary/10'
-                                        : 'bg-muted group-hover:bg-primary/10'
-                                    )}>
-                                      <VerticalIcon
-                                        icon={vertical.icon || 'help-circle'}
-                                        className={cn(
-                                          'h-6 w-6 transition-colors',
-                                          selectedVertical?.id === vertical.id
-                                            ? 'text-primary'
-                                            : 'text-muted-foreground group-hover:text-primary'
-                                        )}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="font-medium">{vertical.name}</div>
-                                  <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                                    {vertical.description}
-                                  </div>
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="max-w-xs">
-                                <p className="font-medium">{vertical.name}</p>
-                                <p className="text-xs text-muted-foreground">{vertical.description}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Step 3: How would you like to create? */}
-              {step === 3 && selectedVertical && (
-                <ModeSelector
-                  mode={formData.creationMode}
-                  onModeChange={setCreationMode}
-                />
-              )}
-
-              {/* Step 4: Smart Logo Placement (AI will avoid these areas) */}
-              {step === 4 && selectedVertical && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <ImageIcon className="h-5 w-5 text-primary" />
-                        Smart Logo Placement
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          <Sparkles className="h-3 w-3 mr-1" />
-                          AI-Aware
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        Position your logos - AI will structure the design to keep these areas clear
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <LogoPositionGrid />
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Step 6: Choose Template or Styling Options (moved after Details for better AI context) */}
-              {step === 6 && selectedVertical && (
-                formData.creationMode === 'template' ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <FileImage className="h-5 w-5 text-primary" />
-                        Choose Template
-                      </CardTitle>
-                      <CardDescription>
-                        Select an image template for your {selectedVertical.name} creative
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <TemplateSelector
-                        verticalId={selectedVertical.id}
-                        verticalName={selectedVertical.name}
-                        onSelect={selectTemplate}
-                        selectedTemplate={selectedTemplate}
-                        selectedFormat={selectedFormat}
-                        verticals={verticals}
-                      />
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <StylingStep
-                    designData={formData.designData}
-                    onThemeChange={updateTheme}
-                    onStyleChange={updateStyle}
-                    onResolutionChange={updateResolution}
-                    onToggleBrandColors={setUseBrandColors}
-                    onSelectPalette={setColorPalette}
-                    onCustomColorChange={setCustomColors}
-                    brandColors={(() => {
-                      const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
-                      return {
-                        primary_color: brandConfig?.primaryColor,
-                        secondary_color: brandConfig?.secondaryColor,
-                        accent_color: brandConfig?.accentColor,
-                      }
-                    })()}
-                  />
-                )
-              )}
-
-              {/* Step 5: Fill Details - Dynamic form based on format type (moved before Template for better AI context) */}
-              {step === 5 && selectedVertical && (
-                <div className="space-y-6">
-                  {/* Dynamic Details Form - renders fields based on selected format */}
-                  <DynamicDetailsForm
-                    formatId={selectedFormat?.id || null}
-                    verticalName={selectedVertical.name}
-                    formData={formData.formData as Record<string, unknown>}
-                    // Dynamic schema props (AI-generated fields)
-                    dynamicSchema={dynamicSchema.schema}
-                    isDynamicSchemaLoading={dynamicSchema.isLoading}
-                    dynamicSchemaError={dynamicSchema.error}
-                    isDynamicSchemaFallback={dynamicSchema.isFallback}
-                    suggestions={(() => {
-                      // Convert suggestions to the format expected by DynamicDetailsForm
-                      // Map API suggestion field IDs to AI-generated schema field IDs
-                      const suggestionMap: Record<string, { value: string; confidence: number }> = {}
-
-                      // API returns: date, time, venue, speaker, description
-                      // AI schema may use: eventDate, eventTime, venue, eventDescription, etc.
-                      // We need to map based on actual schema field IDs
-
-                      const apiToSchemaMap: Record<string, string[]> = {
-                        // API field -> possible schema field IDs (check in order)
-                        'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
-                        'time': ['eventTime', 'time'],
-                        'venue': ['venue', 'eventVenue', 'location'],
-                        'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
-                        'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
-                        'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
-                      }
-
-                      // Get all field IDs from the dynamic schema
-                      const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
-
-                      // Map each API suggestion to the matching schema field ID
-                      Object.entries(apiToSchemaMap).forEach(([apiField, possibleIds]) => {
-                        const suggestion = getSuggestion(apiField as SuggestableField)
-                        if (suggestion) {
-                          // Find matching schema field ID
-                          const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
-                          suggestionMap[matchingId] = suggestion
-                        }
-                      })
-
-                      return suggestionMap
-                    })()}
-                    isSuggestionsLoading={isSuggestionsLoading}
-                    suggestionsError={suggestionsError}
-                    onFormChange={(fieldId, value) => updateFormData({ [fieldId]: value })}
-                    onRequestSuggestions={handleRequestSuggestions}
-                    onAcceptSuggestion={(fieldId) => acceptSuggestion(fieldId as SuggestableField)}
-                    onDismissSuggestion={(fieldId) => dismissSuggestion(fieldId as SuggestableField)}
-                    onAcceptAllSuggestions={() => {
-                      // Custom handler that maps API field IDs to schema field IDs before accepting
-                      const apiToSchemaMap: Record<string, string[]> = {
-                        'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
-                        'time': ['eventTime', 'time'],
-                        'venue': ['venue', 'eventVenue', 'location'],
-                        'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
-                        'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
-                        'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
-                      }
-                      const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
-                      const updates: Record<string, string> = {}
-
-                      Object.entries(apiToSchemaMap).forEach(([apiField, possibleIds]) => {
-                        const suggestion = getSuggestion(apiField as SuggestableField)
-                        if (suggestion?.value) {
-                          const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
-                          updates[matchingId] = suggestion.value
-                        }
-                      })
-
-                      // Update form data with mapped field IDs
-                      if (Object.keys(updates).length > 0) {
-                        updateFormData(updates)
-                      }
-                      // Clear suggestions from store
-                      dismissAllSuggestions()
-                    }}
-                    onDismissAllSuggestions={dismissAllSuggestions}
-                    // Speaker photo integration into Speaker Details section
-                    speakerPhotoValue={formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO}
-                    onSpeakerPhotoChange={(data) =>
-                      updateCustomization({
-                        speakerPhoto: { ...(formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
-                      })
-                    }
-                  />
-
-                  {/* Footer Settings - Format Aware (Speaker Photo is now in Speaker Details section) */}
-                  {(() => {
-                    const customizationOptions = getFormatCustomizationOptions(selectedFormat?.id || '')
-                    // Only show card if footer is supported (speaker photo is now in Speaker Details section)
-                    if (!customizationOptions.footer) return null
-
-                    return (
-                      <Card>
-                        <Collapsible defaultOpen={false}>
-                          <CollapsibleTrigger className="w-full">
-                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2 rounded-lg bg-muted">
-                                    <LayoutTemplate className="h-4 w-4" />
-                                  </div>
-                                  <div className="text-left">
-                                    <CardTitle className="text-base">Footer Settings</CardTitle>
-                                    <CardDescription>
-                                      Configure footer content visibility
-                                    </CardDescription>
-                                  </div>
-                                </div>
-                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
-                              </div>
-                            </CardHeader>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <CardContent className="space-y-4 pt-0">
-                              <div className="space-y-2">
-                                <Label>Footer Style</Label>
-                                <Select
-                                  value={formData.designData?.customization?.footer?.style || 'minimal'}
-                                  onValueChange={(v) => updateCustomization({
-                                    footer: { ...(formData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
-                                  })}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="minimal">Minimal</SelectItem>
-                                    <SelectItem value="full">Full</SelectItem>
-                                    <SelectItem value="branded">Branded</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {(() => {
-                                const brandConfig = currentOrganization?.brand_config as BrandConfig | null
-                                const footerData = formData.designData?.customization?.footer || {}
-
-                                const updateFooterField = (field: string, value: string | boolean | object) => {
-                                  updateCustomization({
-                                    footer: { ...footerData, [field]: value }
-                                  })
-                                }
-
-                                return (
-                                  <div className="space-y-4">
-                                    {/* Website */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <Label>Website</Label>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">Use Brand</span>
-                                          <Switch
-                                            checked={footerData.useBrandWebsite ?? false}
-                                            onCheckedChange={(checked) => updateFooterField('useBrandWebsite', checked)}
-                                          />
-                                        </div>
-                                      </div>
-                                      {(footerData.useBrandWebsite ?? false) ? (
-                                        brandConfig?.footerWebsite && (
-                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
-                                            {brandConfig.footerWebsite}
-                                          </p>
-                                        )
-                                      ) : (
-                                        <Input
-                                          placeholder="Enter custom website URL"
-                                          value={footerData.customWebsite || ''}
-                                          onChange={(e) => updateFooterField('customWebsite', e.target.value)}
-                                        />
-                                      )}
-                                    </div>
-
-                                    {/* Phone */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <Label>Phone</Label>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">Use Brand</span>
-                                          <Switch
-                                            checked={footerData.useBrandPhone ?? false}
-                                            onCheckedChange={(checked) => updateFooterField('useBrandPhone', checked)}
-                                          />
-                                        </div>
-                                      </div>
-                                      {(footerData.useBrandPhone ?? false) ? (
-                                        brandConfig?.footerPhone && (
-                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
-                                            {brandConfig.footerPhone}
-                                          </p>
-                                        )
-                                      ) : (
-                                        <Input
-                                          placeholder="Enter custom phone number"
-                                          type="tel"
-                                          value={footerData.customPhone || ''}
-                                          onChange={(e) => updateFooterField('customPhone', e.target.value)}
-                                        />
-                                      )}
-                                    </div>
-
-                                    {/* Email */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <Label>Email</Label>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">Use Brand</span>
-                                          <Switch
-                                            checked={footerData.useBrandEmail ?? false}
-                                            onCheckedChange={(checked) => updateFooterField('useBrandEmail', checked)}
-                                          />
-                                        </div>
-                                      </div>
-                                      {(footerData.useBrandEmail ?? false) ? (
-                                        brandConfig?.footerEmail && (
-                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
-                                            {brandConfig.footerEmail}
-                                          </p>
-                                        )
-                                      ) : (
-                                        <Input
-                                          placeholder="Enter custom email address"
-                                          type="email"
-                                          value={footerData.customEmail || ''}
-                                          onChange={(e) => updateFooterField('customEmail', e.target.value)}
-                                        />
-                                      )}
-                                    </div>
-
-                                    {/* Address */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <Label>Address</Label>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">Use Brand</span>
-                                          <Switch
-                                            checked={footerData.useBrandAddress ?? false}
-                                            onCheckedChange={(checked) => updateFooterField('useBrandAddress', checked)}
-                                          />
-                                        </div>
-                                      </div>
-                                      {(footerData.useBrandAddress ?? false) ? (
-                                        brandConfig?.footerAddress && (
-                                          <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
-                                            {brandConfig.footerAddress}
-                                          </p>
-                                        )
-                                      ) : (
-                                        <Input
-                                          placeholder="Enter custom address"
-                                          value={footerData.customAddress || ''}
-                                          onChange={(e) => updateFooterField('customAddress', e.target.value)}
-                                        />
-                                      )}
-                                    </div>
-
-                                    {/* Social Links */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <Label>Social Links</Label>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">Use Brand</span>
-                                          <Switch
-                                            checked={footerData.useBrandSocial ?? false}
-                                            onCheckedChange={(checked) => updateFooterField('useBrandSocial', checked)}
-                                          />
-                                        </div>
-                                      </div>
-                                      {(footerData.useBrandSocial ?? false) ? (
-                                        (brandConfig?.footerSocial?.instagram || brandConfig?.footerSocial?.linkedin || brandConfig?.footerSocial?.facebook || brandConfig?.footerSocial?.twitter) && (
-                                          <div className="text-sm text-muted-foreground pl-2 border-l-2 border-muted space-y-1">
-                                            {brandConfig?.footerSocial?.instagram && <p>IG: {brandConfig.footerSocial.instagram}</p>}
-                                            {brandConfig?.footerSocial?.linkedin && <p>LinkedIn: {brandConfig.footerSocial.linkedin}</p>}
-                                            {brandConfig?.footerSocial?.facebook && <p>FB: {brandConfig.footerSocial.facebook}</p>}
-                                            {brandConfig?.footerSocial?.twitter && <p>X: {brandConfig.footerSocial.twitter}</p>}
-                                          </div>
-                                        )
-                                      ) : (
-                                        <div className="space-y-2 pl-3 border-l-2 border-muted">
-                                          <Input
-                                            placeholder="Instagram (@handle)"
-                                            value={footerData.customSocial?.instagram || ''}
-                                            onChange={(e) => updateFooterField('customSocial', {
-                                              ...footerData.customSocial,
-                                              instagram: e.target.value
-                                            })}
-                                          />
-                                          <Input
-                                            placeholder="LinkedIn (URL or handle)"
-                                            value={footerData.customSocial?.linkedin || ''}
-                                            onChange={(e) => updateFooterField('customSocial', {
-                                              ...footerData.customSocial,
-                                              linkedin: e.target.value
-                                            })}
-                                          />
-                                          <Input
-                                            placeholder="Facebook (page name)"
-                                            value={footerData.customSocial?.facebook || ''}
-                                            onChange={(e) => updateFooterField('customSocial', {
-                                              ...footerData.customSocial,
-                                              facebook: e.target.value
-                                            })}
-                                          />
-                                          <Input
-                                            placeholder="X / Twitter (@handle)"
-                                            value={footerData.customSocial?.twitter || ''}
-                                            onChange={(e) => updateFooterField('customSocial', {
-                                              ...footerData.customSocial,
-                                              twitter: e.target.value
-                                            })}
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              })()}
-
-                              {/* Language Selector */}
-                              <div className="pt-3 border-t space-y-2">
-                                <Label>Language</Label>
-                                <Select
-                                  value={(formData.formData?.language as string) || 'en'}
-                                  onValueChange={(value) => updateFormData({ language: value })}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select language" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="en">English</SelectItem>
-                                    <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
-                                    <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
-                                    <SelectItem value="es">Spanish (Español)</SelectItem>
-                                    <SelectItem value="fr">French (Français)</SelectItem>
-                                    <SelectItem value="ar">Arabic (العربية)</SelectItem>
-                                    <SelectItem value="ja">Japanese (日本語)</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                  Text will be generated in this language
-                                </p>
-                              </div>
-                            </CardContent>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </Card>
-                    )
-                  })()}
-                </div>
-              )}
-
-              {/* Step 7: Generate & Result - Compact Two-Column Layout */}
-              {step === 7 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column - Summary & Controls */}
-                  <Card>
-                    <CardHeader className="pb-4">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        {generatedImage ? 'Your Creative is Ready!' : 'Ready to Generate'}
-                      </CardTitle>
-                      <CardDescription>
-                        {generatedImage
-                          ? 'Download your creative or create another'
-                          : 'Preview your design and generate when ready'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Summary Info */}
-                      <div className="space-y-3">
-                        {/* Format */}
-                        {selectedFormat && (
-                          <div className="flex items-center justify-between py-2 border-b">
-                            <span className="text-sm text-muted-foreground">Format</span>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs font-medium">
-                                {selectedFormat.label}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {formData.customDimensions
-                                  ? `${formData.customDimensions.width}×${formData.customDimensions.height}`
-                                  : `${selectedFormat.width}×${selectedFormat.height}`}
-                              </span>
-                            </div>
+                      </CardHeader>
+                      <CardContent>
+                        {isVerticalsLoading ? (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {[...Array(6)].map((_, i) => (
+                              <Skeleton key={i} className="h-28 rounded-xl" />
+                            ))}
                           </div>
-                        )}
-
-                        {/* Vertical */}
-                        {selectedVertical && (
-                          <div className="flex items-center justify-between py-2 border-b">
-                            <span className="text-sm text-muted-foreground">Category</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {selectedVertical.name}
-                            </Badge>
-                          </div>
-                        )}
-
-                        {/* Mode */}
-                        {formData.creationMode && (
-                          <div className="flex items-center justify-between py-2 border-b">
-                            <span className="text-sm text-muted-foreground">Mode</span>
-                            <span className="text-sm font-medium">
-                              {formData.creationMode === 'template' ? 'Template' : 'From Scratch'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Template */}
-                        {selectedTemplate && (
-                          <div className="flex items-center justify-between py-2 border-b">
-                            <span className="text-sm text-muted-foreground">Template</span>
-                            <span className="text-sm font-medium truncate max-w-[150px]">
-                              {selectedTemplate.name}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Model Selector - Compact */}
-                      {!generatedImage && (
-                        <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Wand2 className="h-4 w-4 text-muted-foreground" />
-                            <Label className="text-sm font-medium">AI Model</Label>
-                          </div>
-                          <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue placeholder="Select model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {models.map((model) => (
-                                <SelectItem key={model.id} value={model.id}>
-                                  <div className="flex items-center gap-2">
-                                    <span>{getModelDisplayName(model.slug)}</span>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {model.credits_cost}
-                                    </Badge>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      {generatedImage && (
-                        <div className="flex flex-col gap-2 pt-2">
-                          <Button
-                            size="default"
-                            onClick={() => setExportModalOpen(true)}
-                            className="w-full gap-2"
-                          >
-                            <Download className="h-4 w-4" />
-                            Download
-                          </Button>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="default"
-                              onClick={() => setSaveTemplateDialogOpen(true)}
-                              className="flex-1 gap-2"
-                            >
-                              <Save className="h-4 w-4" />
-                              Save
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="default"
-                              onClick={() => setRegenerateModalOpen(true)}
-                              className="flex-1 gap-2"
-                            >
-                              <RefreshCcw className="h-4 w-4" />
-                              Regenerate
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="default"
-                              onClick={handleStartOver}
-                              className="flex-1"
-                            >
-                              New
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Right Column - Compact Preview */}
-                  <Card className="flex flex-col">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Preview
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex items-center justify-center p-4">
-                      <div
-                        className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden"
-                        style={{
-                          aspectRatio: (() => {
-                            if (formData.customDimensions) {
-                              return `${formData.customDimensions.width}/${formData.customDimensions.height}`
-                            }
-                            if (selectedFormat) {
-                              return `${selectedFormat.width}/${selectedFormat.height}`
-                            }
-                            return '4/5'
-                          })(),
-                          maxHeight: '320px',
-                          maxWidth: '100%',
-                          width: 'auto',
-                          height: '320px',
-                        }}
-                      >
-                        {generatedImage ? (
-                          <>
-                            <img
-                              src={generatedImage}
-                              alt="Generated creative"
-                              className="w-full h-full object-contain"
-                            />
-                            <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => setPreviewModalOpen(true)}
-                                  className="gap-2"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                  Full View
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setExportModalOpen(true)}
-                                  className="gap-2"
-                                >
-                                  <Download className="h-4 w-4" />
-                                  Download
-                                </Button>
-                              </div>
-                            </div>
-                          </>
-                        ) : isGenerating ? (
-                          <div className="flex flex-col items-center justify-center p-6">
-                            <div className="relative">
-                              <Skeleton className="w-12 h-12 rounded-full" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-                              </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-3">Generating...</p>
-                            <div className="flex gap-1 mt-2">
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
-                            </div>
-                          </div>
-                        ) : generationError ? (
-                          <div className="flex flex-col items-center justify-center p-6">
-                            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-                              <RefreshCw className="h-5 w-5 text-destructive" />
-                            </div>
-                            <p className="text-destructive text-xs text-center mb-2">{generationError}</p>
-                            <Button onClick={() => handleGenerate()} disabled={isGenerating} size="sm" variant="outline">
-                              <RefreshCw className="h-3 w-3 mr-1" />
+                        ) : verticalsError ? (
+                          <div className="text-center py-12">
+                            <p className="text-destructive mb-4">Failed to load verticals: {verticalsError}</p>
+                            <Button variant="outline" onClick={() => fetchVerticals()}>
+                              <RefreshCw className="h-4 w-4 mr-2" />
                               Retry
                             </Button>
                           </div>
-                        ) : selectedTemplate ? (
-                          <img
-                            src={selectedTemplate.image_url}
-                            alt="Template preview"
-                            className="w-full h-full object-contain"
-                          />
+                        ) : verticals.length === 0 ? (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <p>No verticals available.</p>
+                            <Button variant="outline" className="mt-4" onClick={() => fetchVerticals()}>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Refresh
+                            </Button>
+                          </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center p-6 text-center">
-                            <div className="w-10 h-10 rounded-full bg-muted-foreground/10 flex items-center justify-center mb-2">
-                              <ImageIcon className="h-5 w-5 opacity-40" />
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Click Generate to create
-                            </p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {verticals.map((vertical) => (
+                              <Tooltip key={vertical.id}>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => selectVertical(vertical.id)}
+                                    className={cn(
+                                      'group relative p-4 rounded-xl border-2 text-left transition-all duration-200',
+                                      'hover:border-primary hover:shadow-md hover:-translate-y-0.5',
+                                      selectedVertical?.id === vertical.id
+                                        ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
+                                        : 'border-border bg-card'
+                                    )}
+                                  >
+                                    {/* Selected indicator */}
+                                    {selectedVertical?.id === vertical.id && (
+                                      <div className="absolute top-2 right-2">
+                                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                          <Check className="h-3 w-3 text-primary-foreground" />
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="mb-3">
+                                      <div className={cn(
+                                        'w-12 h-12 rounded-lg flex items-center justify-center transition-colors',
+                                        selectedVertical?.id === vertical.id
+                                          ? 'bg-primary/10'
+                                          : 'bg-muted group-hover:bg-primary/10'
+                                      )}>
+                                        <VerticalIcon
+                                          icon={vertical.icon || 'help-circle'}
+                                          className={cn(
+                                            'h-6 w-6 transition-colors',
+                                            selectedVertical?.id === vertical.id
+                                              ? 'text-primary'
+                                              : 'text-muted-foreground group-hover:text-primary'
+                                          )}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="font-medium">{vertical.name}</div>
+                                    <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                      {vertical.description}
+                                    </div>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-xs">
+                                  <p className="font-medium">{vertical.name}</p>
+                                  <p className="text-xs text-muted-foreground">{vertical.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
                           </div>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
-        {/* Footer Navigation - Fixed at bottom for easy access */}
-        {(step !== 7 || !generatedImage) && (
-          <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 bg-[#E8F4FD]/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)]">
-            <div className="container py-3 md:py-4">
-              <div className="flex items-center justify-between">
-                {/* Back Button - Canva style with hover border */}
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={step === 1 || isGenerating}
-                  className={cn(
-                    "gap-2 border-2 transition-all duration-300",
-                    "hover:border-[#005B96] hover:text-[#005B96]"
-                  )}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Back</span>
-                </Button>
+                {/* Step 3: How would you like to create? */}
+                {step === 3 && selectedVertical && (
+                  <ModeSelector
+                    mode={formData.creationMode}
+                    onModeChange={setCreationMode}
+                  />
+                )}
 
-                {/* Step info for mobile */}
-                <div className="text-sm text-muted-foreground lg:hidden font-medium">
-                  Step {step} of 7
-                </div>
+                {/* Step 4: Smart Logo Placement (AI will avoid these areas) */}
+                {step === 4 && selectedVertical && (
+                  <div className="space-y-6">
+                    <Card darkVariant="elevated">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <ImageIcon className="h-5 w-5 text-primary" />
+                          Smart Logo Placement
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            AI-Aware
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          Position your logos - AI will structure the design to keep these areas clear
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <LogoPositionGrid />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
-                {step === 7 ? (
-                  /* Generate Button - Canva gradient style */
-                  <Button
-                    onClick={handleGenerateWithDateCheck}
-                    disabled={!canGenerate || isGenerating}
-                    className={cn(
-                      "gap-2 px-6 transition-all duration-300",
-                      "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
-                      "text-white font-semibold",
-                      "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
-                      "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
-                      "hover:-translate-y-0.5",
-                      "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
-                    )}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="hidden sm:inline">Generating...</span>
-                      </>
-                    ) : !isOnline ? (
-                      <>
-                        <WifiOff className="h-4 w-4" />
-                        <span className="hidden sm:inline">Offline</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        <span className="hidden sm:inline">Generate</span>
-                        <Badge variant="secondary" className="ml-1 text-xs bg-white/20 text-white border-0">
-                          {creditCost} credits
-                        </Badge>
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  /* Continue Button - Canva gradient style */
-                  <Button
-                    onClick={handleNext}
-                    disabled={!canProceed()}
-                    className={cn(
-                      "gap-2 px-6 transition-all duration-300",
-                      "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
-                      "text-white font-semibold",
-                      "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
-                      "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
-                      "hover:-translate-y-0.5",
-                      "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
-                    )}
-                  >
-                    <span className="hidden sm:inline">Continue</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
+                {/* Step 6: Choose Template or Styling Options (moved after Details for better AI context) */}
+                {step === 6 && selectedVertical && (
+                  formData.creationMode === 'template' ? (
+                    <Card darkVariant="elevated">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <FileImage className="h-5 w-5 text-primary" />
+                          Choose Template
+                        </CardTitle>
+                        <CardDescription>
+                          Select an image template for your {selectedVertical.name} creative
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <TemplateSelector
+                          verticalId={selectedVertical.id}
+                          verticalName={selectedVertical.name}
+                          onSelect={selectTemplate}
+                          selectedTemplate={selectedTemplate}
+                          selectedFormat={selectedFormat}
+                          verticals={verticals}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <StylingStep
+                      designData={formData.designData}
+                      onThemeChange={updateTheme}
+                      onStyleChange={updateStyle}
+                      onResolutionChange={updateResolution}
+                      onToggleBrandColors={setUseBrandColors}
+                      onToggleBrandFont={setUseBrandFont}
+                      onSelectPalette={setColorPalette}
+                      onCustomColorChange={setCustomColors}
+                      brandColors={(() => {
+                        const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
+                        return {
+                          primary_color: brandConfig?.primaryColor,
+                          secondary_color: brandConfig?.secondaryColor,
+                          accent_color: brandConfig?.accentColor,
+                        }
+                      })()}
+                      brandFont={(() => {
+                        const brandConfig = currentOrganization?.brand_config as { fontPrimary?: string } | null
+                        return brandConfig?.fontPrimary
+                      })()}
+                    />
+                  )
+                )}
+
+                {/* Step 5: Fill Details - Dynamic form based on format type (moved before Template for better AI context) */}
+                {step === 5 && selectedVertical && selectedFormat && (
+                  <div className="space-y-6">
+                    {/* Dynamic Details Form - renders fields based on selected format */}
+                    <DynamicDetailsForm
+                      formatId={selectedFormat?.id || null}
+                      verticalName={selectedVertical.name}
+                      formData={formData.formData as Record<string, unknown>}
+                      // Dynamic schema props (AI-generated fields)
+                      dynamicSchema={dynamicSchema.schema}
+                      isDynamicSchemaLoading={dynamicSchema.isLoading}
+                      dynamicSchemaError={dynamicSchema.error}
+                      isDynamicSchemaFallback={dynamicSchema.isFallback}
+                      suggestions={(() => {
+                        // Convert suggestions to the format expected by DynamicDetailsForm
+                        // Map API suggestion field IDs to AI-generated schema field IDs
+                        const suggestionMap: Record<string, { value: string; confidence: number }> = {}
+
+                        // API returns: date, time, venue, speaker, description
+                        // AI schema may use: eventDate, eventTime, venue, eventDescription, etc.
+                        // We need to map based on actual schema field IDs
+
+                        const apiToSchemaMap: Record<string, string[]> = {
+                          // API field -> possible schema field IDs (check in order)
+                          'date': ['eventDate', 'date', 'certificateDate', 'postDate'],
+                          'time': ['eventTime', 'time'],
+                          'venue': ['venue', 'eventVenue', 'location'],
+                          'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
+                          'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+                          'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
+                        }
+
+                        // Get all field IDs from the dynamic schema
+                        const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
+
+                        // Map each API suggestion to the matching schema field ID
+                        Object.entries(apiToSchemaMap).forEach(([apiField, possibleIds]) => {
+                          const suggestion = getSuggestion(apiField as SuggestableField)
+                          if (suggestion) {
+                            // Find matching schema field ID
+                            const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
+                            suggestionMap[matchingId] = suggestion
+                          }
+                        })
+
+                        return suggestionMap
+                      })()}
+                      isSuggestionsLoading={isSuggestionsLoading}
+                      suggestionsError={suggestionsError}
+                      onFormChange={(fieldId, value) => updateFormData({ [fieldId]: value })}
+                      onRequestSuggestions={handleRequestSuggestions}
+                      onAcceptSuggestion={(fieldId) => acceptSuggestion(fieldId as SuggestableField)}
+                      onDismissSuggestion={(fieldId) => dismissSuggestion(fieldId as SuggestableField)}
+                      onAcceptAllSuggestions={() => {
+                        // Custom handler that maps API field IDs to schema field IDs before accepting
+                        const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []
+                        const updates: Record<string, string> = {}
+
+                        Object.entries(API_TO_SCHEMA_MAP).forEach(([apiField, possibleIds]) => {
+                          const suggestion = getSuggestion(apiField as SuggestableField)
+                          if (suggestion?.value) {
+                            const matchingId = possibleIds.find(id => schemaFieldIds.includes(id)) || apiField
+                            updates[matchingId] = suggestion.value
+                          }
+                        })
+
+                        // Update form data with mapped field IDs
+                        if (Object.keys(updates).length > 0) {
+                          updateFormData(updates)
+                        }
+                        // Clear suggestions from store
+                        dismissAllSuggestions()
+                      }}
+                      onDismissAllSuggestions={dismissAllSuggestions}
+                      // Speaker photo integration into Speaker Details section
+                      speakerPhotoValue={formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO}
+                      onSpeakerPhotoChange={(data) =>
+                        updateCustomization({
+                          speakerPhoto: { ...(formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
+                        })
+                      }
+                    />
+
+                    {/* Footer Settings - Format Aware (Speaker Photo is now in Speaker Details section) */}
+                    {(() => {
+                      const customizationOptions = getFormatCustomizationOptions(selectedFormat?.id || '')
+                      // Only show card if footer is supported (speaker photo is now in Speaker Details section)
+                      if (!customizationOptions.footer) return null
+
+                      return (
+                        <Card>
+                          <Collapsible defaultOpen={false}>
+                            <CollapsibleTrigger className="w-full">
+                              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-muted">
+                                      <LayoutTemplate className="h-4 w-4" />
+                                    </div>
+                                    <div className="text-left">
+                                      <CardTitle className="text-base">Footer Settings</CardTitle>
+                                      <CardDescription>
+                                        Configure footer content visibility
+                                      </CardDescription>
+                                    </div>
+                                  </div>
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                                </div>
+                              </CardHeader>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <CardContent className="space-y-4 pt-0">
+                                <div className="space-y-2">
+                                  <Label>Footer Style</Label>
+                                  <Select
+                                    value={formData.designData?.customization?.footer?.style || 'minimal'}
+                                    onValueChange={(v) => updateCustomization({
+                                      footer: { ...(formData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="minimal">Minimal</SelectItem>
+                                      <SelectItem value="full">Full</SelectItem>
+                                      <SelectItem value="branded">Branded</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {(() => {
+                                  const brandConfig = currentOrganization?.brand_config as BrandConfig | null
+                                  const footerData = formData.designData?.customization?.footer || {}
+
+                                  const updateFooterField = (field: string, value: string | boolean | object) => {
+                                    updateCustomization({
+                                      footer: { ...footerData, [field]: value }
+                                    })
+                                  }
+
+                                  return (
+                                    <div className="space-y-4">
+                                      {/* Website */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label>Website</Label>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Use Brand</span>
+                                            <Switch
+                                              checked={footerData.useBrandWebsite ?? false}
+                                              onCheckedChange={(checked) => updateFooterField('useBrandWebsite', checked)}
+                                            />
+                                          </div>
+                                        </div>
+                                        {(footerData.useBrandWebsite ?? false) ? (
+                                          brandConfig?.footerWebsite && (
+                                            <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                              {brandConfig.footerWebsite}
+                                            </p>
+                                          )
+                                        ) : (
+                                          <Input
+                                            placeholder="Enter custom website URL"
+                                            value={footerData.customWebsite || ''}
+                                            onChange={(e) => updateFooterField('customWebsite', e.target.value)}
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Phone */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label>Phone</Label>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Use Brand</span>
+                                            <Switch
+                                              checked={footerData.useBrandPhone ?? false}
+                                              onCheckedChange={(checked) => updateFooterField('useBrandPhone', checked)}
+                                            />
+                                          </div>
+                                        </div>
+                                        {(footerData.useBrandPhone ?? false) ? (
+                                          brandConfig?.footerPhone && (
+                                            <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                              {brandConfig.footerPhone}
+                                            </p>
+                                          )
+                                        ) : (
+                                          <Input
+                                            placeholder="Enter custom phone number"
+                                            type="tel"
+                                            value={footerData.customPhone || ''}
+                                            onChange={(e) => updateFooterField('customPhone', e.target.value)}
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Email */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label>Email</Label>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Use Brand</span>
+                                            <Switch
+                                              checked={footerData.useBrandEmail ?? false}
+                                              onCheckedChange={(checked) => updateFooterField('useBrandEmail', checked)}
+                                            />
+                                          </div>
+                                        </div>
+                                        {(footerData.useBrandEmail ?? false) ? (
+                                          brandConfig?.footerEmail && (
+                                            <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                              {brandConfig.footerEmail}
+                                            </p>
+                                          )
+                                        ) : (
+                                          <Input
+                                            placeholder="Enter custom email address"
+                                            type="email"
+                                            value={footerData.customEmail || ''}
+                                            onChange={(e) => updateFooterField('customEmail', e.target.value)}
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Address */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label>Address</Label>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Use Brand</span>
+                                            <Switch
+                                              checked={footerData.useBrandAddress ?? false}
+                                              onCheckedChange={(checked) => updateFooterField('useBrandAddress', checked)}
+                                            />
+                                          </div>
+                                        </div>
+                                        {(footerData.useBrandAddress ?? false) ? (
+                                          brandConfig?.footerAddress && (
+                                            <p className="text-sm text-muted-foreground pl-2 border-l-2 border-muted">
+                                              {brandConfig.footerAddress}
+                                            </p>
+                                          )
+                                        ) : (
+                                          <Input
+                                            placeholder="Enter custom address"
+                                            value={footerData.customAddress || ''}
+                                            onChange={(e) => updateFooterField('customAddress', e.target.value)}
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Social Links */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label>Social Links</Label>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">Use Brand</span>
+                                            <Switch
+                                              checked={footerData.useBrandSocial ?? false}
+                                              onCheckedChange={(checked) => updateFooterField('useBrandSocial', checked)}
+                                            />
+                                          </div>
+                                        </div>
+                                        {(footerData.useBrandSocial ?? false) ? (
+                                          (brandConfig?.footerSocial?.instagram || brandConfig?.footerSocial?.linkedin || brandConfig?.footerSocial?.facebook || brandConfig?.footerSocial?.twitter) && (
+                                            <div className="text-sm text-muted-foreground pl-2 border-l-2 border-muted space-y-1">
+                                              {brandConfig?.footerSocial?.instagram && <p>IG: {brandConfig.footerSocial.instagram}</p>}
+                                              {brandConfig?.footerSocial?.linkedin && <p>LinkedIn: {brandConfig.footerSocial.linkedin}</p>}
+                                              {brandConfig?.footerSocial?.facebook && <p>FB: {brandConfig.footerSocial.facebook}</p>}
+                                              {brandConfig?.footerSocial?.twitter && <p>X: {brandConfig.footerSocial.twitter}</p>}
+                                            </div>
+                                          )
+                                        ) : (
+                                          <div className="space-y-2 pl-3 border-l-2 border-muted">
+                                            <Input
+                                              placeholder="Instagram (@handle)"
+                                              value={footerData.customSocial?.instagram || ''}
+                                              onChange={(e) => updateFooterField('customSocial', {
+                                                ...footerData.customSocial,
+                                                instagram: e.target.value
+                                              })}
+                                            />
+                                            <Input
+                                              placeholder="LinkedIn (URL or handle)"
+                                              value={footerData.customSocial?.linkedin || ''}
+                                              onChange={(e) => updateFooterField('customSocial', {
+                                                ...footerData.customSocial,
+                                                linkedin: e.target.value
+                                              })}
+                                            />
+                                            <Input
+                                              placeholder="Facebook (page name)"
+                                              value={footerData.customSocial?.facebook || ''}
+                                              onChange={(e) => updateFooterField('customSocial', {
+                                                ...footerData.customSocial,
+                                                facebook: e.target.value
+                                              })}
+                                            />
+                                            <Input
+                                              placeholder="X / Twitter (@handle)"
+                                              value={footerData.customSocial?.twitter || ''}
+                                              onChange={(e) => updateFooterField('customSocial', {
+                                                ...footerData.customSocial,
+                                                twitter: e.target.value
+                                              })}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
+
+                                {/* Language Selector */}
+                                <div className="pt-3 border-t space-y-2">
+                                  <Label>Language</Label>
+                                  <Select
+                                    value={(formData.formData?.language as string) || 'en'}
+                                    onValueChange={(value) => updateFormData({ language: value })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select language" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="en">English</SelectItem>
+                                      <SelectItem value="hi">Hindi (हिंदी)</SelectItem>
+                                      <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                                      <SelectItem value="es">Spanish (Español)</SelectItem>
+                                      <SelectItem value="fr">French (Français)</SelectItem>
+                                      <SelectItem value="ar">Arabic (العربية)</SelectItem>
+                                      <SelectItem value="ja">Japanese (日本語)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-muted-foreground">
+                                    Text will be generated in this language
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </Card>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* Step 7: Generate & Result - Compact Two-Column Layout */}
+                {step === 7 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left Column - Summary & Controls */}
+                    <Card darkVariant="elevated">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Sparkles className="h-5 w-5 text-primary" />
+                          {generatedImage ? 'Your Creative is Ready!' : 'Ready to Generate'}
+                        </CardTitle>
+                        <CardDescription>
+                          {generatedImage
+                            ? 'Download your creative or create another'
+                            : 'Preview your design and generate when ready'}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Summary Info */}
+                        <div className="space-y-3">
+                          {/* Format */}
+                          {selectedFormat && (
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Format</span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs font-medium">
+                                  {selectedFormat.label}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {formData.customDimensions
+                                    ? `${formData.customDimensions.width}×${formData.customDimensions.height}`
+                                    : `${selectedFormat.width}×${selectedFormat.height}`}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Vertical */}
+                          {selectedVertical && (
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Category</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {selectedVertical.name}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {/* Mode */}
+                          {formData.creationMode && (
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Mode</span>
+                              <span className="text-sm font-medium">
+                                {formData.creationMode === 'template' ? 'Template' : 'From Scratch'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Template */}
+                          {selectedTemplate && (
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Template</span>
+                              <span className="text-sm font-medium truncate max-w-[150px]">
+                                {selectedTemplate.name}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Model Selector - Compact */}
+                        {!generatedImage && (
+                          <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Wand2 className="h-4 w-4 text-muted-foreground" />
+                              <Label className="text-sm font-medium">AI Model</Label>
+                            </div>
+                            <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select model" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {models.map((model) => (
+                                  <SelectItem key={model.id} value={model.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>{getModelDisplayName(model.slug)}</span>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {model.credits_cost}
+                                      </Badge>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        {generatedImage && (
+                          <div className="flex flex-col gap-2 pt-2">
+                            <Button
+                              size="default"
+                              onClick={() => setExportModalOpen(true)}
+                              className="w-full gap-2"
+                            >
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="default"
+                                onClick={() => setSaveTemplateDialogOpen(true)}
+                                className="flex-1 gap-2"
+                              >
+                                <Save className="h-4 w-4" />
+                                Save
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="default"
+                                onClick={() => setRegenerateModalOpen(true)}
+                                className="flex-1 gap-2"
+                              >
+                                <RefreshCcw className="h-4 w-4" />
+                                Regenerate
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="default"
+                                onClick={handleStartOver}
+                                className="flex-1"
+                              >
+                                New
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Right Column - Compact Preview */}
+                    <Card darkVariant="floating" className="flex flex-col">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Preview
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-1 flex items-center justify-center p-4">
+                        <div
+                          className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden"
+                          style={{
+                            aspectRatio: (() => {
+                              if (formData.customDimensions) {
+                                return `${formData.customDimensions.width}/${formData.customDimensions.height}`
+                              }
+                              if (selectedFormat) {
+                                return `${selectedFormat.width}/${selectedFormat.height}`
+                              }
+                              return '4/5'
+                            })(),
+                            maxHeight: '320px',
+                            maxWidth: '100%',
+                            width: 'auto',
+                            height: '320px',
+                          }}
+                        >
+                          {generatedImage ? (
+                            <>
+                              <img
+                                src={generatedImage}
+                                alt="Generated creative"
+                                className="w-full h-full object-contain"
+                              />
+                              <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => setPreviewModalOpen(true)}
+                                    className="gap-2"
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                    Full View
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => setExportModalOpen(true)}
+                                    className="gap-2"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                  </Button>
+                                </div>
+                              </div>
+                            </>
+                          ) : isGenerating ? (
+                            <div className="flex flex-col items-center justify-center p-6">
+                              <div className="relative">
+                                <Skeleton className="w-12 h-12 rounded-full" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-3">Generating...</p>
+                              <div className="flex gap-1 mt-2">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                              </div>
+                            </div>
+                          ) : generationError ? (
+                            <div className="flex flex-col items-center justify-center p-6">
+                              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+                                <RefreshCw className="h-5 w-5 text-destructive" />
+                              </div>
+                              <p className="text-destructive text-xs text-center mb-2">{generationError}</p>
+                              <Button onClick={() => handleGenerate()} disabled={isGenerating} size="sm" variant="outline">
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Retry
+                              </Button>
+                            </div>
+                          ) : selectedTemplate ? (
+                            <img
+                              src={selectedTemplate.image_url}
+                              alt="Template preview"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-6 text-center">
+                              <div className="w-10 h-10 rounded-full bg-muted-foreground/10 flex items-center justify-center mb-2">
+                                <ImageIcon className="h-5 w-5 opacity-40" />
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Click Generate to create
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Footer Navigation - Fixed at bottom for easy access */}
+          {(step !== 7 || !generatedImage) && (
+            <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 bg-[#E8F4FD]/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)]">
+              <div className="container py-3 md:py-4">
+                <div className="flex items-center justify-between">
+                  {/* Back Button - Canva style with hover border */}
+                  <Button
+                    variant="outline"
+                    onClick={handleBack}
+                    disabled={step === 1 || isGenerating}
+                    className={cn(
+                      "gap-2 border-2 transition-all duration-300",
+                      "hover:border-[#005B96] hover:text-[#005B96]"
+                    )}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Back</span>
+                  </Button>
+
+                  {/* Step info for mobile */}
+                  <div className="text-sm text-muted-foreground lg:hidden font-medium">
+                    Step {step} of 7
+                  </div>
+
+                  {step === 7 ? (
+                    /* Generate Button - Canva gradient style */
+                    <Button
+                      onClick={handleGenerateWithDateCheck}
+                      disabled={!canGenerate || isGenerating}
+                      className={cn(
+                        "gap-2 px-6 transition-all duration-300",
+                        "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                        "text-white font-semibold",
+                        "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
+                        "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
+                        "hover:-translate-y-0.5",
+                        "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                      )}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="hidden sm:inline">Generating...</span>
+                        </>
+                      ) : !isOnline ? (
+                        <>
+                          <WifiOff className="h-4 w-4" />
+                          <span className="hidden sm:inline">Offline</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          <span className="hidden sm:inline">Generate</span>
+                          <Badge variant="secondary" className="ml-1 text-xs bg-white/20 text-white border-0">
+                            {creditCost} credits
+                          </Badge>
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    /* Continue Button - Canva gradient style */
+                    <Button
+                      onClick={handleNext}
+                      disabled={!canProceed()}
+                      className={cn(
+                        "gap-2 px-6 transition-all duration-300",
+                        "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                        "text-white font-semibold",
+                        "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
+                        "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
+                        "hover:-translate-y-0.5",
+                        "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                      )}
+                    >
+                      <span className="hidden sm:inline">Continue</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div> {/* End Main Content Area */}
 
         {/* Export Modal */}

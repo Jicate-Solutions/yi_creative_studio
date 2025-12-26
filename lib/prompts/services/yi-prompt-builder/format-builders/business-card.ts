@@ -21,6 +21,10 @@ import { BUSINESS_CARD_EXAMPLES } from '../examples'
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import decorative elements injector (v4.4)
+import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
 // STYLE VARIATIONS (v3.1)
@@ -91,9 +95,11 @@ export function buildBusinessCardPrompt(
   const langContext = buildLanguageContext(options.language)
   const layoutContext = buildLayoutZoneContext(options.layout)
 
-  // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
-  const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
-  const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
+  // NEW v4.1: Sophistication Logic
+  const sophistication = getSophistication(options, 'balanced')
+
+  // NEW v3.4: Build forbidden zones (Sophistication-Aware)
+  const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   const aiTypographySection = options.designContext?.typographyGuidance
@@ -106,15 +112,15 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 `
     : ''
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
+  // NEW v4.4: Inject detailed decorative elements and background settings from Design Intelligence/Story Logic
+  const decorativeSection = buildDecorativeElementsSection({
+    eventType: 'business_card',
+    designContext: options.designContext,
+    sophistication: sophistication,
+    includeIconicImagery: false, // Keep business cards cleaner
+  });
+
+  const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
@@ -150,7 +156,9 @@ ${forbiddenZonesContext}
 
 ${aiTypographySection}
 
-${aiDecorativeSection}
+${decorativeSection}
+
+${backgroundSection}
 
 <subject>
 A professional business card for: ${data.personName}
@@ -179,7 +187,7 @@ Contact Section (organized, aligned):
   ${data.address ? `- Address: ${data.address}` : ''}
   ${data.socialHandle ? `- Social: ${data.socialHandle}` : ''}
 
-Background: ${styleContext.background}
+Background: ${options.designContext?.backgroundSetting || styleContext.background}
 Decoration: ${styleContext.decoration}
 White Space: Balanced, not cramped - professional breathing room
 </composition>
@@ -234,6 +242,14 @@ DO NOT render as visible text:
 - Instruction phrases (Generate, Create, Include, Apply)
 - Print terminology (DPI, margins, bleed)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
+
+STRICT CTA PROHIBITION:
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
+- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
+  "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
+  "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",
+  "Book Now", "Order Now", "Try Free", "Start Free", "Explore", "Discover"
 </render_constraints>
 
 ${zoneReminderContext}
