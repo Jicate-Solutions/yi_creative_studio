@@ -1194,7 +1194,7 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
     const stripPadding = 10 // v5.3: Minimal padding for unified strip
 
     // v5.3: Force SAME logo size for all logos in unified strip (compact, uniform height)
-    const UNIFIED_STRIP_LOGO_SIZE = 80 // Compact size for multi-row strips
+    const UNIFIED_STRIP_LOGO_SIZE = 100 // v5.5: Balanced size for visibility without excessive strip height
 
     // Prepare header logos
     const headerLogosForStrip: Array<{ buffer: Buffer; width: number; height: number; column: number }> = []
