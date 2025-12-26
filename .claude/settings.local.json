@@ -252,7 +252,9 @@
       "Bash(claude mcp add:*)",
       "Bash(del libthemetheme-provider.tsx libthemeuse-theme.ts storestheme-store.ts)",
       "Bash(wc:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(copy \"c:\\\\Users\\\\Admin\\\\Downloads\\\\Gemini_Generated_Image_idpg6tidpg6tidpg.png\" \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\public\\\\images\\\\yi-brand-showcase.png\" /Y)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": [],

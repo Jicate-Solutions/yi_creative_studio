@@ -106,8 +106,9 @@ const FIELD_ALIASES: Record<string, string[]> = {
  * Compiles ALL user form fields into a structured format.
  * Handles both standard fields (via aliases) and custom/dynamic fields.
  *
- * @param speakerPhotoEnabled - When false, speaker name/designation fields are excluded
- *   to prevent speaker data from leaking into AI prompts when speaker photo is disabled
+ * @param speakerPhotoEnabled - Controls whether speaker photos are overlaid post-generation.
+ *   NOTE: Speaker text data (name, designation) is ALWAYS included in prompts when provided.
+ *   This flag only affects photo overlay processing, not text rendering.
  */
 export function compileFormData(
   userFormData: Record<string, unknown> | undefined,
@@ -140,37 +141,30 @@ export function compileFormData(
     }
   }
 
-  // Clear speaker fields when speaker photo is disabled
-  // This prevents speaker data from leaking into AI prompts
-  if (!speakerPhotoEnabled) {
-    extractedFields.speakerName = null
-    extractedFields.speakerDesignation = null
-  }
-
   // NEW: Extract speakers array (supports both legacy and new formats)
+  // Speaker text data is ALWAYS included in prompts when provided.
+  // The speakerPhotoEnabled flag only controls whether photos are overlaid post-generation.
   let speakersArray: Array<{ name: string | null; designation: string | null }> | null = null
 
   // Check for speakers array in form data
   if (Array.isArray(formData.speakers)) {
-    speakersArray = formData.speakers.map((s: any) => ({
-      name: s.name || s.speakerName || null,
-      designation: s.designation || s.speakerDesignation || null,
-    })).filter(s => s.name && s.name.trim())
-
-    // Guard: Clear when speaker photo disabled
-    if (!speakerPhotoEnabled) {
-      speakersArray = null
-    }
+    speakersArray = formData.speakers
+      .map((s: any) => ({
+        name: s.name || s.speakerName || null,
+        designation: s.designation || s.speakerDesignation || null,
+      }))
+      .filter(s => s.name && s.name.trim())
   } else if (extractedFields.speakerName) {
     // BACKWARD COMPATIBILITY: Single speaker
     speakersArray = [{
       name: extractedFields.speakerName,
       designation: extractedFields.speakerDesignation,
     }]
+  }
 
-    if (!speakerPhotoEnabled) {
-      speakersArray = null
-    }
+  // Set to null only if truly empty (no speakers at all)
+  if (speakersArray && speakersArray.length === 0) {
+    speakersArray = null
   }
 
   // Extract custom fields (fields not matched by aliases)

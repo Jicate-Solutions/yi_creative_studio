@@ -749,8 +749,21 @@ export function DynamicDetailsForm({
         totalFields: sectionFields.length,
         hasErrors,
       }
-    }).filter((s) => s.fields.length > 0) // Only show sections with fields
-  }, [sectionConfig, fieldMap, formData, errors])
+    }).filter((s) => {
+      // Always show section if it has fields
+      if (s.fields.length > 0) return true
+
+      // Special case: Speaker section with MultiSpeakerInput support
+      // Even though it has no traditional form fields, it uses the MultiSpeakerInput component
+      if (s.section.id === 'speaker' && formatId) {
+        const customizationOptions = getFormatCustomizationOptions(formatId)
+        return customizationOptions.speakerPhoto
+      }
+
+      // Filter out sections with no fields and no special components
+      return false
+    })
+  }, [sectionConfig, fieldMap, formData, errors, formatId])
 
   // Initialize expanded sections based on defaults
   useEffect(() => {
