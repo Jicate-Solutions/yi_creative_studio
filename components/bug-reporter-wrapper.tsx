@@ -30,7 +30,7 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
           // Position on right side, above the FAB
           btn.style.left = 'auto'
           btn.style.right = '16px'
-          btn.style.bottom = '100px' // Positioned above mobile FAB and navigation
+          btn.style.bottom = '190px' // Positioned higher to avoid overlapping page content
           break
         }
       }

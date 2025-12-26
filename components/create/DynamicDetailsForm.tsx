@@ -56,6 +56,12 @@ const SpeakerPhotoUpload = dynamic(
   { ssr: false }
 )
 
+// Lazy import for MultiSpeakerInput
+const MultiSpeakerInput = dynamic(
+  () => import('@/components/create/multi-speaker-input').then(mod => ({ default: mod.MultiSpeakerInput })),
+  { ssr: false }
+)
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -120,6 +126,10 @@ interface SpeakerPhotoValue {
   verticalPosition?: 'top' | 'upper' | 'middle' | 'lower' | 'bottom'
   border?: { width: number; color: string }
   shadow?: boolean
+  speakers?: Array<{ id: string; name: string; designation?: string; photoUrl?: string }>
+  layoutMode?: 'auto' | 'manual'
+  layoutStrategy?: 'side-by-side' | 'stacked' | 'grid'
+  spacing?: number
 }
 
 interface DynamicDetailsFormProps {
@@ -1013,12 +1023,53 @@ export function DynamicDetailsForm({
                       />
                     </div>
                   ))}
-                  {/* Speaker Photo Upload - Integrated into Speaker Details section */}
+                  {/* Multi-Speaker Input - Integrated into Speaker Details section */}
                   {showSpeakerPhotoInSection && (
                     <div className="md:col-span-2 mt-4 pt-4 border-t border-dashed border-border/50">
-                      <SpeakerPhotoUpload
-                        value={speakerPhotoValue as SpeakerPhotoCustomization}
-                        onChange={onSpeakerPhotoChange}
+                      <MultiSpeakerInput
+                        speakers={(speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []}
+                        sharedSettings={{
+                          shape: (speakerPhotoValue as SpeakerPhotoCustomization)?.shape || 'circle',
+                          size: (speakerPhotoValue as SpeakerPhotoCustomization)?.size || 200,
+                          border: (speakerPhotoValue as SpeakerPhotoCustomization)?.border || { width: 3, color: '#005B96' },
+                          shadow: (speakerPhotoValue as SpeakerPhotoCustomization)?.shadow ?? true,
+                        }}
+                        layoutMode={(speakerPhotoValue as SpeakerPhotoCustomization)?.layoutMode || 'auto'}
+                        layoutStrategy={(speakerPhotoValue as SpeakerPhotoCustomization)?.layoutStrategy}
+                        spacing={(speakerPhotoValue as SpeakerPhotoCustomization)?.spacing || 20}
+                        onAddSpeaker={() => {
+                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          onSpeakerPhotoChange?.({
+                            speakers: [
+                              ...currentSpeakers,
+                              {
+                                id: crypto.randomUUID(),
+                                name: '',
+                                designation: '',
+                              }
+                            ]
+                          })
+                        }}
+                        onRemoveSpeaker={(speakerId) => {
+                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          onSpeakerPhotoChange?.({
+                            speakers: currentSpeakers.filter(s => s.id !== speakerId)
+                          })
+                        }}
+                        onUpdateSpeaker={(speakerId, updates) => {
+                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          onSpeakerPhotoChange?.({
+                            speakers: currentSpeakers.map(s =>
+                              s.id === speakerId ? { ...s, ...updates } : s
+                            )
+                          })
+                        }}
+                        onUpdateSettings={(settings) => {
+                          onSpeakerPhotoChange?.(settings)
+                        }}
+                        onUpdateLayout={(layoutMode, layoutStrategy) => {
+                          onSpeakerPhotoChange?.({ layoutMode, layoutStrategy })
+                        }}
                       />
                     </div>
                   )}

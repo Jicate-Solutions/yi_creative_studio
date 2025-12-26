@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { LogoPosition } from '@/lib/config/constants'
 import type { LogoSizePreset, LogoBackgroundShape } from '@/lib/constants/logoConstants'
 import type { LogoType } from '@/lib/config/logo-locks'
+import type { SpeakerZoneOccupancy } from './speaker-zone-analyzer'
 import { trackApiUsage } from '@/lib/services/api-usage'
 
 // ============================================================================
@@ -36,6 +37,7 @@ export interface AIPlacementInput {
     ciiLogoId?: string
     bharatRisingId?: string
   }
+  speakerZones?: SpeakerZoneOccupancy | null  // NEW: Speaker photo zone awareness
 }
 
 export interface StripRecommendation {
@@ -98,6 +100,26 @@ Analyze the provided logos and determine optimal positions for each logo to crea
 
 ## Brand Constraints (MANDATORY)
 ${brandInfo.length > 0 ? brandInfo.join('\n') : 'No specific brand constraints'}
+
+${input.speakerZones ? `
+## Speaker Photo Zones ⚠️ CRITICAL - AVOID OVERLAPS
+
+${input.speakerZones.description}
+
+**Occupied Grid Positions**: ${input.speakerZones.occupiedGridPositions.join(', ')}
+
+PLACEMENT RULES FOR SPEAKER ZONES:
+1. DO NOT place any logos at the occupied positions listed above
+2. Speaker photos and logos will visually clash and create poor composition
+3. Maintain at least 1 column gap from speaker zones when possible
+4. If speaker zones occupy the middle row, prefer placing non-brand logos in top or bottom rows
+5. Brand logos (Yi, CII, Bharat Rising) have fixed positions and must remain as locked
+6. Example: If speakers occupy mid-1 and mid-6, place flexible logos at mid-3 or mid-4 (center)
+` : `
+## Speaker Photo Zones
+
+No speaker photos configured. All 18 grid positions are available for logo placement.
+`}
 
 ## Grid System
 The design uses a 6-column × 3-row grid (18 positions total):
@@ -308,6 +330,26 @@ export async function getAIOptimizedPlacements(
       if (p.backgroundShape && !validShapes.has(p.backgroundShape)) p.backgroundShape = 'none'
       return true
     })
+
+    // NEW: Validate against speaker zones (safety filter)
+    if (input.speakerZones && input.speakerZones.occupiedGridPositions.length > 0) {
+      const originalCount = result.placements.length
+
+      result.placements = result.placements.filter(placement => {
+        const isOccupied = input.speakerZones!.occupiedGridPositions.includes(placement.position)
+
+        if (isOccupied) {
+          console.warn(`[Logo Agent] AI placed logo at speaker-occupied zone ${placement.position}, filtering out`)
+        }
+
+        return !isOccupied
+      })
+
+      const filteredCount = originalCount - result.placements.length
+      if (filteredCount > 0) {
+        console.log(`[Logo Agent] Filtered ${filteredCount} placement(s) that overlapped with speaker zones`)
+      }
+    }
 
     return result
   } catch (error) {

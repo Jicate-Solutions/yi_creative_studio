@@ -212,6 +212,9 @@ export function LogoPositionGrid() {
 
     setIsOptimizing(true)
     try {
+      // NEW: Get speaker photo config from form state for zone awareness
+      const speakerPhotoConfig = useCreativeStore.getState().formData.designData?.customization?.speakerPhoto
+
       const response = await fetch('/api/optimize-logo-positions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -230,6 +233,7 @@ export function LogoPositionGrid() {
             backgroundShape: p.backgroundShape,
             backgroundStyle: p.backgroundStyle,
           })),
+          speakerPhoto: speakerPhotoConfig,  // NEW: Pass speaker photo config for zone avoidance
         }),
       })
 

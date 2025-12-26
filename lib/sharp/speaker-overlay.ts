@@ -1,5 +1,17 @@
 import sharp from 'sharp'
-import type { SpeakerPhotoCustomization, PhotoPosition, PhotoShape, PhotoVerticalPosition } from '@/lib/config/design-constants'
+import type {
+  SpeakerPhotoCustomization,
+  PhotoPosition,
+  PhotoShape,
+  PhotoVerticalPosition,
+  SpeakerItem,
+  LayoutMode,
+  LayoutStrategy,
+} from '@/lib/config/design-constants'
+import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
+
+// Re-export types for use by other modules
+export type { LayoutStrategy }
 
 interface SpeakerOverlayConfig {
   baseImageBuffer: Buffer
@@ -254,6 +266,201 @@ async function prepareSpeakerPhoto(
   return processedBuffer
 }
 
+// ============================================================
+// MULTI-SPEAKER SUPPORT (NEW v5.0)
+// ============================================================
+
+/**
+ * Calculate speaker photo positions based on layout strategy
+ * Supports 2-10 speakers with different layout modes
+ */
+export function calculateMultiSpeakerPositions(config: {
+  speakerCount: number
+  layout: LayoutStrategy
+  imageWidth: number
+  imageHeight: number
+  photoSize: number
+  spacing: number
+}): Array<{ x: number; y: number }> {
+  const { speakerCount, layout, imageWidth, imageHeight, photoSize, spacing } = config
+  const positions: Array<{ x: number; y: number }> = []
+  const padding = 40
+
+  if (layout === 'side-by-side') {
+    // Horizontal row - works for 2-3 speakers
+    const totalWidth = speakerCount * photoSize + (speakerCount - 1) * spacing
+    const startX = Math.max(padding, (imageWidth - totalWidth) / 2)
+    const centerY = Math.floor(imageHeight / 2 - photoSize / 2)
+
+    for (let i = 0; i < speakerCount; i++) {
+      positions.push({
+        x: Math.floor(startX + i * (photoSize + spacing)),
+        y: centerY,
+      })
+    }
+  } else if (layout === 'stacked') {
+    // Vertical stack - works for 2-4 speakers
+    const totalHeight = speakerCount * photoSize + (speakerCount - 1) * spacing
+    const centerX = Math.floor(imageWidth / 2 - photoSize / 2)
+    const startY = Math.max(padding, (imageHeight - totalHeight) / 2)
+
+    for (let i = 0; i < speakerCount; i++) {
+      positions.push({
+        x: centerX,
+        y: Math.floor(startY + i * (photoSize + spacing)),
+      })
+    }
+  } else if (layout === 'grid') {
+    // 2-column grid - works for 4-10 speakers
+    const cols = 2
+    const rows = Math.ceil(speakerCount / cols)
+
+    const gridWidth = cols * photoSize + (cols - 1) * spacing
+    const gridHeight = rows * photoSize + (rows - 1) * spacing
+
+    const startX = Math.max(padding, (imageWidth - gridWidth) / 2)
+    const startY = Math.max(padding, (imageHeight - gridHeight) / 2)
+
+    for (let i = 0; i < speakerCount; i++) {
+      const row = Math.floor(i / cols)
+      const col = i % cols
+
+      positions.push({
+        x: Math.floor(startX + col * (photoSize + spacing)),
+        y: Math.floor(startY + row * (photoSize + spacing)),
+      })
+    }
+  }
+
+  return positions
+}
+
+/**
+ * Overlay multiple speaker photos onto base image
+ * Uses shared settings with dynamic positioning based on layout strategy
+ */
+export async function overlayMultipleSpeakerPhotos(config: {
+  baseImageBuffer: Buffer
+  speakers: SpeakerItem[]
+  sharedSettings: {
+    shape: PhotoShape
+    size: number
+    border: { width: number; color: string }
+    shadow: boolean
+  }
+  layoutMode: LayoutMode
+  layoutStrategy?: LayoutStrategy
+  spacing?: number
+}): Promise<Buffer> {
+  const {
+    baseImageBuffer,
+    speakers,
+    sharedSettings,
+    layoutMode,
+    layoutStrategy,
+    spacing = 20,
+  } = config
+
+  if (!speakers || speakers.length === 0) {
+    console.log('No speakers to overlay, returning original image')
+    return baseImageBuffer
+  }
+
+  console.log(`Overlaying ${speakers.length} speaker photos with layout: ${layoutMode}`)
+
+  // Get base image metadata
+  const baseImage = sharp(baseImageBuffer)
+  const metadata = await baseImage.metadata()
+  const imageWidth = metadata.width || 1080
+  const imageHeight = metadata.height || 1350
+
+  // Auto-detect layout if needed
+  const finalLayout = layoutMode === 'auto'
+    ? autoDetectSpeakerLayout(speakers.length)
+    : (layoutStrategy || 'side-by-side')
+
+  // Calculate positions for all speakers
+  const positions = calculateMultiSpeakerPositions({
+    speakerCount: speakers.length,
+    layout: finalLayout,
+    imageWidth,
+    imageHeight,
+    photoSize: sharedSettings.size,
+    spacing,
+  })
+
+  // Prepare all speaker photos in parallel
+  const preparedPhotos = await Promise.all(
+    speakers
+      .filter(s => s.photoUrl)
+      .map(async (speaker, index) => {
+        try {
+          // Create a temp config with shared settings for prepareSpeakerPhoto
+          const tempConfig: SpeakerPhotoCustomization = {
+            enabled: true,
+            photoUrl: speaker.photoUrl!,
+            size: sharedSettings.size,
+            shape: sharedSettings.shape,
+            border: sharedSettings.border,
+            shadow: sharedSettings.shadow,
+            position: 'center',
+            verticalPosition: 'middle',
+          }
+
+          const photoBuffer = await prepareSpeakerPhoto(speaker.photoUrl!, tempConfig)
+
+          return {
+            buffer: photoBuffer,
+            position: positions[index],
+          }
+        } catch (error) {
+          console.error(`Failed to prepare speaker ${index + 1} photo:`, error)
+          return null
+        }
+      })
+  )
+
+  // Filter out failed photos
+  const validPhotos = preparedPhotos.filter(p => p !== null) as Array<{
+    buffer: Buffer
+    position: { x: number; y: number }
+  }>
+
+  if (validPhotos.length === 0) {
+    console.log('No valid speaker photos to overlay, returning original image')
+    return baseImageBuffer
+  }
+
+  // Create composite operations
+  const compositeOps: sharp.OverlayOptions[] = validPhotos.map(photo => ({
+    input: photo.buffer,
+    top: Math.max(0, photo.position.y),
+    left: Math.max(0, photo.position.x),
+  }))
+
+  console.log(`Compositing ${compositeOps.length} speaker photos onto base image`)
+
+  try {
+    // Single Sharp composite operation (efficient!)
+    return await baseImage.composite(compositeOps).png().toBuffer()
+  } catch (error) {
+    console.error('Failed to composite speaker photos:', error)
+    return baseImageBuffer
+  }
+}
+
+/**
+ * Auto-detect optimal speaker layout based on count
+ * Matches the logic in speaker-zones.ts
+ */
+export function autoDetectSpeakerLayout(count: number): LayoutStrategy {
+  if (count === 1) return 'side-by-side'  // Single speaker (legacy)
+  if (count === 2) return 'side-by-side'  // Left + Right
+  if (count === 3) return 'side-by-side'  // Horizontal row
+  if (count <= 6) return 'grid'           // 2×2 or 2×3 grid
+  return 'grid'                           // Default to grid for 7+
+}
+
 /**
  * Overlay speaker photo onto a base image using Sharp
  */
@@ -284,7 +491,7 @@ export async function overlaySpeakerPhotoOnImage(config: SpeakerOverlayConfig): 
     // Calculate position using user's settings
     const padding = 40
     const yPosition = calculateYPosition(speakerPhoto.verticalPosition, imageHeight, totalPhotoSize, padding)
-    const xPosition = calculateXPosition(speakerPhoto.position, imageWidth, totalPhotoSize, padding)
+    const xPosition = calculateXPosition(speakerPhoto.position || 'center', imageWidth, totalPhotoSize, padding)
 
     // Create composite operation
     const compositeOperations: sharp.OverlayOptions[] = [
@@ -307,14 +514,17 @@ export async function overlaySpeakerPhotoOnImage(config: SpeakerOverlayConfig): 
 }
 
 /**
- * Process a base64 or data URL image and overlay speaker photo
+ * Process a base64 or data URL image and overlay speaker photo(s)
+ * Handles both legacy single-speaker and new multi-speaker formats
  */
 export async function processImageWithSpeakerPhoto(
   imageDataUrl: string,
   speakerPhoto: SpeakerPhotoCustomization
 ): Promise<string> {
-  // Skip if not enabled or no photo
-  if (!speakerPhoto.enabled || !speakerPhoto.photoUrl) {
+  // Normalize config (handles migration from legacy to new format)
+  const normalized = normalizeSpeakerConfig(speakerPhoto)
+
+  if (!normalized.enabled) {
     return imageDataUrl
   }
 
@@ -336,11 +546,41 @@ export async function processImageWithSpeakerPhoto(
     throw new Error('Invalid image format')
   }
 
-  // Overlay speaker photo
-  const resultBuffer = await overlaySpeakerPhotoOnImage({
-    baseImageBuffer: imageBuffer,
-    speakerPhoto,
-  })
+  const speakerCount = getSpeakerCount(normalized)
+  console.log(`[Speaker Overlay] Processing ${speakerCount} speaker(s)`)
+
+  let resultBuffer: Buffer
+
+  // Multi-speaker mode
+  if (normalized.speakers && normalized.speakers.length > 0) {
+    console.log('[Speaker Overlay] Using multi-speaker overlay')
+    resultBuffer = await overlayMultipleSpeakerPhotos({
+      baseImageBuffer: imageBuffer,
+      speakers: normalized.speakers,
+      sharedSettings: {
+        shape: normalized.shape,
+        size: normalized.size,
+        border: normalized.border,
+        shadow: normalized.shadow,
+      },
+      layoutMode: normalized.layoutMode || 'auto',
+      layoutStrategy: normalized.layoutStrategy,
+      spacing: normalized.spacing || 20,
+    })
+  }
+  // Legacy single speaker mode (backward compatibility)
+  else if (normalized.photoUrl) {
+    console.log('[Speaker Overlay] Using legacy single-speaker overlay')
+    resultBuffer = await overlaySpeakerPhotoOnImage({
+      baseImageBuffer: imageBuffer,
+      speakerPhoto: normalized,
+    })
+  }
+  // No speakers to overlay
+  else {
+    console.log('[Speaker Overlay] No speakers to overlay')
+    return imageDataUrl
+  }
 
   // Return as data URL
   return `data:image/png;base64,${resultBuffer.toString('base64')}`

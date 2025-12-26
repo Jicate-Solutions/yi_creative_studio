@@ -32,10 +32,12 @@ import {
   getAIOptimizedPlacements,
   detectBrandLogos,
 } from '@/lib/agents/logo-placement-agent'
+import { analyzeSpeakerZones } from '@/lib/agents/speaker-zone-analyzer'
 import { CREATIVE_FORMATS, type CreativeFormatId } from '@/lib/config/creative-formats'
 import type { LogoPosition } from '@/lib/config/constants'
 import type { LogoType } from '@/lib/config/logo-locks'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
+import type { SpeakerPhotoCustomization } from '@/types/design.types'
 
 // ============================================================================
 // Types
@@ -57,6 +59,7 @@ interface RequestBody {
     backgroundShape?: LogoBackgroundShape
     backgroundStyle?: LogoBackgroundStyle
   }>
+  speakerPhoto?: SpeakerPhotoCustomization  // NEW: Speaker photo configuration for zone analysis
 }
 
 interface OptimizeResponse {
@@ -103,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json() as RequestBody
-    const { logos, formatId, useAI = false, currentPlacements } = body
+    const { logos, formatId, useAI = false, currentPlacements, speakerPhoto } = body
 
     // Validate input
     if (!logos || !Array.isArray(logos) || logos.length === 0) {
@@ -121,6 +124,20 @@ export async function POST(request: NextRequest) {
       category: l.category,
     }))
 
+    // NEW: Analyze speaker zones if speaker photos are enabled
+    let speakerZones = null
+    if (speakerPhoto?.enabled) {
+      const formatDimensions = getFormatDimensions(formatId)
+      speakerZones = analyzeSpeakerZones({
+        speakerPhoto,
+        formatDimensions,
+      })
+
+      if (speakerZones) {
+        console.log(`[Optimize Logos] Speaker zones detected: ${speakerZones.occupiedGridPositions.join(', ')}`)
+      }
+    }
+
     let response: OptimizeResponse
 
     if (useAI) {
@@ -133,6 +150,7 @@ export async function POST(request: NextRequest) {
             formatDimensions: getFormatDimensions(formatId),
             existingPlacements: currentPlacements,
             brandConstraints: detectBrandLogos(logos),
+            speakerZones,  // NEW: Pass speaker zone occupancy for avoidance
           },
           user.id,
           undefined // organizationId - could be fetched if needed

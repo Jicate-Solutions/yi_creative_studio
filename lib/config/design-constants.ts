@@ -339,6 +339,18 @@ export type PhotoPosition = 'left' | 'center' | 'right'
 export type PhotoVerticalPosition = 'top' | 'upper' | 'middle' | 'lower' | 'bottom'
 export type FooterStyle = 'minimal' | 'full' | 'branded'
 
+// Multi-speaker support types
+export type LayoutMode = 'auto' | 'manual'
+export type LayoutStrategy = 'side-by-side' | 'stacked' | 'grid'
+
+// Individual speaker data structure
+export interface SpeakerItem {
+  id: string              // Unique ID (crypto.randomUUID())
+  name: string            // Speaker name
+  designation?: string    // Title/role
+  photoUrl?: string       // Data URL
+}
+
 export interface TitleCustomization {
   position: TitlePosition
   alignment: TitleAlignment
@@ -360,16 +372,26 @@ export interface BackgroundCustomization {
 
 export interface SpeakerPhotoCustomization {
   enabled: boolean
-  photoUrl?: string
+
+  // NEW: Multi-speaker support
+  speakers?: SpeakerItem[]
+  layoutMode?: LayoutMode
+  layoutStrategy?: LayoutStrategy
+  spacing?: number
+
+  // SHARED photo settings (applies to all speakers)
   shape: PhotoShape
   size: number
-  position: PhotoPosition
-  verticalPosition: PhotoVerticalPosition
   border: {
     width: number
     color: string
   }
   shadow: boolean
+
+  // LEGACY: Single speaker fields (backward compatibility)
+  photoUrl?: string
+  position?: PhotoPosition
+  verticalPosition?: PhotoVerticalPosition
 }
 
 export interface FooterCustomization {
@@ -430,15 +452,25 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
   },
   speakerPhoto: {
     enabled: false,
+
+    // NEW: Multi-speaker defaults
+    speakers: [],           // Empty array by default
+    layoutMode: 'auto',     // Auto-detect layout
+    spacing: 20,            // 20px gap between speakers
+
+    // SHARED photo settings
     shape: 'circle',
     size: 200,
-    position: 'center',
-    verticalPosition: 'lower',
     border: {
-      width: 2,
-      color: '#FFFFFF',
+      width: 3,
+      color: '#005B96',     // Yi brand primary color
     },
     shadow: true,
+
+    // LEGACY: Single speaker (backward compatibility)
+    photoUrl: undefined,
+    position: 'center',
+    verticalPosition: 'lower',
   },
   footer: {
     style: 'minimal',

@@ -189,7 +189,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
 
   event_poster: {
     core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['registrationInfo', 'contactNumber', 'websiteUrl'],
     branding: ['organizationName'],
     advanced: ['targetAudience', 'additionalDetails'],
@@ -197,14 +197,14 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
 
   portrait_poster: {
     core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['contactInfo'],
     advanced: ['additionalDetails'],
   },
 
   landscape_poster: {
     core: ['eventName', 'eventTagline', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['contactInfo'],
     advanced: ['additionalDetails'],
   },
@@ -218,7 +218,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
 
   invitation: {
     core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['registrationInfo', 'dressCode'],
     advanced: ['specialInstructions', 'additionalDetails'],
   },
@@ -324,7 +324,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   video_cover: {
     core: ['videoTitle', 'eventTagline'],
     media: ['episodeNumber'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     advanced: ['additionalDetails'],
   },
 
@@ -341,7 +341,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   flyer_a4: {
     core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     content: ['eventDescription'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['contactNumber', 'contactEmail', 'websiteUrl'],
     advanced: ['callToAction', 'additionalDetails'],
   },
@@ -349,7 +349,7 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
   flyer_a5: {
     core: ['eventName', 'eventDate', 'eventTime', 'eventEndTime', 'venue'],
     content: ['eventDescription'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     contact: ['contactNumber', 'contactEmail', 'websiteUrl'],
     advanced: ['callToAction', 'additionalDetails'],
   },
@@ -439,13 +439,13 @@ export const FORMAT_SECTION_FIELDS: Record<string, Record<string, string[]>> = {
 
   presentation_16_9: {
     core: ['presentationTitle', 'eventTagline', 'eventDate'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     advanced: ['organizationName', 'additionalDetails'],
   },
 
   presentation_4_3: {
     core: ['presentationTitle', 'eventTagline', 'eventDate'],
-    speaker: ['speakerName', 'speakerDesignation'],
+    speaker: [], // Empty - MultiSpeakerInput handles this
     advanced: ['organizationName', 'additionalDetails'],
   },
 }

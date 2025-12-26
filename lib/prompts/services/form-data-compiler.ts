@@ -31,6 +31,12 @@ export interface CompiledFormData {
   speakerDesignation: string | null
   organizationName: string | null
 
+  // NEW: Multi-speaker support
+  speakers: Array<{
+    name: string | null
+    designation: string | null
+  }> | null
+
   // Description
   description: string | null
   tagline: string | null
@@ -141,6 +147,32 @@ export function compileFormData(
     extractedFields.speakerDesignation = null
   }
 
+  // NEW: Extract speakers array (supports both legacy and new formats)
+  let speakersArray: Array<{ name: string | null; designation: string | null }> | null = null
+
+  // Check for speakers array in form data
+  if (Array.isArray(formData.speakers)) {
+    speakersArray = formData.speakers.map((s: any) => ({
+      name: s.name || s.speakerName || null,
+      designation: s.designation || s.speakerDesignation || null,
+    })).filter(s => s.name && s.name.trim())
+
+    // Guard: Clear when speaker photo disabled
+    if (!speakerPhotoEnabled) {
+      speakersArray = null
+    }
+  } else if (extractedFields.speakerName) {
+    // BACKWARD COMPATIBILITY: Single speaker
+    speakersArray = [{
+      name: extractedFields.speakerName,
+      designation: extractedFields.speakerDesignation,
+    }]
+
+    if (!speakerPhotoEnabled) {
+      speakersArray = null
+    }
+  }
+
   // Extract custom fields (fields not matched by aliases)
   const customFields: Record<string, string> = {}
   for (const [key, value] of Object.entries(formData)) {
@@ -165,9 +197,12 @@ export function compileFormData(
     venue: extractedFields.venue,
 
     // People
-    speakerName: extractedFields.speakerName,
-    speakerDesignation: extractedFields.speakerDesignation,
+    speakerName: speakersArray?.[0]?.name || extractedFields.speakerName,
+    speakerDesignation: speakersArray?.[0]?.designation || extractedFields.speakerDesignation,
     organizationName: extractedFields.organizationName,
+
+    // NEW: Multi-speaker support
+    speakers: speakersArray,
 
     // Description
     description: extractedFields.description,

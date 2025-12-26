@@ -315,8 +315,24 @@ export function buildEventPosterPrompt(
   // Also handle speakerName from various possible field names
   const rawData = data as unknown as Record<string, unknown>
   const eventName = data.eventName || (rawData.eventTitle as string) || (rawData.title as string) || 'Event'
-  const speakerName = data.speakerName || (rawData.speaker as string) || (rawData.guestName as string) || ''
-  const speakerDesignation = data.speakerDesignation || (rawData.designation as string) || (rawData.guestDesignation as string) || ''
+
+  // NEW v5.0: Multi-speaker extraction (supports both single and array formats)
+  const speakers: Array<{ name: string; designation?: string }> = []
+
+  if (Array.isArray((rawData as any).speakers)) {
+    // Multi-speaker format
+    speakers.push(...(rawData as any).speakers.filter((s: any) => s.name))
+  } else if (data.speakerName || (rawData.speaker as string) || (rawData.guestName as string)) {
+    // Backward compatibility: single speaker
+    speakers.push({
+      name: data.speakerName || (rawData.speaker as string) || (rawData.guestName as string) || '',
+      designation: data.speakerDesignation || (rawData.designation as string) || (rawData.guestDesignation as string)
+    })
+  }
+
+  // Legacy fields for backward compatibility
+  const speakerName = speakers[0]?.name || ''
+  const speakerDesignation = speakers[0]?.designation || ''
 
   // v3.6: Normalize tagline and additionalDetails field names
   const eventDescription = data.eventDescription || (rawData.eventTagline as string) || (rawData.tagline as string) || ''
@@ -715,8 +731,13 @@ ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be plac
    - Place "${eventDescription}" in a supporting relationship to the title.` : ''
     }
 
-${speakerName ? `5. SPEAKER:
-   - Feature "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}" prominent but secondary to the title.` : ''
+${speakers.length > 0 ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''}:
+   ${speakers.map((speaker, index) => {
+     const designation = speaker.designation ? `, ${speaker.designation}` : ''
+     return speakers.length > 1
+       ? `- Speaker ${index + 1}: Feature "${speaker.name}${designation}" prominent but secondary to the title.`
+       : `- Feature "${speaker.name}${designation}" prominent but secondary to the title.`
+   }).join('\n   ')}` : ''
     }
 
 ${data.entryFee ? `6. FEE:
@@ -756,8 +777,8 @@ ${sophistication === 'rich'
       ? `Avoid boring, empty layouts. "Clutter" is allowed if it means "Rich Texture" and "Detail". Do not leave vast empty white spaces unless they are intentional negative space. Avoid: tiny unreadable text, low contrast text, amateur composition.`
       : `The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.`
     }
-    ${hasSpeakerPhoto ? `The speaker photo zone has a clean background without illustrated faces, people, or human figures - real photos will be overlaid separately.` : ''}
-${speakerName && !hasSpeakerPhoto ? `IMPORTANT - NO SPEAKER PLACEHOLDER: The speaker "${speakerName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person.` : ''}
+    ${hasSpeakerPhoto ? `The speaker photo zone${speakers.length > 1 ? 's have' : ' has a'} clean background${speakers.length > 1 ? 's' : ''} without illustrated faces, people, or human figures - real photos will be overlaid separately.` : ''}
+${speakers.length > 0 && !hasSpeakerPhoto ? `IMPORTANT - NO SPEAKER PLACEHOLDER${speakers.length > 1 ? 'S' : ''}: The speaker${speakers.length > 1 ? 's' : ''} ${speakers.map(s => `"${s.name}"`).join(', ')} appear${speakers.length === 1 ? 's' : ''} as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of${speakers.length > 1 ? ' people' : ' a person'}.` : ''}
 
 ${zoneReminderContext}
 

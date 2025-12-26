@@ -24,6 +24,7 @@ async function getSharp(): Promise<typeof sharp> {
 import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto } from '@/lib/sharp/speaker-overlay'
+import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
 import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
@@ -387,10 +388,14 @@ export async function POST(request: NextRequest) {
 
     let imageUrl: string
 
-    // Determine if user has their own speaker photo to overlay
+    // Determine if user has their own speaker photo(s) to overlay
     // If yes, we don't want AI to generate placeholder speaker in the design
+    // NEW v5.0: Supports both legacy single-speaker and multi-speaker formats
     const speakerPhoto = effectiveDesignData?.customization?.speakerPhoto
-    const userHasSpeakerPhoto = speakerPhoto?.enabled && speakerPhoto?.photoUrl
+    const userHasSpeakerPhoto = speakerPhoto?.enabled && (
+      speakerPhoto?.photoUrl || // Legacy single speaker
+      (speakerPhoto?.speakers && speakerPhoto.speakers.some(s => s.photoUrl)) // Multi-speaker
+    )
 
     // Enhance prompt with format context if a format is selected
     let enhancedPrompt = prompt
@@ -1012,11 +1017,24 @@ export async function POST(request: NextRequest) {
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
     }
 
-    // If speaker photo is enabled and user has uploaded a photo, overlay it
-    // Note: speakerPhoto is already defined above (line 88)
+    // ========================================================
+    // SPEAKER PHOTO OVERLAY (v5.0: Multi-Speaker Support)
+    // Handles both legacy single-speaker and new multi-speaker formats
+    // ========================================================
     if (userHasSpeakerPhoto && speakerPhoto) {
-      console.log('Processing speaker photo overlay')
-      imageUrl = await processImageWithSpeakerPhoto(imageUrl, speakerPhoto)
+      // Normalize speaker config (handles migration from legacy to new format)
+      const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)
+      const speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
+
+      console.log(`[Generate API] Applying speaker photo overlays (${speakerCount} speaker${speakerCount > 1 ? 's' : ''})`)
+
+      try {
+        imageUrl = await processImageWithSpeakerPhoto(imageUrl, normalizedSpeakerPhoto)
+        console.log(`[Generate API] Successfully overlaid ${speakerCount} speaker photo${speakerCount > 1 ? 's' : ''}`)
+      } catch (error) {
+        console.error('[Generate API] Speaker photo overlay failed:', error)
+        // Continue with original image on error
+      }
     }
 
     // ========================================================

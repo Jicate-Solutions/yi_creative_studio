@@ -194,7 +194,7 @@ export function buildSpeakerPhotoNarrative(
   }
 
   // Position
-  parts.push(PHOTO_POSITIONS[speakerPhoto.position] || PHOTO_POSITIONS.center)
+  parts.push(speakerPhoto.position ? PHOTO_POSITIONS[speakerPhoto.position] : PHOTO_POSITIONS.center)
 
   // Border - Yi CreativeStudio uses nested border object
   if (speakerPhoto.border && speakerPhoto.border.width > 0) {

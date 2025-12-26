@@ -78,48 +78,35 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Floating App Anchors */}
-      <div className="floating-anchor hidden xl:flex">
-        <div className="anchor-unit group relative">
-          <span className="group-hover:text-secondary transition-colors">Verticals: Masoom</span>
-        </div>
-        <div className="anchor-unit group relative">
-          <span className="group-hover:text-primary transition-colors">Engine: Gemini 1.5</span>
-        </div>
-        <div className="anchor-unit group relative border-secondary/30 text-secondary/60">
-          <span>Credits: 10</span>
-        </div>
-      </div>
-
       {/* Hero Section: The Architectural Shift */}
       <section className="relative pt-32 pb-16 px-6 sm:px-8 overflow-hidden">
         {/* Background Perspective Grid (Creative Soul Injection) */}
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(0,91,150,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.15)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(0,91,150,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.05)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(-200px)] opacity-30 h-[150%]" />
 
-        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-16">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-12 lg:gap-20">
           {/* Architectural Card Stack (Now on Left for Impact) */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, x: -50 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 w-full max-w-[550px] h-[420px] md:h-[550px] relative mt-16 lg:mt-0 hero-stack-container order-2 lg:order-1"
+            className="flex-1 w-full max-w-[550px] h-[420px] md:h-[550px] relative mt-16 lg:mt-0 hero-stack-container"
           >
             {/* Perspective Lines Decoration */}
             <div className="absolute -inset-20 border-l border-t border-slate-200/20 dark:border-white/[0.03] -z-10" />
             <div className="absolute -bottom-20 -right-20 border-r border-b border-slate-200/20 dark:border-white/[0.03] -z-10" />
 
             {/* Layer 3: Genesis (Deep Texture) */}
-            <div className="stack-card-base stack-card-3 rounded-[4rem] overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 dark:from-primary/20 dark:via-black dark:to-secondary/20 border-2 border-slate-200 dark:border-white/5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] dark:shadow-none">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-30 dark:opacity-40" />
+            <div className="stack-card-base stack-card-3 rounded-[4rem] overflow-hidden bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-50 dark:from-primary/30 dark:via-secondary/20 dark:to-accent/20 border-2 border-slate-300/60 dark:border-primary/20 shadow-[0_25px_70px_-15px_rgba(0,91,150,0.25)] dark:shadow-[0_25px_70px_-15px_rgba(0,91,150,0.4)]">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-50 dark:opacity-60" />
               <div className="absolute bottom-12 left-12 text-[8px] font-extrabold uppercase tracking-[1em] text-slate-400/60 dark:text-white/30 [writing-mode:vertical-rl] rotate-180">Genesis_Origin</div>
             </div>
 
             {/* Layer 2: Transcendence (Refracted Prism) */}
-            <div className="stack-card-base stack-card-2 border-2 border-slate-200 dark:border-white/10 rounded-[4rem] bg-white dark:bg-white/[0.03] backdrop-blur-3xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.2)] dark:shadow-2xl">
-              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/20 dark:from-primary/20 to-transparent rounded-full blur-[100px]" />
+            <div className="stack-card-base stack-card-2 border-2 border-slate-300/70 dark:border-white/20 rounded-[4rem] bg-white/90 dark:bg-white/[0.08] backdrop-blur-3xl overflow-hidden shadow-[0_35px_90px_-20px_rgba(0,91,150,0.3)] dark:shadow-[0_35px_90px_-20px_rgba(0,91,150,0.5)]">
+              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/40 dark:from-primary/40 to-transparent rounded-full blur-[100px]" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full border-2 border-slate-200 dark:border-white/10 animate-[spin_10s_linear_infinite]" />
-                <div className="absolute w-20 h-20 rounded-full bg-gradient-to-tr from-secondary/20 dark:from-secondary/20 to-transparent blur-xl" />
+                <div className="w-32 h-32 rounded-full border-2 border-primary/40 dark:border-primary/50 animate-[spin_10s_linear_infinite] shadow-[0_0_30px_rgba(0,91,150,0.4)]" />
+                <div className="absolute w-20 h-20 rounded-full bg-gradient-to-tr from-secondary/40 dark:from-secondary/50 to-transparent blur-xl" />
               </div>
               <div className="absolute top-12 left-12 text-[8px] font-extrabold uppercase tracking-[0.5em] text-slate-400/60 dark:text-white/35">Synthesis.Layer_02</div>
             </div>
@@ -134,80 +121,76 @@ export default function LandingPage() {
                   rotate: [0, 2, -2, 0]
                 }}
                 transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center"
+                className="absolute inset-0 bg-[url('/images/yi-hero-creative.png')] bg-cover bg-center"
               />
 
               {/* Prismatic Overlays */}
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 via-transparent to-secondary/40 mix-blend-color-dodge opacity-60" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-100 dark:from-black via-transparent to-transparent opacity-90 z-10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-100/80 dark:from-black/70 via-transparent to-transparent opacity-85 z-10" />
 
-              {/* Minimalist Branding */}
-              <div className="absolute top-12 left-12 z-20">
-                <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-700">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-              </div>
-
-              <div className="absolute bottom-12 left-12 right-12 z-20">
-                <div className="text-[9px] font-extrabold uppercase tracking-[0.8em] text-primary/60 mb-6 mb-8">Conceptual_Spirit</div>
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <span className="block text-3xl font-extrabold uppercase tracking-tighter leading-none">Eternal</span>
-                    <span className="block text-3xl font-extrabold uppercase tracking-tighter leading-none text-secondary italic">Bloom</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                  </div>
-                </div>
+              {/* Metadata Badge */}
+              <div className="absolute bottom-12 right-12 flex items-center gap-3 z-20">
+                <div className="text-[8px] font-extrabold uppercase tracking-[0.5em] text-white/70">AI_GENESIS</div>
+                <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
               </div>
             </div>
           </motion.div>
 
-          {/* Text Content (Now on Right) */}
+          {/* Text Content (Right Column) */}
           <motion.div
             initial={{ opacity: 0, x: 80 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 text-center lg:text-left order-1 lg:order-2"
+            className="flex-1 text-center lg:text-left order-1 lg:order-2 lg:pt-8"
           >
-            <div className="flex justify-center mb-8">
-              <Badge className="bg-primary/40 border border-primary/70 text-slate-800 dark:text-white text-[11px] font-bold uppercase tracking-[0.3em] rounded-full backdrop-blur-xl shadow-2xl py-3 px-8">
-                AI-Powered Brand Creative Generation for Yi Chapters
-              </Badge>
+            {/* Tagline Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">AI-Powered Brand Creative Generation</span>
             </div>
-            <h1 className="text-yi-bold text-[clamp(3rem,8vw,8rem)] mb-6 text-slate-900 dark:text-white leading-[0.75] tracking-tighter uppercase font-bold">
-              CREATE{" "}
+
+            <h1 className="text-[clamp(2.5rem,6vw,5rem)] mb-6 text-slate-900 dark:text-white leading-[0.9] tracking-tight font-bold">
+              Create{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-gradient-flow">
-                BRILLIANCE
+                Brilliance
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-slate-700 dark:text-white/90 mb-14 max-w-3xl font-medium leading-relaxed">
+            <p className="text-lg md:text-xl text-slate-600 dark:text-white/80 mb-10 max-w-xl font-medium leading-relaxed">
               Generate professional event posters, social posts, and marketing materials in 30 seconds. Perfect brand compliance. No design skills required.
             </p>
-            <div className="flex flex-col items-center lg:items-start gap-8">
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="flex flex-col gap-2">
-                  <Link href={ROUTES.signup} className="w-full sm:w-auto">
-                    <Button size="lg" className="h-20 w-full sm:w-auto px-16 rounded-[2.5rem] btn-primary text-sm font-bold uppercase tracking-[0.25em] group shadow-[0_25px_60px_rgba(0,119,238,0.4)]">
-                      Start Creating Free
-                      <MoveRight className="ml-5 h-7 w-7 group-hover:translate-x-4 transition-transform duration-500" />
-                    </Button>
-                  </Link>
-                  <p className="text-sm text-slate-600 dark:text-white/70 text-center sm:text-left font-medium">100 free credits • No credit card required</p>
-                </div>
+            <div className="flex flex-col items-center lg:items-start gap-6">
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                <Link href={ROUTES.signup} className="w-full sm:w-auto">
+                  <Button size="lg" className="h-14 w-full sm:w-auto px-8 rounded-full btn-primary text-sm font-semibold tracking-wide group shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all">
+                    Start Creating Free
+                    <MoveRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
                 <Link href="#showcase">
-                  <Button variant="outline" size="lg" className="h-20 px-12 rounded-[2.5rem] border-2 border-slate-300 dark:border-white/20 text-slate-700 dark:text-white text-sm font-bold uppercase tracking-[0.25em] hover:bg-slate-100 dark:hover:bg-white/5 hover:border-slate-400 dark:hover:border-white/30 hover:text-slate-900 dark:hover:text-white">
+                  <Button variant="outline" size="lg" className="h-14 px-8 rounded-full border-2 border-slate-300 dark:border-white/20 text-slate-700 dark:text-white text-sm font-semibold tracking-wide hover:bg-slate-100 dark:hover:bg-white/5 hover:border-slate-400 dark:hover:border-white/30 transition-all">
                     Watch Demo
                   </Button>
                 </Link>
               </div>
-              <div className="flex items-center gap-4 py-4 px-8 rounded-full bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 backdrop-blur-md">
-                <div className="flex -space-x-3">
-                  {[1, 2, 3].map(i => <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-200 dark:border-[#0d021b] bg-white text-[8px] font-bold text-black flex items-center justify-center">0{i}</div>)}
+
+              {/* Supporting Info */}
+              <p className="text-sm text-slate-500 dark:text-white/60 font-medium">
+                100 free credits • No credit card required
+              </p>
+
+              {/* Social Proof */}
+              <div className="flex items-center gap-4 py-3 px-6 rounded-full bg-slate-100/80 dark:bg-white/[0.05] border border-slate-200/60 dark:border-white/10">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-[10px] font-bold text-white">
+                      {i}
+                    </div>
+                  ))}
                 </div>
-                <span className="text-sm text-slate-700 dark:text-white/80 font-medium">Join 200+ creators across <span className="font-bold text-slate-900 dark:text-white">70 Yi chapters</span></span>
+                <span className="text-sm text-slate-600 dark:text-white/70 font-medium">
+                  Join <span className="font-bold text-slate-900 dark:text-white">200+</span> creators across <span className="font-bold text-slate-900 dark:text-white">70 Yi chapters</span>
+                </span>
               </div>
             </div>
           </motion.div>
@@ -340,7 +323,7 @@ export default function LandingPage() {
 
             {/* Feature 2: Tall Module - Link to Templates */}
             <Link href={ROUTES.gallery} className="col-span-12 md:col-span-6 lg:col-span-4 row-span-6 bento-module group overflow-hidden relative block">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-1000 grayscale" />
+              <div className="absolute inset-0 bg-[url('/images/yi-brand-showcase.png')] bg-cover bg-center opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all duration-1000" />
               <div className="relative z-10 flex flex-col h-full">
                 <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center mb-10">
                   <Shield className="h-6 w-6 text-secondary" />
@@ -353,7 +336,7 @@ export default function LandingPage() {
                   Logo positions locked. Brand colors enforced. Guidelines automated. From Chennai to Chandigarh, pixel-perfect consistency.
                 </p>
                 <div className="mt-auto p-6 rounded-3xl bg-slate-100/60 dark:bg-black/40 border border-slate-200/40 dark:border-white/10 overflow-hidden relative">
-                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=400')] bg-cover bg-center opacity-30" />
+                  <div className="absolute inset-0 bg-[url('/images/yi-brand-showcase.png')] bg-cover bg-center opacity-40" />
                   <div className="relative z-10">
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-[8px] font-extrabold uppercase tracking-widest text-slate-500/70 dark:text-white/40">Alignment_Core</span>
@@ -488,19 +471,22 @@ export default function LandingPage() {
               </h2>
               <p className="text-2xl text-slate-700 dark:text-white/80 font-semibold max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
             </div>
-            <div className="w-full lg:w-1/3 aspect-[4/5] rounded-[4rem] overflow-hidden relative group">
-              <img src="https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&q=80&w=800" alt="Showcase" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3000ms]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-100 dark:from-black via-transparent to-transparent opacity-60" />
-              <div className="absolute bottom-12 left-12 text-[10px] font-extrabold uppercase tracking-[0.5em] text-foreground dark:text-white">Generation_A_012</div>
+            <div className="w-full lg:w-1/3 aspect-[4/5] rounded-[4rem] overflow-hidden relative group shadow-2xl border border-slate-200/50 dark:border-white/10">
+              <img src="/images/yi-brand-showcase.png" alt="Yi Platform - 30+ Creative Formats" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2000ms]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
+              <div className="absolute bottom-8 left-8 right-8">
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.4em] text-white/80 mb-2">Yi CreativeStudio</div>
+                <div className="text-sm font-bold text-white">All formats. One platform.</div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
             {[
-              'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=400',
-              'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=400',
-              'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&q=80&w=400',
-              'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&q=80&w=400'
+              '/images/showcase/diwali-greeting.png',
+              '/images/showcase/birthday-post.png',
+              '/images/showcase/autism-awareness.png',
+              '/images/showcase/pongal-greeting.png'
             ].map((url, i) => (
               <motion.div
                 key={i}
@@ -509,7 +495,7 @@ export default function LandingPage() {
                 transition={{ delay: i * 0.1 }}
                 className="aspect-square rounded-3xl overflow-hidden hover:scale-95 hover:rotate-2 transition-all duration-500 border border-slate-200/40 dark:border-white/10"
               >
-                <img src={url} alt={`Creation ${i}`} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" />
+                <img src={url} alt={`Yi CreativeStudio example ${i + 1}`} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" />
               </motion.div>
             ))}
           </div>
