@@ -48,7 +48,7 @@ export const CreativeCursor = () => {
     return (
         <>
             <motion.div
-                className="fixed top-0 left-0 w-8 h-8 rounded-full border border-fatsoma-primary pointer-events-none z-[9999] mix-blend-difference"
+                className="fixed top-0 left-0 w-8 h-8 rounded-full border border-primary pointer-events-none z-[9999] mix-blend-difference"
                 style={{
                     x: springX,
                     y: springY,
@@ -64,7 +64,7 @@ export const CreativeCursor = () => {
                             initial={{ opacity: 0, scale: 0 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0 }}
-                            className="absolute inset-0 rounded-full bg-fatsoma-primary/20 blur-md"
+                            className="absolute inset-0 rounded-full bg-primary/20 blur-md"
                         />
                     )}
                 </AnimatePresence>
@@ -72,7 +72,7 @@ export const CreativeCursor = () => {
 
             {/* Particle Trail - simplified for performance */}
             <motion.div
-                className="fixed top-0 left-0 w-2 h-2 rounded-full bg-fatsoma-secondary pointer-events-none z-[9999]"
+                className="fixed top-0 left-0 w-2 h-2 rounded-full bg-secondary pointer-events-none z-[9999]"
                 style={{
                     x: mouseX,
                     y: mouseY,

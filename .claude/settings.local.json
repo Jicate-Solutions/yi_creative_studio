@@ -251,7 +251,8 @@
       "Bash(cmd /c:*)",
       "Bash(claude mcp add:*)",
       "Bash(del libthemetheme-provider.tsx libthemeuse-theme.ts storestheme-store.ts)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": [],

@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { type Step } from '@/components/ui/stepper'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 interface CreateSidebarProps {
@@ -10,6 +10,7 @@ interface CreateSidebarProps {
   currentStep: number
   onStepClick: (stepId: number) => void
   className?: string
+  isGenerating?: boolean
 }
 
 /**
@@ -21,6 +22,7 @@ export function CreateSidebar({
   currentStep,
   onStepClick,
   className,
+  isGenerating = false,
 }: CreateSidebarProps) {
   const completedSteps = currentStep - 1
   const totalSteps = steps.length
@@ -31,7 +33,11 @@ export function CreateSidebar({
       className={cn(
         'hidden md:flex flex-col w-64 h-[calc(100vh-2rem)]',
         'fixed top-4 left-4 z-50',
-        'glass-panel border-white/20 dark:border-white/10 shadow-xl',
+        // Premium glass panel styling
+        'glass-panel',
+        'border border-white/30 dark:border-white/10',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
+        'ring-1 ring-white/10 dark:ring-white/5', // Subtle inner glow
         className
       )}
     >
@@ -72,7 +78,8 @@ export function CreateSidebar({
             const isCompleted = step.id < currentStep
             const isCurrent = step.id === currentStep
             const isPending = step.id > currentStep
-            const isClickable = isCompleted // Only completed steps are clickable
+            const isClickable = isCompleted && !isGenerating // Disable clicks while generating
+            const isGenerateStep = step.id === 7 && isCurrent && isGenerating
 
             return (
               <li key={step.id}>
@@ -82,8 +89,9 @@ export function CreateSidebar({
                   disabled={!isClickable}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200',
-                    isCurrent && 'bg-primary/10 shadow-[var(--shadow-card-active)]',
-                    isCompleted && 'hover:bg-muted cursor-pointer',
+                    isCurrent && !isGenerateStep && 'bg-primary/10 shadow-[var(--shadow-card-active)]',
+                    isGenerateStep && 'bg-gradient-to-r from-primary/20 to-purple-500/20 shadow-[var(--shadow-card-active)] animate-pulse',
+                    isCompleted && !isGenerating && 'hover:bg-muted cursor-pointer',
                     isPending && 'opacity-50 cursor-not-allowed'
                   )}
                 >
@@ -92,12 +100,15 @@ export function CreateSidebar({
                     className={cn(
                       'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200',
                       isCompleted && 'bg-success text-success-foreground',
-                      isCurrent && 'gradient-yi text-white shadow-md',
+                      isCurrent && !isGenerateStep && 'gradient-yi text-white shadow-md',
+                      isGenerateStep && 'bg-primary text-white shadow-md',
                       isPending && 'bg-muted text-muted-foreground shadow-sm'
                     )}
                   >
                     {isCompleted ? (
                       <Check className="w-3.5 h-3.5" />
+                    ) : isGenerateStep ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       step.icon
                     )}
@@ -121,9 +132,14 @@ export function CreateSidebar({
                           Done
                         </span>
                       )}
-                      {isCurrent && (
+                      {isCurrent && !isGenerateStep && (
                         <span className="text-[10px] font-medium text-primary uppercase tracking-wider flex-shrink-0">
                           Active
+                        </span>
+                      )}
+                      {isGenerateStep && (
+                        <span className="text-[10px] font-medium text-primary uppercase tracking-wider flex-shrink-0 animate-pulse">
+                          Creating...
                         </span>
                       )}
                     </div>

@@ -36,11 +36,11 @@ export function LogoStripShapeSelector() {
 
   return (
     <div className="space-y-2">
-      {/* Strip Shape */}
+      {/* Bar Style */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Waves className="h-3.5 w-3.5 text-muted-foreground" />
-          <Label className="text-xs font-medium">Strip Shape</Label>
+          <Label className="text-xs font-medium">Bar Style</Label>
         </div>
         <ToggleGroup
           type="single"
@@ -61,11 +61,11 @@ export function LogoStripShapeSelector() {
         </ToggleGroup>
       </div>
 
-      {/* Strip Opacity */}
+      {/* Bar Transparency */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Blend className="h-3.5 w-3.5 text-muted-foreground" />
-          <Label className="text-xs font-medium">Opacity</Label>
+          <Label className="text-xs font-medium">Transparency</Label>
         </div>
         <div className="flex items-center gap-2 flex-1 max-w-[140px]">
           <Slider
@@ -82,12 +82,12 @@ export function LogoStripShapeSelector() {
         </div>
       </div>
 
-      {/* Logo-Bound Strip */}
+      {/* Fit to Logos */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Focus className="h-3.5 w-3.5 text-muted-foreground" />
-          <Label className="text-xs font-medium">Logo-Bound</Label>
-          <span className="text-[9px] text-muted-foreground">(fit to logos)</span>
+          <Label className="text-xs font-medium">Fit to Logos</Label>
+          <span className="text-[9px] text-muted-foreground">(bar wraps logos only)</span>
         </div>
         <Switch
           checked={isLogoBound}

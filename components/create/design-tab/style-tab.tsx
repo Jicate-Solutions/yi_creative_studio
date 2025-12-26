@@ -180,7 +180,7 @@ export function StyleTab({
       </div>
 
       <div className="text-sm text-muted-foreground">
-        Choose a visual style for your poster. This determines the overall aesthetic treatment.
+        Choose a visual style for your poster. This sets the overall look and feel.
       </div>
 
       <ScrollArea className="h-[400px] pr-4">

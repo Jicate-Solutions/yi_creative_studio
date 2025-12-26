@@ -194,7 +194,7 @@ export function StudioHero() {
                             asChild
                             variant="outline"
                             size="lg"
-                            className="h-16 px-10 rounded-full border-border/50 bg-background/50 backdrop-blur-xl hover:bg-muted font-bold text-lg transition-all duration-300"
+                            className="h-16 px-10 rounded-full border-2 border-slate-300 dark:border-white/20 bg-background/50 backdrop-blur-xl text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-muted hover:border-slate-400 dark:hover:border-white/30 hover:text-slate-900 dark:hover:text-white font-bold text-lg transition-all duration-300"
                         >
                             <Link href={ROUTES.gallery}>
                                 Open Studio Vault

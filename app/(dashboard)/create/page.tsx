@@ -862,6 +862,7 @@ export default function CreatePage() {
             onStepClick={(stepId) => {
               if (stepId < step && !isGenerating) setStep(stepId)
             }}
+            isGenerating={isGenerating}
           />
         )}
 
@@ -875,22 +876,40 @@ export default function CreatePage() {
             <div className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    {STEPS[step - 1]?.icon}
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center",
+                    isGenerating ? "bg-primary animate-pulse" : "bg-primary/10"
+                  )}>
+                    {isGenerating ? (
+                      <Loader2 className="h-4 w-4 text-white animate-spin" />
+                    ) : (
+                      STEPS[step - 1]?.icon
+                    )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{STEPS[step - 1]?.title}</p>
-                    <p className="text-xs text-muted-foreground">Step {step} of 7</p>
+                    <p className="text-sm font-medium">
+                      {isGenerating ? 'Creating your design...' : STEPS[step - 1]?.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {isGenerating ? 'Please wait' : `Step ${step} of 7`}
+                    </p>
                   </div>
                 </div>
                 <span className="text-xs text-muted-foreground font-medium">
-                  {Math.round((step / 7) * 100)}%
+                  {isGenerating ? (
+                    <span className="text-primary animate-pulse">Generating...</span>
+                  ) : (
+                    `${Math.round((step / 7) * 100)}%`
+                  )}
                 </span>
               </div>
               {/* Progress bar */}
               <div className="h-1 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                  className={cn(
+                    "h-full rounded-full transition-all duration-300 ease-out",
+                    isGenerating ? "bg-primary animate-pulse" : "bg-primary"
+                  )}
                   style={{ width: `${(step / 7) * 100}%` }}
                 />
               </div>
@@ -899,7 +918,9 @@ export default function CreatePage() {
 
           {/* Step Content Area - Scrollable */}
           <div className={cn(
-            "flex-1 overflow-y-auto py-6 relative z-10 no-scrollbar",
+            "flex-1 overflow-y-auto py-6 relative z-10",
+            // Bottom padding for fixed footer: mobile (full-width ~70px) + desktop (floating ~90px)
+            "pb-24 md:pb-28",
             (step === 1 || step === 3 || step === 4) ? "px-6" : "container"
           )}>
             <div className="grid grid-cols-1 gap-6">
@@ -1708,9 +1729,20 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Footer Navigation - Fixed at bottom for easy access */}
+          {/* Footer Navigation - Fixed at bottom with premium glass effect */}
           {(step !== 7 || !generatedImage) && (
-            <div className="fixed bottom-0 left-0 right-0 md:left-64 z-40 bg-[#E8F4FD]/95 backdrop-blur-sm border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)]">
+            <div className={cn(
+              "fixed bottom-0 left-0 right-0 z-40",
+              // Desktop: Floating card with margins matching sidebar
+              "md:left-[17rem] md:bottom-4 md:right-4 md:rounded-2xl",
+              // Glass morphism background (matches sidebar)
+              "bg-white/70 dark:bg-slate-900/70",
+              "backdrop-blur-xl",
+              // Border styling
+              "border-t md:border border-white/30 dark:border-white/10",
+              // Premium shadow
+              "shadow-[0_-8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+            )}>
               <div className="container py-3 md:py-4">
                 <div className="flex items-center justify-between">
                   {/* Back Button - Canva style with hover border */}
@@ -1720,7 +1752,7 @@ export default function CreatePage() {
                     disabled={step === 1 || isGenerating}
                     className={cn(
                       "gap-2 border-2 transition-all duration-300",
-                      "hover:border-[#005B96] hover:text-[#005B96]"
+                      "hover:border-primary hover:text-primary"
                     )}
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -1728,7 +1760,7 @@ export default function CreatePage() {
                   </Button>
 
                   {/* Step info for mobile */}
-                  <div className="text-sm text-muted-foreground lg:hidden font-medium">
+                  <div className="text-sm text-slate-600 dark:text-slate-400 lg:hidden font-medium">
                     Step {step} of 7
                   </div>
 
@@ -1739,12 +1771,10 @@ export default function CreatePage() {
                       disabled={!canGenerate || isGenerating}
                       className={cn(
                         "gap-2 px-6 transition-all duration-300",
-                        "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                        "btn-primary",
                         "text-white font-semibold",
-                        "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
-                        "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
                         "hover:-translate-y-0.5",
-                        "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                        "disabled:opacity-50 disabled:hover:translate-y-0"
                       )}
                     >
                       {isGenerating ? (
@@ -1774,12 +1804,10 @@ export default function CreatePage() {
                       disabled={!canProceed()}
                       className={cn(
                         "gap-2 px-6 transition-all duration-300",
-                        "bg-gradient-to-r from-[#005B96] to-[#1B998B]",
+                        "btn-primary",
                         "text-white font-semibold",
-                        "shadow-[0_4px_12px_rgba(0,91,150,0.25)]",
-                        "hover:shadow-[0_6px_20px_rgba(0,91,150,0.35)]",
                         "hover:-translate-y-0.5",
-                        "disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(0,91,150,0.25)]"
+                        "disabled:opacity-50 disabled:hover:translate-y-0"
                       )}
                     >
                       <span className="hidden sm:inline">Continue</span>

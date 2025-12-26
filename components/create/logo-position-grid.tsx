@@ -413,11 +413,11 @@ export function LogoPositionGrid() {
 
           {/* Logo Options - Combined Panel */}
           <div className="p-2 bg-muted/50 rounded-lg border space-y-2 mb-3">
-            {/* Strip Layout */}
+            {/* Logo Bar */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Rows3 className="h-3.5 w-3.5 text-muted-foreground" />
-                <Label className="text-xs font-medium">Strip Layout</Label>
+                <Label className="text-xs font-medium">Add Logo Bar</Label>
               </div>
               <Switch
                 checked={formData.logoStripMode?.enabled ?? false}
@@ -478,10 +478,10 @@ export function LogoPositionGrid() {
             {/* Divider */}
             <Separator className="my-1" />
 
-            {/* Background Color */}
+            {/* Logo Background Color */}
             <div className="flex items-center gap-2">
               <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-xs font-medium">Background:</Label>
+              <Label className="text-xs font-medium">Logo Background:</Label>
               <Input
                 type="color"
                 value={formData.logoBackgroundColor}
@@ -752,9 +752,9 @@ function LogoOptionsPopover({
 
       <Separator />
 
-      {/* Background Shape */}
+      {/* Logo Shape */}
       <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Background</Label>
+        <Label className="text-xs text-muted-foreground">Logo Shape</Label>
         <ToggleGroup
           type="single"
           value={currentShape}
@@ -804,9 +804,9 @@ function LogoOptionsPopover({
         </div>
       )}
 
-      {/* Size */}
+      {/* Logo Size */}
       <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Size</Label>
+        <Label className="text-xs text-muted-foreground">Logo Size</Label>
         <ToggleGroup
           type="single"
           value={currentSize}

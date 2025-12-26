@@ -64,7 +64,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
     <RoleProvider>
       <TooltipProvider>
         <div className={cn(
-          "relative flex",
+          "relative flex bg-yi text-foreground dark:text-white",
           createModeActive ? "h-screen overflow-hidden" : "min-h-screen"
         )}>
           {/* Sidebar - Desktop */}

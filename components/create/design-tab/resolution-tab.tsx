@@ -70,9 +70,9 @@ export function ResolutionTab({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium">Output Quality</h3>
+          <h3 className="text-sm font-medium">Image Quality</h3>
           <p className="text-xs text-muted-foreground">
-            Higher quality for print, standard for web
+            Higher quality for printing, standard for sharing online
           </p>
         </div>
         <TooltipProvider>

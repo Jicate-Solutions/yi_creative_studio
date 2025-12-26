@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@utility glass-fatsoma {
-  @apply bg-white/85 dark:bg-[#160a2c99] backdrop-blur-xl;
+@utility glass-yi {
+  @apply bg-white/85 dark:bg-[#1a233299] backdrop-blur-xl;
   @apply border border-slate-200/40 dark:border-white/8;
   @apply shadow-sm dark:shadow-none;
 }
@@ -90,16 +90,9 @@
   --color-yi-navy: #1a2332;
   --color-yi-navy-light: #243447;
 
-  /* FATSOMA-STYLE VARIABLES */
-  --fatsoma-bg: #0d021b;
-  --fatsoma-card: #160a2c;
-  --fatsoma-primary: #0077EE;
-  /* Vibrant Yi Blue */
-  --fatsoma-secondary: #FF6B35;
-  /* Vibrant Yi Orange */
-
-  --gradient-yi-vibrant: linear-gradient(135deg, #0077EE 0%, #FF6B35 100%);
-  --gradient-yi-glow: radial-gradient(circle at center, rgba(0, 119, 238, 0.15) 0%, transparent 70%);
+  /* Yi Brand Gradients */
+  --gradient-yi-vibrant: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-orange) 100%);
+  --gradient-yi-glow: radial-gradient(circle at center, rgba(0, 91, 150, 0.15) 0%, transparent 70%);
 }
 
 :root {
@@ -597,6 +590,33 @@
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
+  /* Glass Footer - Consistent with glass-panel for bottom-fixed elements */
+  .glass-footer {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .glass-footer {
+    background: rgba(15, 23, 42, 0.7);
+    border-top-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Floating variant for desktop */
+  @media (min-width: 768px) {
+    .glass-footer {
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .dark .glass-footer {
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
   /* ============================================
      GRADIENT GLASS BUTTONS - Borderless Premium
      ============================================ */
@@ -871,32 +891,32 @@
     }
   }
 
-  /* FATSOMA STYLE UTILITIES */
-  .bg-fatsoma {
+  /* YI BRAND STYLE UTILITIES */
+  .bg-yi {
     @apply bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100;
   }
 
-  .dark .bg-fatsoma {
-    background: radial-gradient(circle at top left, #160a2c 0%, #0d021b 100%);
+  .dark .bg-yi {
+    background: radial-gradient(circle at top left, #1a2332 0%, #050505 100%);
   }
 
 
 
-  .text-fatsoma-bold {
+  .text-yi-bold {
     font-weight: 900;
     letter-spacing: -0.04em;
     line-height: 0.9;
   }
 
-  .btn-fatsoma-primary {
+  .btn-primary {
     background: var(--gradient-yi-vibrant);
-    box-shadow: 0 0 20px rgba(0, 119, 238, 0.3);
+    box-shadow: 0 0 20px rgba(0, 91, 150, 0.3);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .btn-fatsoma-primary:hover {
+  .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 0 40px rgba(0, 119, 238, 0.5);
+    box-shadow: 0 0 40px rgba(0, 91, 150, 0.5);
   }
 
   .poster-3d-tilt {
@@ -930,12 +950,20 @@
   .stack-card-2 {
     transform: translateZ(0px) rotateY(-12deg) rotateX(10deg) translateX(-40px);
     z-index: 20;
+    opacity: 0.8;
+  }
+
+  .dark .stack-card-2 {
     opacity: 0.6;
   }
 
   .stack-card-3 {
     transform: translateZ(-50px) rotateY(-20deg) rotateX(15deg) translateX(-80px);
     z-index: 10;
+    opacity: 0.5;
+  }
+
+  .dark .stack-card-3 {
     opacity: 0.3;
   }
 
@@ -945,11 +973,19 @@
 
   .hero-stack-container:hover .stack-card-2 {
     transform: translateZ(50px) rotateY(-8deg) rotateX(5deg) translateX(-20px);
+    opacity: 0.9;
+  }
+
+  .dark .hero-stack-container:hover .stack-card-2 {
     opacity: 0.8;
   }
 
   .hero-stack-container:hover .stack-card-3 {
     transform: translateZ(0px) rotateY(-15deg) rotateX(10deg) translateX(-40px);
+    opacity: 0.7;
+  }
+
+  .dark .hero-stack-container:hover .stack-card-3 {
     opacity: 0.5;
   }
 
@@ -985,7 +1021,7 @@
   }
 
   .anchor-unit {
-    @apply p-4 rounded-2xl glass-fatsoma border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 rotate-180 flex items-center gap-4 hover:text-white transition-colors cursor-pointer;
+    @apply p-4 rounded-2xl glass-yi border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-white/60 rotate-180 flex items-center gap-4 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer;
     writing-mode: vertical-rl;
   }
 
@@ -1030,6 +1066,23 @@
 
   .animate-marquee:hover {
     animation-play-state: paused;
+  }
+
+  /* Gradient Flow Animation for Hero Text */
+  @keyframes gradient-flow {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .animate-gradient-flow {
+    animation: gradient-flow 8s ease infinite;
   }
 
   /* Scrollbar hiding */
@@ -2573,36 +2626,28 @@
     background: rgba(0, 0, 0, 0.7);
   }
 
-  /* Bug Reporter SDK - Reposition to Left Side and Above Mobile Nav */
+  /* Bug Reporter SDK - Position on Right Side */
   [data-bug-reporter-button],
   button[class*="bug-reporter"],
   button[aria-label*="bug" i],
   button[aria-label*="report" i],
   body>div>button[style*="position: fixed"],
   body>button[style*="position: fixed"] {
-    right: auto !important;
-    left: 16px !important;
-    bottom: 72px !important;
-    /* Above mobile nav (56px) + 16px gap */
+    left: auto !important;
+    right: 16px !important;
+    bottom: 72px !important; /* Above mobile nav (56px) + 16px gap */
   }
 }
 
-/* Bug Reporter - Reset position for desktop (no bottom nav) */
+/* Bug Reporter - Adjust for desktop (no bottom nav) */
 @media (min-width: 768px) {
-
   [data-bug-reporter-button],
   button[class*="bug-reporter"],
   button[aria-label*="bug" i],
   button[aria-label*="report" i],
   body>div>button[style*="position: fixed"],
   body>button[style*="position: fixed"] {
-    /* Reset mobile left positioning */
-    left: auto !important;
-
-    /* Position on RIGHT side for desktop (away from sidebar) */
     right: 16px !important;
-
-    /* Standard bottom spacing */
     bottom: 16px !important;
   }
 }

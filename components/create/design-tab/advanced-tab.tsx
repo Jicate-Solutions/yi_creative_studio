@@ -227,7 +227,7 @@ export function AdvancedTab({ customization, onCustomizationChange }: AdvancedTa
               </div>
 
               <div className="flex items-center justify-between">
-                <Label>Overlay</Label>
+                <Label>Darken Background</Label>
                 <Switch
                   checked={customization.background.overlay}
                   onCheckedChange={(checked: boolean) => handleBackgroundChange('overlay', checked)}
@@ -236,7 +236,7 @@ export function AdvancedTab({ customization, onCustomizationChange }: AdvancedTa
 
               {customization.background.overlay && (
                 <div className="space-y-2">
-                  <Label>Overlay Opacity: {customization.background.overlayOpacity}%</Label>
+                  <Label>Darken Amount: {customization.background.overlayOpacity}%</Label>
                   <Slider
                     value={[customization.background.overlayOpacity]}
                     onValueChange={(values: number[]) => handleBackgroundChange('overlayOpacity', values[0])}
@@ -248,7 +248,7 @@ export function AdvancedTab({ customization, onCustomizationChange }: AdvancedTa
               )}
 
               <div className="flex items-center justify-between">
-                <Label>Blur Effect</Label>
+                <Label>Add Blur</Label>
                 <Switch
                   checked={customization.background.blur}
                   onCheckedChange={(checked: boolean) => handleBackgroundChange('blur', checked)}
@@ -257,7 +257,7 @@ export function AdvancedTab({ customization, onCustomizationChange }: AdvancedTa
 
               {customization.background.blur && (
                 <div className="space-y-2">
-                  <Label>Blur Amount: {customization.background.blurAmount}px</Label>
+                  <Label>Blur Strength: {customization.background.blurAmount}px</Label>
                   <Slider
                     value={[customization.background.blurAmount]}
                     onValueChange={(values: number[]) => handleBackgroundChange('blurAmount', values[0])}
