@@ -94,11 +94,11 @@ export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext)
   return `
 LAYOUT COMPOSITION REQUIREMENTS:
 
-The top 15% of the image height is reserved for branding elements and must have only a simple, clean background with no text whatsoever. ${zoneNarratives}
+The top 15% of the image height is reserved for logo overlays. This area should have a simple, high-contrast background (solid color, subtle gradient, or simple texture) to ensure white logos remain clearly visible. DO NOT create a visible stripe or band - the background should flow naturally from top to bottom. ${zoneNarratives}
 
-The main event title and headline text belongs in the central area of the poster, starting at approximately 15-20% from the top edge. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
+The main event title and headline text belongs in the central area, starting at approximately 15-20% from the top edge. Keep all important text OUT of the logo overlay zone. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
 
-For visual balance: The first 15% of the image from the top edge serves as a "header band" - this band should contain only solid colors, subtle gradients, or simple patterns. All typography, including the event name, tagline, and any other text elements, begins below this header band.
+All typography, including the event name, tagline, and any other text elements, begins below the 15% logo overlay zone. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
 
 When positioning the event title: Start the title text block at minimum 15% down from the top edge. Center the title horizontally, keeping it away from the leftmost 25% and rightmost 25% of the image width. Long titles should wrap to multiple lines rather than extending into corner areas.
 `

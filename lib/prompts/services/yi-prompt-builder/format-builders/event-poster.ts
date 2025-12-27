@@ -18,6 +18,8 @@ import {
   buildLayoutZoneContext,
   buildLanguageContext,
   buildSpeakerPhotoZoneContext,
+  formatSpeakerDetails,
+  formatMultipleSpeakers,
 } from '../context-helpers'
 import { buildAllV41Contexts } from '../context-helpers-v41'
 import { EVENT_POSTER_EXAMPLES } from '../examples'
@@ -41,6 +43,44 @@ import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers
 
 // Import centralized sophistication helper (v4.5)
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import multi-color typography types (v5.0)
+import type { TextRoleColor, MultiColorTypographyConfig } from '@/lib/config/design-constants'
+
+// ============================================================
+// MULTI-COLOR TYPOGRAPHY HELPERS (v5.0)
+// ============================================================
+
+/**
+ * Convert TextRoleColor to Gemini-compatible rendering instruction
+ * Supports both solid colors and gradient text
+ */
+function renderTextColorInstruction(roleColor: TextRoleColor, role: string): string {
+  if (roleColor.type === 'gradient') {
+    const direction = roleColor.gradientDirection || 'horizontal'
+    return `Apply ${direction} gradient from ${roleColor.gradientStart} to ${roleColor.gradientEnd} for ${role} text. ${roleColor.description || ''}`
+  }
+  return `Use ${roleColor.color} for ${role} text (${roleColor.description || 'primary text color'}, WCAG contrast ratio: ${roleColor.contrastRatio || 'N/A'})`
+}
+
+/**
+ * Build multi-color typography instructions for all text roles
+ * Creates comprehensive color guidance that integrates with visual style
+ */
+function buildMultiColorTypographyInstructions(config: MultiColorTypographyConfig): string {
+  return `
+MULTI-COLOR TYPOGRAPHY SYSTEM:
+- Hero/Title: ${renderTextColorInstruction(config.hero, 'hero/title')}
+- Headlines: ${renderTextColorInstruction(config.headline, 'headline')}
+- Subheadlines: ${renderTextColorInstruction(config.subheadline, 'subheadline')}
+- Body Text: ${renderTextColorInstruction(config.body, 'body')}
+- Call-to-Action: ${renderTextColorInstruction(config.cta, 'CTA')}
+- Captions: ${renderTextColorInstruction(config.caption, 'caption')}
+- Labels: ${renderTextColorInstruction(config.label, 'label')}
+
+CRITICAL: Ensure all text colors meet WCAG AA accessibility standards (≥4.5:1 for body, ≥3:1 for large text).
+`.trim()
+}
 
 // ============================================================
 // EVENT CONTEXT TYPES
@@ -643,13 +683,13 @@ Integrate this creative twist prominently into the background or decorative elem
       intensity: 'subtle',
     },
     // Header logo band for Yi triple-logo layout
-    // FIX: Dynamic styling based on sophistication
+    // v5.0: DISABLED - Logos now overlay directly on background for modern, seamless look
     headerLogoBand: {
-      enabled: true,
+      enabled: false, // CHANGED: Logos overlay directly on background (no visible stripe)
       heightPercent: 12,
       backgroundStyle: sophistication === 'rich'
-        ? 'transparent / integrated header for immersive background (do NOT create a white bar)'
-        : 'clean, solid white LOGO STRIPE spanning the full width',
+        ? 'transparent / integrated header for immersive background'
+        : 'transparent overlay mode - simple background for logo visibility',
       logoLayout: 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right',
       secondaryLogos: !!options.verticalId,  // Include vertical logos if applicable
     },
@@ -724,8 +764,13 @@ POSTER LAYOUT AND COMPOSITION:
    - "${eventName}" must be the dominant focal point.
 ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
-3. HEADER INTEGRATION:
-  - ${sophistication === 'rich' ? 'The top 15% should be PART of the background art (do not leave it white). We will overlay white logos on top.' : 'The top 15% is a safe zone. Keep it clean.'}
+3. HEADER INTEGRATION (v5.0 - Overlay Mode):
+  - The top 15% is reserved for logo overlays. Ensure the background provides good contrast for white logos.
+  - DO NOT create a visible stripe, band, or separate header section. The background should flow naturally from top to bottom.
+  - ${sophistication === 'minimalist'
+      ? 'Keep this area simple (solid color or subtle gradient) for professional logo visibility.'
+      : 'Extend your immersive background to the top edge while maintaining contrast for logo readability.'}
+  - Logos will be overlaid on this area post-generation, so avoid busy patterns in the top 15%.
 
     ${eventDescription ? `4. TAGLINE:
    - Place "${eventDescription}" in a supporting relationship to the title.` : ''
@@ -733,11 +778,11 @@ ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be plac
 
 ${speakers.length > 0 ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''}:
    ${speakers.map((speaker, index) => {
-     const designation = speaker.designation ? `, ${speaker.designation}` : ''
-     return speakers.length > 1
-       ? `- Speaker ${index + 1}: Feature "${speaker.name}${designation}" prominent but secondary to the title.`
-       : `- Feature "${speaker.name}${designation}" prominent but secondary to the title.`
-   }).join('\n   ')}` : ''
+     const speakerLabel = speakers.length > 1 ? `Speaker ${index + 1}` : 'Speaker'
+     const designation = speaker.designation ? ` (${speaker.designation})` : ''
+     return `- Feature "${speakerLabel}: ${speaker.name}${designation}" as structured text with clear hierarchy between name and title.`
+   }).join('\n   ')}
+   - Group speaker name and designation together visually (similar to Date/Time/Venue grouping).` : ''
     }
 
 ${data.entryFee ? `6. FEE:
@@ -756,20 +801,24 @@ ${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
   - Date & Time: "${formatEventDate(data.eventDate)} | ${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}"
     - Location: "${data.venue || ''}"
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
-${speakerName ? `- Speaker: "${speakerName}${speakerDesignation ? ', ' + speakerDesignation : ''}"` : ''}
+${speakers.length > 0 ? `${speakers.length > 1 ? '- Speakers:\n   ' : '- Speaker:\n   '}${formatMultipleSpeakers(speakers)}` : ''}
 ${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
 ${eventNote ? `- Footer: "${eventNote}"` : ''}
 
 VISUAL STYLE:
 ${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette.The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style} -vibe(${tg_cat}) with ${tg_align} -aligned layout that commands attention.Event details are clean and readable with supportive icons.The call - to - action button has bold, high contrast styling.Energy level: ${eventContext.energy}.
 
+${options.multiColorTypography ? `
+${buildMultiColorTypographyInstructions(options.multiColorTypography)}
+` : ''}
+
 ${EVENT_POSTER_EXAMPLES}
 
 QUALITY STANDARDS:
 This poster passes the 3 - SECOND TEST where What, When, Where are instantly visible.The event name "${eventName}" is the dominant text element and impossible to miss.The design is readable from both close - up on a phone and at distance as a printed poster.Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom.The call - to - action stands out and drives action.All text is clearly legible against its background.
 ${sophistication === 'rich'
-      ? 'The design MUST be visually stunning. Do not settle for "safe". Create something award-winning.'
-      : 'The header band(top 15 %) has a simple, clean background suitable for branding elements.'
+      ? 'The design MUST be visually stunning. Logos will overlay on the top area, so ensure adequate contrast.'
+      : 'The top 15% should have a simple, clean background suitable for white logo overlays (solid color or subtle gradient).'
     }
 
 DESIGN CONSTRAINTS:

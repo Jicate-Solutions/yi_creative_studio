@@ -91,8 +91,8 @@ import { CreateSidebar } from '@/components/create/create-sidebar'
 import { useUIStore } from '@/stores/ui-store'
 
 // Dynamic imports for heavy components - improves initial load time
-const LogoPositionGrid = dynamic(
-  () => import('@/components/create/logo-position-grid').then(mod => ({ default: mod.LogoPositionGrid })),
+const LogoStep = dynamic(
+  () => import('@/components/create/logo-step').then(mod => ({ default: mod.LogoStep })),
   { loading: () => <ComponentLoadingSkeleton type="grid" /> }
 )
 
@@ -256,7 +256,7 @@ export default function CreatePage() {
     updateExportSettings,
     // Color configuration actions
     setUseBrandColors,
-    setUseBrandFont,
+    updateTypography,
     setColorPalette,
     setCustomColors,
     // Format selection
@@ -273,6 +273,7 @@ export default function CreatePage() {
     checkTemplateFormatMismatch,
     resizeTemplateToFormat,
     clearResizedTemplate,
+    applyOptimizedPlacements,
   } = useCreativeStore()
 
   // UI Store for create mode sidebar
@@ -296,6 +297,7 @@ export default function CreatePage() {
 
   // Always start at step 1 (format selection) when visiting create page
   const [step, setStep] = useState(1)
+  const [isStepProcessing, setIsStepProcessing] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false)
   const [regenerateModalOpen, setRegenerateModalOpen] = useState(false)
@@ -303,6 +305,7 @@ export default function CreatePage() {
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null)
 
   // Handle format selection - auto advance to step 2 (Vertical)
   const handleSelectFormat = useCallback((format: CreativeFormat) => {
@@ -615,6 +618,12 @@ export default function CreatePage() {
       // CRITICAL: Clean any remaining unreplaced placeholders to prevent them from appearing in images
       prompt = prompt.replace(/\{\{[a-zA-Z_]+\}\}/g, '').replace(/\s+/g, ' ').trim()
 
+      // === SPEAKER DATA EXTRACTION ===
+      // MultiSpeakerInput stores speakers in designData.customization.speakerPhoto
+      // Extract and add to userFormData for AI prompt building
+      const speakerPhotoData = formData.designData?.customization?.speakerPhoto
+      const speakers = speakerPhotoData?.speakers || []
+
       // Enrich form data with organization name from branding settings
       // Organization name ALWAYS comes from branding - prevents users from accidentally
       // overwriting it with RSVP/contact info in the form
@@ -622,6 +631,14 @@ export default function CreatePage() {
         ...formData.formData,
         // ALWAYS use organization name from branding settings (ignore any form field value)
         organizationName: currentOrganization?.name || 'Yi',
+
+        // Include speakers array if present (for multi-speaker support)
+        ...(speakers.length > 0 && {
+          speakers: speakers.map(s => ({
+            name: s.name,
+            designation: s.designation,
+          }))
+        }),
       }
 
       // Call generation API with format info
@@ -694,6 +711,7 @@ export default function CreatePage() {
 
       if (creativeData?.id) {
         setCreativeId(creativeData.id)
+        setGeneratedPrompt(prompt)
 
         // Backfill api_usage records with the new creative_id
         // This links token consumption to the specific creative
@@ -718,6 +736,9 @@ export default function CreatePage() {
       }
 
       toast.success('Creative generated successfully!')
+      setTimeout(() => {
+        setShowFeedbackDialog(true)
+      }, 2500)
       // Stay on step 6 to show download options (don't change step)
     } catch (error) {
       console.error('Generation error:', error)
@@ -732,6 +753,7 @@ export default function CreatePage() {
     resetForm()
     setStep(1)
     setCreativeId(null)
+    setGeneratedPrompt(null)
     setExportModalOpen(false)
     setShowFeedbackDialog(false)
   }
@@ -789,7 +811,49 @@ export default function CreatePage() {
     if (step > 1) setStep(step - 1)
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Step 4: Auto-optimize logo placement before continuing
+    if (step === 4 && formData.logosPlacements.length > 0) {
+      setIsStepProcessing(true)
+      try {
+        const speakerPhotoConfig = formData.designData?.customization?.speakerPhoto
+
+        const response = await fetch('/api/optimize-logo-positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logos: formData.logosPlacements.map(p => ({
+              id: p.logoId,
+              name: p.logo?.name || '',
+              type: p.logoType || 'other',
+            })),
+            formatId: formData.formatId || 'event_poster',
+            useAI: false, // Fast, deterministic algorithm
+            currentPlacements: formData.logosPlacements.map(p => ({
+              logoId: p.logoId,
+              position: p.position,
+              size: p.size,
+              backgroundShape: p.backgroundShape,
+              backgroundStyle: p.backgroundStyle,
+            })),
+            speakerPhoto: speakerPhotoConfig,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (data.success && data.placements) {
+          applyOptimizedPlacements(data.placements)
+          toast.success('Logo layout optimized automatically')
+        }
+      } catch (error) {
+        console.error('Auto-optimization failed:', error)
+        // Fail silently and proceed - don't block user
+      } finally {
+        setIsStepProcessing(false)
+      }
+    }
+
     if (step < 7) setStep(step + 1)
   }
 
@@ -1066,24 +1130,9 @@ export default function CreatePage() {
                 {/* Step 4: Smart Logo Placement (AI will avoid these areas) */}
                 {step === 4 && selectedVertical && (
                   <div className="space-y-6">
-                    <Card darkVariant="elevated">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <ImageIcon className="h-5 w-5 text-primary" />
-                          Smart Logo Placement
-                          <Badge variant="secondary" className="ml-2 text-xs">
-                            <Sparkles className="h-3 w-3 mr-1" />
-                            AI-Aware
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription>
-                          Position your logos - AI will structure the design to keep these areas clear
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <LogoPositionGrid />
-                      </CardContent>
-                    </Card>
+                    <div className="space-y-6">
+                      <LogoStep />
+                    </div>
                   </div>
                 )}
 
@@ -1118,7 +1167,7 @@ export default function CreatePage() {
                       onStyleChange={updateStyle}
                       onResolutionChange={updateResolution}
                       onToggleBrandColors={setUseBrandColors}
-                      onToggleBrandFont={setUseBrandFont}
+                      onTypographyChange={updateTypography}
                       onSelectPalette={setColorPalette}
                       onCustomColorChange={setCustomColors}
                       brandColors={(() => {
@@ -1801,7 +1850,7 @@ export default function CreatePage() {
                     /* Continue Button - Canva gradient style */
                     <Button
                       onClick={handleNext}
-                      disabled={!canProceed()}
+                      disabled={!canProceed() || isStepProcessing}
                       className={cn(
                         "gap-2 px-6 transition-all duration-300",
                         "btn-primary",
@@ -1810,8 +1859,17 @@ export default function CreatePage() {
                         "disabled:opacity-50 disabled:hover:translate-y-0"
                       )}
                     >
-                      <span className="hidden sm:inline">Continue</span>
-                      <ArrowRight className="h-4 w-4" />
+                      {isStepProcessing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="hidden sm:inline">Optimizing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">Continue</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
                     </Button>
                   )}
                 </div>
@@ -1906,6 +1964,7 @@ export default function CreatePage() {
             creativeId={creativeId}
             creativeType={selectedFormat?.id || 'event_poster'}
             vertical={selectedVertical?.slug}
+            promptUsed={generatedPrompt || undefined}
             formData={formData.formData as Record<string, unknown>}
             onFeedbackSubmit={() => {
               toast.success('Thanks for your feedback!')

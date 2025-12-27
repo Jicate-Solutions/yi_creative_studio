@@ -7,9 +7,10 @@ import { ThemeSection } from './theme-section'
 import { ColorSection } from './color-section'
 import { StyleSection } from './style-section'
 import { QualitySection } from './quality-section'
+import { TypographySection } from './typography-section'
 import { useAIDesignSuggestions } from '@/hooks/use-ai-design-suggestions'
-import type { DesignData, CustomColors, ResolutionId } from '@/lib/config/design-constants'
-import { Palette, Layers, Wand2, MonitorPlay } from 'lucide-react'
+import type { DesignData, CustomColors, ResolutionId, TypographyConfig } from '@/lib/config/design-constants'
+import { Palette, Layers, Wand2, MonitorPlay, Type } from 'lucide-react'
 
 interface BrandColors {
   primary_color?: string | null
@@ -23,7 +24,7 @@ interface StylingStepProps {
   onStyleChange: (style: string) => void
   onResolutionChange: (resolution: ResolutionId) => void
   onToggleBrandColors: (enabled: boolean) => void
-  onToggleBrandFont: (enabled: boolean) => void
+  onTypographyChange: (typography: Partial<TypographyConfig>) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
   brandColors?: BrandColors
@@ -36,7 +37,7 @@ export function StylingStep({
   onStyleChange,
   onResolutionChange,
   onToggleBrandColors,
-  onToggleBrandFont,
+  onTypographyChange,
   onSelectPalette,
   onCustomColorChange,
   brandColors,
@@ -90,6 +91,12 @@ export function StylingStep({
                 Style
               </span>
             </TabsTrigger>
+            <TabsTrigger value="typography" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
+              <span className="flex items-center gap-2">
+                <Type className="h-4 w-4" />
+                Type
+              </span>
+            </TabsTrigger>
             <TabsTrigger value="quality" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
               <span className="flex items-center gap-2">
                 <MonitorPlay className="h-4 w-4" />
@@ -114,9 +121,7 @@ export function StylingStep({
               <ColorSection
                 colorConfig={designData.colorConfig}
                 brandColors={brandColors}
-                brandFont={brandFont}
                 onToggleBrandColors={onToggleBrandColors}
-                onToggleBrandFont={onToggleBrandFont}
                 onSelectPalette={onSelectPalette}
                 onCustomColorChange={onCustomColorChange}
                 colorMood={aiSuggestions.color.colorMood}
@@ -131,6 +136,19 @@ export function StylingStep({
                 selectedStyle={designData.style}
                 onStyleChange={onStyleChange}
                 aiSuggestions={aiSuggestions.style.suggestions}
+                defaultOpen={true}
+              />
+            </div>
+          </TabsContent>
+
+
+
+          <TabsContent value="typography" className="space-y-4 mt-0 focus-visible:ring-0">
+            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+              <TypographySection
+                typography={designData.typography}
+                brandFont={brandFont}
+                onTypographyChange={onTypographyChange}
                 defaultOpen={true}
               />
             </div>

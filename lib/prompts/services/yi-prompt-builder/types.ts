@@ -99,6 +99,16 @@ export interface SpeakerPhotoConfig {
    * - false/undefined: Placeholder zone only (no photo yet, create clean placeholder)
    */
   hasUserPhoto?: boolean
+  /**
+   * Multi-speaker support (v3.5)
+   * Indicates whether this is single speaker or multi-speaker format
+   */
+  isSingleSpeaker?: boolean
+  /**
+   * Number of speakers with photos (for multi-speaker layouts)
+   * Used to reserve appropriate space for multiple speaker photos
+   */
+  speakerCount?: number
 }
 
 /**
@@ -271,7 +281,18 @@ export interface EnhancedBuildOptions {
   ultraProContext?: {
     visualScene?: string
     designGuidance?: string
+    primaryText?: string
+    secondaryText?: string[]
+    textPlacementHints?: string
+    colorPaletteHints?: string
+    mustIncludeElements?: string[]
+    enhancedPrompt?: string
   }
+
+  // NEW v5.0: Multi-Color Typography System
+  // Role-based color configuration for different text elements (hero, headline, body, CTA, etc.)
+  // Supports solid colors and gradients with WCAG accessibility validation
+  multiColorTypography?: import('@/lib/config/design-constants').MultiColorTypographyConfig
 }
 
 // ============================================================

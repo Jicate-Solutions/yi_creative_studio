@@ -470,30 +470,12 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] === COMPILED FORM DATA ===')
       console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
 
-      // Generate ultra-pro prompt using Claude AI
-      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'claude')
-      const ultraProPrompt = ultraProResult.prompt
-
-      // Track Ultra-Pro Prompt API usage
-      if (ultraProResult.usage.model !== 'fallback') {
-        await usageTracker.track(
-          'ultra_pro_prompt',
-          ultraProResult.usage.provider as AIProvider,
-          ultraProResult.usage.model,
-          {
-            inputTokens: ultraProResult.usage.tokenUsage.inputTokens,
-            outputTokens: ultraProResult.usage.tokenUsage.outputTokens,
-            cachedTokens: ultraProResult.usage.tokenUsage.cachedTokens,
-            durationMs: ultraProResult.usage.durationMs,
-            promptLength: compiledData.eventName?.length || 0,
-          }
-        )
-      }
-
-      console.log('[Generate] === ULTRA-PRO PROMPT ===')
-      console.log('[Generate] Primary Text:', ultraProPrompt.primaryText)
-      console.log('[Generate] Secondary Text:', ultraProPrompt.secondaryText.join(', '))
-      console.log('[Generate] Visual Scene:', ultraProPrompt.visualScene.substring(0, 100) + '...')
+      // ========================================================
+      // STAGE 0.5: DESIGN INTELLIGENCE (MOVED BEFORE ULTRA-PRO)
+      // Generate story-driven design context FIRST so Ultra-Pro can enhance it
+      // ========================================================
+      console.log('[Generate] === STAGE 0.5: DESIGN INTELLIGENCE ===')
+      console.log('[Generate] Generating story-driven design context...')
 
       // Clean instruction text from the prompt before passing to design intelligence
       // This prevents instruction text like "Create a striking..." from being analyzed
@@ -516,9 +498,8 @@ export async function POST(request: NextRequest) {
         logosPlacements as LogoPlacement[] | undefined
       )
       if (logoAwarenessContext.hasLogos) {
-        console.log('[Generate] === LOGO AWARENESS (Smart Layout) ===')
-        console.log('[Generate] Logo Placements:', buildLogoSummary(logosPlacements as LogoPlacement[]))
-        console.log('[Generate] Safe Zones:', logoAwarenessContext.safeZoneDescriptions.join(', '))
+        console.log('[Generate] Logo Awareness - Placements:', buildLogoSummary(logosPlacements as LogoPlacement[]))
+        console.log('[Generate] Logo Awareness - Safe Zones:', logoAwarenessContext.safeZoneDescriptions.join(', '))
       }
 
       // ========================================================
@@ -560,12 +541,12 @@ export async function POST(request: NextRequest) {
       }
 
       const designBrief: DesignBrief = {
-        // Event content - PRIORITY: User form data > Compiled data > AI-refined > Parsed
-        // This ensures actual user input is never overwritten by AI-generated values
+        // Event content - PRIORITY: User form data > Compiled data > Parsed
+        // v5.0: REMOVED Ultra-Pro dependencies - Design Intelligence runs FIRST now
         eventType: formDataContent.eventType || parsedContent.eventType,
-        eventName: formDataContent.eventName || compiledData.eventName || ultraProPrompt.primaryText || parsedContent.eventName || 'Event',
+        eventName: formDataContent.eventName || compiledData.eventName || parsedContent.eventName || 'Event',
         organizationName: compiledData.organizationName || 'Yi Creatives',
-        details: ultraProPrompt.enhancedPrompt || cleanedPrompt, // Use Claude-generated enhanced prompt for visual guidance
+        details: cleanedPrompt || compiledData.description || '', // Use compiled description for design context
         theme: finalTheme,
         style: finalStyle,
         // Speaker/Guest data - flows freely for TEXT rendering
@@ -573,7 +554,7 @@ export async function POST(request: NextRequest) {
         guestName: formDataContent.guestName || compiledData.speakerName || parsedContent.guestName,
         guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
         venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
-        additionalContext: `${ultraProPrompt.visualScene}. ${ultraProPrompt.designGuidance}`,
+        additionalContext: compiledData.tagline || compiledData.description || '',
 
         // v4.2: Brand context for color-aware intelligence
         brandContext: {
@@ -683,6 +664,23 @@ export async function POST(request: NextRequest) {
       }
 
       // ========================================================
+      // STAGE 1: ULTRA-PRO PROMPT ENHANCEMENT (NOW WITH DESIGN CONTEXT)
+      // v5.0: Ultra-Pro now ENHANCES Design Intelligence context instead of working independently
+      // Converts story-driven design context into Gemini 2.5 optimized narrative prompts
+      // ========================================================
+      console.log('[Generate] === STAGE 1: ULTRA-PRO ENHANCEMENT ===')
+      console.log('[Generate] Enhancing Design Intelligence with Ultra-Pro prompt optimization...')
+
+      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'claude', designContext)
+      const ultraProPrompt = ultraProResult.prompt
+
+      console.log('[Generate] === ULTRA-PRO RESULT ===')
+      console.log('[Generate] Primary Text:', ultraProPrompt.primaryText)
+      console.log('[Generate] Enhanced Prompt (first 200 chars):', ultraProPrompt.enhancedPrompt?.substring(0, 200))
+      console.log('[Generate] Visual Scene:', ultraProPrompt.visualScene)
+      console.log('[Generate] Design Guidance:', ultraProPrompt.designGuidance)
+
+      // ========================================================
       // STAGE 2: Build enhanced prompt with AI-generated context
       // ========================================================
 
@@ -711,6 +709,48 @@ export async function POST(request: NextRequest) {
         const resolution = (promptDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
 
         // ========================================================
+        // STAGE 2.5: UNIFIED TYPOGRAPHY + COLOR OPTIMIZATION (v5.0)
+        // Single AI call optimizes BOTH typography AND colors for maximum harmony
+        // Only runs if user has enabled AI optimization (future UI toggle)
+        // ========================================================
+        let unifiedOptimization: Awaited<ReturnType<typeof import('@/lib/ai/typography/unified-optimization').optimizeTypographyAndColors>> | null = null
+
+        // Check if AI optimization is enabled (currently always enabled, will add UI toggle in Phase 4.2)
+        const enableAIOptimization = (userFormData?.enableAIOptimization as boolean) ?? false
+
+        if (enableAIOptimization) {
+          console.log('[Generate] === UNIFIED TYPOGRAPHY + COLOR OPTIMIZATION ===')
+          console.log('[Generate] Running AI-powered typography and color optimization...')
+
+          try {
+            const { optimizeTypographyAndColors } = await import('@/lib/ai/typography/unified-optimization')
+
+            unifiedOptimization = await optimizeTypographyAndColors({
+              eventType: formDataContent.eventType || parsedContent.eventType || 'professional',
+              eventName: formDataContent.eventName || compiledData.eventName || 'Event',
+              eventDescription: cleanedPrompt || compiledData.description || undefined,
+              targetMood: designContext?.moodDirection || themeInference.inferredMood,
+              brandColors: {
+                primary: resolvedColors.primaryColor,
+                secondary: resolvedColors.secondaryColor,
+                accent: resolvedColors.accentColor,
+              },
+            })
+
+            console.log('[Generate] Unified Optimization Success:')
+            console.log('  - Typography:', `${unifiedOptimization.typography.headingFont} + ${unifiedOptimization.typography.bodyFont}`)
+            console.log('  - Scale:', unifiedOptimization.typography.scale)
+            console.log('  - Color Strategy:', unifiedOptimization.colors.paletteStrategy)
+            console.log('  - WCAG Compliance:', unifiedOptimization.colors.accessibilityReport.wcagCompliance)
+            console.log('  - Overall Quality:', unifiedOptimization.harmony.overallQuality)
+            console.log('  - Confidence:', unifiedOptimization.confidence)
+          } catch (error) {
+            console.error('[Generate] Unified Optimization Error:', error)
+            // Continue without optimization - non-blocking failure
+          }
+        }
+
+        // ========================================================
         // Build EnhancedBuildOptions v3.1 - Form Data Completeness
         // Passes ALL user data to format builders, including:
         // - Theme & style preferences
@@ -718,6 +758,7 @@ export async function POST(request: NextRequest) {
         // - Speaker photo config (for zone reservation, even if user has own photo)
         // - Organization context (name, tagline, industry)
         // - Content type and format size
+        // - Multi-color typography (NEW v5.0 from unified optimization)
         // ========================================================
 
         // Store original speaker photo config BEFORE it was disabled for prompt
@@ -780,12 +821,25 @@ export async function POST(request: NextRequest) {
           // v3.4: Only reserve speaker photo zone when user has ACTUALLY uploaded a photo
           // If enabled but no photo, don't send zone instructions (prevents AI from drawing placeholder frame)
           // Previous behavior: sent zone config with hasUserPhoto=false, causing AI to render a visible placeholder frame
-          speakerPhotoConfig: (originalSpeakerPhotoConfig?.enabled && originalSpeakerPhotoConfig?.photoUrl) ? {
+          // v3.5: Support multi-speaker format (checks both legacy photoUrl and new speakers array)
+          speakerPhotoConfig: (
+            originalSpeakerPhotoConfig?.enabled && (
+              originalSpeakerPhotoConfig?.photoUrl ||  // Legacy single speaker
+              (originalSpeakerPhotoConfig?.speakers && originalSpeakerPhotoConfig.speakers.some(s => s.photoUrl))  // Multi-speaker
+            )
+          ) ? {
             enabled: true,
-            position: originalSpeakerPhotoConfig.position as 'left' | 'right' | 'center',
-            size: (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large') as 'small' | 'medium' | 'large',
-            shape: originalSpeakerPhotoConfig.shape as 'circle' | 'rounded' | 'square',
+            position: (originalSpeakerPhotoConfig.position || 'left') as 'left' | 'right' | 'center',
+            size: (
+              originalSpeakerPhotoConfig.size
+                ? (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large')
+                : 'large'
+            ) as 'small' | 'medium' | 'large',
+            shape: (originalSpeakerPhotoConfig.shape || 'circle') as 'circle' | 'rounded' | 'square',
             hasUserPhoto: true,  // Always true now since we only send config when photo exists
+            // Multi-speaker context
+            isSingleSpeaker: !!originalSpeakerPhotoConfig.photoUrl,
+            speakerCount: originalSpeakerPhotoConfig.speakers?.length || 1,
           } : undefined,
 
           // NEW v3.1: Organization context for branding identity
@@ -805,20 +859,31 @@ export async function POST(request: NextRequest) {
           // Contains AI-generated visual elements, background setting, and iconic imagery
           // Used by format builders to inject decorative elements into prompts
           // v3.10: Skip AI color suggestions when user explicitly selected colors (brand/preset/custom)
+          // v5.0: Pass FULL Design Intelligence context including v4.2 story-driven fields
           designContext: designContext ? {
+            // Legacy fields (v3.x)
             corePurpose: designContext.corePurpose,
             visualElements: designContext.visualElements,
             backgroundSetting: designContext.backgroundSetting,
             iconicImagery: designContext.iconicImagery || [],
-            // v3.4: Typography and decorative guidance (CRITICAL for Phase 6)
+            // v3.4: Typography and decorative guidance
             typographyGuidance: designContext.typographyGuidance,
             decorativeElements: designContext.decorativeElements,
-            // NEW v3.10: Skip AI color suggestions when user explicitly selected colors
+            // v3.10: Skip AI color suggestions when user explicitly selected colors
             colorStrategy: (resolvedColors.source !== 'fallback') ? undefined : designContext.colorMood,
             moodDirection: designContext.designStrategy,
             creativeTwist: designContext.creativeTwist,
             emotionalJob: designContext.emotionalJob,
             designStrategy: designContext.designStrategy,
+            // v4.2: NEW Story-driven design intelligence fields
+            storyAnalysis: designContext.storyAnalysis,
+            vibeAndMood: designContext.vibeAndMood,
+            typographyStrategy: designContext.typographyStrategy,
+            colorStorytelling: designContext.colorStorytelling,
+            backgroundTreatment: designContext.backgroundTreatment,
+            decorativeElementsContext: designContext.decorativeElementsContext,
+            layoutNarrative: designContext.layoutNarrative,
+            overallDesignStrategy: designContext.overallDesignStrategy,
           } : undefined,
 
           // NEW v3.4: Footer contact information for creative footers
@@ -831,10 +896,22 @@ export async function POST(request: NextRequest) {
 
           // NEW v4.4: ULTRA-PRO CONTEXT (The Missing Link)
           // Direct pipe from Stage 0.5 Claude analysis to Stage 2 Image Generation
+          // v5.0: Pass FULL Ultra-Pro result (all fields, not just 2)
           ultraProContext: {
+            primaryText: ultraProPrompt.primaryText,
+            secondaryText: ultraProPrompt.secondaryText,
             visualScene: ultraProPrompt.visualScene,
             designGuidance: ultraProPrompt.designGuidance,
+            textPlacementHints: ultraProPrompt.textPlacementHints,
+            colorPaletteHints: ultraProPrompt.colorPaletteHints,
+            mustIncludeElements: ultraProPrompt.mustIncludeElements,
+            enhancedPrompt: ultraProPrompt.enhancedPrompt,
           },
+
+          // NEW v5.0: MULTI-COLOR TYPOGRAPHY from Unified Optimization
+          // Role-based color configuration with WCAG accessibility validation
+          // Only included when AI optimization is enabled
+          multiColorTypography: unifiedOptimization?.colors,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))

@@ -5,8 +5,9 @@ import type { LogoPosition } from '@/lib/config/constants'
 import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
-import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape, TypographyConfig } from '@/lib/config/design-constants'
 import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
+import type { TypographySuggestion } from '@/types/typography-suggestions'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
 import {
@@ -145,6 +146,28 @@ const initialAIDesignSuggestions: AIDesignSuggestions = {
   hasFetchedSuggestions: false,
 }
 
+// AI Typography Suggestions State
+export interface AITypographyState {
+  /** Whether AI typography suggestions are enabled */
+  enableAI: boolean
+  /** Current typography suggestions from AI */
+  suggestions: TypographySuggestion | null
+  /** Whether suggestions are currently being generated */
+  isGenerating: boolean
+  /** Error message if generation failed */
+  error: string | null
+  /** Whether suggestions have been fetched at least once */
+  hasFetchedSuggestions: boolean
+}
+
+const initialAITypographyState: AITypographyState = {
+  enableAI: false,
+  suggestions: null,
+  isGenerating: false,
+  error: null,
+  hasFetchedSuggestions: false,
+}
+
 // Template Resize State (Canva-style Magic Resize)
 interface TemplateResizeState {
   isResizing: boolean
@@ -179,6 +202,9 @@ interface CreativeState {
 
   // AI Design Suggestions state (Design Tab)
   aiDesignSuggestions: AIDesignSuggestions
+
+  // AI Typography Suggestions state (Typography Section)
+  aiTypography: AITypographyState
 
   // Dynamic Schema state (AI-generated form fields)
   dynamicSchema: DynamicSchemaState
@@ -271,7 +297,11 @@ interface CreativeState {
   setUseBrandFont: (enabled: boolean) => void
   setColorPalette: (paletteId: string | null) => void
   setCustomColors: (colors: CustomColors) => void
+
   resetColorConfig: () => void
+
+  // Typography Configuration Actions
+  updateTypography: (typography: Partial<TypographyConfig>) => void
 
   // AI Design Suggestions Actions (per-tab)
   setEnableAITheme: (enabled: boolean) => void
@@ -288,6 +318,14 @@ interface CreativeState {
   clearAIStyleSuggestions: () => void
   clearAIColorSuggestions: () => void
   clearAllAISuggestions: () => void
+
+  // AI Typography Suggestions Actions
+  setEnableAITypography: (enabled: boolean) => void
+  setTypographySuggestions: (suggestions: TypographySuggestion | null) => void
+  setTypographyGenerating: (generating: boolean) => void
+  setTypographyError: (error: string | null) => void
+  applyTypographySuggestions: () => void
+  clearTypographySuggestions: () => void
 
   // Dynamic Schema Actions (AI-generated form fields)
   generateDynamicSchema: (formatId: string, verticalSlug: string, organizationId?: string) => Promise<void>
@@ -310,7 +348,7 @@ const DEFAULT_LOGO_STRIP_MODE: LogoStripMode = {
   enabled: false,
   rows: ['header'], // Default to header row when enabled
   opacity: 100, // Fully opaque by default
-  logoBound: false, // Edge-to-edge by default
+  logoBound: true, // Wrap logos only by default
 }
 
 const initialFormData: CreativeFormData = {
@@ -356,6 +394,7 @@ export const useCreativeStore = create<CreativeState>()(
       selectedTemplate: null,
       aiForm: initialAIFormState,
       aiDesignSuggestions: initialAIDesignSuggestions,
+      aiTypography: initialAITypographyState,
       dynamicSchema: initialDynamicSchemaState,
       templateResize: initialTemplateResizeState,
       isGenerating: false,
@@ -1016,6 +1055,20 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
+      updateTypography: (typography) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            designData: {
+              ...state.formData.designData,
+              typography: {
+                ...state.formData.designData.typography,
+                ...typography,
+              },
+            },
+          },
+        })),
+
       // AI Design Suggestions Actions (per-tab)
       setEnableAITheme: (enabled) =>
         set((state) => ({
@@ -1145,6 +1198,81 @@ export const useCreativeStore = create<CreativeState>()(
             styleError: null,
             colorError: null,
             hasFetchedSuggestions: false,
+          },
+        })),
+
+      // AI Typography Suggestions Actions
+      setEnableAITypography: (enabled) =>
+        set((state) => ({
+          aiTypography: {
+            ...state.aiTypography,
+            enableAI: enabled,
+          },
+        })),
+
+      setTypographySuggestions: (suggestions) =>
+        set((state) => ({
+          aiTypography: {
+            ...state.aiTypography,
+            suggestions,
+            isGenerating: false,
+            error: null,
+            hasFetchedSuggestions: suggestions !== null,
+          },
+        })),
+
+      setTypographyGenerating: (generating) =>
+        set((state) => ({
+          aiTypography: {
+            ...state.aiTypography,
+            isGenerating: generating,
+            error: generating ? null : state.aiTypography.error,
+          },
+        })),
+
+      setTypographyError: (error) =>
+        set((state) => ({
+          aiTypography: {
+            ...state.aiTypography,
+            error,
+            isGenerating: false,
+          },
+        })),
+
+      applyTypographySuggestions: () =>
+        set((state) => {
+          const { suggestions } = state.aiTypography
+          if (!suggestions) {
+            console.warn('No typography suggestions to apply')
+            return state
+          }
+
+          return {
+            formData: {
+              ...state.formData,
+              designData: {
+                ...state.formData.designData,
+                typography: {
+                  useBrandFont: false, // Disable brand font when applying AI suggestions
+                  headingFont: suggestions.headingFont.value,
+                  bodyFont: suggestions.bodyFont.value,
+                  scale: suggestions.scale,
+                },
+              },
+            },
+            aiTypography: {
+              ...state.aiTypography,
+              suggestions: null, // Clear suggestions after applying
+            },
+          }
+        }),
+
+      clearTypographySuggestions: () =>
+        set((state) => ({
+          aiTypography: {
+            ...state.aiTypography,
+            suggestions: null,
+            error: null,
           },
         })),
 

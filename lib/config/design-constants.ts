@@ -424,6 +424,16 @@ export interface LayoutCustomization {
   footerHeight: number // Reserved zone at bottom (0 for edge-to-edge)
 }
 
+export interface LogoStripCustomization {
+  enabled: boolean
+  rows: string[] // 'header' | 'middle' | 'footer'
+  shape: LogoStripShape
+  opacity: number
+  style: LogoStripStyle
+  shadow: boolean
+  border: boolean
+}
+
 export interface CustomizationData {
   title: TitleCustomization
   background: BackgroundCustomization
@@ -883,6 +893,748 @@ export const getLogoStripStyleByVibe = (vibe?: string): LogoStripStyleConfig => 
 }
 
 // ============================================================
+// TYPOGRAPHY CONFIGURATION (v4.3)
+// ============================================================
+
+export type FontCategory = 'sans' | 'serif' | 'display' | 'handwriting'
+
+export interface FontOption {
+  value: string
+  label: string
+  category: FontCategory
+  family: string // CSS font-family
+}
+
+// Curated list of professional, reliable Google Fonts
+// EXPANDED v5.0: 17 → 47 fonts for better event-type matching and AI-powered pairing
+export const FONT_OPTIONS: FontOption[] = [
+  // ============================================================
+  // SANS SERIF (16 fonts) - Clean, Modern, Corporate
+  // ============================================================
+  { value: 'inter', label: 'Inter', category: 'sans', family: '"Inter", sans-serif' },
+  { value: 'roboto', label: 'Roboto', category: 'sans', family: '"Roboto", sans-serif' },
+  { value: 'poppins', label: 'Poppins', category: 'sans', family: '"Poppins", sans-serif' },
+  { value: 'montserrat', label: 'Montserrat', category: 'sans', family: '"Montserrat", sans-serif' },
+  { value: 'lato', label: 'Lato', category: 'sans', family: '"Lato", sans-serif' },
+  { value: 'raleway', label: 'Raleway', category: 'sans', family: '"Raleway", sans-serif' },
+  // NEW v5.0: Modern sans-serif additions
+  { value: 'dm_sans', label: 'DM Sans', category: 'sans', family: '"DM Sans", sans-serif' },
+  { value: 'nunito', label: 'Nunito', category: 'sans', family: '"Nunito", sans-serif' },
+  { value: 'source_sans_3', label: 'Source Sans 3', category: 'sans', family: '"Source Sans 3", sans-serif' },
+  { value: 'open_sans', label: 'Open Sans', category: 'sans', family: '"Open Sans", sans-serif' },
+  { value: 'manrope', label: 'Manrope', category: 'sans', family: '"Manrope", sans-serif' },
+  { value: 'karla', label: 'Karla', category: 'sans', family: '"Karla", sans-serif' },
+  { value: 'rubik', label: 'Rubik', category: 'sans', family: '"Rubik", sans-serif' },
+  { value: 'barlow', label: 'Barlow', category: 'sans', family: '"Barlow", sans-serif' },
+  { value: 'cabin', label: 'Cabin', category: 'sans', family: '"Cabin", sans-serif' },
+  { value: 'quicksand', label: 'Quicksand', category: 'sans', family: '"Quicksand", sans-serif' },
+
+  // ============================================================
+  // SERIF (13 fonts) - Traditional, Elegant, Academic
+  // ============================================================
+  { value: 'merriweather', label: 'Merriweather', category: 'serif', family: '"Merriweather", serif' },
+  { value: 'playfair_display', label: 'Playfair Display', category: 'serif', family: '"Playfair Display", serif' },
+  { value: 'lora', label: 'Lora', category: 'serif', family: '"Lora", serif' },
+  { value: 'pt_serif', label: 'PT Serif', category: 'serif', family: '"PT Serif", serif' },
+  { value: 'crimson_text', label: 'Crimson Text', category: 'serif', family: '"Crimson Text", serif' },
+  // NEW v5.0: Elegant serif additions
+  { value: 'cormorant', label: 'Cormorant', category: 'serif', family: '"Cormorant", serif' },
+  { value: 'libre_baskerville', label: 'Libre Baskerville', category: 'serif', family: '"Libre Baskerville", serif' },
+  { value: 'eb_garamond', label: 'EB Garamond', category: 'serif', family: '"EB Garamond", serif' },
+  { value: 'spectral', label: 'Spectral', category: 'serif', family: '"Spectral", serif' },
+  { value: 'cardo', label: 'Cardo', category: 'serif', family: '"Cardo", serif' },
+  { value: 'yeseva_one', label: 'Yeseva One', category: 'serif', family: '"Yeseva One", serif' },
+  { value: 'neuton', label: 'Neuton', category: 'serif', family: '"Neuton", serif' },
+  { value: 'philosopher', label: 'Philosopher', category: 'serif', family: '"Philosopher", serif' },
+
+  // ============================================================
+  // DISPLAY (12 fonts) - Bold, Creative, Headlines
+  // ============================================================
+  { value: 'oswald', label: 'Oswald', category: 'display', family: '"Oswald", sans-serif' },
+  { value: 'bebas_neue', label: 'Bebas Neue', category: 'display', family: '"Bebas Neue", sans-serif' },
+  { value: 'work_sans', label: 'Work Sans', category: 'display', family: '"Work Sans", sans-serif' },
+  { value: 'syne', label: 'Syne', category: 'display', family: '"Syne", sans-serif' },
+  // NEW v5.0: Impactful display fonts
+  { value: 'archivo_black', label: 'Archivo Black', category: 'display', family: '"Archivo Black", sans-serif' },
+  { value: 'anton', label: 'Anton', category: 'display', family: '"Anton", sans-serif' },
+  { value: 'righteous', label: 'Righteous', category: 'display', family: '"Righteous", sans-serif' },
+  { value: 'exo_2', label: 'Exo 2', category: 'display', family: '"Exo 2", sans-serif' },
+  { value: 'teko', label: 'Teko', category: 'display', family: '"Teko", sans-serif' },
+  { value: 'passion_one', label: 'Passion One', category: 'display', family: '"Passion One", sans-serif' },
+  { value: 'cinzel', label: 'Cinzel', category: 'display', family: '"Cinzel", serif' },
+  { value: 'abril_fatface', label: 'Abril Fatface', category: 'display', family: '"Abril Fatface", serif' },
+
+  // ============================================================
+  // HANDWRITING (7 fonts) - Personal, Friendly, Informal
+  // ============================================================
+  { value: 'dancing_script', label: 'Dancing Script', category: 'handwriting', family: '"Dancing Script", cursive' },
+  { value: 'pacifico', label: 'Pacifico', category: 'handwriting', family: '"Pacifico", cursive' },
+  { value: 'caveat', label: 'Caveat', category: 'handwriting', family: '"Caveat", cursive' },
+  // NEW v5.0: Expressive handwriting fonts
+  { value: 'great_vibes', label: 'Great Vibes', category: 'handwriting', family: '"Great Vibes", cursive' },
+  { value: 'satisfy', label: 'Satisfy', category: 'handwriting', family: '"Satisfy", cursive' },
+  { value: 'kalam', label: 'Kalam', category: 'handwriting', family: '"Kalam", cursive' },
+  { value: 'permanent_marker', label: 'Permanent Marker', category: 'handwriting', family: '"Permanent Marker", cursive' },
+]
+
+// ============================================================
+// FONT METADATA FOR AI PAIRING (v5.0)
+// ============================================================
+
+/**
+ * Extended font metadata for AI-powered font pairing
+ * Includes formality, mood, typography metrics, and compatibility data
+ */
+export interface FontMetadata {
+  value: string
+  label: string
+  category: FontCategory
+  family: string
+  formalityScore: number      // 0-100 (0=casual, 100=formal)
+  moodTags: string[]          // e.g., ['friendly', 'modern', 'tech']
+  xHeight: 'low' | 'medium' | 'high'
+  strokeContrast: 'low' | 'medium' | 'high'
+  characterWidth: 'condensed' | 'normal' | 'extended'
+  bestFor: string[]           // Event types
+  pairsWellWith: string[]     // Font values that pair well
+}
+
+/**
+ * Complete font metadata for all 48 fonts
+ * Used by AI pairing engine to recommend optimal typography combinations
+ */
+export const FONT_METADATA: Record<string, FontMetadata> = {
+  // SANS SERIF FONTS
+  inter: {
+    value: 'inter', label: 'Inter', category: 'sans', family: '"Inter", sans-serif',
+    formalityScore: 70,
+    moodTags: ['professional', 'modern', 'clean', 'neutral', 'corporate'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['conference', 'tech', 'corporate', 'workshop', 'business'],
+    pairsWellWith: ['merriweather', 'playfair_display', 'lora', 'cormorant', 'eb_garamond']
+  },
+  roboto: {
+    value: 'roboto', label: 'Roboto', category: 'sans', family: '"Roboto", sans-serif',
+    formalityScore: 65,
+    moodTags: ['modern', 'friendly', 'versatile', 'readable'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'tech', 'educational', 'health'],
+    pairsWellWith: ['lora', 'pt_serif', 'spectral', 'crimson_text']
+  },
+  poppins: {
+    value: 'poppins', label: 'Poppins', category: 'sans', family: '"Poppins", sans-serif',
+    formalityScore: 60,
+    moodTags: ['friendly', 'geometric', 'modern', 'approachable'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['community', 'workshop', 'family', 'cultural'],
+    pairsWellWith: ['merriweather', 'lora', 'libre_baskerville']
+  },
+  montserrat: {
+    value: 'montserrat', label: 'Montserrat', category: 'sans', family: '"Montserrat", sans-serif',
+    formalityScore: 65,
+    moodTags: ['urban', 'geometric', 'modern', 'versatile'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['business', 'tech', 'conference', 'cultural'],
+    pairsWellWith: ['playfair_display', 'merriweather', 'cormorant']
+  },
+  lato: {
+    value: 'lato', label: 'Lato', category: 'sans', family: '"Lato", sans-serif',
+    formalityScore: 65,
+    moodTags: ['warm', 'friendly', 'professional', 'readable'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'educational', 'community', 'health'],
+    pairsWellWith: ['merriweather', 'pt_serif', 'lora']
+  },
+  raleway: {
+    value: 'raleway', label: 'Raleway', category: 'sans', family: '"Raleway", sans-serif',
+    formalityScore: 70,
+    moodTags: ['elegant', 'thin', 'sophisticated', 'modern'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['wedding', 'business', 'cultural', 'gala'],
+    pairsWellWith: ['playfair_display', 'cormorant', 'eb_garamond']
+  },
+  dm_sans: {
+    value: 'dm_sans', label: 'DM Sans', category: 'sans', family: '"DM Sans", sans-serif',
+    formalityScore: 70,
+    moodTags: ['geometric', 'clean', 'modern', 'professional'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'business', 'conference', 'corporate'],
+    pairsWellWith: ['spectral', 'lora', 'libre_baskerville']
+  },
+  nunito: {
+    value: 'nunito', label: 'Nunito', category: 'sans', family: '"Nunito", sans-serif',
+    formalityScore: 50,
+    moodTags: ['friendly', 'rounded', 'approachable', 'warm'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['family', 'community', 'workshop', 'cultural'],
+    pairsWellWith: ['merriweather', 'lora', 'neuton']
+  },
+  source_sans_3: {
+    value: 'source_sans_3', label: 'Source Sans 3', category: 'sans', family: '"Source Sans 3", sans-serif',
+    formalityScore: 70,
+    moodTags: ['professional', 'readable', 'neutral', 'technical'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'educational', 'conference', 'business'],
+    pairsWellWith: ['spectral', 'pt_serif', 'crimson_text']
+  },
+  open_sans: {
+    value: 'open_sans', label: 'Open Sans', category: 'sans', family: '"Open Sans", sans-serif',
+    formalityScore: 65,
+    moodTags: ['neutral', 'friendly', 'optimized', 'readable'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'educational', 'community', 'health'],
+    pairsWellWith: ['lora', 'merriweather', 'pt_serif']
+  },
+  manrope: {
+    value: 'manrope', label: 'Manrope', category: 'sans', family: '"Manrope", sans-serif',
+    formalityScore: 68,
+    moodTags: ['modern', 'geometric', 'tech', 'clean'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'business', 'conference'],
+    pairsWellWith: ['spectral', 'eb_garamond', 'cormorant']
+  },
+  karla: {
+    value: 'karla', label: 'Karla', category: 'sans', family: '"Karla", sans-serif',
+    formalityScore: 60,
+    moodTags: ['grotesque', 'clean', 'readable', 'neutral'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'educational', 'community'],
+    pairsWellWith: ['lora', 'merriweather', 'neuton']
+  },
+  rubik: {
+    value: 'rubik', label: 'Rubik', category: 'sans', family: '"Rubik", sans-serif',
+    formalityScore: 55,
+    moodTags: ['friendly', 'rounded', 'modern', 'playful'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['family', 'workshop', 'community', 'cultural'],
+    pairsWellWith: ['merriweather', 'libre_baskerville', 'lora']
+  },
+  barlow: {
+    value: 'barlow', label: 'Barlow', category: 'sans', family: '"Barlow", sans-serif',
+    formalityScore: 60,
+    moodTags: ['geometric', 'condensed', 'modern', 'efficient'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['tech', 'business', 'workshop'],
+    pairsWellWith: ['spectral', 'pt_serif', 'neuton']
+  },
+  cabin: {
+    value: 'cabin', label: 'Cabin', category: 'sans', family: '"Cabin", sans-serif',
+    formalityScore: 60,
+    moodTags: ['humanist', 'friendly', 'readable', 'warm'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'community', 'educational'],
+    pairsWellWith: ['lora', 'merriweather', 'crimson_text']
+  },
+  quicksand: {
+    value: 'quicksand', label: 'Quicksand', category: 'sans', family: '"Quicksand", sans-serif',
+    formalityScore: 45,
+    moodTags: ['rounded', 'friendly', 'modern', 'gentle'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['family', 'community', 'cultural', 'workshop'],
+    pairsWellWith: ['merriweather', 'lora', 'neuton']
+  },
+
+  // SERIF FONTS
+  merriweather: {
+    value: 'merriweather', label: 'Merriweather', category: 'serif', family: '"Merriweather", serif',
+    formalityScore: 75,
+    moodTags: ['traditional', 'readable', 'elegant', 'professional'],
+    xHeight: 'high', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['conference', 'academic', 'business', 'educational'],
+    pairsWellWith: ['inter', 'roboto', 'lato', 'poppins', 'open_sans']
+  },
+  playfair_display: {
+    value: 'playfair_display', label: 'Playfair Display', category: 'serif', family: '"Playfair Display", serif',
+    formalityScore: 90,
+    moodTags: ['elegant', 'sophisticated', 'luxury', 'traditional'],
+    xHeight: 'medium', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['wedding', 'gala', 'cultural', 'awards'],
+    pairsWellWith: ['inter', 'lato', 'raleway', 'montserrat']
+  },
+  lora: {
+    value: 'lora', label: 'Lora', category: 'serif', family: '"Lora", serif',
+    formalityScore: 75,
+    moodTags: ['calligraphic', 'elegant', 'readable', 'warm'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'cultural', 'business', 'wedding'],
+    pairsWellWith: ['inter', 'roboto', 'poppins', 'lato']
+  },
+  pt_serif: {
+    value: 'pt_serif', label: 'PT Serif', category: 'serif', family: '"PT Serif", serif',
+    formalityScore: 75,
+    moodTags: ['traditional', 'readable', 'professional', 'scholarly'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'educational', 'business', 'conference'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans', 'source_sans_3']
+  },
+  crimson_text: {
+    value: 'crimson_text', label: 'Crimson Text', category: 'serif', family: '"Crimson Text", serif',
+    formalityScore: 80,
+    moodTags: ['classic', 'scholarly', 'traditional', 'elegant'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'educational', 'cultural'],
+    pairsWellWith: ['roboto', 'lato', 'cabin']
+  },
+  cormorant: {
+    value: 'cormorant', label: 'Cormorant', category: 'serif', family: '"Cormorant", serif',
+    formalityScore: 85,
+    moodTags: ['elegant', 'display', 'luxury', 'sophisticated'],
+    xHeight: 'medium', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['wedding', 'gala', 'awards', 'cultural'],
+    pairsWellWith: ['inter', 'raleway', 'montserrat', 'dm_sans']
+  },
+  libre_baskerville: {
+    value: 'libre_baskerville', label: 'Libre Baskerville', category: 'serif', family: '"Libre Baskerville", serif',
+    formalityScore: 80,
+    moodTags: ['classic', 'readable', 'traditional', 'elegant'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'business', 'educational', 'cultural'],
+    pairsWellWith: ['poppins', 'rubik', 'dm_sans']
+  },
+  eb_garamond: {
+    value: 'eb_garamond', label: 'EB Garamond', category: 'serif', family: '"EB Garamond", serif',
+    formalityScore: 85,
+    moodTags: ['classic', 'elegant', 'traditional', 'sophisticated'],
+    xHeight: 'low', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['wedding', 'academic', 'cultural', 'awards'],
+    pairsWellWith: ['inter', 'raleway', 'manrope']
+  },
+  spectral: {
+    value: 'spectral', label: 'Spectral', category: 'serif', family: '"Spectral", serif',
+    formalityScore: 75,
+    moodTags: ['modern', 'serif', 'readable', 'elegant'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['business', 'educational', 'conference'],
+    pairsWellWith: ['dm_sans', 'source_sans_3', 'manrope', 'barlow']
+  },
+  cardo: {
+    value: 'cardo', label: 'Cardo', category: 'serif', family: '"Cardo", serif',
+    formalityScore: 80,
+    moodTags: ['scholarly', 'academic', 'traditional', 'readable'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'educational', 'cultural'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  yeseva_one: {
+    value: 'yeseva_one', label: 'Yeseva One', category: 'serif', family: '"Yeseva One", serif',
+    formalityScore: 70,
+    moodTags: ['bold', 'display', 'vintage', 'decorative'],
+    xHeight: 'medium', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['cultural', 'gala', 'wedding'],
+    pairsWellWith: ['lato', 'roboto', 'poppins']
+  },
+  neuton: {
+    value: 'neuton', label: 'Neuton', category: 'serif', family: '"Neuton", serif',
+    formalityScore: 75,
+    moodTags: ['readable', 'bookish', 'traditional', 'scholarly'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['academic', 'educational', 'business'],
+    pairsWellWith: ['nunito', 'karla', 'quicksand', 'cabin']
+  },
+  philosopher: {
+    value: 'philosopher', label: 'Philosopher', category: 'serif', family: '"Philosopher", serif',
+    formalityScore: 70,
+    moodTags: ['geometric', 'serif', 'modern', 'unique'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['cultural', 'academic', 'tech'],
+    pairsWellWith: ['manrope', 'dm_sans', 'barlow']
+  },
+
+  // DISPLAY FONTS
+  oswald: {
+    value: 'oswald', label: 'Oswald', category: 'display', family: '"Oswald", sans-serif',
+    formalityScore: 50,
+    moodTags: ['bold', 'condensed', 'impactful', 'modern'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['sports', 'concert', 'promotional', 'announcement'],
+    pairsWellWith: ['roboto', 'lato', 'inter', 'open_sans']
+  },
+  bebas_neue: {
+    value: 'bebas_neue', label: 'Bebas Neue', category: 'display', family: '"Bebas Neue", sans-serif',
+    formalityScore: 45,
+    moodTags: ['bold', 'all-caps', 'impactful', 'modern'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['sports', 'concert', 'promotional'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  work_sans: {
+    value: 'work_sans', label: 'Work Sans', category: 'display', family: '"Work Sans", sans-serif',
+    formalityScore: 65,
+    moodTags: ['modern', 'clean', 'versatile', 'professional'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'business', 'workshop'],
+    pairsWellWith: ['merriweather', 'lora', 'spectral']
+  },
+  syne: {
+    value: 'syne', label: 'Syne', category: 'display', family: '"Syne", sans-serif',
+    formalityScore: 60,
+    moodTags: ['geometric', 'modern', 'unique', 'tech'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'cultural', 'workshop'],
+    pairsWellWith: ['spectral', 'lora', 'pt_serif']
+  },
+  archivo_black: {
+    value: 'archivo_black', label: 'Archivo Black', category: 'display', family: '"Archivo Black", sans-serif',
+    formalityScore: 50,
+    moodTags: ['bold', 'impactful', 'modern', 'strong'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['sports', 'announcement', 'promotional'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  anton: {
+    value: 'anton', label: 'Anton', category: 'display', family: '"Anton", sans-serif',
+    formalityScore: 45,
+    moodTags: ['condensed', 'bold', 'sports', 'impactful'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['sports', 'concert', 'announcement'],
+    pairsWellWith: ['roboto', 'lato', 'inter']
+  },
+  righteous: {
+    value: 'righteous', label: 'Righteous', category: 'display', family: '"Righteous", sans-serif',
+    formalityScore: 40,
+    moodTags: ['retro', 'bold', '80s', 'fun'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['concert', 'cultural', 'family'],
+    pairsWellWith: ['roboto', 'poppins', 'nunito']
+  },
+  exo_2: {
+    value: 'exo_2', label: 'Exo 2', category: 'display', family: '"Exo 2", sans-serif',
+    formalityScore: 65,
+    moodTags: ['futuristic', 'tech', 'geometric', 'modern'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['tech', 'business', 'conference'],
+    pairsWellWith: ['inter', 'roboto', 'source_sans_3']
+  },
+  teko: {
+    value: 'teko', label: 'Teko', category: 'display', family: '"Teko", sans-serif',
+    formalityScore: 50,
+    moodTags: ['condensed', 'modern', 'tall', 'geometric'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['tech', 'sports', 'announcement'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  passion_one: {
+    value: 'passion_one', label: 'Passion One', category: 'display', family: '"Passion One", sans-serif',
+    formalityScore: 45,
+    moodTags: ['bold', 'condensed', 'impactful', 'strong'],
+    xHeight: 'high', strokeContrast: 'low', characterWidth: 'condensed',
+    bestFor: ['sports', 'announcement', 'promotional'],
+    pairsWellWith: ['roboto', 'lato', 'inter']
+  },
+  cinzel: {
+    value: 'cinzel', label: 'Cinzel', category: 'display', family: '"Cinzel", serif',
+    formalityScore: 85,
+    moodTags: ['classical', 'Roman', 'elegant', 'sophisticated'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['cultural', 'gala', 'awards', 'wedding'],
+    pairsWellWith: ['nunito', 'poppins', 'rubik', 'lato']
+  },
+  abril_fatface: {
+    value: 'abril_fatface', label: 'Abril Fatface', category: 'display', family: '"Abril Fatface", serif',
+    formalityScore: 70,
+    moodTags: ['bold', 'display', 'serif', 'headlines'],
+    xHeight: 'medium', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['cultural', 'gala', 'announcement'],
+    pairsWellWith: ['lato', 'roboto', 'open_sans']
+  },
+
+  // HANDWRITING FONTS
+  dancing_script: {
+    value: 'dancing_script', label: 'Dancing Script', category: 'handwriting', family: '"Dancing Script", cursive',
+    formalityScore: 30,
+    moodTags: ['casual', 'friendly', 'handwritten', 'playful'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['wedding', 'family', 'community'],
+    pairsWellWith: ['roboto', 'lato', 'poppins']
+  },
+  pacifico: {
+    value: 'pacifico', label: 'Pacifico', category: 'handwriting', family: '"Pacifico", cursive',
+    formalityScore: 25,
+    moodTags: ['fun', 'surfing', 'casual', 'retro'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['family', 'community', 'cultural'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  caveat: {
+    value: 'caveat', label: 'Caveat', category: 'handwriting', family: '"Caveat", cursive',
+    formalityScore: 20,
+    moodTags: ['handwritten', 'casual', 'personal', 'informal'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['community', 'family', 'workshop'],
+    pairsWellWith: ['roboto', 'lato', 'poppins']
+  },
+  great_vibes: {
+    value: 'great_vibes', label: 'Great Vibes', category: 'handwriting', family: '"Great Vibes", cursive',
+    formalityScore: 60,
+    moodTags: ['elegant', 'script', 'weddings', 'formal'],
+    xHeight: 'low', strokeContrast: 'high', characterWidth: 'normal',
+    bestFor: ['wedding', 'gala', 'awards'],
+    pairsWellWith: ['raleway', 'montserrat', 'lato']
+  },
+  satisfy: {
+    value: 'satisfy', label: 'Satisfy', category: 'handwriting', family: '"Satisfy", cursive',
+    formalityScore: 30,
+    moodTags: ['casual', 'script', 'friendly', 'playful'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['family', 'community', 'cultural'],
+    pairsWellWith: ['roboto', 'poppins', 'lato']
+  },
+  kalam: {
+    value: 'kalam', label: 'Kalam', category: 'handwriting', family: '"Kalam", cursive',
+    formalityScore: 25,
+    moodTags: ['handwritten', 'casual', 'approachable', 'friendly'],
+    xHeight: 'medium', strokeContrast: 'low', characterWidth: 'normal',
+    bestFor: ['workshop', 'community', 'family'],
+    pairsWellWith: ['roboto', 'lato', 'open_sans']
+  },
+  permanent_marker: {
+    value: 'permanent_marker', label: 'Permanent Marker', category: 'handwriting', family: '"Permanent Marker", cursive',
+    formalityScore: 20,
+    moodTags: ['marker', 'edgy', 'urban', 'casual'],
+    xHeight: 'medium', strokeContrast: 'medium', characterWidth: 'normal',
+    bestFor: ['sports', 'concert', 'announcement'],
+    pairsWellWith: ['roboto', 'lato', 'inter']
+  },
+}
+
+export interface TypographyConfig {
+  useBrandFont: boolean        // Master toggle
+  headingFont: string          // Font ID (value)
+  bodyFont: string            // Font ID (value)
+  scale: number               // 0.8 to 1.5, base scale multiplier
+}
+
+export const DEFAULT_TYPOGRAPHY_CONFIG: TypographyConfig = {
+  useBrandFont: true,
+  headingFont: 'inter',
+  bodyFont: 'inter',
+  scale: 1.0,
+}
+
+// Helper to get font family CSS by ID
+export const getFontFamily = (fontId: string) =>
+  FONT_OPTIONS.find(f => f.value === fontId)?.family || '"Inter", sans-serif'
+
+// ============================================================
+// MULTI-COLOR TYPOGRAPHY SYSTEM (v5.0)
+// ============================================================
+
+/**
+ * Text role color configuration
+ * Supports solid colors and gradients for different text roles
+ */
+export interface TextRoleColor {
+  type: 'solid' | 'gradient'
+  color?: string  // For solid colors
+  gradientStart?: string  // For gradient start color
+  gradientEnd?: string    // For gradient end color
+  gradientDirection?: 'horizontal' | 'vertical' | 'diagonal'
+  contrastRatio?: number  // WCAG contrast ratio for accessibility
+  description?: string    // Human-readable description
+}
+
+/**
+ * Multi-color typography configuration
+ * Allows different colors for each text role to create visual hierarchy
+ */
+export interface MultiColorTypographyConfig {
+  hero: TextRoleColor        // Main title/hero text
+  headline: TextRoleColor    // Primary headline
+  subheadline: TextRoleColor // Secondary headline
+  body: TextRoleColor        // Body/paragraph text
+  cta: TextRoleColor         // Call-to-action buttons/text
+  caption: TextRoleColor     // Captions and small text
+  label: TextRoleColor       // Labels and metadata
+}
+
+/**
+ * Pre-built multi-color typography palettes for common event types
+ * Each palette is WCAG-compliant and optimized for the event context
+ */
+export const EVENT_COLOR_PALETTES: Record<string, MultiColorTypographyConfig> = {
+  conference: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#1e3a8a',
+      gradientEnd: '#3b82f6',
+      gradientDirection: 'horizontal',
+      description: 'Professional blue gradient for impact'
+    },
+    headline: { type: 'solid', color: '#1e3a8a', contrastRatio: 12.5, description: 'Navy blue for headlines' },
+    subheadline: { type: 'solid', color: '#3b82f6', contrastRatio: 7.2, description: 'Medium blue for subheadings' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for readability' },
+    cta: {
+      type: 'gradient',
+      gradientStart: '#f59e0b',
+      gradientEnd: '#d97706',
+      gradientDirection: 'horizontal',
+      description: 'Amber gradient for CTAs'
+    },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray for captions' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray for labels' }
+  },
+  workshop: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#0891b2',
+      gradientEnd: '#06b6d4',
+      gradientDirection: 'diagonal',
+      description: 'Cyan gradient for learning energy'
+    },
+    headline: { type: 'solid', color: '#0891b2', contrastRatio: 8.5, description: 'Teal for practical focus' },
+    subheadline: { type: 'solid', color: '#f97316', contrastRatio: 5.2, description: 'Orange accent for warmth' },
+    body: { type: 'solid', color: '#374151', contrastRatio: 14.2, description: 'Charcoal for clarity' },
+    cta: { type: 'solid', color: '#ea580c', contrastRatio: 5.8, description: 'Bright orange for action' },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  health_camp: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#047857',
+      gradientEnd: '#10b981',
+      gradientDirection: 'vertical',
+      description: 'Health green gradient for vitality'
+    },
+    headline: { type: 'solid', color: '#047857', contrastRatio: 9.8, description: 'Forest green for health' },
+    subheadline: { type: 'solid', color: '#0891b2', contrastRatio: 8.5, description: 'Medical teal for trust' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for readability' },
+    cta: { type: 'solid', color: '#0891b2', contrastRatio: 8.5, description: 'Teal CTA for medical context' },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  tech_talk: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#6366f1',
+      gradientEnd: '#8b5cf6',
+      gradientDirection: 'diagonal',
+      description: 'Tech purple gradient for innovation'
+    },
+    headline: { type: 'solid', color: '#4f46e5', contrastRatio: 8.2, description: 'Indigo for tech focus' },
+    subheadline: { type: 'solid', color: '#8b5cf6', contrastRatio: 6.5, description: 'Purple for creativity' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for clarity' },
+    cta: {
+      type: 'gradient',
+      gradientStart: '#ec4899',
+      gradientEnd: '#f43f5e',
+      gradientDirection: 'horizontal',
+      description: 'Pink-red gradient for energy'
+    },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  cultural_event: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#dc2626',
+      gradientEnd: '#f59e0b',
+      gradientDirection: 'horizontal',
+      description: 'Vibrant red-orange gradient for celebration'
+    },
+    headline: { type: 'solid', color: '#dc2626', contrastRatio: 7.8, description: 'Bold red for impact' },
+    subheadline: { type: 'solid', color: '#f59e0b', contrastRatio: 4.2, description: 'Warm amber for festivity' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for readability' },
+    cta: { type: 'solid', color: '#7c3aed', contrastRatio: 8.5, description: 'Purple accent for richness' },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  wedding: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#f472b6',
+      gradientEnd: '#e879f9',
+      gradientDirection: 'horizontal',
+      description: 'Romantic pink-magenta gradient'
+    },
+    headline: { type: 'solid', color: '#be185d', contrastRatio: 10.2, description: 'Deep pink for elegance' },
+    subheadline: { type: 'solid', color: '#f472b6', contrastRatio: 4.5, description: 'Soft pink for romance' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for readability' },
+    cta: { type: 'solid', color: '#be185d', contrastRatio: 10.2, description: 'Deep pink CTA' },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  sports_event: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#ea580c',
+      gradientEnd: '#dc2626',
+      gradientDirection: 'horizontal',
+      description: 'Energetic orange-red gradient'
+    },
+    headline: { type: 'solid', color: '#dc2626', contrastRatio: 7.8, description: 'Bold red for energy' },
+    subheadline: { type: 'solid', color: '#ea580c', contrastRatio: 5.8, description: 'Orange for excitement' },
+    body: { type: 'solid', color: '#111827', contrastRatio: 18.5, description: 'Very dark gray for contrast' },
+    cta: {
+      type: 'gradient',
+      gradientStart: '#fbbf24',
+      gradientEnd: '#f59e0b',
+      gradientDirection: 'horizontal',
+      description: 'Gold gradient for winners'
+    },
+    caption: { type: 'solid', color: '#4b5563', contrastRatio: 9.2, description: 'Dark gray' },
+    label: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' }
+  },
+  business_summit: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#0f172a',
+      gradientEnd: '#1e293b',
+      gradientDirection: 'horizontal',
+      description: 'Professional dark gradient'
+    },
+    headline: { type: 'solid', color: '#0f172a', contrastRatio: 18.2, description: 'Deep slate for authority' },
+    subheadline: { type: 'solid', color: '#3b82f6', contrastRatio: 7.2, description: 'Blue for trust' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray' },
+    cta: {
+      type: 'gradient',
+      gradientStart: '#3b82f6',
+      gradientEnd: '#2563eb',
+      gradientDirection: 'horizontal',
+      description: 'Blue gradient for professionalism'
+    },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  music_concert: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#a855f7',
+      gradientEnd: '#ec4899',
+      gradientDirection: 'diagonal',
+      description: 'Vibrant purple-pink gradient for music energy'
+    },
+    headline: { type: 'solid', color: '#7c3aed', contrastRatio: 8.5, description: 'Purple for creativity' },
+    subheadline: { type: 'solid', color: '#ec4899', contrastRatio: 5.5, description: 'Pink for excitement' },
+    body: { type: 'solid', color: '#111827', contrastRatio: 18.5, description: 'Very dark for contrast' },
+    cta: {
+      type: 'gradient',
+      gradientStart: '#f59e0b',
+      gradientEnd: '#dc2626',
+      gradientDirection: 'horizontal',
+      description: 'Warm gradient for tickets'
+    },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  },
+  educational_seminar: {
+    hero: {
+      type: 'gradient',
+      gradientStart: '#0284c7',
+      gradientEnd: '#0891b2',
+      gradientDirection: 'horizontal',
+      description: 'Academic blue gradient'
+    },
+    headline: { type: 'solid', color: '#075985', contrastRatio: 10.5, description: 'Deep blue for trust' },
+    subheadline: { type: 'solid', color: '#0284c7', contrastRatio: 8.2, description: 'Sky blue for clarity' },
+    body: { type: 'solid', color: '#1f2937', contrastRatio: 16.1, description: 'Dark gray for reading' },
+    cta: { type: 'solid', color: '#0891b2', contrastRatio: 8.5, description: 'Teal CTA' },
+    caption: { type: 'solid', color: '#6b7280', contrastRatio: 7.5, description: 'Medium gray' },
+    label: { type: 'solid', color: '#9ca3af', contrastRatio: 4.8, description: 'Light gray' }
+  }
+}
+
+// ============================================================
 // DESIGN DATA INTERFACE
 // ============================================================
 
@@ -893,7 +1645,9 @@ export interface DesignData {
   resolution: ResolutionId
   customization: CustomizationData
   exportSettings: ExportSettings
+
   colorConfig: ColorConfig // NEW: Color configuration
+  typography: TypographyConfig // NEW v4.3: Typography configuration
   stripShape?: LogoStripShape // NEW v3.11: Logo strip shape for event posters with logo bands
 }
 
@@ -905,5 +1659,6 @@ export const DEFAULT_DESIGN_DATA: DesignData = {
   customization: DEFAULT_CUSTOMIZATION,
   exportSettings: DEFAULT_EXPORT_SETTINGS,
   colorConfig: DEFAULT_COLOR_CONFIG,
+  typography: DEFAULT_TYPOGRAPHY_CONFIG,
   stripShape: DEFAULT_LOGO_STRIP_SHAPE, // NEW v3.11: Default to curved strip
 }

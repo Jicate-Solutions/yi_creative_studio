@@ -591,6 +591,8 @@ const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
  * v3.6: CRITICAL FIX - Only generate context when user has ACTUALLY uploaded a photo
  * When hasUserPhoto=false, we now return NOTHING to prevent AI from creating placeholder frames
  * The placeholder frame issue was caused by instructions telling AI to create visible frames
+ *
+ * v3.5: Multi-speaker support - handles both single and multiple speaker photos
  */
 export function buildSpeakerPhotoZoneContext(
   config?: SpeakerPhotoConfig
@@ -604,10 +606,55 @@ export function buildSpeakerPhotoZoneContext(
   const position = config.position || 'left'
   const size = config.size || 'large'
   const shape = config.shape || 'circle'
+  const speakerCount = config.speakerCount || 1
+  const isSingleSpeaker = config.isSingleSpeaker !== false
 
-  // v3.6: Only one mode now - photo will be overlaid, keep zone clean
+  // v3.5: Multi-speaker handling
+  if (!isSingleSpeaker && speakerCount > 1) {
+    return `SPEAKER PHOTO ZONES: ${speakerCount} speaker photos will be composited onto the ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size} each, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) via post-processing. Reserve space for ${speakerCount} photos arranged with proper spacing. Keep these areas clean with simple backgrounds (solid color, subtle gradient, or matching design). No faces, people, human figures, placeholder shapes, or frames in these zones - the real photos will be added automatically.`
+  }
+
+  // v3.6: Single speaker (original logic)
   // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
   return `SPEAKER PHOTO ZONE: A speaker photo will be composited onto the ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size}, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) via post-processing. Keep this area clean with a simple background (solid color, subtle gradient, or matching design). No faces, people, human figures, placeholder shapes, or frames in this zone - the real photo will be added automatically.`
+}
+
+// ============================================================
+// SPEAKER DETAILS FORMATTING (v3.5)
+// ============================================================
+
+/**
+ * Format speaker details with structured layout
+ * Similar to event details formatting for consistency
+ */
+export function formatSpeakerDetails(speaker: { name: string; designation?: string }): string {
+  const parts: string[] = []
+
+  if (speaker.name) {
+    parts.push(`Name: "${speaker.name}"`)
+  }
+
+  if (speaker.designation) {
+    parts.push(`Designation: "${speaker.designation}"`)
+  }
+
+  return parts.join('\n   ')
+}
+
+/**
+ * Format multiple speakers with structured layout
+ */
+export function formatMultipleSpeakers(speakers: Array<{ name: string; designation?: string }>): string {
+  if (speakers.length === 0) return ''
+
+  if (speakers.length === 1) {
+    return formatSpeakerDetails(speakers[0])
+  }
+
+  return speakers.map((speaker, index) => {
+    const speakerNum = index + 1
+    return `Speaker ${speakerNum}:\n   ${formatSpeakerDetails(speaker).replace(/\n   /g, '\n     ')}`
+  }).join('\n   ')
 }
 
 // ============================================================

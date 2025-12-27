@@ -82,6 +82,15 @@ export interface UltraProPromptResult {
 const ULTRA_PRO_PROMPT_SYSTEM = `You are an expert at creating image generation prompts for professional creative designs.
 Your job is to transform user-provided event/creative details into a powerful, precise prompt that will generate stunning visuals.
 
+v5.0 ENHANCEMENT: DESIGN INTELLIGENCE INTEGRATION
+When Design Intelligence context is provided, you MUST:
+1. PRESERVE all story-driven insights (narrative, emotional arc, visual elements, decorative elements)
+2. ENRICH with Gemini 2.5 best practices (narrative prose, not keyword lists)
+3. CONVERT design context into vivid scene descriptions
+4. USE event-specific visual metaphors from Design Intelligence
+5. MAINTAIN multi-color typography strategy and decorative element placements
+6. ENFORCE sophistication level with specific visual cues
+
 DESIGN SOPHISTICATION RULES (CRITICAL):
 The user can specify a "sophistication" level which MUST dictate your visual strategy:
 
@@ -89,7 +98,7 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Focus on HIGH-IMPACT MINIMALISM and VAST NEGATIVE SPACE (at least 40% of canvas).
    - Use clean, solid backgrounds (matte white, light gray, or deep slate).
    - Use ONE primary high-quality visual symbol instead of busy patterns.
-   - LOGO STRIPE: Always suggest a solid white or light-color "Logo Stripe" band at the top for branding.
+   - LOGO OVERLAY AREA: Reserve the top 15% for logo overlays. Use simple, high-contrast backgrounds (solid colors or subtle gradients) in this area. DO NOT create a visible stripe or band.
    - MOOD TYPOGRAPHY: Suggest ultra-clean Serif for elegance or Bold Sans for modern tech.
    - Avoid "atmospheric clutter," "particle effects," or "busy textures."
    - Prioritize ultra-clean typography hierarchy and strategic alignment (Center/Left).
@@ -155,12 +164,20 @@ IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
  */
 export async function generateUltraProPrompt(
   compiledData: CompiledFormData,
-  provider: 'claude' | 'gemini' = 'claude'
+  provider: 'claude' | 'gemini' = 'claude',
+  designContext?: any // DesignContext from Design Intelligence (optional)
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
   console.log('[Ultra-Pro Prompt] Format:', compiledData.format?.name || 'default')
   console.log('[Ultra-Pro Prompt] Provider:', provider)
+  console.log('[Ultra-Pro Prompt] Design Context:', designContext ? 'PROVIDED (v5.0 enhancement)' : 'NOT PROVIDED (fallback mode)')
+
+  if (designContext) {
+    console.log('[Ultra-Pro Prompt] Story Analysis:', designContext.storyAnalysis?.narrative?.substring(0, 100) || '(none)')
+    console.log('[Ultra-Pro Prompt] Visual Elements:', designContext.visualElements?.join(', ') || '(none)')
+    console.log('[Ultra-Pro Prompt] Vibe Keywords:', designContext.vibeAndMood?.vibeKeywords?.join(', ') || '(none)')
+  }
 
   // === OPTIMIZATION 1: Check cache first ===
   const formatId = compiledData.format?.id
@@ -194,12 +211,33 @@ export async function generateUltraProPrompt(
   const userBrief = buildTextBriefFromCompiled(compiledData)
   console.log('[Ultra-Pro Prompt] User Brief:', userBrief.substring(0, 200) + '...')
 
+  // Build design context section (v5.0)
+  let designContextSection = ''
+  if (designContext) {
+    designContextSection = `
+
+DESIGN INTELLIGENCE CONTEXT (v5.0 - PRESERVE AND ENHANCE):
+Story Analysis: ${designContext.storyAnalysis?.narrative || '(none)'}
+Emotional Arc: ${designContext.storyAnalysis?.emotionalArc || '(none)'}
+Visual Elements: ${designContext.visualElements?.join(', ') || '(none)'}
+Vibe Keywords: ${designContext.vibeAndMood?.vibeKeywords?.join(', ') || '(none)'}
+Mood Atmosphere: ${designContext.vibeAndMood?.moodAtmosphere || '(none)'}
+Background Setting: ${designContext.backgroundSetting || '(none)'}
+Iconic Imagery: ${designContext.iconicImagery?.join(', ') || '(none)'}
+Decorative Elements: ${designContext.decorativeElementsContext ? JSON.stringify(designContext.decorativeElementsContext.thematicElements) : '(none)'}
+Typography Strategy: ${designContext.typographyStrategy ? `${designContext.typographyStrategy.headlineApproach} / ${designContext.typographyStrategy.multiColorStrategy?.colorRhythm}` : '(none)'}
+Color Storytelling: ${designContext.colorStorytelling ? `${designContext.colorStorytelling.palette?.dominantHues?.join(' + ')} - ${designContext.colorStorytelling.palette?.psychologyReasoning}` : '(none)'}
+
+CRITICAL: Your enhancedPrompt MUST integrate these story-driven insights into a NARRATIVE SCENE DESCRIPTION (not keyword lists).
+`
+  }
+
   // Build the full prompt for the AI
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
 
 USER'S CREATIVE BRIEF:
 ${userBrief}
-
+${designContextSection}
 SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
 TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
@@ -261,13 +299,15 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
 
 /**
  * Safe version that returns fallback on error with zero usage
+ * v5.0: Now accepts designContext parameter
  */
 export async function generateUltraProPromptSafe(
   compiledData: CompiledFormData,
-  provider: 'claude' | 'gemini' = 'claude'
+  provider: 'claude' | 'gemini' = 'claude',
+  designContext?: any // DesignContext from Design Intelligence (optional)
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider)
+    return await generateUltraProPrompt(compiledData, provider, designContext)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {

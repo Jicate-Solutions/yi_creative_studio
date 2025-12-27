@@ -331,7 +331,9 @@ export type RequestType =
   | 'ui_ux_ultra_agent'
   | 'feedback_learning_analyze'
   | 'feedback_learning_understand'
+  | 'feedback_learning_understand'
   | 'logo_placement'
+  | 'typography_suggestion'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   design_intelligence: 'Design Intelligence',
@@ -346,4 +348,5 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   feedback_learning_analyze: 'Feedback Learning Analysis',
   feedback_learning_understand: 'Feedback Learning Understanding',
   logo_placement: 'Logo Placement',
+  typography_suggestion: 'Typography Suggestion',
 }

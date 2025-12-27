@@ -29,9 +29,7 @@ interface BrandColors {
 interface ColorSectionProps {
   colorConfig: ColorConfig
   brandColors?: BrandColors
-  brandFont?: string
   onToggleBrandColors: (enabled: boolean) => void
-  onToggleBrandFont: (enabled: boolean) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
   colorMood?: string
@@ -195,9 +193,7 @@ function CustomPaletteCard({
 export function ColorSection({
   colorConfig,
   brandColors = {},
-  brandFont,
   onToggleBrandColors,
-  onToggleBrandFont,
   onSelectPalette,
   onCustomColorChange,
   colorMood,
@@ -314,33 +310,6 @@ export function ColorSection({
               <Switch
                 checked={colorConfig.useBrandColors}
                 onCheckedChange={onToggleBrandColors}
-              />
-            </div>
-          )}
-
-          {/* Brand Font Toggle */}
-          {brandFont && (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/60">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Type className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                  <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
-                    {brandFont}
-                  </span>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium cursor-pointer">Use Brand Font</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {colorConfig.useBrandFont
-                      ? `Using ${brandFont} from organization settings`
-                      : 'AI chooses fonts based on design mood'
-                    }
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={colorConfig.useBrandFont}
-                onCheckedChange={onToggleBrandFont}
               />
             </div>
           )}
