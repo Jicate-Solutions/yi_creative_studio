@@ -29,11 +29,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch creative and verify ownership
+    // Fetch creative and verify ownership (specific columns to reduce disk IO)
     const { data: creative, error } = await supabase
       .from('creatives')
       .select(`
-        *,
+        id,
+        organization_id,
+        download_count,
+        image_url,
+        title,
+        creative_type,
         organizations!inner (
           id
         )

@@ -25,7 +25,7 @@ export async function GET() {
     // Try to fetch existing preferences
     const { data: preferences, error } = await supabase
       .from('user_dashboard_preferences' as any)
-      .select('*')
+      .select('user_id, card_order, monthly_goal, created_at, updated_at')
       .eq('user_id', user.id)
       .single()
 

@@ -169,9 +169,10 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('templates')
-      .select('*')
+      .select('id, organization_id, created_by, name, description, category, vertical, form_data, logo_config, preview_image_url, source_creative_id, is_public, is_featured, use_count, created_at, updated_at')
       .eq('organization_id', membership.organization_id)
       .order('created_at', { ascending: false })
+      .limit(100) // Safety limit for templates list
 
     if (category) {
       query = query.eq('category', category)

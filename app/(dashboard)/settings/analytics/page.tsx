@@ -144,12 +144,13 @@ export default function AnalyticsPage() {
     else if (timeRange === '30d') startDate = subDays(new Date(), 30)
     else if (timeRange === '90d') startDate = subDays(new Date(), 90)
 
-    // Fetch creatives
+    // Fetch creatives (only needed columns to reduce disk IO)
     let creativesQuery = supabase
       .from('creatives')
-      .select('*')
+      .select('id, credits_used, download_count, generation_time_ms, vertical, ai_model, created_at, creative_type')
       .eq('organization_id', currentOrganization.id)
       .order('created_at', { ascending: false })
+      .limit(1000) // Safety limit for 90 days of data
 
     if (startDate) {
       creativesQuery = creativesQuery.gte('created_at', startDate.toISOString())
@@ -163,6 +164,7 @@ export default function AnalyticsPage() {
       .select('*')
       .eq('organization_id', currentOrganization.id)
       .eq('type', 'usage')
+      .limit(1000) // Safety limit for 90 days of data
 
     if (startDate) {
       transactionsQuery = transactionsQuery.gte('created_at', startDate.toISOString())
@@ -171,12 +173,13 @@ export default function AnalyticsPage() {
     // Legacy: transactions fetched for potential future credit-based analytics
     const { data: _transactions } = await transactionsQuery
 
-    // Fetch API usage analytics
+    // Fetch API usage analytics (only needed columns to reduce disk IO)
     let apiUsageQuery = supabase
       .from('api_usage')
-      .select('*')
+      .select('provider, request_type, model, estimated_cost_usd, input_tokens, output_tokens, cached_tokens, image_count, created_at, duration_ms, success')
       .eq('organization_id', currentOrganization.id)
       .order('created_at', { ascending: false })
+      .limit(5000) // Reasonable limit for 90 days of analytics data
 
     if (startDate) {
       apiUsageQuery = apiUsageQuery.gte('created_at', startDate.toISOString())

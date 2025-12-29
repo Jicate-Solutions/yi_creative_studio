@@ -282,7 +282,7 @@ export async function getUsageAnalytics(
 
   const { data: records, error } = await supabase
     .from('api_usage')
-    .select('*')
+    .select('provider, request_type, model, estimated_cost_usd, input_tokens, output_tokens, cached_tokens, image_count, created_at, duration_ms, success')
     .eq('organization_id', organizationId)
     .gte('created_at', startDate.toISOString())
     .lte('created_at', endDate.toISOString())

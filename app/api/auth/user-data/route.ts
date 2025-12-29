@@ -16,18 +16,31 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Fetch profile and memberships in parallel
+    // Fetch profile and memberships in parallel (specific columns to reduce disk IO)
     const [profileResult, membershipsResult] = await Promise.all([
       supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, full_name, avatar_url, phone, preferences, created_at, updated_at')
         .eq('id', user.id)
         .single(),
       supabase
         .from('organization_members')
         .select(`
-          *,
-          organizations (*)
+          id,
+          organization_id,
+          user_id,
+          role,
+          invited_by,
+          joined_at,
+          organizations (
+            id,
+            name,
+            slug,
+            type,
+            brand_config,
+            credits_balance,
+            is_active
+          )
         `)
         .eq('user_id', user.id)
     ])
