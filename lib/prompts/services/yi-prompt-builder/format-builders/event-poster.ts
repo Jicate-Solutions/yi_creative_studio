@@ -776,7 +776,7 @@ ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be plac
    - Place "${eventDescription}" in a supporting relationship to the title.` : ''
     }
 
-${speakers.length > 0 ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''}:
+${speakers.length > 0 && !hasSpeakerPhoto ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''}:
    ${speakers.map((speaker, index) => {
      const speakerLabel = speakers.length > 1 ? `Speaker ${index + 1}` : 'Speaker'
      const designation = speaker.designation ? ` (${speaker.designation})` : ''
@@ -801,7 +801,7 @@ ${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
   - Date & Time: "${formatEventDate(data.eventDate)} | ${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}"
     - Location: "${data.venue || ''}"
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
-${speakers.length > 0 ? `${speakers.length > 1 ? '- Speakers:\n   ' : '- Speaker:\n   '}${formatMultipleSpeakers(speakers)}` : ''}
+${speakers.length > 0 && !hasSpeakerPhoto ? `${speakers.length > 1 ? '- Speakers:\n   ' : '- Speaker:\n   '}${formatMultipleSpeakers(speakers)}` : ''}
 ${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
 ${eventNote ? `- Footer: "${eventNote}"` : ''}
 

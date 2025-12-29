@@ -55,6 +55,7 @@ import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
 import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
 import { sanitizeForGemini, detectLabelLeaks } from '@/lib/prompts/services/prompt-sanitizer'
+import { sanitizeForLogging } from '@/lib/utils/sanitize-log-data'
 import { randomUUID } from 'crypto'
 
 /**
@@ -158,6 +159,15 @@ export async function POST(request: NextRequest) {
       language?: 'en' | 'ta' | 'hi'
       userFormData?: Record<string, unknown>
       useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
+    }
+
+    // DIAGNOSTIC: Validate request body for speaker photos
+    if (creationMode === 'scratch') {
+      if (!designData) {
+        console.error('[GENERATE API] CRITICAL: Scratch mode but no designData received')
+      } else if (!designData.customization?.speakerPhoto) {
+        console.warn('[GENERATE API] WARNING: designData exists but no speakerPhoto config')
+      }
     }
 
     // NEW v3.10: Extract color configuration from design data
@@ -397,6 +407,29 @@ export async function POST(request: NextRequest) {
       (speakerPhoto?.speakers && speakerPhoto.speakers.some(s => s.photoUrl)) // Multi-speaker
     )
 
+    // DIAGNOSTIC: Log speaker photo detection
+    console.log('[GENERATE API] Speaker Photo Detection:', {
+      hasDesignData: !!designData,
+      hasEffectiveDesignData: !!effectiveDesignData,
+      hasCustomization: !!effectiveDesignData?.customization,
+      hasSpeakerPhoto: !!speakerPhoto,
+      speakerPhotoEnabled: speakerPhoto?.enabled,
+      hasLegacyPhotoUrl: !!speakerPhoto?.photoUrl,
+      hasSpeakersArray: !!speakerPhoto?.speakers,
+      speakersArrayLength: speakerPhoto?.speakers?.length || 0,
+      speakersWithPhotos: speakerPhoto?.speakers?.filter(s => s.photoUrl).length || 0,
+      userHasSpeakerPhoto,
+      rawSpeakerPhoto: speakerPhoto ? {
+        enabled: speakerPhoto.enabled,
+        speakers: speakerPhoto.speakers?.map(s => ({
+          name: s.name,
+          designation: s.designation,
+          hasPhotoUrl: !!s.photoUrl,
+          photoUrlLength: s.photoUrl?.length || 0
+        }))
+      } : null
+    })
+
     // Enhance prompt with format context if a format is selected
     let enhancedPrompt = prompt
     if (selectedFormat) {
@@ -447,7 +480,7 @@ export async function POST(request: NextRequest) {
 
       // Log for debugging - helps verify form data is being received
       console.log('[Generate] === USER FORM DATA ===')
-      console.log('[Generate] Raw Form Data:', JSON.stringify(adjustedUserFormData, null, 2))
+      console.log('[Generate] Raw Form Data:', JSON.stringify(sanitizeForLogging(adjustedUserFormData), null, 2))
       if (preventionActionId) {
         console.log('[Generate] Prevention Action ID:', preventionActionId)
       }
@@ -703,7 +736,7 @@ export async function POST(request: NextRequest) {
         // ========================================================
         console.log('[Generate] === USING XML-STRUCTURED PROMPTS (v3.0) ===')
         console.log('[Generate] Format:', formatId)
-        console.log('[Generate] User Form Data:', JSON.stringify(userFormData, null, 2))
+        console.log('[Generate] User Form Data:', JSON.stringify(sanitizeForLogging(userFormData), null, 2))
 
         // Determine resolution
         const resolution = (promptDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
@@ -914,7 +947,7 @@ export async function POST(request: NextRequest) {
           multiColorTypography: unifiedOptimization?.colors,
         }
 
-        console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(buildOptions, null, 2))
+        console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(sanitizeForLogging(buildOptions), null, 2))
 
         // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
         // The "no placeholder" instruction is added in format builders instead
@@ -985,7 +1018,7 @@ export async function POST(request: NextRequest) {
       // like videoTitle, viewerHook, etc. that come from format-specific schemas.
 
       console.log('[Template Mode] === USER FORM DATA (RAW) ===')
-      console.log('[Template Mode] Raw Form Data:', JSON.stringify(userFormData, null, 2))
+      console.log('[Template Mode] Raw Form Data:', JSON.stringify(sanitizeForLogging(userFormData), null, 2))
       console.log('[Template Mode] Field Count:', Object.keys(userFormData || {}).length)
       console.log('[Template Mode] Fields:', Object.keys(userFormData || {}).join(', '))
 
@@ -1098,6 +1131,19 @@ export async function POST(request: NextRequest) {
     // SPEAKER PHOTO OVERLAY (v5.0: Multi-Speaker Support)
     // Handles both legacy single-speaker and new multi-speaker formats
     // ========================================================
+
+    // DIAGNOSTIC: Log pre-overlay check
+    console.log('[GENERATE API] Pre-Overlay Check:', {
+      userHasSpeakerPhoto,
+      hasSpeakerPhoto: !!speakerPhoto,
+      willAttemptOverlay: userHasSpeakerPhoto && !!speakerPhoto,
+      speakerPhotoData: speakerPhoto ? {
+        enabled: speakerPhoto.enabled,
+        speakersCount: speakerPhoto.speakers?.length || 0,
+        legacyPhotoUrl: !!speakerPhoto.photoUrl
+      } : null
+    })
+
     if (userHasSpeakerPhoto && speakerPhoto) {
       // Normalize speaker config (handles migration from legacy to new format)
       const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)

@@ -624,6 +624,20 @@ export default function CreatePage() {
       const speakerPhotoData = formData.designData?.customization?.speakerPhoto
       const speakers = speakerPhotoData?.speakers || []
 
+      // DIAGNOSTIC: Log speaker photo data before submission
+      console.log('[CREATE PAGE] Speaker Photo Data Check:', {
+        enabled: speakerPhotoData?.enabled,
+        speakerCount: speakers.length,
+        speakersWithPhotos: speakers.filter(s => s.photoUrl).length,
+        speakers: speakers.map(s => ({
+          id: s.id,
+          name: s.name,
+          designation: s.designation,
+          hasPhoto: !!s.photoUrl,
+          photoUrlPrefix: s.photoUrl?.substring(0, 50) + '...' // First 50 chars
+        }))
+      })
+
       // Enrich form data with organization name from branding settings
       // Organization name ALWAYS comes from branding - prevents users from accidentally
       // overwriting it with RSVP/contact info in the form
@@ -637,12 +651,25 @@ export default function CreatePage() {
           speakers: speakers.map(s => ({
             name: s.name,
             designation: s.designation,
+            photoUrl: s.photoUrl, // Include photo data URL for speaker photo overlay
           }))
         }),
       }
 
       // Call generation API with format info
       const formatDimensions = getFormatDimensions()
+
+      // DIAGNOSTIC: Log API request body structure before submission
+      console.log('[CREATE PAGE] API Request Body:', {
+        creationMode: formData.creationMode,
+        hasDesignData: !!formData.designData,
+        speakerPhotoPath: formData.creationMode === 'scratch'
+          ? 'designData (full)'
+          : 'designData.customization.speakerPhoto',
+        speakerPhotoEnabled: formData.designData?.customization?.speakerPhoto?.enabled,
+        speakerPhotoSpeakers: formData.designData?.customization?.speakerPhoto?.speakers?.length || 0
+      })
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
