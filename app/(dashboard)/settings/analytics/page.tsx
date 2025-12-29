@@ -173,24 +173,30 @@ export default function AnalyticsPage() {
     // Legacy: transactions fetched for potential future credit-based analytics
     const { data: _transactions } = await transactionsQuery
 
-    // Fetch API usage analytics (only needed columns to reduce disk IO)
-    let apiUsageQuery = supabase
-      .from('api_usage')
-      .select('provider, request_type, model, estimated_cost_usd, input_tokens, output_tokens, cached_tokens, image_count, created_at, duration_ms, success')
-      .eq('organization_id', currentOrganization.id)
-      .order('created_at', { ascending: false })
-      .limit(5000) // Reasonable limit for 90 days of analytics data
-
-    if (startDate) {
-      apiUsageQuery = apiUsageQuery.gte('created_at', startDate.toISOString())
-    }
-
-    const { data: apiUsageRecords } = await apiUsageQuery
+    // Fetch API usage analytics using PostgreSQL aggregation (Phase 2 optimization)
+    const [aggregatedResult, dailyTrendResult, recentRecordsResult] = await Promise.all([
+      supabase.rpc('get_api_usage_analytics', {
+        org_id: currentOrganization.id,
+        start_date: startDate?.toISOString() || null
+      }),
+      supabase.rpc('get_daily_usage_trend', {
+        org_id: currentOrganization.id,
+        start_date: startDate?.toISOString() || null
+      }),
+      supabase.rpc('get_recent_api_usage', {
+        org_id: currentOrganization.id,
+        start_date: startDate?.toISOString() || null,
+        record_limit: 10
+      })
+    ])
 
     setIsLoading(false)
 
-    // Process API usage data
-    if (apiUsageRecords && apiUsageRecords.length > 0) {
+    // Process aggregated API usage data (already aggregated by PostgreSQL - Phase 2 optimization)
+    if (aggregatedResult.data && aggregatedResult.data.length > 0) {
+      const aggregated = aggregatedResult.data
+
+      // Transform pre-aggregated data into UsageAnalytics interface
       const usageAnalytics: UsageAnalytics = {
         totalCostUsd: 0,
         totalCostInr: 0,
@@ -205,78 +211,77 @@ export default function AnalyticsPage() {
         recentRecords: [],
       }
 
-      const dailyMap = new Map<string, { costUsd: number; requestCount: number; inputTokens: number; outputTokens: number }>()
+      // Calculate totals and group by provider/requestType/model from pre-aggregated results
+      for (const row of aggregated) {
+        const cost = Number(row.total_cost_usd) || 0
+        const inputTokens = Number(row.total_input_tokens) || 0
+        const outputTokens = Number(row.total_output_tokens) || 0
+        const cachedTokens = Number(row.total_cached_tokens) || 0
+        const imageCount = Number(row.total_images) || 0
+        const requestCount = Number(row.request_count) || 0
 
-      for (const record of apiUsageRecords) {
-        const cost = Number(record.estimated_cost_usd) || 0
-        const inputTokens = record.input_tokens || 0
-        const outputTokens = record.output_tokens || 0
-        const cachedTokens = record.cached_tokens || 0
-        const imageCount = record.image_count || 0
-
-        // Totals
+        // Add to totals
         usageAnalytics.totalCostUsd += cost
         usageAnalytics.totalInputTokens += inputTokens
         usageAnalytics.totalOutputTokens += outputTokens
         usageAnalytics.totalCachedTokens += cachedTokens
         usageAnalytics.totalImages += imageCount
 
-        // By provider
-        const provider = record.provider as AIProvider
+        // Group by provider
+        const provider = row.provider as AIProvider
         if (!usageAnalytics.byProvider[provider]) {
           usageAnalytics.byProvider[provider] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
         }
         usageAnalytics.byProvider[provider].costUsd += cost
         usageAnalytics.byProvider[provider].inputTokens += inputTokens
         usageAnalytics.byProvider[provider].outputTokens += outputTokens
-        usageAnalytics.byProvider[provider].requestCount += 1
+        usageAnalytics.byProvider[provider].requestCount += requestCount
 
-        // By request type
-        const requestType = record.request_type
+        // Group by request type
+        const requestType = row.request_type
         if (!usageAnalytics.byRequestType[requestType]) {
           usageAnalytics.byRequestType[requestType] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
         }
         usageAnalytics.byRequestType[requestType].costUsd += cost
         usageAnalytics.byRequestType[requestType].inputTokens += inputTokens
         usageAnalytics.byRequestType[requestType].outputTokens += outputTokens
-        usageAnalytics.byRequestType[requestType].requestCount += 1
+        usageAnalytics.byRequestType[requestType].requestCount += requestCount
 
-        // By model
-        const model = record.model
+        // Group by model
+        const model = row.model
         if (!usageAnalytics.byModel[model]) {
           usageAnalytics.byModel[model] = { costUsd: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 }
         }
         usageAnalytics.byModel[model].costUsd += cost
         usageAnalytics.byModel[model].inputTokens += inputTokens
         usageAnalytics.byModel[model].outputTokens += outputTokens
-        usageAnalytics.byModel[model].requestCount += 1
-
-        // Daily trend
-        const date = new Date(record.created_at).toISOString().split('T')[0]
-        if (!dailyMap.has(date)) {
-          dailyMap.set(date, { costUsd: 0, requestCount: 0, inputTokens: 0, outputTokens: 0 })
-        }
-        const daily = dailyMap.get(date)!
-        daily.costUsd += cost
-        daily.requestCount += 1
-        daily.inputTokens += inputTokens
-        daily.outputTokens += outputTokens
+        usageAnalytics.byModel[model].requestCount += requestCount
       }
 
-      usageAnalytics.dailyTrend = Array.from(dailyMap.entries())
-        .map(([date, data]) => ({ date, ...data }))
-        .sort((a, b) => a.date.localeCompare(b.date))
+      // Transform daily trend data (already aggregated by PostgreSQL)
+      if (dailyTrendResult.data && dailyTrendResult.data.length > 0) {
+        usageAnalytics.dailyTrend = dailyTrendResult.data.map((row: any) => ({
+          date: row.usage_date,
+          costUsd: Number(row.total_cost_usd) || 0,
+          requestCount: Number(row.request_count) || 0,
+          inputTokens: Number(row.input_tokens) || 0,
+          outputTokens: Number(row.output_tokens) || 0,
+        })).sort((a: any, b: any) => a.date.localeCompare(b.date))
+      }
 
-      usageAnalytics.recentRecords = apiUsageRecords.slice(0, 10).map((r) => ({
-        id: r.id,
-        createdAt: r.created_at,
-        requestType: r.request_type,
-        provider: r.provider,
-        model: r.model,
-        costUsd: Number(r.estimated_cost_usd) || 0,
-        inputTokens: r.input_tokens || 0,
-        outputTokens: r.output_tokens || 0,
-      }))
+      // Transform recent records
+      if (recentRecordsResult.data && recentRecordsResult.data.length > 0) {
+        usageAnalytics.recentRecords = recentRecordsResult.data.map((r: any) => ({
+          id: r.id,
+          createdAt: r.created_at,
+          requestType: r.request_type,
+          provider: r.provider,
+          model: r.model,
+          costUsd: Number(r.estimated_cost_usd) || 0,
+          inputTokens: r.input_tokens || 0,
+          outputTokens: r.output_tokens || 0,
+        }))
+      }
 
       usageAnalytics.totalCostInr = convertToINR(usageAnalytics.totalCostUsd)
 
