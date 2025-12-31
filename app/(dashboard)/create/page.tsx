@@ -779,6 +779,7 @@ export default function CreatePage() {
       // v4.1: Include A/B testing columns for prevention effectiveness measurement
       const creativeInsert: TablesInsert<'creatives'> = {
         organization_id: currentOrganization.id,
+        created_by: user?.id ?? null,
         ai_model: selectedModel?.name ?? modelToUse.model_id,
         ai_model_id: selectedModel?.id ?? modelToUse.model_id,
         creative_type: 'event_poster',

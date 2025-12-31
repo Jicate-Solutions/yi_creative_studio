@@ -80,49 +80,75 @@ export default function TokenCostsPage() {
       setLoading(true)
       const supabase = createClient()
 
-      // Build query with filters
-      let query = supabase
+      // Fetch creatives first
+      let creativesQuery = supabase
         .from('creatives')
-        .select(`
-          id, title, creative_type, vertical, thumbnail_url, created_at,
-          api_usage (
-            request_type, provider, model,
-            input_tokens, output_tokens, estimated_cost_usd
-          )
-        `)
+        .select('id, title, creative_type, vertical, thumbnail_url, created_at')
         .eq('organization_id', currentOrganization.id)
 
       // Apply date filters
       if (filters.dateRange?.from) {
-        query = query.gte('created_at', filters.dateRange.from.toISOString())
+        creativesQuery = creativesQuery.gte('created_at', filters.dateRange.from.toISOString())
       }
       if (filters.dateRange?.to) {
-        query = query.lte('created_at', filters.dateRange.to.toISOString())
+        creativesQuery = creativesQuery.lte('created_at', filters.dateRange.to.toISOString())
       }
 
       // Apply creative type filter
       if (filters.creativeType) {
-        query = query.eq('creative_type', filters.creativeType)
+        creativesQuery = creativesQuery.eq('creative_type', filters.creativeType)
       }
 
       // Apply vertical filter
       if (filters.vertical) {
-        query = query.eq('vertical', filters.vertical)
+        creativesQuery = creativesQuery.eq('vertical', filters.vertical)
       }
 
-      query = query.order('created_at', { ascending: false })
+      creativesQuery = creativesQuery.order('created_at', { ascending: false })
 
-      const { data, error } = await query
+      const { data: creatives, error: creativesError } = await creativesQuery
 
-      if (error) {
-        console.error('Error fetching creatives with costs:', error)
+      if (creativesError) {
+        console.error('Error fetching creatives:', creativesError)
         setLoading(false)
         return
       }
 
+      if (!creatives || creatives.length === 0) {
+        setCreativesWithCosts([])
+        setLoading(false)
+        return
+      }
+
+      // Get creative IDs for fetching api_usage
+      const creativeIds = creatives.map(c => c.id)
+
+      // Fetch api_usage for these creatives
+      const { data: apiUsageData, error: apiUsageError } = await supabase
+        .from('api_usage')
+        .select('creative_id, request_type, provider, model, input_tokens, output_tokens, estimated_cost_usd')
+        .in('creative_id', creativeIds)
+
+      if (apiUsageError) {
+        console.error('Error fetching API usage:', apiUsageError)
+        // Continue without api_usage data - show creatives with 0 costs
+      }
+
+      // Group api_usage by creative_id
+      const usageByCreative = new Map<string, typeof apiUsageData>()
+      if (apiUsageData) {
+        for (const usage of apiUsageData) {
+          if (usage.creative_id) {
+            const existing = usageByCreative.get(usage.creative_id) || []
+            existing.push(usage)
+            usageByCreative.set(usage.creative_id, existing)
+          }
+        }
+      }
+
       // Transform data to include aggregated costs
-      const transformed: CreativeWithCost[] = (data || []).map((creative) => {
-        const apiUsage = creative.api_usage || []
+      const transformed: CreativeWithCost[] = creatives.map((creative) => {
+        const apiUsage = usageByCreative.get(creative.id) || []
         const totalCostUsd = apiUsage.reduce(
           (sum, u) => sum + (u.estimated_cost_usd || 0),
           0
@@ -147,9 +173,9 @@ export default function TokenCostsPage() {
           totalInputTokens,
           totalOutputTokens,
           stages: apiUsage.map((u) => ({
-            request_type: u.request_type,
-            provider: u.provider,
-            model: u.model,
+            request_type: u.request_type || 'unknown',
+            provider: u.provider || 'unknown',
+            model: u.model || 'unknown',
             input_tokens: u.input_tokens || 0,
             output_tokens: u.output_tokens || 0,
             estimated_cost_usd: u.estimated_cost_usd || 0,

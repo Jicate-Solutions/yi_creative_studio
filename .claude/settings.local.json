@@ -259,7 +259,8 @@
       "Bash(gh pr list:*)",
       "Bash(del /f \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\.next\\\\dev\\\\lock\")",
       "WebFetch(domain:docs.anthropic.com)",
-      "WebFetch(domain:www.anthropic.com)"
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": [],
