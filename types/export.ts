@@ -40,29 +40,29 @@ export interface ColorModeInfo {
 export const COLOR_MODES: ColorModeInfo[] = [
   {
     id: 'rgb',
-    name: 'RGB (sRGB)',
-    description: 'Standard RGB color space',
+    name: 'Screen Colors',
+    description: 'Best for phones & computers',
     iccProfile: 'sRGB.icc',
     bestFor: 'Web, social media, digital displays',
   },
   {
     id: 'cmyk-fogra39',
-    name: 'CMYK (FOGRA39)',
-    description: 'Europe/India coated print standard',
+    name: 'Print (Europe/India)',
+    description: 'For printing in Europe or India',
     iccProfile: 'FOGRA39.icc',
     bestFor: 'Professional printing in Europe, India',
   },
   {
     id: 'cmyk-swop',
-    name: 'CMYK (SWOP)',
-    description: 'US web offset printing standard',
+    name: 'Print (USA/Canada)',
+    description: 'For printing in North America',
     iccProfile: 'SWOP.icc',
     bestFor: 'Professional printing in North America',
   },
   {
     id: 'cmyk-japan',
-    name: 'CMYK (Japan Color)',
-    description: 'Japan print standard',
+    name: 'Print (Japan/Asia)',
+    description: 'For printing in Japan or Asia',
     iccProfile: 'JapanColor.icc',
     bestFor: 'Professional printing in Japan, Asia',
   },
@@ -101,7 +101,7 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     mimeType: 'image/png',
     supportsCMYK: false,
     supportsTransparency: true,
-    description: 'Best for web with transparency support',
+    description: 'Sharp & clear images',
   },
   {
     id: 'jpg',
@@ -110,7 +110,7 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     mimeType: 'image/jpeg',
     supportsCMYK: true,
     supportsTransparency: false,
-    description: 'Compressed format for photos',
+    description: 'Smaller file size',
   },
   {
     id: 'pdf',
@@ -119,7 +119,7 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     mimeType: 'application/pdf',
     supportsCMYK: true,
     supportsTransparency: true,
-    description: 'Print-ready vector format',
+    description: 'Ready for printing',
   },
   {
     id: 'tiff',
@@ -128,7 +128,7 @@ export const EXPORT_FORMATS: ExportFormatInfo[] = [
     mimeType: 'image/tiff',
     supportsCMYK: true,
     supportsTransparency: true,
-    description: 'Lossless format for print',
+    description: 'Best quality for print',
   },
 ];
 
@@ -157,26 +157,26 @@ export interface ResolutionInfo {
 export const EXPORT_RESOLUTIONS: ResolutionInfo[] = [
   {
     dpi: 72,
-    name: '72 DPI',
-    description: 'Screen resolution',
+    name: '72',
+    description: 'Web & social',
     bestFor: 'Web, social media',
   },
   {
     dpi: 150,
-    name: '150 DPI',
-    description: 'Medium resolution',
+    name: '150',
+    description: 'Quick print',
     bestFor: 'Office printing, drafts',
   },
   {
     dpi: 300,
-    name: '300 DPI',
-    description: 'Print quality',
+    name: '300',
+    description: 'Sharp print',
     bestFor: 'Professional printing',
   },
   {
     dpi: 600,
-    name: '600 DPI',
-    description: 'High resolution',
+    name: '600',
+    description: 'Posters & banners',
     bestFor: 'Large format, high detail',
   },
 ];

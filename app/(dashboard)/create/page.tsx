@@ -1634,10 +1634,10 @@ export default function CreatePage() {
 
                 {/* Step 7: Generate & Result - Compact Two-Column Layout */}
                 {step === 7 && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                     {/* Left Column - Summary & Controls */}
-                    <Card darkVariant="elevated">
-                      <CardHeader className="pb-4">
+                    <Card darkVariant="elevated" className="h-full flex flex-col">
+                      <CardHeader className="pb-4 flex-none">
                         <CardTitle className="flex items-center gap-2 text-lg">
                           <Sparkles className="h-5 w-5 text-primary" />
                           {generatedImage ? 'Your Creative is Ready!' : 'Ready to Generate'}
@@ -1648,9 +1648,9 @@ export default function CreatePage() {
                             : 'Preview your design and generate when ready'}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-4 flex-1 flex flex-col">
                         {/* Summary Info */}
-                        <div className="space-y-3">
+                        <div className="space-y-3 flex-1">
                           {/* Format */}
                           {selectedFormat && (
                             <div className="flex items-center justify-between py-2 border-b">
@@ -1701,7 +1701,7 @@ export default function CreatePage() {
 
                         {/* Model Selector - Compact */}
                         {!generatedImage && (
-                          <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-lg mt-auto">
                             <div className="flex items-center gap-2">
                               <Wand2 className="h-4 w-4 text-muted-foreground" />
                               <Label className="text-sm font-medium">AI Model</Label>
@@ -1728,7 +1728,7 @@ export default function CreatePage() {
 
                         {/* Action Buttons */}
                         {generatedImage && (
-                          <div className="flex flex-col gap-2 pt-2">
+                          <div className="flex flex-col gap-2 pt-2 mt-auto">
                             <Button
                               size="default"
                               onClick={() => setExportModalOpen(true)}
@@ -1771,15 +1771,15 @@ export default function CreatePage() {
                     </Card>
 
                     {/* Right Column - Compact Preview */}
-                    <Card darkVariant="floating" className="flex flex-col">
-                      <CardHeader className="pb-2">
+                    <Card darkVariant="floating" className="flex flex-col h-full">
+                      <CardHeader className="pb-2 flex-none">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                           Preview
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="flex-1 flex items-center justify-center p-4">
+                      <CardContent className="flex-1 flex items-center justify-center p-4 min-h-[500px]">
                         <div
-                          className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden"
+                          className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden w-full h-full"
                           style={{
                             aspectRatio: (() => {
                               if (formData.customDimensions) {
@@ -1790,10 +1790,8 @@ export default function CreatePage() {
                               }
                               return '4/5'
                             })(),
-                            maxHeight: '320px',
+                            maxHeight: '100%',
                             maxWidth: '100%',
-                            width: 'auto',
-                            height: '320px',
                           }}
                         >
                           {generatedImage ? (

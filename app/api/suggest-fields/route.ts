@@ -11,7 +11,9 @@ import type {
   SuggestFieldsResponse,
   SuggestFieldsError,
   FieldSuggestion,
+  SuggestableField,
 } from '@/types/suggestions'
+import { TEXT_CONTENT_FIELDS } from '@/types/suggestions'
 
 // Simple in-memory rate limiting (use Redis in production)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
@@ -196,7 +198,11 @@ export async function POST(request: NextRequest) {
       .eq('id', body.organizationId)
       .single()
 
-    // 8. Build AI prompt
+    // 8. Determine which fields to request from AI
+    // Use targetFields from request, or default to TEXT_CONTENT_FIELDS (description only)
+    const targetFields = body.targetFields || TEXT_CONTENT_FIELDS
+
+    // 9. Build AI prompt with target fields
     const prompt = buildFieldSuggestionPrompt({
       title: body.title.trim(),
       verticalName,
@@ -204,15 +210,16 @@ export async function POST(request: NextRequest) {
       organizationType: body.organizationType,
       organizationName: organization?.name,
       existingFields: body.existingFields,
+      targetFields,
     })
 
-    // 9. Call Claude API with timeout
-    const suggestions = await callClaudeWithTimeout(prompt, 8000)
+    // 10. Call Claude API with timeout
+    const suggestions = await callClaudeWithTimeout(prompt, 8000, targetFields)
 
-    // 10. Cache the result
+    // 11. Cache the result
     setCachedSuggestion(cacheKey, suggestions)
 
-    // 11. Return response
+    // 12. Return response
     const response: SuggestFieldsResponse = {
       success: true,
       suggestions,
@@ -255,7 +262,8 @@ export async function POST(request: NextRequest) {
 
 async function callClaudeWithTimeout(
   prompt: string,
-  timeoutMs: number
+  timeoutMs: number,
+  targetFields: SuggestableField[]
 ): Promise<SuggestFieldsResponse['suggestions']> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -311,12 +319,11 @@ async function callClaudeWithTimeout(
 
     const parsed = JSON.parse(jsonText)
 
-    // Validate and transform the response
+    // Validate and transform the response - ONLY process targetFields
     const suggestions: SuggestFieldsResponse['suggestions'] = {}
 
-    const fields = ['date', 'time', 'venue', 'speaker', 'description'] as const
-
-    for (const field of fields) {
+    // Only process fields that were requested (text content fields)
+    for (const field of targetFields) {
       const suggestion = parsed.suggestions?.[field]
       if (suggestion && typeof suggestion.value === 'string') {
         suggestions[field] = {

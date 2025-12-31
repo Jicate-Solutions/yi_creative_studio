@@ -121,6 +121,8 @@ export const THEME_CATEGORIES: ThemeCategory[] = [
     themes: [
       { value: 'corporate', label: 'Corporate', keywords: ['formal', 'business', 'clean'], colorTendency: 'cool', description: 'Clean, formal, business-like atmosphere', thumbnail: '/images/themes/corporate.svg', mood: 'Confident' },
       { value: 'modern', label: 'Modern', keywords: ['contemporary', 'sleek', 'current'], colorTendency: 'neutral', description: 'Contemporary, sleek, cutting-edge', thumbnail: '/images/themes/modern.svg', mood: 'Innovative' },
+      { value: 'tech_startup', label: 'Tech Startup', keywords: ['innovative', 'disruptive', 'tech'], colorTendency: 'cool', description: 'Dynamic look for technology startups', thumbnail: '/images/themes/modern.svg', mood: 'Disruptive' },
+      { value: 'finance', label: 'Finance', keywords: ['trust', 'growth', 'secure'], colorTendency: 'cool', description: 'Trustworthy and professional style', thumbnail: '/images/themes/corporate.svg', mood: 'Trustworthy' },
       { value: 'classic', label: 'Classic', keywords: ['timeless', 'traditional', 'refined'], colorTendency: 'warm', description: 'Timeless elegance with traditional refinement', thumbnail: '/images/themes/classic.svg', mood: 'Timeless' },
       { value: 'minimalist', label: 'Minimalist', keywords: ['simple', 'clean', 'whitespace'], colorTendency: 'neutral', description: 'Clean simplicity with purposeful whitespace', thumbnail: '/images/themes/minimalist.svg', mood: 'Clean' },
     ],
@@ -131,8 +133,10 @@ export const THEME_CATEGORIES: ThemeCategory[] = [
     icon: 'Palette',
     themes: [
       { value: 'bold', label: 'Bold', keywords: ['strong', 'impactful', 'attention-grabbing'], colorTendency: 'vibrant', description: 'Strong, impactful, attention-grabbing', thumbnail: '/images/themes/bold.svg', mood: 'Impactful' },
+      { value: 'urban', label: 'Urban', keywords: ['gritty', 'street', 'raw'], colorTendency: 'vibrant', description: 'Raw, energetic street style', thumbnail: '/images/themes/bold.svg', mood: 'Raw' },
       { value: 'playful', label: 'Playful', keywords: ['fun', 'vibrant', 'energetic'], colorTendency: 'warm', description: 'Fun, vibrant, full of energy', thumbnail: '/images/themes/playful.svg', mood: 'Energetic' },
       { value: 'artistic', label: 'Artistic', keywords: ['creative', 'expressive', 'unique'], colorTendency: 'vibrant', description: 'Creative expression with unique character', thumbnail: '/images/themes/artistic.svg', mood: 'Expressive' },
+      { value: 'handcrafted', label: 'Handcrafted', keywords: ['organic', 'diy', 'texture'], colorTendency: 'warm', description: 'Artisanal texture and warmth', thumbnail: '/images/themes/artistic.svg', mood: 'Artisanal' },
       { value: 'retro', label: 'Retro', keywords: ['nostalgic', 'vintage', 'throwback'], colorTendency: 'warm', description: 'Nostalgic vibes with vintage charm', thumbnail: '/images/themes/retro.svg', mood: 'Nostalgic' },
     ],
   },
@@ -142,7 +146,9 @@ export const THEME_CATEGORIES: ThemeCategory[] = [
     icon: 'Crown',
     themes: [
       { value: 'elegant', label: 'Elegant', keywords: ['sophisticated', 'luxurious', 'refined'], colorTendency: 'neutral', description: 'Sophisticated luxury with refined taste', thumbnail: '/images/themes/elegant.svg', mood: 'Luxurious' },
+      { value: 'boutique', label: 'Boutique', keywords: ['chic', 'exclusive', 'fashion'], colorTendency: 'neutral', description: 'Chic, exclusive fashion aesthetic', thumbnail: '/images/themes/glamorous.svg', mood: 'Chic' },
       { value: 'royal', label: 'Royal', keywords: ['regal', 'majestic', 'grand'], colorTendency: 'warm', description: 'Regal grandeur with majestic presence', thumbnail: '/images/themes/royal.svg', mood: 'Majestic' },
+      { value: 'nuptial', label: 'Nuptial', keywords: ['wedding', 'romantic', 'soft'], colorTendency: 'warm', description: 'Soft, romantic wedding style', thumbnail: '/images/themes/classic.svg', mood: 'Romantic' },
       { value: 'glamorous', label: 'Glamorous', keywords: ['glitzy', 'stylish', 'fashionable'], colorTendency: 'warm', description: 'Glitzy style with fashionable flair', thumbnail: '/images/themes/glamorous.svg', mood: 'Stylish' },
     ],
   },
@@ -172,6 +178,8 @@ export const THEME_CATEGORIES: ThemeCategory[] = [
     icon: 'Leaf',
     themes: [
       { value: 'organic', label: 'Organic', keywords: ['natural', 'earthy', 'sustainable'], colorTendency: 'warm', description: 'Natural beauty with earthy textures', thumbnail: '/images/themes/organic.svg', mood: 'Natural' },
+      { value: 'floral', label: 'Floral', keywords: ['flowers', 'bloom', 'soft'], colorTendency: 'vibrant', description: 'Blooming with floral elegance', thumbnail: '/images/themes/organic.svg', mood: 'Blooming' },
+      { value: 'oceanic', label: 'Oceanic', keywords: ['sea', 'calm', 'blue'], colorTendency: 'cool', description: 'Calming vibes of the ocean', thumbnail: '/images/themes/zen.svg', mood: 'Tranquil' },
       { value: 'zen', label: 'Zen', keywords: ['peaceful', 'balanced', 'harmonious'], colorTendency: 'neutral', description: 'Peaceful balance with harmonious flow', thumbnail: '/images/themes/zen.svg', mood: 'Balanced' },
     ],
   },
@@ -523,25 +531,25 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
 }
 
 export const COLOR_MODES = [
-  { value: 'rgb', label: 'RGB (Digital)', description: 'Standard RGB for screens' },
-  { value: 'srgb', label: 'sRGB (Web)', description: 'Standard RGB for web' },
-  { value: 'cmyk', label: 'CMYK (Print)', description: 'For professional printing' },
-  { value: 'cmyk-iso', label: 'CMYK ISO', description: 'ISO standard for print' },
-  { value: 'cmyk-coated', label: 'CMYK Coated', description: 'For coated paper printing' },
+  { value: 'rgb', label: 'Screen Colors', description: 'Best for phones & computers' },
+  { value: 'srgb', label: 'Web Colors', description: 'Best for websites & social media' },
+  { value: 'cmyk', label: 'Print Colors', description: 'Best for printing' },
+  { value: 'cmyk-iso', label: 'Print (Standard)', description: 'Standard print colors' },
+  { value: 'cmyk-coated', label: 'Print (Glossy)', description: 'For shiny paper printing' },
 ] as const
 
 export const FILE_FORMATS = [
-  { value: 'png', label: 'PNG', description: 'Lossless, best quality' },
-  { value: 'jpg', label: 'JPG', description: 'Smaller file size' },
-  { value: 'pdf', label: 'PDF', description: 'Print-ready document' },
-  { value: 'webp', label: 'WebP', description: 'Modern web format' },
+  { value: 'png', label: 'PNG', description: 'Sharp & clear' },
+  { value: 'jpg', label: 'JPG', description: 'Smaller file' },
+  { value: 'pdf', label: 'PDF', description: 'Ready to print' },
+  { value: 'webp', label: 'WebP', description: 'Fast loading' },
 ] as const
 
 export const DPI_OPTIONS = [
-  { value: 72, label: '72 DPI', description: 'Web & Screen' },
-  { value: 150, label: '150 DPI', description: 'Standard Digital' },
-  { value: 300, label: '300 DPI', description: 'Professional Print' },
-  { value: 600, label: '600 DPI', description: 'High-Quality Print' },
+  { value: 72, label: '72', description: 'Web only' },
+  { value: 150, label: '150', description: 'Good quality' },
+  { value: 300, label: '300', description: 'Print ready' },
+  { value: 600, label: '600', description: 'Best quality' },
 ] as const
 
 // ============================================================

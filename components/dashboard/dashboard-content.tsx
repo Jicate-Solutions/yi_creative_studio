@@ -72,7 +72,7 @@ export function DashboardContent({ initialData, initialPreferences }: DashboardC
 
   return (
     <motion.div
-      className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-8"
+      className="max-w-[1600px] mx-auto space-y-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}

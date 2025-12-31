@@ -92,7 +92,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             <main className={cn(
               'flex-1',
               createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
-              !createModeActive && 'p-3 sm:p-4 md:p-6',
+              !createModeActive && 'p-2 sm:p-3 md:p-3',
               // Add padding for mobile bottom navigation (not in create mode)
               !createModeActive && 'pb-20 md:pb-6',
               className

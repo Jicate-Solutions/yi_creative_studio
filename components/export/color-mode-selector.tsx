@@ -54,7 +54,7 @@ export function ColorModeSelector({
           className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
           <Monitor className="h-4 w-4" />
-          <span className="font-medium">Digital</span>
+          <span className="font-medium">Screen</span>
         </TabsTrigger>
         <TabsTrigger
           value="print"
@@ -70,10 +70,10 @@ export function ColorModeSelector({
         <div className="p-3 rounded-lg bg-muted/50 border">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500" />
-            <span className="text-sm font-medium">RGB (sRGB)</span>
+            <span className="text-sm font-medium">Screen Colors</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Perfect for web, social media & digital screens
+            Best for phones, computers & social media
           </p>
         </div>
       </TabsContent>
@@ -87,10 +87,10 @@ export function ColorModeSelector({
               <div className="h-3 w-3 rounded-full bg-yellow-500" />
               <div className="h-3 w-3 rounded-full bg-black" />
             </div>
-            <span className="text-sm font-medium">CMYK</span>
+            <span className="text-sm font-medium">Print Colors</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Professional print-ready color profile
+            Colors look great when printed on paper
           </p>
         </div>
 
@@ -101,7 +101,7 @@ export function ColorModeSelector({
           disabled={disabled}
         >
           <SelectTrigger className="h-10">
-            <SelectValue placeholder="Select print profile" />
+            <SelectValue placeholder="Choose print setting" />
           </SelectTrigger>
           <SelectContent>
             {cmykModes.map((mode) => (

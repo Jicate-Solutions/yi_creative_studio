@@ -48,7 +48,20 @@ export interface SuggestFieldsError {
 
 export type SuggestFieldsResult = SuggestFieldsResponse | SuggestFieldsError
 
+// Original fields that AI can potentially suggest
 export type SuggestableField = 'date' | 'time' | 'venue' | 'speaker' | 'description'
+
+/**
+ * Field categories for AI suggestion control
+ * TEXT_CONTENT_FIELDS: AI-generated creative text (descriptions, captions, headlines)
+ * FACTUAL_FIELDS: User-specific data that AI should NOT generate (dates, names, venues)
+ */
+export const TEXT_CONTENT_FIELDS: SuggestableField[] = ['description'] as const
+
+export const FACTUAL_FIELDS: SuggestableField[] = ['date', 'time', 'venue', 'speaker'] as const
+
+// Default fields to request from AI - only text content
+export const AI_SUGGESTABLE_FIELDS = TEXT_CONTENT_FIELDS
 
 export interface AIFormState {
   suggestions: Record<SuggestableField, FieldSuggestion | null>

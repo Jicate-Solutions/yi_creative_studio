@@ -194,161 +194,180 @@ export function MultiSpeakerInput({
 
   return (
     <div className="space-y-4">
-      {/* Header with Add Button and Layout Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">Speakers</h3>
-          {speakers.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              ({completed}/{total} fields)
-            </span>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleAddSpeaker}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add Speaker
-        </Button>
+      {/* Speaker Cards List - Priority Content */}
+      <div className="space-y-3">
+        {speakers.length === 0 ? (
+          <Card className="shadow-sm border-dashed border-2 bg-muted/30 max-w-xs mx-auto">
+            <CardContent className="flex flex-col items-center justify-center py-4 text-center">
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-2">
+                <User className="h-5 w-5 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No speakers added yet</p>
+              <p className="text-xs text-muted-foreground mb-4 max-w-xs">
+                Add speakers to feature them in your creative design
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddSpeaker}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add First Speaker
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {speakers.map((speaker, index) => (
+              <SpeakerCard
+                key={speaker.id}
+                speaker={speaker}
+                index={index}
+                isExpanded={expandedSpeakers.has(speaker.id)}
+                onToggle={() => toggleSpeaker(speaker.id)}
+                onUpdate={(updates) => onUpdateSpeaker(speaker.id, updates)}
+                onRemove={() => onRemoveSpeaker(speaker.id)}
+                onPhotoUpload={(file) => handlePhotoUpload(speaker.id, file)}
+                onRemovePhoto={() => handleRemovePhoto(speaker.id)}
+                getSummary={getSpeakerSummary}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Layout Controls */}
-      {speakers.length > 1 && (
-        <Card className="shadow-sm border-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Layout Settings</CardTitle>
-            <CardDescription className="text-xs">
-              Control how speaker photos are arranged
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="layout-mode" className="text-xs">Layout Mode</Label>
-                <Select
-                  value={layoutMode}
-                  onValueChange={(value) => onUpdateLayout(value as LayoutMode, layoutStrategy)}
-                >
-                  <SelectTrigger id="layout-mode" className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto-detect</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {layoutMode === 'manual' && (
-                <div className="space-y-2">
-                  <Label htmlFor="layout-strategy" className="text-xs">Arrangement</Label>
-                  <Select
-                    value={layoutStrategy || 'side-by-side'}
-                    onValueChange={(value) => onUpdateLayout('manual', value as LayoutStrategy)}
-                  >
-                    <SelectTrigger id="layout-strategy" className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="side-by-side">Side by Side</SelectItem>
-                      <SelectItem value="stacked">Stacked</SelectItem>
-                      <SelectItem value="grid">Grid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Photo Settings - Only visible when speakers exist */}
+      {/* Consolidated Appearance & Layout Settings */}
       {speakers.length > 0 && (
-        <Card className="shadow-sm border-none">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-sm">Photo Settings</CardTitle>
-            </div>
-            <CardDescription className="text-xs">
-              Style settings for all speaker photos
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-0">
-            {/* Position - Simple dropdown (most important setting) */}
-            <SpeakerPositionDropdown
-              position={sharedSettings.position}
-              verticalPosition={sharedSettings.verticalPosition}
-              onChange={(position, verticalPosition) =>
-                onUpdateSettings({ position, verticalPosition })
-              }
-            />
-
-            {/* Shape and Size - Side by side */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="photo-shape" className="text-xs">Shape</Label>
-                <Select
-                  value={sharedSettings.shape}
-                  onValueChange={(value) => onUpdateSettings({ shape: value as PhotoShape })}
-                >
-                  <SelectTrigger id="photo-shape" className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="circle">Circle</SelectItem>
-                    <SelectItem value="square">Square</SelectItem>
-                    <SelectItem value="rounded">Rounded</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="photo-size" className="text-xs">Size</Label>
-                  <span className="text-[11px] text-muted-foreground">{sharedSettings.size}px</span>
+        <Card className="shadow-sm border-none bg-muted/30">
+          <CardHeader className="pb-3 cursor-pointer" onClick={() => setSettingsExpanded(!settingsExpanded)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-primary w-5" />
+                <div>
+                  <CardTitle className="text-sm">Customize Appearance</CardTitle>
+                  <CardDescription className="text-xs">
+                    Layout, photo style, and positioning
+                  </CardDescription>
                 </div>
-                <Slider
-                  id="photo-size"
-                  value={[sharedSettings.size]}
-                  onValueChange={([value]) => onUpdateSettings({ size: value })}
-                  min={100}
-                  max={400}
-                  step={10}
-                  className="py-2"
-                />
               </div>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                {settingsExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
             </div>
+          </CardHeader>
 
-            {/* Border and Shadow - Collapsible advanced settings */}
-            <Collapsible open={settingsExpanded} onOpenChange={setSettingsExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <span>Border & Shadow Options</span>
-                  <ChevronDown
-                    className={cn(
-                      'h-3 w-3 transition-transform duration-200',
-                      settingsExpanded && 'rotate-180'
-                    )}
+          {settingsExpanded && (
+            <CardContent className="space-y-5 pt-0">
+              {/* Row 1: Layout & Position */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Layout Mode (if > 1 speaker) */}
+                {speakers.length > 1 && (
+                  <div className="space-y-3">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Arrangement</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="layout-mode" className="text-xs">Mode</Label>
+                        <Select
+                          value={layoutMode}
+                          onValueChange={(value) => onUpdateLayout(value as LayoutMode, layoutStrategy)}
+                        >
+                          <SelectTrigger id="layout-mode" className="h-8 text-xs bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto-detect</SelectItem>
+                            <SelectItem value="manual">Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {layoutMode === 'manual' && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="layout-strategy" className="text-xs">Style</Label>
+                          <Select
+                            value={layoutStrategy || 'side-by-side'}
+                            onValueChange={(value) => onUpdateLayout('manual', value as LayoutStrategy)}
+                          >
+                            <SelectTrigger id="layout-strategy" className="h-8 text-xs bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="side-by-side">Side by Side</SelectItem>
+                              <SelectItem value="stacked">Stacked</SelectItem>
+                              <SelectItem value="grid">Grid</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Photo Position */}
+                <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Positioning</Label>
+                  <SpeakerPositionDropdown
+                    position={sharedSettings.position}
+                    verticalPosition={sharedSettings.verticalPosition}
+                    onChange={(position, verticalPosition) =>
+                      onUpdateSettings({ position, verticalPosition })
+                    }
                   />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-3 space-y-3">
-                {/* Border */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
+                </div>
+              </div>
+
+              {/* Row 2: Photo Styling */}
+              <div className="space-y-3 pt-2 border-t border-dashed border-muted-foreground/20">
+                <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Photo Style</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="photo-shape" className="text-xs">Shape</Label>
+                    <Select
+                      value={sharedSettings.shape}
+                      onValueChange={(value) => onUpdateSettings({ shape: value as PhotoShape })}
+                    >
+                      <SelectTrigger id="photo-shape" className="h-8 text-xs bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="circle">Circle</SelectItem>
+                        <SelectItem value="square">Square</SelectItem>
+                        <SelectItem value="rounded">Rounded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="border-width" className="text-xs">Border</Label>
-                      <span className="text-[11px] text-muted-foreground">{sharedSettings.border.width}px</span>
+                      <Label htmlFor="photo-size" className="text-xs">Size</Label>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 rounded">{sharedSettings.size}px</span>
+                    </div>
+                    <Slider
+                      id="photo-size"
+                      value={[sharedSettings.size]}
+                      onValueChange={([value]) => onUpdateSettings({ size: value })}
+                      min={100}
+                      max={400}
+                      step={10}
+                      className="py-1.5"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Advanced (Border & Shadow) */}
+              <div className="space-y-3 pt-2 border-t border-dashed border-muted-foreground/20">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Border Control */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="border-width" className="text-xs">Border Width</Label>
+                      <span className="text-[10px] text-muted-foreground">{sharedSettings.border.width}px</span>
                     </div>
                     <Slider
                       id="border-width"
@@ -359,68 +378,50 @@ export function MultiSpeakerInput({
                       min={0}
                       max={10}
                       step={1}
-                      className="py-2"
+                      className="py-1.5"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="border-color" className="text-xs">Color</Label>
-                    <Input
-                      id="border-color"
-                      type="color"
-                      value={sharedSettings.border.color}
-                      onChange={(e) => onUpdateSettings({
-                        border: { ...sharedSettings.border, color: e.target.value }
-                      })}
-                      className="h-9"
-                    />
+                  {/* Color & Shadow */}
+                  <div className="flex items-end gap-3">
+                    <div className="space-y-1.5 flex-1">
+                      <Label htmlFor="border-color" className="text-xs">Border Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="border-color"
+                          type="color"
+                          value={sharedSettings.border.color}
+                          onChange={(e) => onUpdateSettings({
+                            border: { ...sharedSettings.border, color: e.target.value }
+                          })}
+                          className="h-8 w-12 p-1 cursor-pointer bg-background"
+                        />
+                        <Input
+                          value={sharedSettings.border.color}
+                          onChange={(e) => onUpdateSettings({
+                            border: { ...sharedSettings.border, color: e.target.value }
+                          })}
+                          className="h-8 text-xs font-mono uppercase bg-background"
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pb-2">
+                      <Switch
+                        id="photo-shadow"
+                        checked={sharedSettings.shadow}
+                        onCheckedChange={(checked) => onUpdateSettings({ shadow: checked })}
+                      />
+                      <Label htmlFor="photo-shadow" className="text-xs font-medium">Shadow</Label>
+                    </div>
                   </div>
                 </div>
-
-                {/* Shadow Toggle */}
-                <div className="flex items-center justify-between py-1">
-                  <Label htmlFor="photo-shadow" className="text-xs">Drop Shadow</Label>
-                  <Switch
-                    id="photo-shadow"
-                    checked={sharedSettings.shadow}
-                    onCheckedChange={(checked) => onUpdateSettings({ shadow: checked })}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </CardContent>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
-
-      {/* Speaker Cards */}
-      <div className="space-y-3">
-        {speakers.length === 0 ? (
-          <Card className="shadow-sm border-none bg-muted/30">
-            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-              <User className="h-12 w-12 text-muted-foreground/50 mb-3" />
-              <p className="text-sm text-muted-foreground mb-1">No speakers added</p>
-              <p className="text-xs text-muted-foreground/70 mb-4">
-                Click "Add Speaker" to get started
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          speakers.map((speaker, index) => (
-            <SpeakerCard
-              key={speaker.id}
-              speaker={speaker}
-              index={index}
-              isExpanded={expandedSpeakers.has(speaker.id)}
-              onToggle={() => toggleSpeaker(speaker.id)}
-              onUpdate={(updates) => onUpdateSpeaker(speaker.id, updates)}
-              onRemove={() => onRemoveSpeaker(speaker.id)}
-              onPhotoUpload={(file) => handlePhotoUpload(speaker.id, file)}
-              onRemovePhoto={() => handleRemovePhoto(speaker.id)}
-              getSummary={getSpeakerSummary}
-            />
-          ))
-        )}
-      </div>
     </div>
   )
 }

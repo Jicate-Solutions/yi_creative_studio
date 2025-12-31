@@ -17,7 +17,7 @@ export function QualitySlider({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">JPEG Quality</Label>
+        <Label className="text-sm font-medium">Image Quality</Label>
         <span className="text-sm text-muted-foreground">{value}%</span>
       </div>
       <Slider
@@ -31,7 +31,7 @@ export function QualitySlider({
       />
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>Smaller file</span>
-        <span>Higher quality</span>
+        <span>Best looking</span>
       </div>
     </div>
   );

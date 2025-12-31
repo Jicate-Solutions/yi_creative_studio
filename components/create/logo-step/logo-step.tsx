@@ -9,7 +9,7 @@ import { LogoCanvasSection } from './logo-canvas-section'
 import { LogoPosition, migrateLogoPosition } from '@/lib/config/constants'
 import { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { toast } from 'sonner'
-import { Loader2, Sparkles, RotateCcw } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LogoPresetSelector } from '../logo-preset-selector'
 import { SavePresetDialog } from '../save-preset-dialog'
@@ -35,7 +35,6 @@ export function LogoStep() {
     const [selectedLogoId, setSelectedLogoId] = useState<string | null>(null)
     const [categoryFilter, setCategoryFilter] = useState<string>('all')
     const [saveDialogOpen, setSaveDialogOpen] = useState(false)
-    const [isOptimizing, setIsOptimizing] = useState(false)
     const [activeTab, setActiveTab] = useState('logo-bar')
     const [openSections, setOpenSections] = useState({
         settings: false,
@@ -79,54 +78,7 @@ export function LogoStep() {
         setSelectedLogoId(null)
     }
 
-    // AI-powered logo position optimization
-    const handleAIOptimize = async () => {
-        if (formData.logosPlacements.length === 0) {
-            toast.error('Add logos first to optimize their positions')
-            return
-        }
 
-        setIsOptimizing(true)
-        try {
-            const speakerPhotoConfig = useCreativeStore.getState().formData.designData?.customization?.speakerPhoto
-
-            const response = await fetch('/api/optimize-logo-positions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    logos: formData.logosPlacements.map(p => ({
-                        id: p.logoId,
-                        name: p.logo?.name || '',
-                        type: p.logoType || 'other',
-                    })),
-                    formatId: formData.formatId || 'event_poster',
-                    useAI: false,
-                    currentPlacements: formData.logosPlacements.map(p => ({
-                        logoId: p.logoId,
-                        position: p.position,
-                        size: p.size,
-                        backgroundShape: p.backgroundShape,
-                        backgroundStyle: p.backgroundStyle,
-                    })),
-                    speakerPhoto: speakerPhotoConfig,
-                }),
-            })
-
-            const data = await response.json()
-
-            if (data.success && data.placements) {
-                applyOptimizedPlacements(data.placements)
-                toast.success(data.reasoning || 'Logos optimized for visual balance')
-            } else {
-                toast.error(data.error || 'Optimization failed')
-            }
-        } catch (error) {
-            console.error('Logo optimization error:', error)
-            toast.error('Failed to optimize logo positions')
-        } finally {
-            setIsOptimizing(false)
-        }
-    }
 
     if (isLoading) {
         return <div className="flex items-center justify-center p-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
@@ -136,48 +88,13 @@ export function LogoStep() {
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b pb-4">
                 <div>
-                    <h3 className="text-base font-medium">Logo Layout</h3>
+                    <h3 className="text-base font-medium">Logo Settings</h3>
                     <p className="text-xs text-muted-foreground mt-1 max-w-md leading-relaxed">
-                        Customize your logo arrangement. Use the settings for global styles or click individual logos for fine-tuning.
+                        Choose how your logos appear. Click on any logo to adjust its look.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <LogoPresetSelector onSaveClick={() => setSaveDialogOpen(true)} />
 
-                    {formData.logosPlacements.length > 0 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                if (confirm('Remove all placed logos?')) {
-                                    clearLogoPlacements()
-                                }
-                            }}
-                            className="gap-2 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Clear</span>
-                        </Button>
-                    )}
-
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleAIOptimize}
-                        disabled={formData.logosPlacements.length === 0 || isOptimizing}
-                        className="gap-2 gradient-yi hover:opacity-90 text-white border-0 shadow-sm"
-                    >
-                        {isOptimizing ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                            <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        <span className="hidden sm:inline">
-                            {isOptimizing ? 'Optimizing...' : 'AI Layout'}
-                        </span>
-                    </Button>
-                </div>
             </div>
 
             <SavePresetDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} />
@@ -207,26 +124,48 @@ export function LogoStep() {
                 <div className="flex-1 min-w-0 flex flex-col gap-4 h-full overflow-y-auto transition-all duration-300">
 
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col h-full">
-                        <TabsList className="w-full justify-start h-12 p-1 glass-inset border-none rounded-xl mb-6 overflow-x-auto scrollbar-hide flex-nowrap">
-                            <TabsTrigger
-                                value="logo-bar"
-                                className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-                            >
-                                <span className="flex items-center gap-1.5 sm:gap-2">
-                                    <Rows3 className="h-4 w-4 shrink-0" />
-                                    <span className="hidden sm:inline">Appearance</span>
-                                </span>
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="position"
-                                className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-                            >
-                                <span className="flex items-center gap-1.5 sm:gap-2">
-                                    <LayoutGrid className="h-4 w-4 shrink-0" />
-                                    <span className="hidden sm:inline">Placement</span>
-                                </span>
-                            </TabsTrigger>
-                        </TabsList>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                            <TabsList className="w-fit h-12 p-1 glass-inset border-none rounded-xl overflow-x-auto scrollbar-hide flex-nowrap">
+                                <TabsTrigger
+                                    value="logo-bar"
+                                    className="min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                                >
+                                    <span className="flex items-center gap-1.5 sm:gap-2">
+                                        <Rows3 className="h-4 w-4 shrink-0" />
+                                        <span className="hidden sm:inline">Appearance</span>
+                                    </span>
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="position"
+                                    className="min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                                >
+                                    <span className="flex items-center gap-1.5 sm:gap-2">
+                                        <LayoutGrid className="h-4 w-4 shrink-0" />
+                                        <span className="hidden sm:inline">Placement</span>
+                                    </span>
+                                </TabsTrigger>
+                            </TabsList>
+
+                            <div className="flex items-center gap-2">
+                                <LogoPresetSelector onSaveClick={() => setSaveDialogOpen(true)} />
+
+                                {formData.logosPlacements.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (confirm('Remove all placed logos?')) {
+                                                clearLogoPlacements()
+                                            }
+                                        }}
+                                        className="gap-2 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    >
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline">Clear</span>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
 
                         <div className="flex-1 min-h-0 relative">
                             <TabsContent value="logo-bar" className="h-full mt-0 focus-visible:ring-0">

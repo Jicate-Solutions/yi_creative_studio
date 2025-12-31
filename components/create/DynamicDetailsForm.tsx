@@ -1039,7 +1039,10 @@ export function DynamicDetailsForm({
                   ))}
                   {/* Multi-Speaker Input - Integrated into Speaker Details section */}
                   {showSpeakerPhotoInSection && (
-                    <div className="md:col-span-2 mt-4 pt-4 border-t border-dashed border-border/50">
+                    <div className={cn(
+                      "md:col-span-2",
+                      fields.length > 0 && "mt-4 pt-4 border-t border-dashed border-border/50"
+                    )}>
                       <MultiSpeakerInput
                         speakers={(speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []}
                         sharedSettings={{

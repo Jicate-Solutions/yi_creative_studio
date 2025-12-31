@@ -24,25 +24,25 @@ const RESOLUTION_OPTIONS: {
     dpi: 72,
     label: "72",
     shortDesc: "Web",
-    fullDesc: "Web & Social - Instagram, Facebook",
+    fullDesc: "Web & Social - Share online",
   },
   {
     dpi: 150,
     label: "150",
-    shortDesc: "Draft",
-    fullDesc: "Draft Print - Office printing",
+    shortDesc: "Quick",
+    fullDesc: "Quick Print - Office printer",
   },
   {
     dpi: 300,
     label: "300",
-    shortDesc: "Print",
-    fullDesc: "Print Quality - Professional print",
+    shortDesc: "Sharp",
+    fullDesc: "Sharp Print - Looks great printed",
   },
   {
     dpi: 600,
     label: "600",
     shortDesc: "Banner",
-    fullDesc: "High Detail - Large format banners",
+    fullDesc: "Extra Sharp - Big posters & banners",
   },
 ];
 

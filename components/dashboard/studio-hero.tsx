@@ -8,11 +8,12 @@ import { Sparkles, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/lib/config/constants'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 const SLIDES = [
     {
         id: 1,
         image: '/assets/dashboard/hero-bg.png',
-        welcome: 'Welcome Back, Creator',
         title: 'Yi Creative Studio',
         cta: 'Ignite Creativity',
         link: ROUTES.create,
@@ -21,7 +22,6 @@ const SLIDES = [
     {
         id: 2,
         image: '/assets/dashboard/hero-bg-2.png',
-        welcome: 'Think Wider',
         title: 'Digital Universe',
         cta: 'Generate Art',
         link: ROUTES.create,
@@ -30,7 +30,6 @@ const SLIDES = [
     {
         id: 3,
         image: '/assets/dashboard/hero-bg-3.png',
-        welcome: 'Visualize',
         title: 'The Impossible',
         cta: 'Start Dreaming',
         link: ROUTES.create,
@@ -40,13 +39,26 @@ const SLIDES = [
 
 export function StudioHero() {
     const [current, setCurrent] = useState(0)
+    const { profile } = useAuthStore()
+    const [greeting, setGreeting] = useState('Welcome Back')
 
     useEffect(() => {
+        // Set dynamic greeting
+        const hour = new Date().getHours()
+        if (hour < 12) setGreeting('Good Morning')
+        else if (hour < 18) setGreeting('Good Afternoon')
+        else setGreeting('Good Evening')
+
         const timer = setInterval(() => {
             setCurrent((prev) => (prev + 1) % SLIDES.length)
-        }, 5000)
+        }, 8000) // Increased duration slightly since we have the zoom effect
         return () => clearInterval(timer)
     }, [])
+
+    const firstName = profile?.full_name?.split(' ')[0] || 'Creator'
+
+    // Dynamic welcome message
+    const welcomeMessage = `${greeting}, ${firstName}`
 
     return (
         <div className="relative w-full h-[320px] rounded-[2.5rem] overflow-hidden group">
@@ -60,21 +72,33 @@ export function StudioHero() {
                     className="absolute inset-0"
                 >
                     {/* Background Image */}
-                    <div className="absolute inset-0 z-0">
-                        <NextImage
-                            src={SLIDES[current].image}
-                            alt="Hero Background"
-                            fill
-                            className="object-cover"
-                            priority
-                        />
+                    {/* Background Image with Ken Burns Effect */}
+                    <div className="absolute inset-0 z-0 overflow-hidden">
+                        <motion.div
+                            initial={{ scale: 1 }}
+                            animate={{ scale: 1.15 }}
+                            transition={{ duration: 7, ease: "linear", repeat: 0 }}
+                            className="w-full h-full relative"
+                        >
+                            <NextImage
+                                src={SLIDES[current].image}
+                                alt="Hero Background"
+                                fill
+                                className="object-cover"
+                                priority
+                            />
+                        </motion.div>
                         {/* Overlays */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
+                        <motion.div
+                            animate={{ opacity: [0.4, 0.6, 0.4] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent"
+                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     </div>
 
                     {/* Content Layer */}
-                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center p-8">
+                    <div className="relative z-10 w-full h-full flex flex-col items-start justify-center text-left px-16">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -83,7 +107,7 @@ export function StudioHero() {
                         >
                             {/* Text */}
                             <div className="space-y-2">
-                                <p className="text-white/70 text-lg font-medium tracking-wide uppercase">{SLIDES[current].welcome}</p>
+                                <p className="text-white/70 text-lg font-medium tracking-wide uppercase">{welcomeMessage}</p>
                                 <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white drop-shadow-2xl">
                                     {SLIDES[current].title}
                                 </h1>

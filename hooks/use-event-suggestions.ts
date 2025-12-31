@@ -8,7 +8,7 @@ import type {
   SuggestFieldsError,
   SuggestableField,
 } from '@/types/suggestions'
-import { SUGGESTION_CONFIG } from '@/types/suggestions'
+import { SUGGESTION_CONFIG, AI_SUGGESTABLE_FIELDS } from '@/types/suggestions'
 
 interface UseEventSuggestionsProps {
   organizationId: string
@@ -140,6 +140,8 @@ export function useEventSuggestions({
               organizationType,
               existingFields:
                 Object.keys(existingFields).length > 0 ? existingFields : undefined,
+              // Only request text content fields (description) - NOT date/time/venue/speaker
+              targetFields: AI_SUGGESTABLE_FIELDS,
             }
 
             const response = await fetch('/api/suggest-fields', {

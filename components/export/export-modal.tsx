@@ -86,11 +86,11 @@ export function ExportModal({
 
   // Progress stage messages for better UX
   const PROGRESS_MESSAGES: Record<string, string> = {
-    preparing: "Preparing export...",
-    processing: "Processing image...",
-    converting: "Converting color profile...",
+    preparing: "Getting ready...",
+    processing: "Creating your image...",
+    converting: "Adjusting colors for print...",
     downloading: "Starting download...",
-    complete: "Export complete!",
+    complete: "Done!",
   };
 
   // Reset on open
@@ -163,10 +163,10 @@ export function ExportModal({
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-semibold">
-                    Export Creative
+                    Download Your Design
                   </DialogTitle>
                   <DialogDescription className="text-xs mt-0.5">
-                    Configure your download settings
+                    Choose how you want to save it
                   </DialogDescription>
                 </div>
               </div>
@@ -246,7 +246,7 @@ export function ExportModal({
                   <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
                     <Palette className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <span className="text-sm font-medium">Color Mode</span>
+                  <span className="text-sm font-medium">Use For</span>
                 </div>
                 <ColorModeSelector
                   value={options.colorMode}
@@ -261,7 +261,7 @@ export function ExportModal({
                   <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
                     <FileImage className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <span className="text-sm font-medium">Format</span>
+                  <span className="text-sm font-medium">File Type</span>
                 </div>
                 <FormatSelector
                   value={options.format}
@@ -277,7 +277,7 @@ export function ExportModal({
                   <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
                     <Maximize className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   </div>
-                  <span className="text-sm font-medium">Resolution</span>
+                  <span className="text-sm font-medium">Sharpness</span>
                 </div>
                 <ResolutionSelector
                   value={options.resolution}
@@ -312,7 +312,7 @@ export function ExportModal({
                   {isVeryLargeFile ? "Very large file" : "Large file"}
                 </AlertTitle>
                 <AlertDescription className="text-xs">
-                  ~{estimatedSize}. Consider lower DPI for faster download.
+                  ~{estimatedSize}. Try lower sharpness for faster download.
                 </AlertDescription>
               </Alert>
             )}
@@ -362,7 +362,7 @@ export function ExportModal({
                     {progressStage === "converting" &&
                       options.colorMode.startsWith("cmyk") && (
                         <p className="text-xs text-muted-foreground text-center mt-2">
-                          Converting to CMYK color profile for print...
+                          Making colors print-ready...
                         </p>
                       )}
                   </div>

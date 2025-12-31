@@ -72,7 +72,7 @@ export function LogoSettingsSection({
                                         ? "text-primary dark:text-primary"
                                         : "text-slate-800 dark:text-slate-200"
                                 )}>
-                                    Logo Strip
+                                    Logo Background Bar
                                 </Label>
                                 {logoStripMode.enabled && (
                                     <Badge variant="secondary" className="text-[10px] font-semibold">
@@ -81,7 +81,7 @@ export function LogoSettingsSection({
                                     </Badge>
                                 )}
                             </div>
-                            <p className="text-xs font-medium text-muted-foreground">Add a backdrop band behind logos to improve readability</p>
+                            <p className="text-xs font-medium text-muted-foreground">Add a colored bar behind logos so they stand out better</p>
                         </div>
                     </div>
                     <Switch
@@ -94,7 +94,7 @@ export function LogoSettingsSection({
                                 logoBound: logoStripMode.logoBound ?? true,
                             })
                         }}
-                        aria-label={`Logo strip ${logoStripMode.enabled ? 'enabled' : 'disabled'}`}
+                        aria-label={`Logo background bar ${logoStripMode.enabled ? 'on' : 'off'}`}
                         className="data-[state=checked]:bg-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     />
                 </div>
@@ -109,7 +109,7 @@ export function LogoSettingsSection({
                                 <div className="flex items-start gap-2 rounded-lg bg-primary/5 p-3 dark:bg-primary/10">
                                     <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                                     <p className="text-xs leading-relaxed text-primary dark:text-primary">
-                                        <strong>Pro Tip:</strong> Enable logo strips for creatives with busy backgrounds or gradient designs to ensure logo visibility.
+                                        <strong>Tip:</strong> Turn this on when your design has a busy or colorful background. It helps your logos show up clearly.
                                     </p>
                                 </div>
                             </div>
@@ -117,7 +117,7 @@ export function LogoSettingsSection({
                             {/* Zone Selector - Segmented Control */}
                             <div className="space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200 delay-75">
                                 <Label className="text-xs font-bold uppercase tracking-wider text-foreground/60 dark:text-foreground/60">
-                                    Placement Zones
+                                    Where to Show
                                 </Label>
                                 <div className="flex w-full rounded-xl border border-primary/10 bg-primary/5 p-1 dark:border-primary/20 dark:bg-slate-900/50">
                                     {(['header', 'middle', 'footer'] as const).map((row) => {
@@ -159,7 +159,7 @@ export function LogoSettingsSection({
                             {/* Shape Selector */}
                             <div className="space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200 delay-75">
                                 <Label className="text-xs font-bold uppercase tracking-wider text-foreground/60 dark:text-foreground/60">
-                                    Visual Style
+                                    Bar Style
                                 </Label>
                                 <LogoStripShapeSelector />
                             </div>
@@ -177,8 +177,8 @@ export function LogoSettingsSection({
                                 <Palette className="h-5 w-5" />
                             </div>
                             <div>
-                                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Canvas Color</Label>
-                                <p className="text-xs font-medium text-muted-foreground">Set the background for your logo export</p>
+                                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Logo File Background</Label>
+                                <p className="text-xs font-medium text-muted-foreground">Pick a background color when you download logos</p>
                             </div>
                         </div>
 
@@ -187,7 +187,7 @@ export function LogoSettingsSection({
                                 type="color"
                                 value={logoBackgroundColor}
                                 onChange={(e) => setLogoBackgroundColor(e.target.value)}
-                                aria-label="Canvas background color"
+                                aria-label="Logo file background color"
                                 className="h-8 w-8 cursor-pointer border-0 p-0 rounded-full ring-2 ring-white/20 transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             />
                             <span className="min-w-[4rem] text-center font-mono text-xs font-medium text-foreground/70" aria-live="polite">
@@ -196,7 +196,7 @@ export function LogoSettingsSection({
                         </div>
                     </div>
                     <p className="text-[11px] text-foreground/60 italic">
-                        This color appears in exported logo files only, not in the final creative.
+                        This color only shows up in downloaded logo files, not in your final design.
                     </p>
                 </div>
             </div>

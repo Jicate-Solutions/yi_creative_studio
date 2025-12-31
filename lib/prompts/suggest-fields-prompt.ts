@@ -1,11 +1,16 @@
 /**
  * AI Prompt Templates for Form Field Suggestions
- * Used with Google Gemini to generate contextual event form suggestions
+ * Used with Claude to generate contextual event form suggestions
+ *
+ * NOTE: AI suggestions are limited to TEXT CONTENT fields only (description, etc.)
+ * Factual fields (date, time, venue, speaker) are excluded as users provide these.
  */
+
+import type { SuggestableField } from '@/types/suggestions'
 
 export const FIELD_SUGGESTION_SYSTEM_PROMPT = `You are an AI assistant for Yi CreativeStudio, a platform used by Young Indians (Yi) chapters and affiliated organizations to create event posters.
 
-Your task is to suggest contextually appropriate values for event form fields based on the event title and context provided.
+Your task is to suggest contextually appropriate TEXT CONTENT for event descriptions based on the event title and context provided.
 
 CONTEXT ABOUT YI (Young Indians):
 - Yi is a movement by CII (Confederation of Indian Industry)
@@ -14,12 +19,11 @@ CONTEXT ABOUT YI (Young Indians):
 - Events are typically professional, community-focused, and impactful
 - Yi chapters are located across India
 
-GUIDELINES:
-1. Date: Suggest realistic near-future dates (within next 3 months). Prefer weekends for community events, weekdays for corporate/professional events. Consider Indian national holidays if contextually relevant.
-2. Time: Professional event times. Evening events: "6:00 PM onwards" or "7:00 PM - 10:00 PM". Morning events: "9:00 AM - 12:00 PM" or "10:00 AM - 1:00 PM".
-3. Venue: Suggest venue TYPES with placeholder city, not specific venue names (e.g., "Hotel Conference Hall, Chennai" or "Community Center, [City]")
-4. Speaker: Only suggest if event type clearly implies a speaker/guest (workshops, talks, seminars). For networking events or activities, leave empty or use "N/A".
-5. Description: Professional, inspiring tone aligned with Yi values. Keep under 150 characters. Focus on the event's purpose and impact.
+GUIDELINES FOR DESCRIPTION:
+- Professional, inspiring tone aligned with Yi values
+- Keep under 150 characters
+- Focus on the event's purpose and impact
+- Highlight community benefit and Yi mission alignment
 
 RESPONSE FORMAT:
 You MUST respond with valid JSON only. No markdown, no explanation outside JSON.
@@ -32,10 +36,12 @@ export interface PromptParams {
   organizationType: string
   organizationName?: string
   existingFields?: Record<string, string>
+  targetFields?: SuggestableField[]
 }
 
 /**
  * Build the user prompt for field suggestions
+ * Only requests the targetFields (text content fields like description)
  */
 export function buildFieldSuggestionPrompt(params: PromptParams): string {
   const {
@@ -45,6 +51,7 @@ export function buildFieldSuggestionPrompt(params: PromptParams): string {
     organizationType,
     organizationName,
     existingFields,
+    targetFields = ['description'],
   } = params
 
   let prompt = `Generate suggestions for an event with the following context:
@@ -63,31 +70,37 @@ ${organizationName ? `ORGANIZATION: ${organizationName}` : ''}`
     if (filledFields) {
       prompt += `
 
-ALREADY FILLED FIELDS (use these for context, do NOT re-suggest these):
+ALREADY FILLED FIELDS (use these for context):
 ${filledFields}`
     }
   }
 
+  // Build example JSON based on targetFields only
+  const fieldExamples: Record<string, string> = {
+    description: '"description": { "value": "Join us for an evening of professional networking and collaboration.", "confidence": 0.85, "reasoning": "Professional tone aligned with Yi values" }',
+  }
+
+  const exampleFields = targetFields
+    .map(field => fieldExamples[field] || `"${field}": { "value": "", "confidence": 0.5, "reasoning": "Generated suggestion" }`)
+    .join(',\n    ')
+
   prompt += `
+
+IMPORTANT: Only generate suggestions for these specific fields: ${targetFields.join(', ')}
+Do NOT generate suggestions for date, time, venue, or speaker fields.
 
 Respond with JSON in this exact format:
 {
   "suggestions": {
-    "date": { "value": "March 15, 2025", "confidence": 0.7, "reasoning": "Weekend suitable for community event" },
-    "time": { "value": "6:00 PM onwards", "confidence": 0.8, "reasoning": "Evening networking time" },
-    "venue": { "value": "Hotel Conference Hall, Chennai", "confidence": 0.6, "reasoning": "Professional venue for corporate event" },
-    "speaker": { "value": "", "confidence": 0.0, "reasoning": "Not a speaker-focused event" },
-    "description": { "value": "Join us for an evening of professional networking and collaboration.", "confidence": 0.75, "reasoning": "Professional tone aligned with Yi values" }
+    ${exampleFields}
   }
 }
 
 Rules:
 - confidence: 0.0-1.0 (higher = more confident in the suggestion)
-- If unsure about a field, set confidence < 0.5 and value to empty string ""
 - Keep description under 150 characters
-- Use natural, human-friendly date/time formats
-- Do NOT suggest values for fields already filled by user
-- For speaker field, set empty string if event type doesn't need a speaker`
+- Professional, inspiring tone aligned with Yi values
+- Focus on the event's purpose and community impact`
 
   return prompt
 }

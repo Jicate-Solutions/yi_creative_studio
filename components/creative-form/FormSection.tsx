@@ -90,7 +90,7 @@ export function FormSection({
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className={cn(
-          'w-full px-4 py-3 flex items-center justify-between transition-colors',
+          'w-full px-4 py-2 flex items-center justify-between transition-colors',
           'hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
           isExpanded && 'border-b border-border/30'
         )}
@@ -187,7 +187,7 @@ export function FormSection({
       {isExpanded && (
         <div
           id={sectionId ? `${sectionId}-content` : undefined}
-          className="px-4 pb-4 pt-4"
+          className="px-4 pb-3 pt-3"
         >
           {/* Progress bar for sections with multiple fields */}
           {requiredFields > 1 && (

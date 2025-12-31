@@ -958,7 +958,7 @@ const certificate: FormatFieldSchema = {
       id: 'recipientName',
       label: 'Recipient Name',
       type: 'text',
-      required: true,
+      required: false,
       suggestable: false,
       maxLength: 90,
       placeholder: 'e.g., Jane Smith',

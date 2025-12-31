@@ -38,9 +38,9 @@ export function DownloadTab({
       {/* Color Mode */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-medium mb-1">Color Mode</h3>
+          <h3 className="text-sm font-medium mb-1">What will you use this for?</h3>
           <p className="text-xs text-muted-foreground">
-            RGB for digital, CMYK for professional printing
+            Screen for sharing online, Print for physical copies
           </p>
         </div>
 
@@ -49,7 +49,7 @@ export function DownloadTab({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Monitor className="h-3 w-3" />
-              Digital
+              Screen
             </div>
             {COLOR_MODES.filter((m) => m.value === 'rgb' || m.value === 'srgb').map((mode) => (
               <button
@@ -106,9 +106,9 @@ export function DownloadTab({
       {/* File Format */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-medium mb-1">File Format</h3>
+          <h3 className="text-sm font-medium mb-1">File Type</h3>
           <p className="text-xs text-muted-foreground">
-            Choose the output file format
+            Pick how you want to save your design
           </p>
         </div>
 
@@ -150,9 +150,9 @@ export function DownloadTab({
       {/* DPI Selection */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-medium mb-1">Resolution (DPI)</h3>
+          <h3 className="text-sm font-medium mb-1">Image Sharpness</h3>
           <p className="text-xs text-muted-foreground">
-            Higher DPI for better print quality
+            Higher number = clearer image for printing
           </p>
         </div>
 
@@ -194,10 +194,10 @@ export function DownloadTab({
         <div className="space-y-4">
           <div>
             <h3 className="text-sm font-medium mb-1">
-              Quality: {exportSettings.quality}%
+              Image Quality: {exportSettings.quality}%
             </h3>
             <p className="text-xs text-muted-foreground">
-              Higher quality = larger file size
+              Better quality makes the file bigger
             </p>
           </div>
 
@@ -211,28 +211,28 @@ export function DownloadTab({
 
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Smaller file</span>
-            <span>Best quality</span>
+            <span>Best looking</span>
           </div>
         </div>
       )}
 
       {/* Export Summary */}
       <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-        <h4 className="font-medium text-sm">Export Settings Summary</h4>
+        <h4 className="font-medium text-sm">Your Download Settings</h4>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary">
             {COLOR_MODES.find((m) => m.value === exportSettings.colorMode)?.label}
           </Badge>
           <Badge variant="secondary">{exportSettings.format.toUpperCase()}</Badge>
-          <Badge variant="secondary">{exportSettings.dpi} DPI</Badge>
+          <Badge variant="secondary">{exportSettings.dpi} sharpness</Badge>
           {(exportSettings.format === 'jpg' || exportSettings.format === 'webp') && (
-            <Badge variant="secondary">{exportSettings.quality}% Quality</Badge>
+            <Badge variant="secondary">{exportSettings.quality}% quality</Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           {isDigital
-            ? 'Optimized for digital displays and web use.'
-            : 'Optimized for professional printing with accurate color reproduction.'}
+            ? 'Ready to share on social media, websites, and screens.'
+            : 'Ready to print with colors that look great on paper.'}
         </p>
       </div>
     </div>
