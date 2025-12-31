@@ -2,9 +2,7 @@
 
 import { useMemo } from 'react'
 import {
-    ImageIcon,
-    MousePointerClick,
-    Search
+    ImageIcon
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,19 +15,28 @@ import {
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { LogoCard } from './logo-card'
-import { LOGO_CATEGORIES, LogoPosition, migrateLogoPosition } from '@/lib/config/constants'
+import { LOGO_CATEGORIES, migrateLogoPosition } from '@/lib/config/constants'
 import { LogoSizePreset } from '@/lib/constants/logoConstants'
+import type { OrganizationLogo } from '@/types/database.types'
+import type { LogoPlacement } from '@/stores/creative-store'
 
+interface CreativeFormData {
+    logosPlacements: LogoPlacement[]
+}
+
+// TODO: Consider reducing props drilling by extracting from useCreativeStore:
+// - formData.logosPlacements can be accessed via store.formData.logosPlacements
+// - updateLogoSize, removeLogoPlacement can be accessed from store methods
+// This would reduce props from 10 to ~7-8, improving maintainability
 interface LogoLibrarySectionProps {
-    logos: any[]
-    formData: any
+    logos: OrganizationLogo[]
+    formData: CreativeFormData
     categoryFilter: string
     setCategoryFilter: (category: string) => void
     selectedLogoId: string | null
     handleLogoSelect: (logoId: string) => void
     updateLogoSize: (logoId: string, size: LogoSizePreset) => void
     removeLogoPlacement: (logoId: string) => void
-    defaultOpen?: boolean
     isOpen: boolean
     setIsOpen: (isOpen: boolean) => void
 }
@@ -43,13 +50,12 @@ export function LogoLibrarySection({
     handleLogoSelect,
     updateLogoSize,
     removeLogoPlacement,
-    defaultOpen = true,
     isOpen,
     setIsOpen
 }: LogoLibrarySectionProps) {
 
-    const placedPositions = formData.logosPlacements.map((p: any) => migrateLogoPosition(p.position))
-    const placedLogoIds = formData.logosPlacements.map((p: any) => p.logoId)
+    const placedPositions = formData.logosPlacements.map((p) => migrateLogoPosition(p.position))
+    const placedLogoIds = formData.logosPlacements.map((p) => p.logoId)
 
     // Filter logos by category
     const filteredLogos = useMemo(() => {
@@ -117,7 +123,7 @@ export function LogoLibrarySection({
                         <ScrollArea className="flex-1 pr-3 -mr-3">
                             <div className="grid grid-cols-3 gap-2 pb-2">
                                 {filteredLogos.map((logo) => {
-                                    const placement = formData.logosPlacements.find((p: any) => p.logoId === logo.id)
+                                    const placement = formData.logosPlacements.find((p) => p.logoId === logo.id)
                                     const isPlaced = !!placement
                                     const isSelected = selectedLogoId === logo.id
                                     const migratedPosition = placement ? migrateLogoPosition(placement.position) : null
@@ -129,7 +135,7 @@ export function LogoLibrarySection({
                                             isPlaced={isPlaced}
                                             isSelected={isSelected}
                                             position={migratedPosition}
-                                            size={placement?.size || 'medium'}
+                                            size={(typeof placement?.size === 'number' ? 'medium' : placement?.size) || 'medium'}
                                             onSelect={() => handleLogoSelect(logo.id)}
                                             onSizeChange={(size) => updateLogoSize(logo.id, size)}
                                             onRemove={() => removeLogoPlacement(logo.id)}

@@ -252,7 +252,7 @@ export const FORMAT_COMPOSITIONS: Record<string, FormatComposition> = {
         name: 'Footer / Logo Zone',
         position: { top: '85%', bottom: '100%', left: '0%', right: '100%' },
         percentageRange: '85-100%',
-        purpose: 'Logo overlay area - keep simple background',
+        purpose: 'Branding area - keep simple background',
         contentTypes: ['logo_placeholder'],
         breathingRoom: 5,
         keepClear: true
@@ -267,7 +267,7 @@ export const FORMAT_COMPOSITIONS: Record<string, FormatComposition> = {
     },
     specialRules: [
       'Event title must dominate the hero zone',
-      'Footer zone must have simple background for logo overlay',
+      'Footer zone must have simple background',
       'Details should be grouped and easily scannable',
       'Visual hierarchy: Title > Speaker > Date/Venue'
     ]
@@ -395,7 +395,7 @@ export const FORMAT_COMPOSITIONS: Record<string, FormatComposition> = {
         name: 'Logo Zone',
         position: { top: '5%', bottom: '18%', left: '5%', right: '25%' },
         percentageRange: 'top-left 20%',
-        purpose: 'Organization logo overlay',
+        purpose: 'Branding area',
         contentTypes: ['logo_placeholder'],
         breathingRoom: 3,
         keepClear: true
@@ -559,7 +559,7 @@ export const FORMAT_COMPOSITIONS: Record<string, FormatComposition> = {
         name: 'Footer / Logo Zone',
         position: { top: '85%', bottom: '98%', left: '5%', right: '50%' },
         percentageRange: '85-98% left',
-        purpose: 'Logo overlay area',
+        purpose: 'Branding area',
         contentTypes: ['logo_placeholder'],
         breathingRoom: 3,
         keepClear: true

@@ -161,7 +161,7 @@ CRITICAL: Return ONLY valid JSON. No markdown code blocks, no explanations outsi
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4.5-20250801',
+      model: 'claude-haiku-4-5',  // Fixed: use valid model ID
       max_tokens: 2000,
       temperature: 0.3,  // Lower temperature for more consistent recommendations
       messages: [

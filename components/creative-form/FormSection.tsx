@@ -75,12 +75,12 @@ export function FormSection({
   return (
     <div
       className={cn(
-        'rounded-xl border-2 transition-all duration-200 overflow-hidden',
+        'rounded-xl transition-all duration-200 overflow-hidden',
         isExpanded
-          ? 'border-primary/30 bg-card shadow-md'
-          : 'border-border/50 bg-card/50 hover:border-border',
-        isComplete && !hasErrors && 'border-green-500/30 bg-green-50/30',
-        hasErrors && 'border-destructive/30 bg-destructive/5',
+          ? 'bg-card shadow-md ring-2 ring-primary/20'
+          : 'bg-card/50 shadow-sm hover:shadow-md',
+        isComplete && !hasErrors && 'ring-2 ring-green-500/30 bg-green-50/30',
+        hasErrors && 'ring-2 ring-destructive/30 bg-destructive/5',
         className
       )}
       data-section-id={sectionId}
@@ -92,7 +92,7 @@ export function FormSection({
         className={cn(
           'w-full px-4 py-3 flex items-center justify-between transition-colors',
           'hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
-          isExpanded && 'border-b border-border/50'
+          isExpanded && 'border-b border-border/30'
         )}
         aria-expanded={isExpanded}
         aria-controls={sectionId ? `${sectionId}-content` : undefined}

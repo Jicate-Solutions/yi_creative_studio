@@ -48,43 +48,30 @@ export const SPEAKER_ZONE_CONFIGS: Record<string, SpeakerZoneConfig> = {
         'Photo zone background should use brand secondary or complementary color',
       ],
       promptFragment: `
-SPEAKER PHOTO INTEGRATION - LEFT POSITION (40% of width):
-═══════════════════════════════════════════════════════════════════════════════
+LEFT SIDE BACKGROUND AREA (40% of width):
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│   ┌─────────────┐                                                          │
-│   │             │     ╔════════════════════════════════════════════╗      │
-│   │   SPEAKER   │     ║  EVENT NAME - HEADLINE (DOMINANT)          ║      │
-│   │   PHOTO     │     ╚════════════════════════════════════════════╝      │
-│   │   ZONE      │                                                          │
-│   │             │     Speaker Name & Designation                           │
-│   │  (Circle)   │     ─────────────────────────                           │
-│   │             │                                                          │
-│   │  40% width  │     📅 Date    🕐 Time    📍 Venue                       │
-│   │             │                                                          │
-│   │  NO FACES   │     ┌────────────────────────────┐                      │
-│   │  CLEAN BG   │     │      REGISTER NOW          │  ← CTA               │
-│   │             │     └────────────────────────────┘                      │
-│   └─────────────┘                                                          │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The LEFT 40% of the canvas should have a clean, solid or gradient background.
 
-CRITICAL RULES FOR LEFT PHOTO ZONE:
-- LEFT 40% of design = Clean background zone for circular speaker photo overlay
-- DO NOT generate any illustrated faces, people, or human figures in this zone
-- Background: Solid color or subtle gradient in secondary/complementary brand color
-- May include subtle circular frame design, soft glow, or drop shadow effect
-- Zone must be COMPLETELY CLEAR of any text elements
-- This area will have a real photo composited via Sharp post-processing
+CRITICAL - DO NOT GENERATE IN LEFT 40%:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (RIGHT 55%):
-- Event name headline: RIGHT-aligned or LEFT-aligned within right zone
-- Speaker name with designation: Below headline
-- Date, time, venue: Stacked with icons in right zone
-- CTA button: Right side, high visibility placement
+WHAT TO GENERATE IN LEFT 40%:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background color should complement the main design
+- Keep this area SIMPLE and CLEAR
 
-VISUAL WEIGHT: 70% on right side (content), 30% on left (photo zone background)
+CONTENT PLACEMENT (RIGHT 55%):
+- Event name headline: RIGHT side of the design
+- Speaker name with designation: Below headline on right
+- Date, time, venue: Stacked with icons on right
+- CTA button: Right side, high visibility
+
+VISUAL WEIGHT: 70% on right side (content), 30% on left (clean background)
 `,
     },
   },
@@ -117,38 +104,29 @@ VISUAL WEIGHT: 70% on right side (content), 30% on left (photo zone background)
         'Right zone reserved exclusively for photo overlay',
       ],
       promptFragment: `
-SPEAKER PHOTO INTEGRATION - RIGHT POSITION (40% of width):
-═══════════════════════════════════════════════════════════════════════════════
+RIGHT SIDE BACKGROUND AREA (40% of width):
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│  ╔════════════════════════════════════════════╗     ┌─────────────┐      │
-│  ║  EVENT NAME - HEADLINE (DOMINANT)          ║     │             │      │
-│  ╚════════════════════════════════════════════╝     │   SPEAKER   │      │
-│                                                      │   PHOTO     │      │
-│  Speaker Name & Designation                          │   ZONE      │      │
-│  ─────────────────────────                          │             │      │
-│                                                      │  (Circle)   │      │
-│  📅 Date    🕐 Time    📍 Venue                      │             │      │
-│                                                      │  40% width  │      │
-│  ┌────────────────────────────┐                     │             │      │
-│  │      REGISTER NOW          │  ← CTA              │  NO FACES   │      │
-│  └────────────────────────────┘                     │  CLEAN BG   │      │
-│                                                      │             │      │
-│                                                      └─────────────┘      │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The RIGHT 40% of the canvas should have a clean, solid or gradient background.
 
-CRITICAL RULES FOR RIGHT PHOTO ZONE:
-- RIGHT 40% of design = Clean background zone for circular speaker photo overlay
-- DO NOT generate any illustrated faces or people in this zone
-- Background: Solid or subtle gradient, complementary color
-- Zone reserved exclusively for post-processing photo overlay
+CRITICAL - DO NOT GENERATE IN RIGHT 40%:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (LEFT 55%):
-- Event name headline: Prominent in left zone
+WHAT TO GENERATE IN RIGHT 40%:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background color should complement the main design
+- Keep this area SIMPLE and CLEAR
+
+CONTENT PLACEMENT (LEFT 55%):
+- Event name headline: LEFT side of the design, prominent
 - All details stacked on left side
 - CTA clearly visible on left
+
+VISUAL WEIGHT: 70% on left side (content), 30% on right (clean background)
 `,
     },
   },
@@ -182,44 +160,29 @@ CONTENT FLOW (LEFT 55%):
         'Visual balance around center focal point',
       ],
       promptFragment: `
-SPEAKER PHOTO INTEGRATION - CENTER POSITION (30% of height):
-═══════════════════════════════════════════════════════════════════════════════
+CENTER BACKGROUND AREA (30% of height in middle):
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│            ╔════════════════════════════════════════════╗                 │
-│            ║  EVENT NAME - HEADLINE (DOMINANT)          ║                 │
-│            ╚════════════════════════════════════════════╝                 │
-│                                                                            │
-│                         ┌─────────────┐                                   │
-│                         │   SPEAKER   │                                   │
-│                         │   PHOTO     │                                   │
-│                         │   ZONE      │                                   │
-│                         │  (Circle)   │                                   │
-│                         │  NO FACES   │                                   │
-│                         │  CLEAN BG   │                                   │
-│                         └─────────────┘                                   │
-│                                                                            │
-│            Speaker Name & Designation                                      │
-│            📅 Date    🕐 Time    📍 Venue                                  │
-│                                                                            │
-│                    ┌────────────────────┐                                 │
-│                    │    REGISTER NOW    │  ← CTA                          │
-│                    └────────────────────┘                                 │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The CENTER area of the canvas (approximately 30% height in the middle) should have a clean background.
 
-CRITICAL RULES FOR CENTER PHOTO ZONE:
-- CENTER zone (30% of height) = Clean circular area for speaker photo overlay
-- DO NOT generate illustrated faces in center
-- Neutral/complementary background in center zone
-- Content flows ABOVE and BELOW the center photo zone
+CRITICAL - DO NOT GENERATE IN CENTER AREA:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
+
+WHAT TO GENERATE IN CENTER AREA:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background color should complement the main design
+- Keep this area SIMPLE and CLEAR
 
 CONTENT PLACEMENT:
 - ABOVE center: Event name headline (dominant)
 - BELOW center: Speaker name, event details (date, time, venue)
 - BOTTOM: CTA button
-- Design frames around the center photo as focal point
+
+VISUAL WEIGHT: Content flows ABOVE and BELOW the center area
 `,
     },
   },
@@ -240,42 +203,31 @@ export const MULTI_SPEAKER_ZONES: Record<string, {
     speakerCount: 2,
     layout: 'side-by-side',
     promptFragment: `
-DUAL SPEAKER LAYOUT (2 Speakers - Horizontal Side-by-Side):
-═══════════════════════════════════════════════════════════════════════════════
+TWO-SIDED BACKGROUND LAYOUT:
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│  ┌─────┐                                                    ┌─────┐       │
-│  │ SP1 │         ╔════════════════════════════╗            │ SP2 │       │
-│  │     │         ║  EVENT NAME - HEADLINE     ║            │     │       │
-│  │LEFT │         ╚════════════════════════════╝            │RIGHT│       │
-│  │25% │                                                    │25% │       │
-│  │     │         Speaker 1 Name | Speaker 2 Name           │     │       │
-│  │CLEAN│         ─────────────────────────────             │CLEAN│       │
-│  │ BG  │                                                    │ BG  │       │
-│  │     │         📅 Date    🕐 Time    📍 Venue            │     │       │
-│  │NO   │                                                    │NO   │       │
-│  │FACES│         ┌────────────────────┐                    │FACES│       │
-│  │     │         │   REGISTER NOW     │  ← CTA             │     │       │
-│  └─────┘         └────────────────────┘                    └─────┘       │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The LEFT 25% and RIGHT 25% of the canvas should have clean, solid or gradient backgrounds.
+The CENTER 50% contains all text content.
 
-CRITICAL RULES FOR DUAL SPEAKER LAYOUT:
-- LEFT 25% of design = Clean background zone for Speaker 1 photo overlay (circle/rounded)
-- RIGHT 25% of design = Clean background zone for Speaker 2 photo overlay (circle/rounded)
-- CENTER 50% = All content (headline, details, CTA)
-- DO NOT generate any illustrated faces, people, or human figures in LEFT or RIGHT zones
-- Both zones: Solid or subtle gradient background in brand secondary/complementary colors
-- Photos will be overlaid via Sharp post-processing at exact positions
+CRITICAL - DO NOT GENERATE IN LEFT OR RIGHT 25% AREAS:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (CENTER 50%):
+WHAT TO GENERATE IN LEFT AND RIGHT AREAS:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background colors should complement the main design
+- Keep these areas SIMPLE and CLEAR
+
+CONTENT PLACEMENT (CENTER 50%):
 - Event name headline: Centered, dominant typography
 - Speaker names: Side-by-side or combined text below headline
 - Date, time, venue: Centered with icons
 - CTA button: Centered at bottom, high visibility
 
-VISUAL WEIGHT: Balanced distribution - 25% left photo, 50% content, 25% right photo
+VISUAL WEIGHT: Balanced - left background, center content, right background
     `.trim(),
   },
 
@@ -284,41 +236,31 @@ VISUAL WEIGHT: Balanced distribution - 25% left photo, 50% content, 25% right ph
     speakerCount: 3,
     layout: 'side-by-side',
     promptFragment: `
-TRIPLE SPEAKER LAYOUT (3 Speakers - Horizontal Row):
-═══════════════════════════════════════════════════════════════════════════════
+THREE-SIDED BACKGROUND LAYOUT:
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│  ┌───┐           ╔════════════════════════════╗            ┌───┐  ┌───┐  │
-│  │SP1│           ║  EVENT NAME - HEADLINE     ║            │SP2│  │SP3│  │
-│  │   │           ╚════════════════════════════╝            │   │  │   │  │
-│  │20%│                                                     │20%│  │20%│  │
-│  │   │           Speaker 1 | Speaker 2 | Speaker 3         │   │  │   │  │
-│  │CLN│           ────────────────────────────              │CLN│  │CLN│  │
-│  │BG │                                                     │BG │  │BG │  │
-│  │   │           📅 Date    🕐 Time    📍 Venue           │   │  │   │  │
-│  │NO │                                                     │NO │  │NO │  │
-│  │FAC│           ┌────────────────────┐                    │FAC│  │FAC│  │
-│  │ES │           │   REGISTER NOW     │  ← CTA            │ES │  │ES │  │
-│  └───┘           └────────────────────┘                    └───┘  └───┘  │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The LEFT 20%, RIGHT-CENTER 20%, and RIGHT-EDGE 20% areas should have clean backgrounds.
+The CENTER 40% contains all text content.
 
-CRITICAL RULES FOR TRIPLE SPEAKER LAYOUT:
-- LEFT 20% = Clean zone for Speaker 1 photo
-- RIGHT CENTER 20% = Clean zone for Speaker 2 photo
-- RIGHT EDGE 20% = Clean zone for Speaker 3 photo
-- CENTER 40% = All content (headline, details, CTA)
-- DO NOT generate illustrated faces in any of the three speaker zones
-- Clean backgrounds in brand colors for all three zones
+CRITICAL - DO NOT GENERATE IN THESE THREE BACKGROUND AREAS:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (CENTER 40%):
+WHAT TO GENERATE IN BACKGROUND AREAS:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background colors should complement the main design
+- Keep these areas SIMPLE and CLEAR
+
+CONTENT PLACEMENT (CENTER 40%):
 - Event name headline: Centered and prominent
 - Speaker names: Combined text or stacked list
 - Event details: Centered
 - CTA: Centered at bottom
 
-LAYOUT STRATEGY: Horizontal row distribution with balanced spacing
+LAYOUT STRATEGY: Horizontal distribution with balanced spacing
     `.trim(),
   },
 
@@ -327,46 +269,31 @@ LAYOUT STRATEGY: Horizontal row distribution with balanced spacing
     speakerCount: 4,
     layout: 'grid',
     promptFragment: `
-QUAD SPEAKER LAYOUT (4 Speakers - 2×2 Grid):
-═══════════════════════════════════════════════════════════════════════════════
+FOUR CORNER BACKGROUND LAYOUT:
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│  ┌───┐                                                    ┌───┐           │
-│  │SP1│         ╔════════════════════════════╗            │SP2│           │
-│  │   │         ║  EVENT NAME - HEADLINE     ║            │   │           │
-│  │TL │         ╚════════════════════════════╝            │TR │           │
-│  │20%│                                                    │20%│           │
-│  └───┘         Speaker 1 | Speaker 2 | ...                └───┘           │
-│                ────────────────────────────                                │
-│                                                                            │
-│                📅 Date    🕐 Time    📍 Venue                             │
-│                                                                            │
-│  ┌───┐         ┌────────────────────┐                    ┌───┐           │
-│  │SP3│         │   REGISTER NOW     │  ← CTA             │SP4│           │
-│  │   │         └────────────────────┘                    │   │           │
-│  │BL │                                                    │BR │           │
-│  │20%│                                                    │20%│           │
-│  └───┘                                                    └───┘           │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+The FOUR CORNERS (top-left, top-right, bottom-left, bottom-right - each 20%) should have clean backgrounds.
+The CENTER 60% contains all text content.
 
-CRITICAL RULES FOR QUAD SPEAKER LAYOUT:
-- TOP-LEFT corner (20%) = Clean zone for Speaker 1 photo
-- TOP-RIGHT corner (20%) = Clean zone for Speaker 2 photo
-- BOTTOM-LEFT corner (20%) = Clean zone for Speaker 3 photo
-- BOTTOM-RIGHT corner (20%) = Clean zone for Speaker 4 photo
-- CENTER 60% = All content (headline, details, CTA)
-- DO NOT generate illustrated faces in any corner zones
-- Clean backgrounds for all four photo zones
+CRITICAL - DO NOT GENERATE IN CORNER AREAS:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (CENTER 60%):
+WHAT TO GENERATE IN CORNER AREAS:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background colors should complement the main design
+- Keep these areas SIMPLE and CLEAR
+
+CONTENT PLACEMENT (CENTER 60%):
 - Event name headline: Centered, upper section
 - Speaker names: Combined text or grid layout text
-- Event details: Center zone
+- Event details: Center area
 - CTA: Centered in middle-lower section
 
-LAYOUT STRATEGY: 2×2 grid with content framed in center, speakers at four corners
+LAYOUT STRATEGY: Content framed in center with clean background corners
     `.trim(),
   },
 
@@ -375,43 +302,32 @@ LAYOUT STRATEGY: 2×2 grid with content framed in center, speakers at four corne
     speakerCount: 6,
     layout: 'grid',
     promptFragment: `
-MULTI-SPEAKER GRID LAYOUT (5-10 Speakers - Flexible Grid):
-═══════════════════════════════════════════════════════════════════════════════
+MULTI-AREA BACKGROUND LAYOUT:
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│                                                                            │
-│  ┌───┐  ┌───┐       ╔═════════════════════╗        ┌───┐  ┌───┐         │
-│  │SP1│  │SP2│       ║  EVENT NAME         ║        │SP3│  │SP4│         │
-│  └───┘  └───┘       ╚═════════════════════╝        └───┘  └───┘         │
-│                                                                            │
-│                     Speaker Names List                                     │
-│                     ──────────────────                                     │
-│                                                                            │
-│  ┌───┐  ┌───┐       📅 Date | 🕐 Time     ┌───┐  ┌───┐                  │
-│  │SP5│  │SP6│                              │SP7│  │SP8│                  │
-│  └───┘  └───┘       📍 Venue               └───┘  └───┘                  │
-│                                                                            │
-│                     ┌────────────────┐                                     │
-│                     │ REGISTER NOW   │  ← CTA                             │
-│                     └────────────────┘                                     │
-│                                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+DESIGN REQUIREMENTS:
+Multiple areas on left and right sides (each 15-18% of width) should have clean backgrounds.
+The CENTER 40-50% contains all text content.
 
-CRITICAL RULES FOR MULTI-SPEAKER GRID:
-- Speakers arranged in 2×N grid (2 columns, N rows based on speaker count)
-- Each speaker zone: 15-18% of width, clean background
-- CENTER zone: 40-50% for all content
-- DO NOT generate illustrated faces in any speaker zones
-- Clean, consistent backgrounds across all speaker zones
-- Equal spacing between grid cells
+CRITICAL - DO NOT GENERATE IN SIDE BACKGROUND AREAS:
+- No illustrated faces, people, or human figures
+- No circular frames or shapes
+- No text or labels
+- No decorative borders or frame outlines
 
-CONTENT FLOW (CENTER ZONE):
+WHAT TO GENERATE IN SIDE AREAS:
+- Clean solid color OR subtle gradient background only
+- May have soft ambient glow or light effects
+- Background colors should complement the main design
+- Keep these areas SIMPLE and CLEAR
+- Equal spacing between areas
+
+CONTENT PLACEMENT (CENTER 40-50%):
 - Event name headline: Centered at top
-- Speaker names: Compact list or "Speakers: [count]"
+- Speaker names: Compact list
 - Event details: Centered
 - CTA: Bottom center
 
-LAYOUT STRATEGY: Scalable grid (supports 5-10 speakers) with content prioritized in center
+LAYOUT STRATEGY: Content prioritized in center with clean side areas
     `.trim(),
   },
 }

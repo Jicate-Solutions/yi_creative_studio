@@ -39,7 +39,7 @@ export interface TemperatureConfig {
 const TEMPERATURE_CONFIGS: Record<string, TemperatureConfig> = {
   // Formal/Document formats - Lower creativity, higher consistency
   formal: {
-    designIntelligence: 0.8,
+    designIntelligence: 0.9, // Bumped slightly from 0.8
     ultraProPrompt: 0.7,
     topP: 0.9,
     description: 'Formal documents requiring consistency',
@@ -47,34 +47,34 @@ const TEMPERATURE_CONFIGS: Record<string, TemperatureConfig> = {
 
   // Professional/Business formats - Balanced
   professional: {
-    designIntelligence: 1.0,
-    ultraProPrompt: 0.9,
-    topP: 0.92,
-    description: 'Professional materials with moderate creativity',
+    designIntelligence: 1.2, // Boosted from 1.0 to encourage non-boring corporate designs
+    ultraProPrompt: 1.0, // Boosted from 0.9
+    topP: 0.95, // Increased from 0.92
+    description: 'Professional materials with creative flair',
   },
 
   // Social/Marketing formats - Medium-high creativity
   social: {
-    designIntelligence: 1.2,
-    ultraProPrompt: 1.0,
-    topP: 0.95,
-    description: 'Social content requiring engagement',
+    designIntelligence: 1.4, // Boosted from 1.2
+    ultraProPrompt: 1.1, // Boosted from 1.0
+    topP: 0.98, // Increased from 0.95
+    description: 'Social content requiring maximum engagement',
   },
 
   // Creative/Event formats - Maximum creativity
   creative: {
-    designIntelligence: 1.4,
-    ultraProPrompt: 1.1,
-    topP: 0.98,
-    description: 'Creative designs requiring uniqueness',
+    designIntelligence: 1.6, // Boosted from 1.4 - HIGH creativity
+    ultraProPrompt: 1.2, // Boosted from 1.1
+    topP: 0.99, // Maximize token diversity
+    description: 'Creative designs requiring uniqueness and wow-factor',
   },
 
   // Thumbnail/Click formats - High creativity for scroll-stop
   clickbait: {
-    designIntelligence: 1.5,
-    ultraProPrompt: 1.2,
-    topP: 0.98,
-    description: 'Click-optimized content requiring maximum impact',
+    designIntelligence: 1.7, // Boosted from 1.5 - EXTREME creativity
+    ultraProPrompt: 1.3, // Boosted from 1.2
+    topP: 1.0, // Full diversity
+    description: 'Click-optimized content requiring maximum impact and surprise',
   },
 }
 

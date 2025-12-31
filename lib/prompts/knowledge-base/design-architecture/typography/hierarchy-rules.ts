@@ -77,39 +77,19 @@ const CERTIFICATE_TYPOGRAPHY: TextHierarchySystem = {
     'Center alignment for all text elements',
   ],
   promptFragment: `
-CERTIFICATE TYPOGRAPHY HIERARCHY:
-═══════════════════════════════════════════════════════════════════════════════
+CERTIFICATE TYPOGRAPHY GUIDANCE:
 
-VISUAL WEIGHT DISTRIBUTION:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ RECIPIENT NAME (Hero, Weight: 100)                                          │
-│ - Size: 3x base (LARGEST element on entire document)                        │
-│ - Style: Elegant script/calligraphy for classic, bold serif for modern      │
-│ - Treatment: Decorative flourishes above/below, may have underline          │
-│                                                                              │
-│ CERTIFICATE TITLE (Primary, Weight: 70)                                     │
-│ - Size: 2x base                                                              │
-│ - Style: Bold serif, ALL CAPS or Title Case                                 │
-│ - Treatment: Wide letter spacing, optional decorative underline             │
-│                                                                              │
-│ ACHIEVEMENT TEXT (Secondary, Weight: 50)                                    │
-│ - Size: 1.2x base                                                            │
-│ - Style: Regular serif, readable                                             │
-│ - Treatment: Center-aligned, may wrap 2-3 lines                             │
-│                                                                              │
-│ PREFACE "This is to certify that" (Tertiary, Weight: 30)                   │
-│ - Size: 1x base                                                              │
-│ - Style: Italic serif, light weight                                         │
-│ - Treatment: Subtle, introduces recipient name                              │
-│                                                                              │
-│ DATE/NUMBER/SIGNATORIES (Caption, Weight: 20)                              │
-│ - Size: 0.8x base                                                            │
-│ - Style: Small caps or regular serif                                        │
-│ - Treatment: Footer placement, supporting information                       │
-└─────────────────────────────────────────────────────────────────────────────┘
+The recipient name must be the LARGEST and most prominent text element, using elegant script or calligraphy styling. This is the hero element that the certificate celebrates.
 
-FONT PAIRING: Script (recipient) + Elegant Serif (all other text)
-MOOD: Prestigious, authoritative, worthy of framing
+The certificate title should use bold serif typography, smaller than the recipient name but clearly prominent.
+
+Achievement text should be readable and center-aligned, describing what was accomplished.
+
+Preface text like "This is to certify that" should be subtle and in italic serif styling.
+
+Date, number, and signatory information should be the smallest text, placed in the footer area.
+
+The overall mood should be prestigious, authoritative, and worthy of framing.
 `,
 }
 
@@ -181,44 +161,19 @@ const EVENT_POSTER_TYPOGRAPHY: TextHierarchySystem = {
     'All text readable from 2 meters distance',
   ],
   promptFragment: `
-EVENT POSTER TYPOGRAPHY HIERARCHY:
-═══════════════════════════════════════════════════════════════════════════════
+EVENT POSTER TYPOGRAPHY GUIDANCE:
 
-VISUAL WEIGHT DISTRIBUTION (3-SECOND TEST):
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ EVENT NAME (Hero, Weight: 100) - DOMINANT                                   │
-│ - Size: 3.5x base (LARGEST, readable from distance)                         │
-│ - Style: Bold impact sans-serif, may be ALL CAPS                            │
-│ - Position: Upper-center, hero zone                                         │
-│ - Viewer sees this FIRST - answers WHAT                                     │
-│                                                                              │
-│ SPEAKER NAME (Primary, Weight: 75)                                          │
-│ - Size: 2x base                                                              │
-│ - Style: Semibold sans-serif with designation                               │
-│ - Position: Below headline or with photo zone                               │
-│ - Answers WHO - credibility and authority                                   │
-│                                                                              │
-│ CTA BUTTON (Tertiary, Weight: 70)                                           │
-│ - Size: 1.5x base, bold                                                      │
-│ - Style: ALL CAPS on high-contrast button background                        │
-│ - Position: Bottom action zone, prominent                                   │
-│ - Drives action: "REGISTER NOW", "JOIN US", etc.                            │
-│                                                                              │
-│ DATE/TIME/VENUE (Secondary, Weight: 60)                                     │
-│ - Size: 1.5x base                                                            │
-│ - Style: Medium weight with icons (📅 🕐 📍)                                 │
-│ - Position: Details zone, stacked or inline                                 │
-│ - Answers WHEN and WHERE - instantly scannable                              │
-│                                                                              │
-│ ORGANIZATION (Caption, Weight: 40)                                          │
-│ - Size: 1x base                                                              │
-│ - Style: Regular, brand-consistent                                          │
-│ - Position: Header (with logo) or footer                                    │
-│ - Present but not competing with event content                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+The event name must be the LARGEST and most dominant text element - viewers should see it first and understand WHAT the event is instantly. Use bold, impactful typography.
 
-EYE FLOW: Event Name → Speaker → Date/Venue → CTA
-3-SECOND TEST: WHAT, WHO, WHEN, WHERE understood in 3 seconds
+Speaker names should be prominent but clearly secondary to the event name. They establish WHO and credibility.
+
+Date, time, and venue details should be grouped together with clear visual icons for quick scanning. They answer WHEN and WHERE.
+
+The call-to-action text should be bold and high-contrast on a button background to drive action.
+
+Organization or footer text should be subtle - present but not competing with event content.
+
+The design should pass the 3-SECOND TEST where viewers instantly understand WHAT, WHO, WHEN, and WHERE.
 `,
 }
 
@@ -251,26 +206,13 @@ const YOUTUBE_THUMBNAIL_TYPOGRAPHY: TextHierarchySystem = {
     'NO serif fonts, NO thin fonts',
   ],
   promptFragment: `
-YOUTUBE THUMBNAIL TYPOGRAPHY:
-═══════════════════════════════════════════════════════════════════════════════
+YOUTUBE THUMBNAIL TYPOGRAPHY GUIDANCE:
 
-SINGLE TEXT ELEMENT - HOOK TEXT ONLY:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ HOOK TEXT (Hero, Weight: 100) - THE ONLY TEXT                               │
-│                                                                              │
-│ - Words: 3-5 MAXIMUM (fewer is better)                                      │
-│ - Style: Extra-bold/black sans-serif (Impact-style)                         │
-│ - Case: ALL CAPS                                                             │
-│ - Outline: Thick black stroke (3-4px) for visibility                        │
-│ - Color: Bright yellow (#FFFF00), white, or vibrant accent                  │
-│ - Position: Right 40% of frame (face on left 60%)                           │
-│                                                                              │
-│ READABLE AT: 160x90 pixels (YouTube search result thumbnail)                │
-│ This text must be visible and legible even at tiny sizes                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+Use only 3-5 words maximum - this is hook text that must be instantly readable. Use extra-bold sans-serif typography in ALL CAPS with a thick black outline for visibility against any background. The text color should be bright yellow, white, or a vibrant accent color.
 
-CRITICAL: No other text elements. Face is the primary visual.
-Text supports but doesn't compete with expressive face.
+Position the text on the right 40% of the frame while an expressive face occupies the left side. The text must be readable even at 160x90 pixels (tiny thumbnail size).
+
+No other text elements - the face is the primary visual and text supports but doesn't compete with it.
 `,
 }
 
@@ -322,28 +264,15 @@ const INSTAGRAM_POST_TYPOGRAPHY: TextHierarchySystem = {
     'Mobile-first - readable without zooming',
   ],
   promptFragment: `
-INSTAGRAM POST TYPOGRAPHY:
-═══════════════════════════════════════════════════════════════════════════════
+INSTAGRAM POST TYPOGRAPHY GUIDANCE:
 
-SCROLL-STOPPING TEXT HIERARCHY:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ HEADLINE (Hero, Weight: 100)                                                 │
-│ - Size: 2.5x base (fills 40%+ of frame height)                              │
-│ - Style: Bold sans-serif, may be ALL CAPS                                   │
-│ - Treatment: High contrast, centered or dynamic placement                   │
-│ - Purpose: STOP THE SCROLL - first thing thumb notices                      │
-│                                                                              │
-│ SUPPORTING TEXT (Secondary, Weight: 50)                                     │
-│ - Size: 1.2x base                                                            │
-│ - Style: Medium sans-serif                                                   │
-│ - Treatment: Below headline, context or detail                              │
-│                                                                              │
-│ CTA/HASHTAG (Tertiary, Weight: 40)                                          │
-│ - Size: 1x base                                                              │
-│ - Treatment: Bottom of frame, branded element                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+The headline must be bold and scroll-stopping - it should fill approximately 40% of the frame height and be the first thing a thumb notices while scrolling. Use bold sans-serif typography with high contrast.
 
-MOBILE RULE: All text readable on phone screen without zooming
+Supporting text below the headline provides context and should be noticeably smaller but still readable.
+
+Call-to-action or branded hashtag text should be at the bottom, smaller and subtle.
+
+All text must be readable on a mobile phone screen without zooming. Design mobile-first.
 `,
 }
 
@@ -395,29 +324,15 @@ const LINKEDIN_POST_TYPOGRAPHY: TextHierarchySystem = {
     'Avoid casual or playful fonts',
   ],
   promptFragment: `
-LINKEDIN POST TYPOGRAPHY:
-═══════════════════════════════════════════════════════════════════════════════
+LINKEDIN POST TYPOGRAPHY GUIDANCE:
 
-PROFESSIONAL THOUGHT-LEADERSHIP HIERARCHY:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ HEADLINE (Hero, Weight: 100)                                                 │
-│ - Size: 2x base                                                              │
-│ - Style: Semibold professional sans-serif (NOT bold/shouty)                 │
-│ - Treatment: Clean, sophisticated, authoritative                            │
-│                                                                              │
-│ KEY INSIGHT (Secondary, Weight: 60)                                         │
-│ - Size: 1.3x base                                                            │
-│ - Style: Regular sans-serif                                                  │
-│ - Treatment: Supporting the headline with data or context                   │
-│                                                                              │
-│ AUTHOR/SOURCE (Caption, Weight: 30)                                         │
-│ - Size: 0.9x base                                                            │
-│ - Style: Subtle, professional                                                │
-│ - Treatment: Attribution or credibility indicator                           │
-└─────────────────────────────────────────────────────────────────────────────┘
+The headline should use professional, medium-weight sans-serif typography - authoritative but not shouty (avoid ALL CAPS). Clean and sophisticated styling.
 
-PROFESSIONAL RULE: Design should look like it came from
-McKinsey, Harvard Business Review, or Fortune 500 company
+Key insight or supporting text should be clearly secondary to the headline but readable, providing data or context.
+
+Author or source attribution should be subtle and small, adding credibility without distracting.
+
+The overall design should feel like it comes from a professional business publication - sophisticated, credible, thought-leadership quality.
 `,
 }
 

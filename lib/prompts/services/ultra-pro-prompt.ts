@@ -98,7 +98,7 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Focus on HIGH-IMPACT MINIMALISM and VAST NEGATIVE SPACE (at least 40% of canvas).
    - Use clean, solid backgrounds (matte white, light gray, or deep slate).
    - Use ONE primary high-quality visual symbol instead of busy patterns.
-   - LOGO OVERLAY AREA: Reserve the top 15% for logo overlays. Use simple, high-contrast backgrounds (solid colors or subtle gradients) in this area. DO NOT create a visible stripe or band.
+   - TOP AREA: Keep the top 15% clean with simple, high-contrast background (solid colors or subtle gradients). No text or bands in this area.
    - MOOD TYPOGRAPHY: Suggest ultra-clean Serif for elegance or Bold Sans for modern tech.
    - Avoid "atmospheric clutter," "particle effects," or "busy textures."
    - Prioritize ultra-clean typography hierarchy and strategic alignment (Center/Left).
@@ -112,6 +112,48 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Immersive, multi-layered, and atmospheric designs.
    - Deep dimension with glows, textures, and many visual elements.
    - High energy and vivid color harmony.
+
+CINEMATIC DEPTH FRAMEWORK (v6.0 - STORYTELLING THROUGH LAYERS):
+When creating backgrounds, think cinematically with three distinct depth layers:
+
+1. FOREGROUND LAYER (10-30% opacity overlays):
+   - Purpose: Adds visual interest without obscuring content
+   - Examples: Subtle leaf silhouettes, light ray overlays, flowing patterns, gentle particle effects
+   - Rule: NEVER place solid/opaque elements here - text must remain legible
+   - Sophistication: Minimalist uses 0-10%, Balanced uses 10-20%, Rich uses 20-30%
+
+2. MIDGROUND LAYER (Text content zone):
+   - Purpose: Where all text, logos, and primary content lives
+   - Rule: This layer must have clean, high-contrast backgrounds for readability
+   - Examples: Solid color zones, soft gradient backdrops, subtle texture fills
+   - Sophistication: All modes prioritize text legibility here
+
+3. BACKGROUND LAYER (Deep atmospheric scene):
+   - Purpose: Sets the mood and tells the event's story through environment
+   - Examples: "Deep forest atmosphere", "Kinetic energy fields", "Ocean depth scene", "Innovation hub skyline"
+   - Rule: Create emotional depth - what FEELING should the viewer get?
+   - Sophistication: Minimalist uses simple gradients, Balanced uses moderate atmospheres, Rich uses immersive scenes
+
+CINEMATIC COMPOSITION QUESTIONS (Ask yourself before finalizing):
+- Does the background FEEL like the event type? (Workshop = hands-on energy, Conference = professional prestige)
+- Is there visual depth? (Blurred background + crisp midground + subtle foreground = cinema-quality)
+- Do the layers work together or fight each other?
+- Would this design make someone STOP and look, or is it generic?
+
+Example Cinematic Scenes:
+- Nature theme: "Deep misty forest (background) → Clean text zone (midground) → Gentle leaf overlay (foreground)"
+- Tech theme: "Holographic data streams (background) → Solid gradient text zone (midground) → Circuit pattern overlay (foreground)"
+- Energy theme: "Explosive radial burst (background) → High-contrast text area (midground) → Motion blur streaks (foreground)"
+
+CRITICAL CUSTOM COLOR ENFORCEMENT (v5.3):
+When custom colors are explicitly provided by the user, you MUST use them exclusively:
+- Do NOT suggest alternative color palettes based on event theme
+- Do NOT recommend navy/gold, purple/pink, or other preset combinations
+- Do NOT invent complementary colors or make color assumptions
+- Custom colors represent the user's brand identity and are NON-NEGOTIABLE
+- Use ONLY the provided hex values in colorPaletteHints
+- If custom colors are specified, your colorPaletteHints field must describe those exact colors
+- Example: If user provides #1c9924 green, #f8ff36 yellow, do NOT suggest navy/gold - use their exact colors
 
 CRITICAL RULES:
 1. The user's EXACT text values (event name, speaker name, date, venue) MUST be preserved exactly as provided
@@ -161,11 +203,15 @@ IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
  * - Response caching for similar requests
  * - Dynamic temperature based on format type
  * - Schema validation with auto-fix
+ *
+ * v5.1: Added logoStripEnabled parameter for conditional header band instructions
  */
 export async function generateUltraProPrompt(
   compiledData: CompiledFormData,
   provider: 'claude' | 'gemini' = 'claude',
-  designContext?: any // DesignContext from Design Intelligence (optional)
+  designContext?: any, // DesignContext from Design Intelligence (optional)
+  logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
+  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string } // Custom colors to enforce (v5.3)
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
@@ -181,17 +227,24 @@ export async function generateUltraProPrompt(
 
   // === OPTIMIZATION 1: Check cache first ===
   const formatId = compiledData.format?.id
+
+  // v5.5: Add variation seed for creative formats to prevent identical generations
+  const isCreativeFormat = ['event_poster', 'flyer', 'instagram_post', 'youtube_thumbnail'].includes(formatId || '')
+  const variationSeed = isCreativeFormat ? Date.now().toString() : undefined
+
   const cacheKey = generateUltraProCacheKey({
     formatId,
     eventName: compiledData.eventName || undefined,
     eventType: compiledData.eventType || undefined,
     hasSpeaker: !!compiledData.speakerName,
     hasVenue: !!compiledData.venue,
+    variationSeed, // NEW: Forces unique cache key every time for creative formats
   })
 
-  const cachedPrompt = getCachedUltraProPrompt(cacheKey) as UltraProPrompt | null
+  // For creative formats, skip cache to ensure fresh variation
+  const cachedPrompt = isCreativeFormat ? null : (getCachedUltraProPrompt(cacheKey) as UltraProPrompt | null)
   if (cachedPrompt) {
-    console.log('[Ultra-Pro Prompt] Using CACHED prompt')
+    console.log('[Ultra-Pro Prompt] Using CACHED prompt (non-creative format)')
     return {
       prompt: cachedPrompt,
       usage: {
@@ -201,6 +254,10 @@ export async function generateUltraProPrompt(
         durationMs: 0,
       },
     }
+  }
+
+  if (isCreativeFormat) {
+    console.log('[Ultra-Pro Prompt] Skipping cache for creative format (ensuring variation)')
   }
 
   // === OPTIMIZATION 2: Get dynamic temperature config ===
@@ -232,15 +289,95 @@ CRITICAL: Your enhancedPrompt MUST integrate these story-driven insights into a 
 `
   }
 
+  // Build logo strip instructions (v5.3: AI should NOT extend into reserved area - Sharp handles it)
+  // IMPORTANT: When logo strip enabled, AI should START design below the reserved area
+  const logoStripInstructions = logoStripEnabled
+    ? `
+TOP AREA GUIDANCE (CRITICAL):
+- The top 8% of the canvas is RESERVED and will be replaced in post-processing.
+- START your design at approximately 8% from the top edge.
+- Do NOT extend backgrounds, gradients, or any graphics into the top 8%.
+- Treat 8% from top as the TOP EDGE of your design canvas.
+- Position the main headline starting at approximately 15% from top.`
+    : `
+TOP AREA GUIDANCE:
+- DO NOT create any visible stripe, band, or header section at the top.
+- The background design should flow naturally and seamlessly from top to bottom.
+- Keep the top 10% clean with simple background (no text, faces, or graphics).
+- Use simple backgrounds (solid colors or subtle gradients) in the top area.`
+
+  // Build color enforcement section (v5.5: STRICT enforcement for ALL sources)
+  let colorBriefSection = ''
+  if (resolvedColors && resolvedColors.source !== 'fallback') {
+    // Determine enforcement language based on source
+    const sourceLabel = {
+      custom: 'MANDATORY CUSTOM USER COLORS (NON-NEGOTIABLE)',
+      brand: 'MANDATORY ORGANIZATION BRAND COLORS (STRICT COMPLIANCE)',
+      preset: 'USER-SELECTED COLOR PALETTE (STRICT COMPLIANCE)',
+    }[resolvedColors.source]
+
+    const sourceDescription = {
+      custom: 'user-selected custom colors',
+      brand: 'the organization\'s brand identity',
+      preset: 'user-selected from preset palette',
+    }[resolvedColors.source]
+
+    colorBriefSection = `
+${sourceLabel}:
+Primary Color: ${resolvedColors.primaryColor}
+Secondary Color: ${resolvedColors.secondaryColor}
+Accent Color: ${resolvedColors.accentColor}
+
+CRITICAL: These are ${sourceDescription}. You MUST use these exact hex values in your colorPaletteHints.
+Background MUST use Primary Color (${resolvedColors.primaryColor}) as the dominant color - match the EXACT tone.
+Do NOT suggest alternative palettes. Do NOT use theme-based colors (navy/gold, purple/pink, etc.).
+Do NOT use event-type default colors (conference blue, workshop orange, etc.).
+These colors are NON-NEGOTIABLE - override any other color suggestions in this prompt.
+
+`
+  }
+
+  // v6.0: Build creativity enforcement section
+  const creativityEnforcement = isCreativeFormat ? `
+
+=== CREATIVITY ENFORCEMENT v6.0 (MANDATORY) ===
+
+GENERATION SEED: ${variationSeed}
+This seed FORCES unique creative output. Do NOT fall back to safe, predictable designs.
+
+CREATIVE TWIST REQUIREMENT:
+Your design MUST include ONE unexpected visual element that makes it MEMORABLE.
+Ask yourself: "What would make someone stop scrolling and LOOK at this design?"
+
+Examples of Creative Twists:
+- Instead of a standard networking background, use "magnetic field lines pulling diverse silhouettes together"
+- Instead of a tech gradient, use "holographic data fragments floating in zero gravity"
+- Instead of corporate blue, use "deep space noir with bioluminescent accents"
+
+ANTI-PATTERN ENFORCEMENT:
+Before finalizing, check your design against this list. If ANY apply, REDESIGN:
+❌ Blue-to-purple or orange-to-pink generic gradients
+❌ Random geometric shapes without meaning
+❌ Stock photo aesthetic (perfect people, staged scenes)
+❌ Default professional navy/gray palettes
+❌ Overused sunburst/radial patterns
+❌ Generic cityscape silhouettes
+❌ Floating spheres/cubes without purpose
+❌ Bokeh backgrounds without connection to content
+
+YOUR GOAL: Create something the viewer has NEVER seen before for this type of event.
+` : ''
+
   // Build the full prompt for the AI
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
-
-USER'S CREATIVE BRIEF:
+${creativityEnforcement}
+${colorBriefSection}USER'S CREATIVE BRIEF:
 ${userBrief}
 ${designContextSection}
 SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
 TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
+${logoStripInstructions}
 
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
@@ -255,9 +392,9 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] AI call failed:', error)
-    // Return a fallback prompt if AI fails with zero usage
+    // Return a fallback prompt if AI fails with zero usage (v5.1: Pass logoStripEnabled)
     return {
-      prompt: generateFallbackPrompt(compiledData),
+      prompt: generateFallbackPrompt(compiledData, logoStripEnabled),
       usage: {
         provider,
         model: 'fallback',
@@ -275,7 +412,7 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
   console.log(`[Ultra-Pro Prompt] Response received in ${llmResponse.durationMs}ms`)
 
   // === OPTIMIZATION 3: Schema validation with auto-fix ===
-  const parsedPrompt = parseUltraProPrompt(llmResponse.text, compiledData)
+  const parsedPrompt = parseUltraProPrompt(llmResponse.text, compiledData, logoStripEnabled)
   const validatedPrompt = validateAndFixUltraProPrompt(parsedPrompt)
 
   const ultraProPrompt = validatedPrompt || parsedPrompt
@@ -300,18 +437,22 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
 /**
  * Safe version that returns fallback on error with zero usage
  * v5.0: Now accepts designContext parameter
+ * v5.1: Now accepts logoStripEnabled parameter
+ * v5.3: Now accepts resolvedColors parameter
  */
 export async function generateUltraProPromptSafe(
   compiledData: CompiledFormData,
   provider: 'claude' | 'gemini' = 'claude',
-  designContext?: any // DesignContext from Design Intelligence (optional)
+  designContext?: any, // DesignContext from Design Intelligence (optional)
+  logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
+  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string } // Custom colors to enforce (v5.3)
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {
-      prompt: generateFallbackPrompt(compiledData),
+      prompt: generateFallbackPrompt(compiledData, logoStripEnabled),
       usage: {
         provider,
         model: 'fallback',
@@ -336,7 +477,7 @@ async function callClaude(
   temperature: number = 0.9
 ): Promise<LLMResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const modelName = 'claude-haiku-4-5-20251001'
+  const modelName = 'claude-haiku-4-5'
 
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not configured')
@@ -462,7 +603,11 @@ async function callGemini(
 // RESPONSE PARSING
 // ============================================================
 
-function parseUltraProPrompt(response: string, compiledData: CompiledFormData): UltraProPrompt {
+function parseUltraProPrompt(
+  response: string,
+  compiledData: CompiledFormData,
+  logoStripEnabled?: boolean
+): UltraProPrompt {
   // Clean up the response - remove markdown code blocks
   let jsonStr = response.trim()
   if (jsonStr.startsWith('```json')) {
@@ -479,7 +624,7 @@ function parseUltraProPrompt(response: string, compiledData: CompiledFormData): 
   const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     console.error('[Ultra-Pro Prompt] Failed to extract JSON:', response.substring(0, 200))
-    return generateFallbackPrompt(compiledData)
+    return generateFallbackPrompt(compiledData, logoStripEnabled)
   }
 
   try {
@@ -494,11 +639,11 @@ function parseUltraProPrompt(response: string, compiledData: CompiledFormData): 
       textPlacementHints: parsed.textPlacementHints || 'Center-aligned text with event name prominent',
       colorPaletteHints: parsed.colorPaletteHints || 'Professional color palette',
       mustIncludeElements: Array.isArray(parsed.mustIncludeElements) ? parsed.mustIncludeElements : [],
-      enhancedPrompt: parsed.enhancedPrompt || buildFallbackEnhancedPrompt(compiledData),
+      enhancedPrompt: parsed.enhancedPrompt || buildFallbackEnhancedPrompt(compiledData, logoStripEnabled),
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] JSON parse error:', error)
-    return generateFallbackPrompt(compiledData)
+    return generateFallbackPrompt(compiledData, logoStripEnabled)
   }
 }
 
@@ -506,8 +651,12 @@ function parseUltraProPrompt(response: string, compiledData: CompiledFormData): 
 // FALLBACK GENERATION
 // ============================================================
 
-function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt {
+function generateFallbackPrompt(
+  compiledData: CompiledFormData,
+  logoStripEnabled?: boolean
+): UltraProPrompt {
   console.log('[Ultra-Pro Prompt] Using fallback prompt generation')
+  console.log('[Ultra-Pro Prompt] Logo strip enabled:', logoStripEnabled ? 'YES' : 'NO')
 
   const eventName = compiledData.eventName || 'Event'
   const secondaryText: string[] = []
@@ -534,7 +683,7 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
     textPlacementHints: 'Event name centered and prominent. Supporting details arranged below.',
     colorPaletteHints: 'Professional color scheme appropriate for the event type',
     mustIncludeElements: ['event title', 'date and venue if provided', 'speaker name if provided'],
-    enhancedPrompt: buildFallbackEnhancedPrompt(compiledData),
+    enhancedPrompt: buildFallbackEnhancedPrompt(compiledData, logoStripEnabled),
   }
 }
 
@@ -549,8 +698,13 @@ function generateFallbackPrompt(compiledData: CompiledFormData): UltraProPrompt 
  * - "Include these details: date: X, time: Y" (labels leak)
  * - "Feature the guest/speaker: X" (instruction language)
  * - "Create a design with..." (command language)
+ *
+ * v5.1: Now respects logoStripEnabled parameter
  */
-function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
+function buildFallbackEnhancedPrompt(
+  compiledData: CompiledFormData,
+  logoStripEnabled?: boolean
+): string {
   const parts: string[] = []
 
   // Format type - use narrative, not command
@@ -603,8 +757,13 @@ function buildFallbackEnhancedPrompt(compiledData: CompiledFormData): string {
   if (compiledData.style) styleDescriptors.push(compiledData.style)
 
   // NEW v4.0: Sophistication-aware fallbacks
+  // v5.1: Conditional logo stripe based on user toggle
   if (compiledData.sophistication === 'minimalist') {
-    styleDescriptors.push('high-impact minimalism', 'generous negative space', 'ultra-clean layout', 'solid white logo stripe')
+    styleDescriptors.push('high-impact minimalism', 'generous negative space', 'ultra-clean layout')
+    // Only mention logo stripe if explicitly enabled by user
+    if (logoStripEnabled) {
+      styleDescriptors.push('solid white logo stripe')
+    }
   } else if (compiledData.sophistication === 'rich') {
     styleDescriptors.push('rich immersive atmosphere', 'multi-layered background', 'vivid lighting', 'ambient textures')
   }

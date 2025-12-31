@@ -19,6 +19,11 @@ import {
 } from '../context-helpers'
 import { LINKEDIN_POST_EXAMPLES } from '../examples'
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
@@ -27,7 +32,7 @@ import { getSophistication, getIntegratedZoneContext } from '../helpers/sophisti
 import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
-// CONTENT TYPE CONTEXTS (v3.1)
+// CONTENT TYPE CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface LinkedInContentContext {
@@ -37,46 +42,81 @@ interface LinkedInContentContext {
   structure: string
 }
 
-function getLinkedInContextByType(contentType?: string): LinkedInContentContext {
-  const contexts: Record<string, LinkedInContentContext> = {
-    article: {
-      layout: 'Editorial layout with strong headline, article preview feel',
-      mood: 'Thought-leadership, insightful, authoritative',
-      visualStyle: 'Clean, magazine-style, professional photography or abstract',
-      structure: 'Headline prominent, supporting insight below, clean composition',
-    },
-    announcement: {
-      layout: 'Celebration layout with prominent headline, visual emphasis',
-      mood: 'Exciting, milestone, achievement-focused',
-      visualStyle: 'Bold typography, celebratory elements, brand-forward',
-      structure: 'Big announcement text, supporting details, celebratory accents',
-    },
-    job: {
-      layout: 'Recruitment-focused with company branding, role highlight',
-      mood: 'Opportunity, growth, career advancement',
-      visualStyle: 'Professional, aspirational, team imagery or workplace',
-      structure: 'Role title prominent, company branding, opportunity highlights',
-    },
-    event: {
-      layout: 'Event promotion with date/time prominent, speaker highlights',
-      mood: 'Networking, learning, professional development',
-      visualStyle: 'Event photography, speaker headshots, conference feel',
-      structure: 'Event name prominent, date/time visible, speaker zone if applicable',
-    },
-    insight: {
-      layout: 'Data-forward with chart or statistic highlight',
-      mood: 'Analytical, research-backed, industry expertise',
-      visualStyle: 'Clean data visualization, infographic elements',
-      structure: 'Big number/statistic prominent, context text, source credibility',
-    },
-    thought_leadership: {
-      layout: 'Quote or insight-focused, personal brand emphasis',
-      mood: 'Authoritative, expert perspective, meaningful',
-      visualStyle: 'Clean typography, subtle personal branding',
-      structure: 'Key insight prominent, author attribution, professional aesthetic',
-    },
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildLinkedInContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): LinkedInContentContext {
+  const backgroundSetting = designContext.backgroundSetting
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('linkedin_professional', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    layout: 'Professional LinkedIn layout optimized for B2B engagement',
+    mood: designContext.moodDirection || 'Professional, credible, thought-leadership',
+    visualStyle: `${themeInfo} - ${enhancedBackground} - Professional B2B aesthetic`,
+    structure: designContext.layoutSuggestion || 'Headline prominent, supporting content clean, professional composition',
   }
-  return contexts[contentType || 'article'] || contexts.article
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicLinkedInColorContext(
+  contentType: string,
+  userColors: ResolvedColors
+): LinkedInContentContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground('linkedin_professional', userColors)
+
+  return {
+    layout: 'Professional LinkedIn layout optimized for B2B engagement',
+    mood: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, professional`,
+    visualStyle: `${backgroundSetting} - ${colorPersonality.visualElements} - B2B optimized`,
+    structure: 'Headline prominent, clean professional composition, credible aesthetic',
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for LinkedIn Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getLinkedInContextByType(
+  contentType?: string,
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): LinkedInContentContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[LinkedIn Context] Using Design Intelligence for ${contentType}`)
+    return buildLinkedInContextFromDesignIntelligence(designContext, userColors)
+  }
+
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[LinkedIn Context] Using Color Personality (${userColors.source}) for ${contentType}`)
+    return buildDynamicLinkedInColorContext(contentType || 'article', userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded content-type visuals)
+  console.log(`[LinkedIn Context] Using minimal fallback for ${contentType}`)
+  return {
+    layout: 'Professional LinkedIn layout optimized for B2B engagement',
+    mood: 'Professional, credible, thought-leadership',
+    visualStyle: 'Clean professional B2B design with balanced composition',
+    structure: 'Headline prominent, supporting content clear, professional aesthetic',
+  }
 }
 
 // ============================================================
@@ -87,8 +127,12 @@ export function buildLinkedInPrompt(
   data: LinkedInFormData,
   options: EnhancedBuildOptions = {}
 ): string {
-  // Get content type context (v3.1)
-  const contentContext = getLinkedInContextByType(options.contentType || data.contentType)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const contentContext = getLinkedInContextByType(
+    options.contentType || data.contentType,
+    options.resolvedColors,
+    options.designContext
+  )
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
@@ -184,7 +228,7 @@ Visual Elements:
 - Headline: "${data.headline}" - prominent but not shouting
 ${data.keyInsight ? `- Key insight/statistic: "${data.keyInsight}" - highlighted/emphasized` : ''}
 ${data.professionalMessage ? `- Supporting message: "${data.professionalMessage}"` : ''}
-- LOGO ZONE: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} kept clear for logo overlay` : 'Subtle brand element in corner'}
+- CLEAN AREA: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} kept clear with simple background` : 'Subtle brand element in corner'}
 - WHITE SPACE: Generous - not crowded, professional breathing room
 
 Visual Treatment: ${contentContext.visualStyle}
@@ -214,12 +258,12 @@ ${LINKEDIN_POST_EXAMPLES}
 - CONTENT TYPE FIT: Appropriate for ${options.contentType || data.contentType || 'thought leadership'} post
 - BRAND TEST: ${options.brandContext ? 'Brand colors properly integrated' : 'Professional, polished look'}
 - Clean, sophisticated execution
-${options.logoAwareness?.hasLogo ? '- Logo area clean and ready for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Flashy, salesy, clickbait, unprofessional, too colorful, playful fonts, meme-style, casual aesthetic, aggressive marketing look, corporate cliches, stock photo handshake imagery
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

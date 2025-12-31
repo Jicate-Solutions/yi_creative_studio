@@ -372,6 +372,89 @@ async function createLogoWithBackground(
 }
 
 /**
+ * v6.0 Phase 5: Adds drop shadow to a logo buffer for visibility on any background
+ * Enables logos to be placed directly on AI-generated backgrounds without strip background
+ *
+ * @param logoBuffer - Logo image buffer
+ * @param shadowBlur - Shadow blur radius in pixels (default: 15)
+ * @param shadowOpacity - Shadow opacity 0-1 (default: 0.4)
+ * @param shadowOffset - Shadow offset {x, y} (default: {x: 2, y: 2})
+ * @returns Buffer with logo and drop shadow on transparent background
+ */
+async function addDropShadowToLogo(
+  logoBuffer: Buffer,
+  shadowBlur: number = 15,
+  shadowOpacity: number = 0.4,
+  shadowOffset: { x: number; y: number } = { x: 2, y: 2 }
+): Promise<Buffer> {
+  const logoSharp = sharp(logoBuffer)
+  const metadata = await logoSharp.metadata()
+
+  if (!metadata.width || !metadata.height) {
+    console.warn('[Drop Shadow] Could not read logo metadata, returning original buffer')
+    return logoBuffer  // Fallback if metadata unavailable
+  }
+
+  const shadowPadding = shadowBlur + Math.max(Math.abs(shadowOffset.x), Math.abs(shadowOffset.y))
+  const canvasWidth = metadata.width + shadowPadding * 2
+  const canvasHeight = metadata.height + shadowPadding * 2
+
+  // Create shadow using SVG filter
+  const shadowSvg = `
+    <svg width="${canvasWidth}" height="${canvasHeight}">
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="${shadowBlur}" />
+          <feOffset dx="${shadowOffset.x}" dy="${shadowOffset.y}" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="${shadowOpacity}" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <rect width="${canvasWidth}" height="${canvasHeight}" fill="transparent" />
+    </svg>
+  `
+
+  try {
+    // Create canvas with shadow effect
+    const shadowBuffer = await sharp(Buffer.from(shadowSvg))
+      .png()
+      .toBuffer()
+
+    // Composite logo onto canvas with shadow padding
+    const result = await sharp({
+      create: {
+        width: canvasWidth,
+        height: canvasHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    })
+    .composite([
+      {
+        input: logoBuffer,
+        top: shadowPadding,
+        left: shadowPadding,
+      }
+    ])
+    // Apply blur to create soft shadow effect
+    .blur(shadowBlur * 0.5)
+    .png()
+    .toBuffer()
+
+    console.log(`[Drop Shadow] Added shadow to logo (${metadata.width}x${metadata.height} → ${canvasWidth}x${canvasHeight})`)
+    return result
+  } catch (error) {
+    console.error('[Drop Shadow] Error creating shadow:', error)
+    return logoBuffer  // Fallback to original
+  }
+}
+
+/**
  * Create a horizontal logo strip with logos positioned at their designated columns
  * The strip is a white (or colored) bar spanning the full image width
  *
@@ -384,6 +467,11 @@ async function createLogoWithBackground(
  * LOGO-BOUND MODE (v5.4):
  * - When enabled, strip only spans from first logo to last logo (plus padding)
  * - When disabled, strip spans full image width (edge-to-edge)
+ *
+ * v6.0 Phase 5: CONDITIONAL BACKGROUND RENDERING:
+ * - When renderBackground is false, returns null (no strip background)
+ * - Logos will be placed directly on AI-generated background with drop shadows
+ * - User controls via logoStripMode.enabled flag
  */
 async function createLogoStrip(
   imageWidth: number,
@@ -392,8 +480,15 @@ async function createLogoStrip(
   stripPadding: number = 15, // Reduced from 20px to give more horizontal space for 6 logos
   stripShape: LogoStripShape = DEFAULT_LOGO_STRIP_SHAPE, // NEW v3.11: Strip shape
   stripOpacity: number = 100, // NEW v5.4: Strip opacity 0-100
-  logoBound: boolean = false // NEW v5.4: When true, strip only covers logo area
-): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
+  logoBound: boolean = false, // NEW v5.4: When true, strip only covers logo area
+  renderBackground: boolean = true // NEW v6.0 Phase 5: When false, skip background rendering
+): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number } | null> {
+  // v6.0 Phase 5: Skip background rendering if disabled
+  if (!renderBackground) {
+    console.log('[Logo Strip] Background rendering DISABLED - logos will be placed directly on AI background with drop shadows')
+    return null
+  }
+
   if (logos.length === 0) {
     // Return an empty 1px strip if no logos
     const emptyStrip = await sharp({
@@ -1060,31 +1155,69 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
         const stripShape = config.stripShape || DEFAULT_LOGO_STRIP_SHAPE
         const stripOpacity = config.stripMode?.opacity ?? 100
         const logoBound = config.stripMode?.logoBound ?? false
+        // v6.0 Phase 5: Extract background rendering flag
+        const renderStripBackground = config.stripMode?.enabled ?? true
 
-        const { stripBuffer, stripHeight, stripLeft } = await createLogoStrip(
+        const stripResult = await createLogoStrip(
           imageWidth,
           processedLogos,
           backgroundColor, // Use global background for strip
           paddingPixels,
           stripShape,
           stripOpacity,
-          logoBound
+          logoBound,
+          renderStripBackground // v6.0 Phase 5: Pass background rendering flag
         )
 
-        contentHeight = stripHeight
+        // v6.0 Phase 5: Only composite strip if background was rendered
+        if (stripResult) {
+          const { stripBuffer, stripHeight, stripLeft } = stripResult
+          contentHeight = stripHeight
 
-        // Use topOffset for 'middle', 0 for 'header'
-        // Strip gap: 15px for tight spacing between header and middle strips
-        const stripGap = 15 // Minimal gap between strips (was using paddingPixels ~40px before)
-        const stripY = getStripYPosition(rowName, stripHeight, imageHeight, stripGap, topOffset)
+          // Use topOffset for 'middle', 0 for 'header'
+          // Strip gap: 15px for tight spacing between header and middle strips
+          const stripGap = 15 // Minimal gap between strips (was using paddingPixels ~40px before)
+          const stripY = getStripYPosition(rowName, stripHeight, imageHeight, stripGap, topOffset)
 
-        console.log(`[Logo Overlay] Strip "${rowName}" positioned at Y=${stripY}px, X=${stripLeft}px (gap: ${stripGap}px, opacity: ${stripOpacity}%, logoBound: ${logoBound})`)
+          console.log(`[Logo Overlay] Strip "${rowName}" positioned at Y=${stripY}px, X=${stripLeft}px (gap: ${stripGap}px, opacity: ${stripOpacity}%, logoBound: ${logoBound}, background: ${renderStripBackground ? 'ENABLED' : 'DISABLED'})`)
 
-        compositeOperations.push({
-          input: stripBuffer,
-          top: stripY,
-          left: stripLeft
-        })
+          compositeOperations.push({
+            input: stripBuffer,
+            top: stripY,
+            left: stripLeft
+          })
+        } else {
+          console.log(`[Logo Overlay] Strip "${rowName}" background DISABLED - logos will be composited individually with drop shadows`)
+
+          // v6.0 Phase 5: Composite logos directly on AI background with drop shadows
+          // Calculate positions for each logo in the strip
+          const colWidth = imageWidth / 6
+          const stripGap = 15
+          const stripY = getStripYPosition(rowName, 0, imageHeight, stripGap, topOffset)
+
+          for (const logo of processedLogos) {
+            try {
+              // Add drop shadow to logo
+              const logoWithShadow = await addDropShadowToLogo(logo.buffer)
+              const shadowMeta = await sharp(logoWithShadow).metadata()
+
+              // Calculate column-based X position (centered in column)
+              const columnCenter = (logo.column - 0.5) * colWidth
+              const logoX = Math.floor(columnCenter - (shadowMeta.width || logo.width) / 2)
+              const logoY = stripY
+
+              console.log(`[Logo Overlay] Placing logo "${logo.logoId}" with drop shadow at column ${logo.column} (X=${logoX}px, Y=${logoY}px)`)
+
+              compositeOperations.push({
+                input: logoWithShadow,
+                top: Math.max(0, logoY),
+                left: Math.max(0, logoX)
+              })
+            } catch (error) {
+              console.error(`[Logo Overlay] Error adding drop shadow to logo "${logo.logoId}":`, error)
+            }
+          }
+        }
       }
 
     } else {

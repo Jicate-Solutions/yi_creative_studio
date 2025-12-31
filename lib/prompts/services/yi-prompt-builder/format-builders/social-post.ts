@@ -16,6 +16,11 @@ import {
 } from '../context-helpers'
 import { INSTAGRAM_POST_EXAMPLES } from '../examples' // Social posts use similar patterns
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
@@ -23,7 +28,7 @@ import { getSophistication, getIntegratedZoneContext } from '../helpers/sophisti
 
 
 // ============================================================
-// PLATFORM CONTEXTS
+// PLATFORM CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface PlatformContext {
@@ -34,25 +39,107 @@ interface PlatformContext {
   energy: string
 }
 
-function getPlatformContext(platform: string = 'facebook'): PlatformContext {
-  const contexts: Record<string, PlatformContext> = {
-    facebook: {
-      aspectRatio: '1.91:1 (1200x628) or Square 1:1',
-      viewingContext: 'Facebook feed on desktop and mobile, competing with friend updates and news',
-      style: 'Social, shareable, engaging',
-      colors: 'Vibrant, social, brand-appropriate',
-      energy: 'Friendly, engaging',
-    },
-    twitter: {
-      aspectRatio: '16:9 (1200x675) or Square 1:1',
-      viewingContext: 'Twitter/X timeline, fast-scrolling feed, must capture attention quickly',
-      style: 'Punchy, concise, impactful',
-      colors: 'Bold, contrasty, attention-grabbing',
-      energy: 'Quick, punchy, immediate',
-    },
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildSocialPostContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  platform: string,
+  userColors?: ResolvedColors
+): PlatformContext {
+  const backgroundSetting = designContext.backgroundSetting
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('social_post', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  // Platform-specific aspect ratios
+  const aspectRatio = platform === 'twitter'
+    ? '16:9 (1200x675) or Square 1:1'
+    : '1.91:1 (1200x628) or Square 1:1'
+  const viewingContext = platform === 'twitter'
+    ? 'Twitter/X timeline, fast-scrolling feed, must capture attention quickly'
+    : 'Facebook feed on desktop and mobile, competing with friend updates and news'
+
+  return {
+    aspectRatio,
+    viewingContext,
+    style: `${themeInfo} - ${enhancedBackground}`,
+    colors: userColors ? `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}` : 'Vibrant, social, engaging',
+    energy: designContext.vibeKeywords?.join(', ') || (platform === 'twitter' ? 'Quick, punchy, immediate' : 'Friendly, engaging'),
+  }
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicSocialPostColorContext(
+  platform: string,
+  userColors: ResolvedColors
+): PlatformContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground('social_post', userColors)
+
+  const aspectRatio = platform === 'twitter'
+    ? '16:9 (1200x675) or Square 1:1'
+    : '1.91:1 (1200x628) or Square 1:1'
+  const viewingContext = platform === 'twitter'
+    ? 'Twitter/X timeline, fast-scrolling feed, must capture attention quickly'
+    : 'Facebook feed on desktop and mobile, competing with friend updates and news'
+
+  return {
+    aspectRatio,
+    viewingContext,
+    style: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, social media optimized - ${backgroundSetting}`,
+    colors: `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}`,
+    energy: colorPersonality.energyLevel,
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for Social Post Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getPlatformContext(
+  platform: string = 'facebook',
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): PlatformContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Social Post Context] Using Design Intelligence for ${platform}`)
+    return buildSocialPostContextFromDesignIntelligence(designContext, platform, userColors)
   }
 
-  return contexts[platform] || contexts.facebook
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Social Post Context] Using Color Personality (${userColors.source}) for ${platform}`)
+    return buildDynamicSocialPostColorContext(platform, userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded platform-type visuals)
+  console.log(`[Social Post Context] Using minimal fallback for ${platform}`)
+  const aspectRatio = platform === 'twitter'
+    ? '16:9 (1200x675) or Square 1:1'
+    : '1.91:1 (1200x628) or Square 1:1'
+  const viewingContext = platform === 'twitter'
+    ? 'Twitter/X timeline, fast-scrolling feed, must capture attention quickly'
+    : 'Facebook feed on desktop and mobile, competing with friend updates and news'
+
+  return {
+    aspectRatio,
+    viewingContext,
+    style: 'Professional social media design, shareable, engaging',
+    colors: 'Professional balanced palette optimized for social feeds',
+    energy: 'Balanced, professional, engaging',
+  }
 }
 
 // ============================================================
@@ -65,7 +152,12 @@ export function buildSocialPostPrompt(
   options: EnhancedBuildOptions = {}
 ): string {
   const platform = data.platform || (formatId?.includes('twitter') ? 'twitter' : 'facebook')
-  const platformContext = getPlatformContext(platform)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const platformContext = getPlatformContext(
+    platform,
+    options.resolvedColors,
+    options.designContext
+  )
   const platformName = platform === 'twitter' ? 'Twitter/X' : 'Facebook'
 
   // Build context sections
@@ -160,7 +252,7 @@ Structure:
 - HEADLINE: "${data.postTitle}" - primary message, dominant element
 ${data.postCaption ? `- SUPPORTING: "${data.postCaption}" - smaller supporting text` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
-- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} kept clear for overlay` : 'Subtle brand element in corner'}
+- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} with clean background` : 'Subtle brand element in corner'}
 - BREATHING ROOM: Generous space around all elements
 
 Text Sizing: All text must be readable on mobile phone without zooming
@@ -189,12 +281,12 @@ ${INSTAGRAM_POST_EXAMPLES}
 - SHARE TEST: Would someone share this with friends?
 - ENGAGEMENT TEST: Design encourages likes, shares, comments
 - BRAND TEST: ${options.brandContext ? 'Brand colors properly integrated' : 'Professional social media quality'}
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Tiny text, cluttered composition, low contrast, boring/generic look that blends into feed, too much text (keep concise), thin fonts, busy background under text, hard to read on small screen, muted colors
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

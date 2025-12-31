@@ -131,7 +131,9 @@ export function buildColorPaletteIntent(
     }
   }
 
-  // Fallback to legacy behavior
+  // Fallback to legacy behavior (only reached when no user color selection provided)
+  // v3.10: REMOVED hardcoded scheme color injection - this was overriding user selections
+  // Now we ONLY use brand colors as fallback, never inject hardcoded preset colors
   const colors = {
     primary: brand.primaryColor,
     secondary: brand.secondaryColor,
@@ -139,21 +141,12 @@ export function buildColorPaletteIntent(
     background: brand.backgroundColor,
   }
 
-  // For non-brand schemes, update colors based on scheme
-  if (colorScheme !== 'brand_default') {
-    const schemeColors: Record<string, { primary: string; secondary: string }> = {
-      teal_orange: { primary: '#1B998B', secondary: '#FF6B35' },
-      navy_gold: { primary: '#1E3A5F', secondary: '#D4AF37' },
-      purple_pink: { primary: '#8B5CF6', secondary: '#EC4899' },
-      green_teal: { primary: '#22C55E', secondary: '#14B8A6' },
-      red_orange: { primary: '#EF4444', secondary: '#F97316' },
-    }
+  // NOTE: Previously, lines 143-156 would inject hardcoded scheme colors (teal_orange, navy_gold, etc.)
+  // This has been removed to prevent overriding user color selections.
+  // If specific palette colors are needed, they should come through resolvedColors parameter
+  // or colorConfig.selectedPalette path (lines 112-131) which properly uses COLOR_PALETTES
 
-    if (schemeColors[colorScheme]) {
-      colors.primary = schemeColors[colorScheme].primary
-      colors.secondary = schemeColors[colorScheme].secondary
-    }
-  }
+  console.log(`[Color Narrative] Using fallback brand colors - colorScheme: ${colorScheme}`)
 
   return {
     scheme: colorScheme,
@@ -233,4 +226,66 @@ export function getSchemeContrast(colorScheme: string): 'light' | 'dark' | 'bala
   if (darkSchemes.includes(colorScheme)) return 'dark'
   if (lightSchemes.includes(colorScheme)) return 'light'
   return 'balanced'
+}
+
+/**
+ * Build color description from resolved colors (v5.4)
+ * Use this instead of hardcoded event-type colors
+ *
+ * @param resolvedColors - The resolved color configuration from resolveColorConfig()
+ * @returns A descriptive string like "Deep green (#1c9924), Gold (#f8ff36), White (#f6f6f6)"
+ */
+export function buildColorDescriptionFromResolved(
+  resolvedColors: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }
+): string {
+  const { primaryColor, secondaryColor, accentColor } = resolvedColors
+
+  // Convert hex to descriptive names
+  const primaryName = getColorName(primaryColor)
+  const secondaryName = getColorName(secondaryColor)
+  const accentName = getColorName(accentColor)
+
+  return `${primaryName} (${primaryColor}), ${secondaryName} (${secondaryColor}), ${accentName} (${accentColor})`
+}
+
+/**
+ * Convert hex color to approximate descriptive color name
+ *
+ * @param hex - Hex color code (e.g., "#1c9924")
+ * @returns Descriptive color name (e.g., "Deep green")
+ */
+function getColorName(hex: string): string {
+  // Simple heuristic based on RGB values
+  const rgb = hexToRgb(hex)
+  if (!rgb) return 'custom color'
+
+  const { r, g, b } = rgb
+  const brightness = (r + g + b) / 3
+
+  // Determine dominant channel
+  if (r > g && r > b) return brightness > 128 ? 'Bright red' : 'Deep red'
+  if (g > r && g > b) return brightness > 128 ? 'Bright green' : 'Deep green'
+  if (b > r && b > g) return brightness > 128 ? 'Bright blue' : 'Deep blue'
+  if (r > 200 && g > 200 && b < 100) return 'Gold'
+  if (r > 200 && g > 100 && b < 100) return 'Orange'
+  if (r > 150 && g < 100 && b > 150) return 'Purple'
+  if (brightness > 200) return 'White'
+  if (brightness < 50) return 'Black'
+
+  return 'Custom color'
+}
+
+/**
+ * Convert hex color to RGB values
+ *
+ * @param hex - Hex color code (e.g., "#1c9924")
+ * @returns RGB object with r, g, b values, or null if invalid hex
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null
 }

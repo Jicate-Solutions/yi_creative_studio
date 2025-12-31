@@ -238,6 +238,7 @@ export function buildTypographyContextFromStore(): TypographyContext | null {
     audience,
     brandColors: brandColors.length > 0 ? brandColors : undefined,
     hasSpeakerPhoto,
-    formData,
+    // formData removed - not used by typography prompt builder
+    // (was passing entire Zustand store with non-serializable data)
   }
 }

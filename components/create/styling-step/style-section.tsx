@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   Check,
@@ -23,14 +24,11 @@ import {
   Circle,
   SunMoon,
 } from 'lucide-react'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { POSTER_STYLES } from '@/lib/config/design-constants'
 import type { AIDesignSuggestion } from '@/stores/creative-store'
+
+// Note: Collapsible removed - content is always visible when this section's tab is active
 
 const STYLE_ICONS: Record<string, React.ElementType> = {
   Blend,
@@ -55,7 +53,6 @@ interface StyleSectionProps {
   selectedStyle: string
   onStyleChange: (style: string) => void
   aiSuggestions?: AIDesignSuggestion[]
-  defaultOpen?: boolean
 }
 
 // AI Auto Card for Style
@@ -69,41 +66,58 @@ function AIAutoStyleCard({
   recommendation?: string
 }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.01, translateY: -2 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
+      aria-label={isSelected ? 'AI style selected' : 'Let AI choose the best style'}
+      aria-pressed={isSelected}
       className={cn(
-        'relative w-full p-3 rounded-xl border-2 text-left transition-all duration-200',
-        'hover:shadow-md',
+        'relative w-full p-4 rounded-xl text-left transition-all duration-200',
+        'glass-interactive overflow-hidden group',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isSelected
-          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50 shadow-md'
-          : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 hover:border-purple-300'
+          ? 'ring-2 ring-primary bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 shadow-lg'
+          : 'border-none'
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 relative z-10">
         <div className={cn(
-          'p-2.5 rounded-lg',
+          'p-3 rounded-xl transition-all duration-500',
           isSelected
-            ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-            : 'bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50'
+            ? 'bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20'
+            : 'bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30'
         )}>
-          <Wand2 className={cn('h-5 w-5', isSelected ? 'text-white' : 'text-purple-600 dark:text-purple-400')} />
+          <Wand2 className={cn('h-5 w-5', isSelected ? 'text-white' : 'text-primary dark:text-primary')} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">AI Auto</span>
+            <span className={cn(
+              "font-bold text-sm tracking-tight",
+              isSelected ? "text-primary dark:text-primary" : "text-foreground"
+            )}>
+              {isSelected ? 'AI Selected' : 'Let AI Choose'}
+            </span>
             {isSelected && (
-              <div className="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="w-4 h-4 rounded-full bg-primary flex items-center justify-center"
+              >
                 <Check className="h-2.5 w-2.5 text-white" />
-              </div>
+              </motion.div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground font-medium mt-0.5 opacity-80">
             {recommendation ? `Suggests: ${recommendation}` : 'Let AI choose the best style'}
           </p>
         </div>
-        <Sparkles className="h-4 w-4 text-purple-500 shrink-0" />
+        <Sparkles className={cn(
+          'h-4 w-4 shrink-0 transition-all duration-500',
+          isSelected ? 'text-primary animate-pulse' : 'text-primary/40 group-hover:text-primary'
+        )} />
       </div>
-    </button>
+    </motion.button>
   )
 }
 
@@ -120,21 +134,30 @@ function StylePill({
   const Icon = STYLE_ICONS[style.icon] || Square
 
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onClick}
+      role="option"
+      aria-selected={isSelected}
+      aria-label={`${style.label} style`}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-        'border transition-all duration-200',
-        'hover:scale-[1.02] hover:shadow-sm text-xs font-medium',
+        'flex items-center gap-2 px-4 py-2 rounded-full',
+        'border transition-all duration-200 text-xs font-bold tracking-tight',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isSelected
-          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-          : 'border-border bg-card hover:border-primary/50 hover:bg-accent/50'
+          ? 'border-primary bg-primary text-primary-foreground shadow-lg'
+          : 'glass border-none hover:bg-white/40 dark:hover:bg-white/10'
       )}
     >
-      <Icon className={cn('h-3 w-3', isSelected ? '' : 'text-muted-foreground')} />
+      <Icon className={cn('h-3.5 w-3.5', isSelected ? '' : 'text-muted-foreground')} />
       <span>{style.label}</span>
-      {isSelected && <Check className="h-3 w-3" />}
-    </button>
+      {isSelected && (
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+          <Check className="h-3 w-3" />
+        </motion.div>
+      )}
+    </motion.button>
   )
 }
 
@@ -142,12 +165,8 @@ export function StyleSection({
   selectedStyle,
   onStyleChange,
   aiSuggestions = [],
-  defaultOpen = false,
 }: StyleSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
   const [showAll, setShowAll] = useState(false)
-
-  const aiSuggestedStyleIds = aiSuggestions.map((s) => s.id)
 
   // Show 8 styles by default, all when expanded
   const displayedStyles = showAll ? POSTER_STYLES : POSTER_STYLES.slice(0, 8)
@@ -155,101 +174,84 @@ export function StyleSection({
   // Find selected style label
   const selectedStyleLabel = selectedStyle === 'ai'
     ? 'AI Auto'
-    : POSTER_STYLES.find((s) => s.value === selectedStyle)?.label || 'Select'
+    : POSTER_STYLES.find((s) => s.value === selectedStyle)?.label || 'None'
 
   // Get first AI suggestion label for hint
   const aiRecommendation = aiSuggestions[0]?.label
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="w-full">
-        <div
-          className={cn(
-            'flex items-center justify-between p-4 rounded-xl transition-all',
-            'bg-gradient-to-br from-slate-50/80 to-white/90 dark:from-slate-900/80 dark:to-slate-800/90',
-            'border border-slate-200/50 dark:border-slate-700/50',
-            'hover:shadow-md cursor-pointer',
-            isOpen && 'shadow-sm bg-slate-50/90 dark:bg-slate-800/90'
-          )}
+    <div className="space-y-4">
+      {/* Section Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
+          <Wand2 className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight">Visual Style</h3>
+          <p className="text-xs text-foreground/60">Current: {selectedStyleLabel}</p>
+        </div>
+      </div>
+
+      {/* AI Auto Option - Prominent at top */}
+      <AIAutoStyleCard
+        isSelected={selectedStyle === 'ai'}
+        onClick={() => onStyleChange('ai')}
+        recommendation={aiRecommendation}
+      />
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-2">
+        <div className="flex-1 h-px bg-slate-200/50 dark:bg-slate-700/50" />
+        <span>or choose manually</span>
+        <div className="flex-1 h-px bg-slate-200/50 dark:bg-slate-700/50" />
+      </div>
+
+      {/* Compact Style Pills Grid */}
+      <div className="flex flex-wrap gap-2" role="listbox" aria-label="Available visual styles">
+        {displayedStyles.map((style) => (
+          <StylePill
+            key={style.value}
+            style={style}
+            isSelected={selectedStyle === style.value}
+            onClick={() => onStyleChange(style.value)}
+          />
+        ))}
+      </div>
+
+      {/* See More / Show Less button */}
+      {POSTER_STYLES.length > 8 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="w-full text-muted-foreground hover:text-foreground"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50">
-              <Wand2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div className="text-left">
-              <h3 className="text-sm font-semibold">Visual Style</h3>
-              <p className="text-xs text-muted-foreground">{selectedStyleLabel}</p>
-            </div>
-          </div>
-          <ChevronDown
-            className={cn(
-              'h-5 w-5 text-muted-foreground transition-transform duration-200',
-              isOpen && 'rotate-180'
-            )}
-          />
-        </div>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent className="mt-3">
-        <div className="space-y-3 p-4 rounded-xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/30 dark:border-slate-700/30 backdrop-blur-sm">
-          {/* AI Auto Option - Prominent at top */}
-          <AIAutoStyleCard
-            isSelected={selectedStyle === 'ai'}
-            onClick={() => onStyleChange('ai')}
-            recommendation={aiRecommendation}
-          />
-
-          {/* Divider */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-            <span>or choose manually</span>
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-          </div>
-
-          {/* Compact Style Pills Grid */}
-          <div className="flex flex-wrap gap-2">
-            {displayedStyles.map((style) => (
-              <StylePill
-                key={style.value}
-                style={style}
-                isSelected={selectedStyle === style.value}
-                onClick={() => onStyleChange(style.value)}
-              />
-            ))}
-          </div>
-
-          {/* See More / Show Less button */}
-          {POSTER_STYLES.length > 8 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAll(!showAll)}
-              className="w-full text-muted-foreground hover:text-foreground"
-            >
-              {showAll ? (
-                <>
-                  Show Less
-                  <ChevronDown className="ml-1 h-4 w-4 rotate-180" />
-                </>
-              ) : (
-                <>
-                  +{POSTER_STYLES.length - 8} more styles
-                  <ChevronDown className="ml-1 h-4 w-4" />
-                </>
-              )}
-            </Button>
+          {showAll ? (
+            <>
+              Show Less
+              <ChevronDown className="ml-1 h-4 w-4 rotate-180" />
+            </>
+          ) : (
+            <>
+              +{POSTER_STYLES.length - 8} more styles
+              <ChevronDown className="ml-1 h-4 w-4" />
+            </>
           )}
+        </Button>
+      )}
 
-          {/* Style Description */}
-          {selectedStyle && selectedStyle !== 'ai' && (
-            <div className="p-2.5 rounded-lg bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/30 dark:border-slate-700/30">
-              <p className="text-xs text-muted-foreground">
-                {POSTER_STYLES.find((s) => s.value === selectedStyle)?.description}
-              </p>
-            </div>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+      {/* Style Description */}
+      {selectedStyle && selectedStyle !== 'ai' && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-xl glass border-none shadow-sm dark:bg-white/5"
+        >
+          <p className="text-[11px] text-muted-foreground font-medium leading-relaxed italic opacity-90">
+            {POSTER_STYLES.find((s) => s.value === selectedStyle)?.description}
+          </p>
+        </motion.div>
+      )}
+    </div>
   )
 }

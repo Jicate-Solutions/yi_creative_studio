@@ -5,7 +5,7 @@ import type { LogoPosition } from '@/lib/config/constants'
 import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
-import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape, TypographyConfig } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape, TypographyConfig, SpeakerPhotoCustomization } from '@/lib/config/design-constants'
 import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
 import type { TypographySuggestion } from '@/types/typography-suggestions'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
@@ -955,8 +955,17 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
-      updateCustomization: (customization) =>
-        set((state) => ({
+      updateCustomization: (customization) => {
+        // DIAGNOSTIC: Log speaker photo updates
+        if (customization.speakerPhoto) {
+          console.log('[CREATIVE STORE] Updating speaker photo:', {
+            enabled: customization.speakerPhoto.enabled,
+            speakersCount: customization.speakerPhoto.speakers?.length || 0,
+            speakersWithPhotos: customization.speakerPhoto.speakers?.filter(s => s.photoUrl).length || 0
+          })
+        }
+
+        return set((state) => ({
           formData: {
             ...state.formData,
             designData: {
@@ -964,7 +973,8 @@ export const useCreativeStore = create<CreativeState>()(
               customization: { ...state.formData.designData.customization, ...customization },
             },
           },
-        })),
+        }))
+      },
 
       updateExportSettings: (settings) =>
         set((state) => ({
@@ -1024,6 +1034,9 @@ export const useCreativeStore = create<CreativeState>()(
                 selectedPalette: paletteId,
                 // Clear custom colors when selecting a preset palette
                 customColors: paletteId !== 'custom' ? null : state.formData.designData.colorConfig.customColors,
+                // Auto-disable brand colors for custom/preset palettes
+                // Preserve state for 'ai_auto' (AI mood compatible with brand colors)
+                useBrandColors: paletteId === 'ai_auto' ? state.formData.designData.colorConfig.useBrandColors : false,
               },
             },
           },
@@ -1039,6 +1052,7 @@ export const useCreativeStore = create<CreativeState>()(
                 ...state.formData.designData.colorConfig,
                 selectedPalette: 'custom',
                 customColors: colors,
+                useBrandColors: false, // Auto-disable brand colors when custom colors selected
               },
             },
           },
@@ -1575,12 +1589,16 @@ export const useCreativeStore = create<CreativeState>()(
         recentFormats: state.recentFormats,
         // Persist format ID to restore on load
         selectedFormatId: state.selectedFormat?.id || null,
+        // NOTE: Speaker photo data is intentionally NOT persisted
+        // Users expect fresh state when starting a new session
       }),
       // Rehydrate selectedFormat from persisted ID
       // CRITICAL: Reset all loading states to prevent infinite loading on page reload
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const persistedState = state as CreativeState & { selectedFormatId?: CreativeFormatId | null }
+          const persistedState = state as CreativeState & {
+            selectedFormatId?: CreativeFormatId | null
+          }
           if (persistedState.selectedFormatId) {
             const format = getFormatById(persistedState.selectedFormatId)
             if (format) {

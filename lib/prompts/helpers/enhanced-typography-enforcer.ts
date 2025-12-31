@@ -93,66 +93,28 @@ export function buildEnhancedTypographyPrompt(
     }
   })
 
+  // Build clean typography guidance without structured formatting that AI renders as visible text
+  const heroLevel = hierarchyLevels[0]
+  const headlineLevel = hierarchyLevels[1]
+  const bodyLevel = hierarchyLevels[2]
+  const captionLevel = hierarchyLevels[3]
+
   return `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                     TYPOGRAPHY ENFORCEMENT (STRICT)                          ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+TYPOGRAPHY GUIDANCE:
 
-⚠️  CRITICAL: These typography specifications are MANDATORY and must be followed
-EXACTLY. The AI model MUST NOT deviate from these font size, weight, and
-hierarchy rules. Typography is the PRIMARY vehicle for visual communication.
+Use ${systemSpec.fontFamilies.slice(0, 2).join(' or ')} font families for a ${systemSpec.mood.join(', ')} aesthetic.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 TYPOGRAPHY SYSTEM: ${systemSpec.name}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Text sizing should create clear visual hierarchy: The main headline text should be dramatically larger than all other text, creating an immediate focal point. Secondary headlines should be noticeably smaller than the main headline but still prominent. Body text and details should be comfortable reading size. Caption or footer text should be subtle and small.
 
-Font Families (use these EXACT families):
-  Primary: ${systemSpec.fontFamilies.slice(0, 2).join(', ')}
-  Fallback: ${systemSpec.fontFamilies.slice(2, 4).join(', ') || 'sans-serif'}
+The main headline ${heroLevel ? `(approximately ${heroLevel.pixelSize}px at this resolution)` : ''} must dominate the design visually. Use bold or extra-bold weight for maximum impact.
 
-Mood: ${systemSpec.mood.join(', ')}
-Minimum Contrast Ratio: ${systemSpec.wcagMinimumContrast}:1 (WCAG ${systemSpec.wcagMinimumContrast >= 7 ? 'AAA' : 'AA'})
+Supporting text should use progressively lighter weights and smaller sizes to create clear information hierarchy.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 VISUAL HIERARCHY (EXACT SPECIFICATIONS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ensure all text has strong contrast against its background. Text should be instantly readable - never sacrifice readability for style.
 
-${hierarchyLevels.map((level, index) => `
-${index + 1}. ${level.role.toUpperCase()} TEXT (Visual Weight: ${level.visualWeight}/100)
-   ├─ Size: ${level.pixelSize}px EXACT (at ${width}px width)
-   ├─ Weight: ${level.weight} (${getFontWeightName(level.weight)})
-   ├─ Line Height: ${level.lineHeight}x
-   ├─ Letter Spacing: ${level.letterSpacing}em
-   ├─ Max Characters: ${level.maxChars} chars
-   ├─ Transform: ${level.textTransform}
-   └─ ${getTypographyGuidance(level.role, level.pixelSize, level.weight)}
-`).join('\n')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ TYPOGRAPHY DO's
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${getTypographyDos(formatId).map(rule => `  ✓ ${rule}`).join('\n')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✗ TYPOGRAPHY DON'Ts (ANTI-PATTERNS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${getTypographyAntiPatterns(formatSpec.system).map(pattern => `  ✗ ${pattern}`).join('\n')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📏 SIZE REFERENCE (Visual Scale)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${buildVisualSizeReference(hierarchyLevels)}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎨 FORMAT-SPECIFIC RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${formatSpec.specialRules.map(rule => `  • ${rule}`).join('\n')}
+${formatSpec.specialRules.length > 0 ? `For this format: ${formatSpec.specialRules.join('. ')}.` : ''}
 
 ${hierarchySystem}
-
-⚠️  FINAL REMINDER: Typography is NOT optional styling - it is the PRIMARY
-visual hierarchy tool. The above specifications are MANDATORY and cannot be
-overridden by creative interpretation. Follow them EXACTLY.
 `
 }
 
@@ -163,16 +125,11 @@ function buildFallbackTypographyPrompt(width: number): string {
   const baseSize = Math.round(width / 36) // Roughly 30px for 1080px width
 
   return `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📐 TYPOGRAPHY HIERARCHY (DEFAULT)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TYPOGRAPHY GUIDANCE:
 
-1. HERO TEXT: ${baseSize * 3}px, weight 800, LARGEST element
-2. HEADLINE TEXT: ${baseSize * 2}px, weight 700, secondary emphasis
-3. BODY TEXT: ${baseSize}px, weight 400, readable size
-4. CAPTION TEXT: ${Math.round(baseSize * 0.75)}px, weight 400, supporting info
+Create clear text hierarchy with the main headline being the LARGEST and most prominent element on the design. Secondary text should be noticeably smaller. Details and captions should be the smallest but still readable.
 
-Use bold, modern sans-serif fonts. Ensure high contrast and readability.
+Use bold, modern sans-serif fonts. The main headline should use extra-bold weight for maximum impact. Ensure all text has strong contrast against its background for instant readability.
 `
 }
 
@@ -306,15 +263,7 @@ function getTypographyAntiPatterns(system: TypographySystem): string[] {
   return [...commonAntiPatterns, ...(systemAntiPatterns[system] || [])]
 }
 
-/**
- * Build visual size reference with ASCII art
- */
-function buildVisualSizeReference(levels: any[]): string {
-  return levels.map((level, index) => {
-    const bars = '█'.repeat(Math.min(Math.round((level.visualWeight / 100) * 40), 40))
-    return `  ${level.pixelSize}px │${bars} ${level.role.toUpperCase()}`
-  }).join('\n')
-}
+// buildVisualSizeReference removed - ASCII art confuses AI models
 
 // ============================================================================
 // EXPORT MAIN FUNCTION

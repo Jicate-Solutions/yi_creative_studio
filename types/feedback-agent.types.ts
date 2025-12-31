@@ -377,8 +377,8 @@ export const MAX_FEEDBACK_BATCH_SIZE = 50
 /** Models for each agent mode */
 export const AGENT_MODELS = {
   understand: 'claude-sonnet-4-20250514',
-  analyze: 'claude-haiku-4-5-20251001',
-  prevent: 'claude-haiku-4-5-20251001',
+  analyze: 'claude-haiku-4-5',
+  prevent: 'claude-haiku-4-5',
 } as const
 
 /** Pipeline stage definitions for understanding mode */

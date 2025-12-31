@@ -20,6 +20,11 @@ import {
 } from '../context-helpers'
 import { INSTAGRAM_POST_EXAMPLES } from '../examples'
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import design architecture for ultra-pro quality
 import {
   getScrollStopPromptFragment,
@@ -37,7 +42,7 @@ import { buildEnhancedTypographyPrompt } from '../../../helpers/enhanced-typogra
 import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
-// INSTAGRAM CONTEXTS
+// INSTAGRAM CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface InstagramContext {
@@ -53,71 +58,99 @@ interface InstagramContext {
   energy: string
 }
 
-function getInstagramContext(postType: string = 'announcement'): InstagramContext {
-  const contexts: Record<string, InstagramContext> = {
-    announcement: {
-      layout: 'Centered impact layout with headline as hero',
-      background: 'Vibrant gradient (coral to orange, or brand colors)',
-      visualTreatment: 'Bold, energetic, celebratory feel',
-      style: 'Announcement, exciting, news-worthy',
-      colors: 'Vibrant, saturated, high contrast (coral, orange, or brand palette)',
-      mood: 'Exciting, important, attention-demanding',
-      goal: 'Announce news and generate excitement',
-      headlineStyle: 'extra-bold white, high contrast',
-      ctaStyle: 'button-style, contrasting accent',
-      energy: 'High energy, celebratory',
-    },
-    quote: {
-      layout: 'Quote-centered layout with large quotation marks as design element',
-      background: 'Elegant gradient or solid background (deep purple, navy)',
-      visualTreatment: 'Sophisticated, thoughtful, inspirational',
-      style: 'Inspirational quote, typography-focused',
-      colors: 'Elegant, sophisticated (deep colors with light text)',
-      mood: 'Thoughtful, inspiring, shareable',
-      goal: 'Inspire and encourage sharing',
-      headlineStyle: 'elegant serif or clean sans-serif, centered',
-      ctaStyle: 'subtle, understated',
-      energy: 'Contemplative, inspiring',
-    },
-    educational: {
-      layout: 'Clear hierarchy with numbered or bulleted points if needed',
-      background: 'Clean, professional background',
-      visualTreatment: 'Organized, clear, informative',
-      style: 'Educational, helpful, informative',
-      colors: 'Professional, trustworthy (blues, greens)',
-      mood: 'Helpful, authoritative, valuable',
-      goal: 'Educate and provide value',
-      headlineStyle: 'bold sans-serif, professional',
-      ctaStyle: 'clear, action-oriented',
-      energy: 'Informative, helpful',
-    },
-    promotional: {
-      layout: 'Product/offer focused with clear CTA',
-      background: 'Bold, commercial, attention-grabbing',
-      visualTreatment: 'Sales-oriented, urgent, compelling',
-      style: 'Promotional, sale, marketing',
-      colors: 'Bold, contrasting, commercial (red accents for urgency)',
-      mood: 'Urgent, valuable, action-driving',
-      goal: 'Drive clicks and conversions',
-      headlineStyle: 'impact bold, urgency colors',
-      ctaStyle: 'prominent button, contrasting',
-      energy: 'Urgent, action-driving',
-    },
-    motivational: {
-      layout: 'Inspiring visual with overlaid text',
-      background: 'Uplifting gradient or inspiring imagery suggestion',
-      visualTreatment: 'Positive, uplifting, empowering',
-      style: 'Motivational, inspiring',
-      colors: 'Warm, uplifting (sunrise colors, optimistic palette)',
-      mood: 'Empowering, positive, shareable',
-      goal: 'Motivate and inspire engagement',
-      headlineStyle: 'bold inspiring, warm colors',
-      ctaStyle: 'encouraging, positive',
-      energy: 'Uplifting, empowering',
-    },
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildInstagramContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): InstagramContext {
+  const backgroundSetting = designContext.backgroundSetting || 'Eye-catching, vibrant background'
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('instagram_post', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    layout: 'Square 1:1 scroll-stop layout optimized for mobile feed',
+    background: enhancedBackground,
+    visualTreatment: designContext.visualElements?.join(', ') || 'Eye-catching, scroll-stopping, engaging',
+    style: themeInfo,
+    colors: userColors ? `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}` : 'Vibrant, saturated, high contrast for mobile feed',
+    mood: designContext.moodDirection || 'Engaging, scroll-stopping, shareable',
+    goal: 'Stop the scroll and drive engagement',
+    headlineStyle: designContext.typographyGuidance?.headlineStyle || 'extra-bold sans-serif, high contrast',
+    ctaStyle: 'button-style or highlighted, mobile-optimized',
+    energy: designContext.vibeKeywords?.join(', ') || 'High energy, attention-grabbing',
+  }
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicInstagramColorContext(
+  postType: string,
+  userColors: ResolvedColors
+): InstagramContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground(postType, userColors)
+
+  return {
+    layout: 'Square 1:1 scroll-stop layout optimized for mobile feed',
+    background: backgroundSetting,
+    visualTreatment: `${colorPersonality.visualElements}, mobile-optimized, scroll-stopping`,
+    style: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, social media optimized`,
+    colors: `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}`,
+    mood: `${colorPersonality.primaryMood}, engaging, shareable`,
+    goal: 'Stop the scroll and drive engagement',
+    headlineStyle: 'extra-bold sans-serif, high contrast for mobile',
+    ctaStyle: 'button-style, mobile-friendly',
+    energy: colorPersonality.energyLevel,
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for Instagram Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getInstagramContext(
+  postType: string = 'announcement',
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): InstagramContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Instagram Context] Using Design Intelligence for ${postType}`)
+    return buildInstagramContextFromDesignIntelligence(designContext, userColors)
   }
 
-  return contexts[postType] || contexts.announcement
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Instagram Context] Using Color Personality (${userColors.source}) for ${postType}`)
+    return buildDynamicInstagramColorContext(postType, userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded post-type visuals)
+  console.log(`[Instagram Context] Using minimal fallback for ${postType}`)
+  return {
+    layout: 'Square 1:1 scroll-stop layout optimized for mobile feed',
+    background: 'Clean professional design environment with balanced composition - mobile-optimized for Instagram feed',
+    visualTreatment: 'Professional, engaging, scroll-stopping',
+    style: 'Professional social media design, versatile, modern',
+    colors: 'Professional balanced palette optimized for mobile screens',
+    mood: 'Professional, engaging, shareable',
+    goal: 'Stop the scroll and communicate message clearly',
+    headlineStyle: 'bold sans-serif, high contrast for mobile readability',
+    ctaStyle: 'clear, action-oriented, mobile-friendly',
+    energy: 'Balanced, professional, engaging',
+  }
 }
 
 // ============================================================
@@ -128,7 +161,12 @@ export function buildInstagramPrompt(
   data: InstagramFormData,
   options: EnhancedBuildOptions = {}
 ): string {
-  const postContext = getInstagramContext(data.postType)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const postContext = getInstagramContext(
+    data.postType,
+    options.resolvedColors,
+    options.designContext
+  )
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
@@ -259,7 +297,7 @@ Structure:
 - HEADLINE: "${data.postTitle}" - LARGE, BOLD, instantly readable on phone screen
 ${data.postCaption ? `- SUPPORTING TEXT: "${data.postCaption}" - smaller but still readable on mobile` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
-- LOGO ZONE: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} integrated overlay` : 'Small brand element'}
+- LOGO AREA: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} with clean background` : 'Small brand element'}
 - BREATHING ROOM: Generous white/negative space - NOT cramped
 
 Text Sizing Rule: All text must be readable on a phone screen WITHOUT zooming
@@ -291,12 +329,12 @@ ${INSTAGRAM_POST_EXAMPLES}
 - CLARITY TEST: Single clear focal point, not cluttered
 - ENGAGEMENT TEST: Design encourages like/comment/share
 - BRAND TEST: ${options.brandContext ? 'Brand colors properly integrated' : 'Professional, polished look'}
-${options.logoAwareness?.hasLogo ? '- Logo area clean and ready for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Tiny text requiring zoom, cluttered composition with multiple competing elements, low contrast (text hard to read), boring/generic look that blends into feed, thin/light fonts that disappear, too much text (keep headline under 10 words), busy background under text, muted/dull colors that don't pop
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 Platform Anti-Patterns: ${antiPatterns.slice(0, 5).join(', ')}
 </constraints>
 

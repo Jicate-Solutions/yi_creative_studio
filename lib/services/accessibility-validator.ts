@@ -47,6 +47,7 @@ function calculateAccessibilityScore(checks: AccessibilityCheck[]): number {
 
 /**
  * Determine highest WCAG level achieved
+ * Fixed: Now checks both contrast AND typography for AAA compliance
  */
 function determineWCAGLevel(checks: AccessibilityCheck[]): WCAGLevel {
   const criticalFailures = checks.filter(c => c.status === 'fail' && c.impact === 'critical')
@@ -55,17 +56,26 @@ function determineWCAGLevel(checks: AccessibilityCheck[]): WCAGLevel {
   // Any critical failures = no compliance
   if (criticalFailures.length > 0) return null
 
-  // Check if all contrast checks meet AAA
+  // For AAA: Check BOTH contrast AND typography
   const contrastChecks = checks.filter(c => c.category === 'contrast')
-  const allAAA = contrastChecks.every(c =>
+  const typographyChecks = checks.filter(c => c.category === 'typography')
+
+  const allContrastAAA = contrastChecks.every(c =>
     c.status === 'pass' && c.wcagCriterion.includes('Enhanced')
   )
 
-  if (allAAA && seriousFailures.length === 0) return 'AAA'
+  // Typography must also pass for AAA
+  const allTypographyPass = typographyChecks.every(c => c.status === 'pass')
 
-  // Check if all meet AA
-  const allAA = contrastChecks.every(c => c.status === 'pass')
-  if (allAA && seriousFailures.length === 0) return 'AA'
+  if (allContrastAAA && allTypographyPass && seriousFailures.length === 0) {
+    return 'AAA'
+  }
+
+  // For AA: Check if all contrast and typography meet AA standards
+  const allContrastAA = contrastChecks.every(c => c.status === 'pass')
+  if (allContrastAA && allTypographyPass && seriousFailures.length === 0) {
+    return 'AA'
+  }
 
   return null
 }

@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { useCreativeStore } from '@/stores/creative-store'
 import { useVerticals, useAIModels, useLogos, useCredits, useOnlineStatus } from '@/hooks'
 import { useEventSuggestions } from '@/hooks/use-event-suggestions'
+import { useSSEGeneration } from '@/hooks/use-sse-generation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import type { TablesInsert, Json, BrandConfig } from '@/types/database.types'
@@ -136,53 +137,58 @@ const DynamicDetailsForm = dynamic(
   { loading: () => <ComponentLoadingSkeleton type="design" /> }
 )
 
+const ProgressiveLoadingUI = dynamic(
+  () => import('@/components/create/progressive-loading-ui').then(mod => ({ default: mod.ProgressiveLoadingUI })),
+  { ssr: false }
+)
+
 // Loading skeleton for dynamically imported components
 function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'template' | 'mode' | 'design' | 'upload' }) {
-  const skeletonClasses = "animate-pulse bg-muted rounded-lg"
+  const skeletonClasses = "animate-pulse bg-muted/60 rounded-xl transition-colors"
 
-  switch (type) {
-    case 'preview':
-      return (
+  return (
+    <div role="status" aria-label="Loading content" className="w-full">
+      <span className="sr-only">Loading...</span>
+      {type === 'preview' && (
         <div className="space-y-4">
           <div className={`${skeletonClasses} aspect-[3/4] w-full`} />
           <div className={`${skeletonClasses} h-10 w-full`} />
         </div>
-      )
-    case 'template':
-      return (
+      )}
+      {type === 'template' && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`${skeletonClasses} aspect-[3/4]`} />
           ))}
         </div>
-      )
-    case 'mode':
-      return (
+      )}
+      {type === 'mode' && (
         <div className="grid grid-cols-2 gap-4">
-          <div className={`${skeletonClasses} h-40`} />
-          <div className={`${skeletonClasses} h-40`} />
+          <div className={`${skeletonClasses} h-40 rounded-2xl`} />
+          <div className={`${skeletonClasses} h-40 rounded-2xl`} />
         </div>
-      )
-    case 'design':
-      return (
+      )}
+      {type === 'design' && (
         <div className="space-y-4">
           <div className={`${skeletonClasses} h-12 w-full`} />
           <div className={`${skeletonClasses} h-64 w-full`} />
         </div>
-      )
-    case 'grid':
-      return (
+      )}
+      {type === 'grid' && (
         <div className="grid grid-cols-3 gap-2">
           {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className={`${skeletonClasses} aspect-square`} />
           ))}
         </div>
-      )
-    case 'upload':
-      return <div className={`${skeletonClasses} h-32 w-full`} />
-    default:
-      return <div className={`${skeletonClasses} h-24 w-full`} />
-  }
+      )}
+      {type === 'upload' && (
+        <div className={`${skeletonClasses} h-32 w-full`} />
+      )}
+      {!['preview', 'template', 'mode', 'design', 'grid', 'upload'].includes(type) && (
+        <div className={`${skeletonClasses} h-24 w-full`} />
+      )}
+    </div>
+  )
 }
 
 import { ROUTES } from '@/lib/config/constants'
@@ -210,6 +216,7 @@ const DEFAULT_SPEAKER_PHOTO: SpeakerPhotoCustomization = {
   verticalPosition: 'lower',
   border: { width: 2, color: '#FFFFFF' },
   shadow: true,
+  speakers: [], // FIX #3: Include speakers array to prevent update bugs
 }
 
 // Step definitions - Details moved before Styling so AI theme suggestions have event context
@@ -228,11 +235,29 @@ export default function CreatePage() {
   const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user } = useAuthStore()
 
+  // Feature flag: Enable streaming for progressive UI
+  const STREAMING_ENABLED = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true'
+
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
   const { models, selectedModel, selectModel, getModelCost } = useAIModels()
   const { logos, fetchLogos } = useLogos()
   const { canAfford, deductCredits, balance: creditsBalance } = useCredits()
   const { isOnline } = useOnlineStatus()
+
+  // SSE Streaming hook (Phase 2 optimization)
+  const streaming = useSSEGeneration({
+    onComplete: (result) => {
+      setGeneratedImage(result.finalImageUrl)
+      setCreativeId(result.creativeId)
+      setGenerating(false)
+      toast.success('Creative generated successfully!')
+    },
+    onError: (error) => {
+      setGenerationError(error.message)
+      setGenerating(false)
+      toast.error('Generation failed: ' + error.message)
+    },
+  })
 
   const {
     formData,
@@ -656,6 +681,24 @@ export default function CreatePage() {
         }),
       }
 
+      // FIX #3: PRE-API diagnostic - Show EXACT speaker photo data being sent to API
+      console.log('[CREATE PAGE] PRE-API Speaker Diagnostic:', {
+        fromDesignData: formData.designData?.customization?.speakerPhoto?.speakers?.map(s => ({
+          id: s.id,
+          name: s.name,
+          designation: s.designation,
+          hasPhotoUrl: !!s.photoUrl,
+          photoUrlPrefix: s.photoUrl?.substring(0, 50) || 'NONE',
+          photoUrlLength: s.photoUrl?.length || 0
+        })),
+        fromUserFormData: enrichedFormData.speakers?.map(s => ({
+          name: s.name,
+          designation: s.designation,
+          hasPhotoUrl: !!s.photoUrl,
+          photoUrlLength: s.photoUrl?.length || 0
+        }))
+      })
+
       // Call generation API with format info
       const formatDimensions = getFormatDimensions()
 
@@ -670,33 +713,54 @@ export default function CreatePage() {
         speakerPhotoSpeakers: formData.designData?.customization?.speakerPhoto?.speakers?.length || 0
       })
 
+      // SAFETY NET: Ensure speaker photos are enabled if speakers have photos
+      // This catches cases where the MultiSpeakerInput component didn't auto-enable
+      const speakerPhoto = formData.designData?.customization?.speakerPhoto
+      if (speakerPhoto?.speakers && speakerPhoto.speakers.some(s => s.photoUrl)) {
+        if (!speakerPhoto.enabled) {
+          console.log('[CREATE PAGE] Auto-enabling speaker photos (fallback check)', {
+            speakersWithPhotos: speakerPhoto.speakers.filter(s => s.photoUrl).length
+          })
+          formData.designData.customization.speakerPhoto.enabled = true
+        }
+      }
+
+      // === PHASE 2: STREAMING vs LEGACY GENERATION ===
+      // Use SSE streaming if feature flag enabled, otherwise use legacy endpoint
+      const generationPayload = {
+        prompt,
+        model: modelToUse.model_id,
+        provider: modelToUse.provider,
+        verticalSlug: selectedVertical.slug,
+        logosPlacements: optimizedPlacements,
+        logoBackgroundColor: formData.logoBackgroundColor,
+        logoStripMode: formData.logoStripMode,
+        organizationId: currentOrganization.id,
+        templateId: selectedTemplate?.id || null,
+        templateUrl: selectedTemplate?.image_url || null,
+        creationMode: formData.creationMode,
+        designData: formData.creationMode === 'scratch'
+          ? formData.designData
+          : { customization: { speakerPhoto: formData.designData?.customization?.speakerPhoto } },
+        formatId: formData.formatId || null,
+        customDimensions: formData.customDimensions || null,
+        language: formData.formData?.language || 'en',
+        userFormData: enrichedFormData,
+      }
+
+      if (STREAMING_ENABLED) {
+        // === PHASE 2: SSE STREAMING (Progressive UI) ===
+        console.log('[Create] Using SSE streaming generation')
+        await streaming.startGeneration({ formData: generationPayload })
+        // Note: onComplete callback will handle setGeneratedImage and save to DB
+        return // Exit early - streaming handles the rest
+      }
+
+      // === LEGACY: Traditional generation (fallback) ===
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          model: modelToUse.model_id,
-          provider: modelToUse.provider,
-          verticalSlug: selectedVertical.slug,
-          logosPlacements: optimizedPlacements, // User's positions (or auto-optimized if not locked)
-          logoBackgroundColor: formData.logoBackgroundColor, // Global background color for logo backgrounds
-          logoStripMode: formData.logoStripMode, // Unified strip layout mode
-          organizationId: currentOrganization.id,
-          templateId: selectedTemplate?.id || null,
-          templateUrl: selectedTemplate?.image_url || null,
-          // Include design data for scratch mode, or just speaker photo for template mode
-          creationMode: formData.creationMode,
-          designData: formData.creationMode === 'scratch'
-            ? formData.designData
-            : { customization: { speakerPhoto: formData.designData?.customization?.speakerPhoto } },
-          // Include format info for proper dimensions
-          formatId: formData.formatId || null,
-          customDimensions: formData.customDimensions || null,
-          // Language selection (PRD Section 10.2)
-          language: formData.formData?.language || 'en',
-          // Pass enriched form data with organization name from branding
-          userFormData: enrichedFormData,
-        }),
+        body: JSON.stringify(generationPayload),
       })
 
       const data = await response.json()
@@ -1289,11 +1353,13 @@ export default function CreatePage() {
                       onDismissAllSuggestions={dismissAllSuggestions}
                       // Speaker photo integration into Speaker Details section
                       speakerPhotoValue={formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO}
-                      onSpeakerPhotoChange={(data) =>
-                        updateCustomization({
-                          speakerPhoto: { ...(formData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
+                      onSpeakerPhotoChange={(data) => {
+                        // Read LATEST state directly from Zustand (not stale closure)
+                        const { formData: currentFormData } = useCreativeStore.getState()
+                        return updateCustomization({
+                          speakerPhoto: { ...(currentFormData.designData?.customization?.speakerPhoto || DEFAULT_SPEAKER_PHOTO), ...data },
                         })
-                      }
+                      }}
                     />
 
                     {/* Footer Settings - Format Aware (Speaker Photo is now in Speaker Details section) */}
@@ -1329,9 +1395,12 @@ export default function CreatePage() {
                                   <Label>Footer Style</Label>
                                   <Select
                                     value={formData.designData?.customization?.footer?.style || 'minimal'}
-                                    onValueChange={(v) => updateCustomization({
-                                      footer: { ...(formData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
-                                    })}
+                                    onValueChange={(v) => {
+                                      const { formData: currentFormData } = useCreativeStore.getState()
+                                      return updateCustomization({
+                                        footer: { ...(currentFormData.designData?.customization?.footer || {}), style: v as 'minimal' | 'full' | 'branded' }
+                                      })
+                                    }}
                                   >
                                     <SelectTrigger>
                                       <SelectValue />
@@ -1349,8 +1418,10 @@ export default function CreatePage() {
                                   const footerData = formData.designData?.customization?.footer || {}
 
                                   const updateFooterField = (field: string, value: string | boolean | object) => {
+                                    const { formData: currentFormData } = useCreativeStore.getState()
+                                    const currentFooterData = currentFormData.designData?.customization?.footer || {}
                                     updateCustomization({
-                                      footer: { ...footerData, [field]: value }
+                                      footer: { ...currentFooterData, [field]: value }
                                     })
                                   }
 
@@ -1755,20 +1826,32 @@ export default function CreatePage() {
                               </div>
                             </>
                           ) : isGenerating ? (
-                            <div className="flex flex-col items-center justify-center p-6">
-                              <div className="relative">
-                                <Skeleton className="w-12 h-12 rounded-full" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                            STREAMING_ENABLED ? (
+                              /* Phase 2: Progressive Loading UI with real-time updates */
+                              <div className="p-6">
+                                <ProgressiveLoadingUI
+                                  currentStage={streaming.currentStage}
+                                  progress={streaming.progress}
+                                  stageData={streaming.stageData}
+                                />
+                              </div>
+                            ) : (
+                              /* Legacy: Binary loading state (fallback) */
+                              <div className="flex flex-col items-center justify-center p-6">
+                                <div className="relative">
+                                  <Skeleton className="w-12 h-12 rounded-full" />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                                  </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-3">Generating...</p>
+                                <div className="flex gap-1 mt-2">
+                                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-3">Generating...</p>
-                              <div className="flex gap-1 mt-2">
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
-                              </div>
-                            </div>
+                            )
                           ) : generationError ? (
                             <div className="flex flex-col items-center justify-center p-6">
                               <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
@@ -1805,19 +1888,16 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Footer Navigation - Fixed at bottom with premium glass effect */}
+          {/* Footer Navigation - Fixed at bottom */}
           {(step !== 7 || !generatedImage) && (
             <div className={cn(
               "fixed bottom-0 left-0 right-0 z-40",
-              // Desktop: Floating card with margins matching sidebar
-              "md:left-[17rem] md:bottom-4 md:right-4 md:rounded-2xl",
-              // Glass morphism background (matches sidebar)
-              "bg-white/70 dark:bg-slate-900/70",
-              "backdrop-blur-xl",
+              // Desktop: Adjust for sidebar (w-64 = 16rem)
+              "md:left-64",
+              // Clean solid background matching theme
+              "bg-background",
               // Border styling
-              "border-t md:border border-white/30 dark:border-white/10",
-              // Premium shadow
-              "shadow-[0_-8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+              "border-t border-border"
             )}>
               <div className="container py-3 md:py-4">
                 <div className="flex items-center justify-between">

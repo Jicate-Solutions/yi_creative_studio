@@ -19,6 +19,11 @@ import {
 } from '../context-helpers'
 import { PRESENTATION_EXAMPLES } from '../examples'
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
@@ -62,7 +67,7 @@ function getAspectRatioContext(aspectRatio?: string): AspectRatioContext {
 }
 
 // ============================================================
-// PRESENTATION TYPE CONTEXTS (v3.1)
+// PRESENTATION TYPE CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface PresentationTypeContext {
@@ -72,40 +77,81 @@ interface PresentationTypeContext {
   typographyAdvice: string
 }
 
-function getPresentationTypeContext(presentationType?: string): PresentationTypeContext {
-  const typeContexts: Record<string, PresentationTypeContext> = {
-    corporate: {
-      mood: 'Professional, trustworthy, business-appropriate',
-      visualStyle: 'Clean, minimal, corporate polish',
-      colorAdvice: 'Brand colors, navy blues, professional palette',
-      typographyAdvice: 'Clean sans-serif, professional weights',
-    },
-    keynote: {
-      mood: 'Inspiring, visionary, executive presence',
-      visualStyle: 'Bold, impactful, memorable',
-      colorAdvice: 'High contrast, dramatic darks with bright accents',
-      typographyAdvice: 'Large bold titles, cinematic feel',
-    },
-    academic: {
-      mood: 'Scholarly, credible, research-focused',
-      visualStyle: 'Clean, organized, data-friendly',
-      colorAdvice: 'Traditional academic colors, muted professional tones',
-      typographyAdvice: 'Clear hierarchy, readable at distance',
-    },
-    workshop: {
-      mood: 'Engaging, interactive, practical',
-      visualStyle: 'Friendly, approachable, not intimidating',
-      colorAdvice: 'Warm, inviting colors with good contrast',
-      typographyAdvice: 'Friendly but professional fonts',
-    },
-    pitch: {
-      mood: 'Confident, compelling, investment-worthy',
-      visualStyle: 'Modern, startup aesthetic, clean',
-      colorAdvice: 'Bold accent on dark or white, startup-appropriate',
-      typographyAdvice: 'Modern sans-serif, confident weights',
-    },
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildPresentationContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): PresentationTypeContext {
+  const backgroundSetting = designContext.backgroundSetting
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('presentation_slide', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    mood: designContext.moodDirection || 'Professional, impactful, presentation-ready',
+    visualStyle: `${themeInfo} - ${enhancedBackground} - Projection-optimized with high contrast`,
+    colorAdvice: userColors ? `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, high contrast for projection` : 'Professional palette with high contrast for projection',
+    typographyAdvice: designContext.typographyGuidance?.headlineStyle || 'Large bold titles readable from distance, minimum 24pt equivalent for all text',
   }
-  return typeContexts[presentationType || 'corporate'] || typeContexts.corporate
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicPresentationColorContext(
+  presentationType: string,
+  userColors: ResolvedColors
+): PresentationTypeContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground('presentation_slide', userColors)
+
+  return {
+    mood: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, professional presentation`,
+    visualStyle: `${backgroundSetting} - ${colorPersonality.visualElements} - High contrast for projection`,
+    colorAdvice: `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, optimized for projection with high contrast`,
+    typographyAdvice: 'Large bold titles readable from back of room, professional weights',
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for Presentation Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getPresentationTypeContext(
+  presentationType?: string,
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): PresentationTypeContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Presentation Context] Using Design Intelligence for ${presentationType}`)
+    return buildPresentationContextFromDesignIntelligence(designContext, userColors)
+  }
+
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Presentation Context] Using Color Personality (${userColors.source}) for ${presentationType}`)
+    return buildDynamicPresentationColorContext(presentationType || 'corporate', userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded presentation-type visuals)
+  console.log(`[Presentation Context] Using minimal fallback for ${presentationType}`)
+  return {
+    mood: 'Professional, impactful, presentation-ready',
+    visualStyle: 'Clean professional presentation design with high contrast for projection',
+    colorAdvice: 'Professional palette with high contrast - optimized for large screens and projectors',
+    typographyAdvice: 'Large bold titles readable from distance, minimum 24pt equivalent for all text',
+  }
 }
 
 // ============================================================
@@ -118,7 +164,12 @@ export function buildPresentationPrompt(
 ): string {
   // Get aspect ratio and type contexts (v3.1)
   const aspectContext = getAspectRatioContext(data.aspectRatio)
-  const typeContext = getPresentationTypeContext(options.contentType)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const typeContext = getPresentationTypeContext(
+    options.contentType,
+    options.resolvedColors,
+    options.designContext
+  )
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
@@ -211,9 +262,9 @@ Aspect Ratio Note: ${aspectContext.layoutAdvice}
 Structure:
 - TITLE: "${data.presentationTitle}" - dominant central element (LARGEST, readable from 30+ feet)
 ${data.subtitle ? `- SUBTITLE: "${data.subtitle}" - below title, lighter weight` : ''}
-${data.presenterName ? `- PRESENTER: "${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}" - lower section${options.speakerPhotoConfig?.enabled ? ' (with photo zone)' : ' (TEXT ONLY)'}` : ''}
+${data.presenterName ? `- PRESENTER: "${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}" - lower section${options.speakerPhotoConfig?.enabled ? ' with clean background for photo' : ' (TEXT ONLY)'}` : ''}
 ${data.eventName ? `- EVENT: "${data.eventName}${data.presentationDate ? ' | ' + data.presentationDate : ''}" - bottom` : ''}
-- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'Organization logo in corner'}
+- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (clean background)` : 'Organization logo in corner'}
 - SAFE MARGINS: 5% on all sides (for projector cropping)
 
 Background: ${options.designContext?.backgroundSetting || data.backgroundStyle || 'Professional dark gradient (deep blue, charcoal)'} suitable for projection
@@ -250,14 +301,14 @@ ${PRESENTATION_EXAMPLES}
 - CLEAN TEST: Not cluttered, focused on essential info
 - TONE TEST: Sets appropriate ${typeContext.mood.toLowerCase()} tone for presentation
 - ASPECT TEST: Optimized for ${data.aspectRatio || '16:9'} ${aspectContext.name} format
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly integrated' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Tiny text (under 24pt equivalent), low contrast (gray on gray, etc.), cluttered design, too much information on title slide, busy backgrounds, hard to read from distance, animation suggestions (static image only)
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
-${data.presenterName && !options.speakerPhotoConfig?.enabled ? `IMPORTANT - NO PRESENTER PLACEHOLDER: The presenter "${data.presenterName}" appears as TEXT ONLY. DO NOT create any circular frames, photo placeholders, person silhouettes, or visual representation of a person. Render only the name and title as text.` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
+${data.presenterName && !options.speakerPhotoConfig?.enabled ? `The presenter "${data.presenterName}" appears as TEXT ONLY. Do not draw circular frames, silhouettes, or visual representation of a person. Render only the name and title as text.` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

@@ -61,20 +61,110 @@ CREATE TRIGGER trigger_update_accessibility_metrics
   FOR EACH ROW
   EXECUTE FUNCTION update_accessibility_metrics();
 
--- Add RLS policies for accessibility data (if RLS is enabled)
--- Note: Adjust these based on your existing RLS setup
+-- Add RLS policies for accessibility data
+-- Accessibility columns are part of creatives table, so they inherit creatives RLS policies
+-- This section verifies RLS is properly configured
 
--- Allow users to view accessibility reports for their organization's creatives
 DO $$
 BEGIN
+  -- Check if RLS is enabled on creatives table
   IF EXISTS (
+    SELECT 1 FROM pg_tables
+    WHERE schemaname = 'public'
+    AND tablename = 'creatives'
+    AND rowsecurity = true
+  ) THEN
+    -- Verify required policies exist
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+      AND tablename = 'creatives'
+      AND (policyname LIKE '%select%' OR policyname LIKE '%view%')
+    ) THEN
+      RAISE EXCEPTION 'RLS is enabled on creatives but no SELECT/VIEW policies found. Accessibility data may be exposed!';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+      AND tablename = 'creatives'
+      AND (policyname LIKE '%insert%' OR policyname LIKE '%create%')
+    ) THEN
+      RAISE WARNING 'No INSERT policies found on creatives table. Users may not be able to create accessibility reports.';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+      AND tablename = 'creatives'
+      AND policyname LIKE '%update%'
+    ) THEN
+      RAISE WARNING 'No UPDATE policies found on creatives table. Users may not be able to update accessibility reports.';
+    END IF;
+
+    RAISE NOTICE 'RLS policies verified - accessibility data will use existing creative access policies';
+  ELSE
+    RAISE WARNING 'RLS is NOT enabled on creatives table! Accessibility data is not protected by row-level security.';
+  END IF;
+END $$;
+
+-- Additional policy verification: Ensure organization_members access pattern
+-- This creates policies if they don't exist (following the logo_presets pattern)
+DO $$
+BEGIN
+  -- Only create policies if RLS is enabled but policies are missing
+  IF EXISTS (
+    SELECT 1 FROM pg_tables
+    WHERE schemaname = 'public'
+    AND tablename = 'creatives'
+    AND rowsecurity = true
+  ) AND NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
     AND tablename = 'creatives'
-    AND policyname = 'Users can view their organization creatives'
   ) THEN
-    -- RLS is enabled, accessibility data inherits existing policies
-    RAISE NOTICE 'RLS policies detected - accessibility data will use existing creative access policies';
+    -- Create basic organization-based policies for creatives
+    CREATE POLICY "creatives_select" ON creatives
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = (SELECT auth.uid())
+          AND organization_members.organization_id = creatives.organization_id
+        )
+      );
+
+    CREATE POLICY "creatives_insert" ON creatives
+      FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = (SELECT auth.uid())
+          AND organization_members.organization_id = creatives.organization_id
+        )
+      );
+
+    CREATE POLICY "creatives_update" ON creatives
+      FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = (SELECT auth.uid())
+          AND organization_members.organization_id = creatives.organization_id
+        )
+      );
+
+    CREATE POLICY "creatives_delete" ON creatives
+      FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM organization_members
+          WHERE organization_members.user_id = (SELECT auth.uid())
+          AND organization_members.organization_id = creatives.organization_id
+        )
+      );
+
+    RAISE NOTICE 'Created RLS policies for creatives table (includes accessibility columns)';
   END IF;
 END $$;
 

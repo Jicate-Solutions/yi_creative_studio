@@ -212,6 +212,15 @@ export function buildPromptIntent(params: GeneratePromptParams): PromptIntent {
     creativeTemplate,
     // Pass through logo awareness for Smart Layout
     logoAwareness: params.logoAwareness,
+    // Build speaker context for background suppression
+    // v6.5: Include position and shape for zone-specific restrictions
+    speakerContext: params.speakerPhotoConfig?.enabled ? {
+      hasSpeakerPhoto: true,
+      count: 1,
+      layout: 'single' as const,
+      speakerPhotoPosition: (params.speakerPhotoConfig.position || 'left') as 'left' | 'right' | 'center' | 'bottom-left' | 'bottom-right',
+      speakerPhotoShape: (params.speakerPhotoConfig.shape || 'circle') as 'circle' | 'rounded' | 'square'
+    } : undefined
   }
 
   return intent

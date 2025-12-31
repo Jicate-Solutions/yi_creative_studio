@@ -70,54 +70,69 @@ export function StylingStep({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 px-0">
+      <CardContent className="space-y-4">
         <Tabs defaultValue="theme" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start h-12 p-1 bg-muted/20 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl mb-6">
-            <TabsTrigger value="theme" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-              <span className="flex items-center gap-2">
-                <Layers className="h-4 w-4" />
-                Theme
+          {/* Responsive tabs with horizontal scroll on mobile, focus states for accessibility */}
+          <TabsList className="w-full justify-start h-12 p-1 glass-inset border-none rounded-xl mb-6 overflow-x-auto scrollbar-hide flex-nowrap">
+            <TabsTrigger
+              value="theme"
+              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            >
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <Layers className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Theme</span>
               </span>
             </TabsTrigger>
-            <TabsTrigger value="colors" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-              <span className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                Colors
+            <TabsTrigger
+              value="colors"
+              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            >
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <Palette className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Colors</span>
               </span>
             </TabsTrigger>
-            <TabsTrigger value="style" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-              <span className="flex items-center gap-2">
-                <Wand2 className="h-4 w-4" />
-                Style
+            <TabsTrigger
+              value="style"
+              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            >
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <Wand2 className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Style</span>
               </span>
             </TabsTrigger>
-            <TabsTrigger value="typography" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-              <span className="flex items-center gap-2">
-                <Type className="h-4 w-4" />
-                Type
+            <TabsTrigger
+              value="typography"
+              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            >
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <Type className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Type</span>
               </span>
             </TabsTrigger>
-            <TabsTrigger value="quality" className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-              <span className="flex items-center gap-2">
-                <MonitorPlay className="h-4 w-4" />
-                Output
+            <TabsTrigger
+              value="quality"
+              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            >
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <MonitorPlay className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Output</span>
               </span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="theme" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+            <div className="glass-panel p-4 border-none">
               <ThemeSection
                 selectedTheme={designData.theme}
                 onThemeChange={onThemeChange}
                 aiSuggestions={aiSuggestions.theme.suggestions}
-                defaultOpen={true}
               />
             </div>
           </TabsContent>
 
           <TabsContent value="colors" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+            <div className="glass-panel p-4 border-none">
               <ColorSection
                 colorConfig={designData.colorConfig}
                 brandColors={brandColors}
@@ -125,45 +140,40 @@ export function StylingStep({
                 onSelectPalette={onSelectPalette}
                 onCustomColorChange={onCustomColorChange}
                 colorMood={aiSuggestions.color.colorMood}
-                defaultOpen={true}
               />
             </div>
           </TabsContent>
 
           <TabsContent value="style" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+            <div className="glass-panel p-4 border-none">
               <StyleSection
                 selectedStyle={designData.style}
                 onStyleChange={onStyleChange}
                 aiSuggestions={aiSuggestions.style.suggestions}
-                defaultOpen={true}
               />
             </div>
           </TabsContent>
 
-
-
           <TabsContent value="typography" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+            <div className="glass-panel p-4 border-none">
               <TypographySection
                 typography={designData.typography}
                 brandFont={brandFont}
                 onTypographyChange={onTypographyChange}
-                defaultOpen={true}
               />
             </div>
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10">
+            <div className="glass-panel p-4 border-none">
               <QualitySection
                 selectedResolution={designData.resolution}
                 onResolutionChange={onResolutionChange}
                 aspectRatio={designData.aspectRatio}
-                defaultOpen={true}
               />
             </div>
           </TabsContent>
+
         </Tabs>
       </CardContent>
     </Card>

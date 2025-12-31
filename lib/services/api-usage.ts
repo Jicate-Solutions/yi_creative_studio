@@ -282,7 +282,7 @@ export async function getUsageAnalytics(
 
   const { data: records, error } = await supabase
     .from('api_usage')
-    .select('provider, request_type, model, estimated_cost_usd, input_tokens, output_tokens, cached_tokens, image_count, created_at, duration_ms, success')
+    .select('id, provider, request_type, model, estimated_cost_usd, input_tokens, output_tokens, cached_tokens, image_count, created_at, duration_ms, success')
     .eq('organization_id', organizationId)
     .gte('created_at', startDate.toISOString())
     .lte('created_at', endDate.toISOString())
@@ -403,7 +403,7 @@ export async function getUsageAnalytics(
     .sort((a, b) => a.date.localeCompare(b.date))
 
   // Recent records (last 10)
-  analytics.recentRecords = records.slice(0, 10).map((r: ApiUsageRow) => ({
+  analytics.recentRecords = records.slice(0, 10).map((r) => ({
     id: r.id,
     createdAt: r.created_at,
     requestType: r.request_type,

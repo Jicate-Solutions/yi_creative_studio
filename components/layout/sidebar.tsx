@@ -190,20 +190,7 @@ export function Sidebar() {
       <div className="p-3 mt-auto flex flex-col gap-2 items-center">
 
         {/* Credits Pill (Mini) */}
-        {currentOrganization && (
-          <div className={cn(
-            "w-full flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2",
-            sidebarCollapsed ? "justify-center aspect-square p-0" : ""
-          )}>
-            <Coins className="h-4 w-4 text-amber-500 shrink-0" />
-            {!sidebarCollapsed && (
-              <div className="flex flex-col leading-none">
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-500">{currentOrganization.credits_balance}</span>
-                <span className="text-[9px] uppercase opacity-60">Credits</span>
-              </div>
-            )}
-          </div>
-        )}
+
 
         <div className="w-full h-px bg-border/10" />
 

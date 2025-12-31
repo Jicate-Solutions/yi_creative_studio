@@ -288,7 +288,7 @@ Layout: ${options.designContext?.layoutSuggestion || 'Clean, organized layout wi
 - Main title/headline as the most prominent element
 - Supporting content appropriately sized
 - Brand elements positioned properly
-${options.logoAwareness?.hasLogo ? `- Logo zone: ${options.logoAwareness.logoPosition} kept clear for overlay` : '- Logo space in corner'}
+${options.logoAwareness?.hasLogo ? `- Logo area: ${options.logoAwareness.logoPosition} with clean background` : '- Logo space in corner'}
 - Adequate spacing and margins
 - Balanced composition
 
@@ -311,13 +311,13 @@ Typography: Clear hierarchy, readable fonts
 - All text clearly legible
 - Appropriate for intended use
 - Clean, polished design
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly applied' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Cluttered layout, poor hierarchy, illegible text, unprofessional design, mismatched elements, inconsistent styling
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

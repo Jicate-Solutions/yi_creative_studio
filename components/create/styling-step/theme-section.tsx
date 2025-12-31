@@ -2,13 +2,9 @@
 
 import { useState, useMemo } from 'react'
 import Image from 'next/image'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Check, ChevronDown, Sparkles, Star, Wand2 } from 'lucide-react'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import {
   THEME_CATEGORIES,
@@ -19,6 +15,8 @@ import {
 import type { AIDesignSuggestion } from '@/stores/creative-store'
 import { useCreativeStore } from '@/stores/creative-store'
 
+// Note: Collapsible removed - content is always visible when this section's tab is active
+
 interface ThemeWithCategory extends Theme {
   categoryId: ThemeCategoryId
   categoryLabel: string
@@ -28,7 +26,6 @@ interface ThemeSectionProps {
   selectedTheme: string
   onThemeChange: (theme: string) => void
   aiSuggestions?: AIDesignSuggestion[]
-  defaultOpen?: boolean
 }
 
 // AI Auto Card - Clear, prominent option at top
@@ -42,48 +39,65 @@ function AIAutoCard({
   recommendation?: string
 }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.01, translateY: -2 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
+      aria-label={isSelected ? 'AI theme selected' : 'Let AI choose the best theme'}
+      aria-pressed={isSelected}
       className={cn(
-        'relative w-full p-3 rounded-xl border-2 text-left transition-all duration-200',
-        'hover:shadow-md group',
+        'relative w-full p-4 rounded-xl text-left transition-all duration-200',
+        'glass-interactive overflow-hidden group',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isSelected
-          ? 'border-violet-500 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/50 dark:to-purple-950/50 shadow-md'
-          : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 hover:border-violet-300'
+          ? 'ring-2 ring-primary bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 shadow-lg'
+          : 'border-none'
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 relative z-10">
         <div className={cn(
-          'p-2.5 rounded-lg transition-all',
+          'p-3 rounded-xl transition-all duration-500',
           isSelected
-            ? 'bg-gradient-to-r from-violet-500 to-purple-500'
-            : 'bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-900/50 dark:to-purple-900/50 group-hover:from-violet-200 group-hover:to-purple-200'
+            ? 'bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20'
+            : 'bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30'
         )}>
-          <Wand2 className={cn('h-5 w-5', isSelected ? 'text-white' : 'text-violet-600 dark:text-violet-400')} />
+          <Wand2 className={cn('h-5 w-5', isSelected ? 'text-white' : 'text-primary dark:text-primary')} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">
+            <span className={cn(
+              "font-bold text-sm tracking-tight",
+              isSelected ? "text-primary dark:text-primary" : "text-foreground"
+            )}>
               {isSelected ? 'AI Selected' : 'Let AI Choose'}
             </span>
             {isSelected && (
-              <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="w-4 h-4 rounded-full bg-primary flex items-center justify-center"
+              >
                 <Check className="h-2.5 w-2.5 text-white" />
-              </div>
+              </motion.div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground font-medium mt-0.5 opacity-80">
             {recommendation
               ? `Best match: ${recommendation}`
               : 'AI analyzes your content & picks the best theme'}
           </p>
         </div>
         <Sparkles className={cn(
-          'h-4 w-4 shrink-0 transition-all',
-          isSelected ? 'text-violet-500' : 'text-violet-400 group-hover:text-violet-500'
+          'h-4 w-4 shrink-0 transition-all duration-500',
+          isSelected ? 'text-primary animate-pulse' : 'text-primary/40 group-hover:text-primary'
         )} />
       </div>
-    </button>
+
+      {/* Background Glow */}
+      {isSelected && (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 pointer-events-none" />
+      )}
+    </motion.button>
   )
 }
 
@@ -100,14 +114,20 @@ function CompactThemeCard({
   onClick: () => void
 }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.03, translateY: -2 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      role="option"
+      aria-selected={isSelected}
+      aria-label={`${theme.label} theme${isSuggested ? ', recommended' : ''}`}
       className={cn(
-        'relative w-full rounded-lg border-2 text-left transition-all duration-200 overflow-hidden',
-        'hover:shadow-md hover:scale-[1.02]',
+        'relative w-full rounded-xl transition-all duration-200 overflow-hidden',
+        'glass-interactive',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isSelected
-          ? 'border-primary ring-1 ring-primary/30 shadow-md'
-          : 'border-transparent bg-white/60 dark:bg-slate-900/60 hover:border-primary/30'
+          ? 'ring-2 ring-primary shadow-xl z-10'
+          : 'border-none'
       )}
     >
       <div className="relative aspect-[16/10] w-full">
@@ -115,33 +135,41 @@ function CompactThemeCard({
           src={theme.thumbnail}
           alt={`${theme.label} theme`}
           fill
-          className="object-cover"
-          sizes="(max-width: 768px) 20vw, 10vw"
+          loading="lazy"
+          className={cn(
+            "object-cover transition-transform duration-300",
+            isSelected ? "scale-105" : "group-hover:scale-105"
+          )}
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
         {/* Theme name */}
-        <div className="absolute bottom-0 left-0 right-0 p-1">
+        <div className="absolute bottom-0 left-0 right-0 p-2">
           <div className="flex items-center justify-between gap-1">
-            <span className="font-medium text-white text-[11px] drop-shadow-md truncate">
+            <span className="font-bold text-white text-[11px] tracking-tight truncate drop-shadow-lg">
               {theme.label}
             </span>
             {isSelected && (
-              <div className="shrink-0 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="shrink-0 w-4 h-4 rounded-full bg-primary flex items-center justify-center shadow-lg"
+              >
                 <Check className="h-2.5 w-2.5 text-primary-foreground" />
-              </div>
+              </motion.div>
             )}
           </div>
         </div>
 
         {/* Recommended star */}
         {isSuggested && (
-          <div className="absolute top-1 right-1 p-0.5 rounded-full bg-black/40">
+          <div className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 backdrop-blur-md shadow-lg border border-white/10">
             <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
           </div>
         )}
       </div>
-    </button>
+    </motion.button>
   )
 }
 
@@ -149,9 +177,7 @@ export function ThemeSection({
   selectedTheme,
   onThemeChange,
   aiSuggestions = [],
-  defaultOpen = true,
 }: ThemeSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
   const [showAll, setShowAll] = useState(false)
 
   // Read eventType from store instead of props
@@ -179,7 +205,7 @@ export function ThemeSection({
     )
   }, [])
 
-  // Get recommended themes (AI + event-based) - show 8 by default
+  // Get recommended themes (AI + event-based) - show 10 by default
   const recommendedThemes = useMemo(() => {
     const recommended: ThemeWithCategory[] = []
     const addedIds = new Set<string>()
@@ -218,96 +244,79 @@ export function ThemeSection({
   // Themes to display (10 compact or all)
   const displayedThemes = showAll ? allThemes : recommendedThemes
 
-  // Find selected theme label
+  // Find selected theme label for header display
   const selectedThemeLabel = selectedTheme === 'ai'
     ? 'AI Auto'
-    : allThemes.find((t) => t.value === selectedTheme)?.label || 'Select'
+    : allThemes.find((t) => t.value === selectedTheme)?.label || 'None'
 
   // Get first AI suggestion label for hint
   const aiRecommendation = aiSuggestions[0]?.label
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="w-full">
-        <div
-          className={cn(
-            'flex items-center justify-between p-4 rounded-xl transition-all',
-            'bg-gradient-to-br from-slate-50/80 to-white/90 dark:from-slate-900/80 dark:to-slate-800/90',
-            'border border-slate-200/50 dark:border-slate-700/50',
-            'hover:shadow-md cursor-pointer',
-            isOpen && 'shadow-sm bg-slate-50/90 dark:bg-slate-800/90'
-          )}
+    <div className="space-y-4">
+      {/* Section Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight">Theme & Mood</h3>
+          <p className="text-xs text-foreground/60">Current: {selectedThemeLabel}</p>
+        </div>
+      </div>
+
+      {/* AI Auto Option - Prominent at top */}
+      <AIAutoCard
+        isSelected={selectedTheme === 'ai'}
+        onClick={() => onThemeChange('ai')}
+        recommendation={aiRecommendation}
+      />
+
+      {/* Divider */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+        <span>or pick a specific theme</span>
+        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+      </div>
+
+      {/* Responsive Theme Grid */}
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
+        role="listbox"
+        aria-label="Available themes"
+      >
+        {displayedThemes.map((theme) => (
+          <CompactThemeCard
+            key={theme.value}
+            theme={theme}
+            isSelected={selectedTheme === theme.value}
+            isSuggested={suggestedThemes.includes(theme.value)}
+            onClick={() => onThemeChange(theme.value)}
+          />
+        ))}
+      </div>
+
+      {/* See All / Show Less Button */}
+      {allThemes.length > 10 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="w-full text-muted-foreground hover:text-foreground"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
-              <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="text-left">
-              <h3 className="text-sm font-semibold">Theme & Mood</h3>
-              <p className="text-xs text-muted-foreground">{selectedThemeLabel}</p>
-            </div>
-          </div>
-          <ChevronDown
-            className={cn(
-              'h-5 w-5 text-muted-foreground transition-transform duration-200',
-              isOpen && 'rotate-180'
-            )}
-          />
-        </div>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent className="mt-3">
-        <div className="space-y-2 p-3 rounded-xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/30 dark:border-slate-700/30 backdrop-blur-sm">
-          {/* AI Auto Option - Prominent at top */}
-          <AIAutoCard
-            isSelected={selectedTheme === 'ai'}
-            onClick={() => onThemeChange('ai')}
-            recommendation={aiRecommendation}
-          />
-
-          {/* Divider */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-            <span>or pick a specific theme</span>
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-          </div>
-
-          {/* Compact Theme Grid (2x5) */}
-          <div className="grid grid-cols-5 gap-1.5">
-            {displayedThemes.map((theme) => (
-              <CompactThemeCard
-                key={theme.value}
-                theme={theme}
-                isSelected={selectedTheme === theme.value}
-                isSuggested={suggestedThemes.includes(theme.value)}
-                onClick={() => onThemeChange(theme.value)}
-              />
-            ))}
-          </div>
-
-          {/* See All / Show Less Button */}
-          {allThemes.length > 10 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAll(!showAll)}
-              className="w-full text-muted-foreground hover:text-foreground"
-            >
-              {showAll ? (
-                <>
-                  Show Less
-                  <ChevronDown className="ml-1 h-4 w-4 rotate-180" />
-                </>
-              ) : (
-                <>
-                  +{allThemes.length - 10} more themes
-                  <ChevronDown className="ml-1 h-4 w-4" />
-                </>
-              )}
-            </Button>
+          {showAll ? (
+            <>
+              Show Less
+              <ChevronDown className="ml-1 h-4 w-4 rotate-180" />
+            </>
+          ) : (
+            <>
+              +{allThemes.length - 10} more themes
+              <ChevronDown className="ml-1 h-4 w-4" />
+            </>
           )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        </Button>
+      )}
+    </div>
   )
 }

@@ -89,18 +89,20 @@ export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext)
     `The ${z.name} area (from ${z.xStart}% to ${z.xEnd}% horizontally, and from ${z.yStart}% to ${z.yEnd}% vertically) is reserved for branding elements.`
   ).join(' ')
 
-  // v3.6: Use narrative prose that survives prompt sanitization
-  // The sanitizer strips XML tags and instruction words, so we describe the layout constraints naturally
+  // v3.7: CRITICAL - Use descriptive language that AI will NOT render as visible text
+  // AVOID phrases like "logo overlays", "reserved for", "zone" - Gemini renders these literally
   return `
 LAYOUT COMPOSITION REQUIREMENTS:
 
-The top 15% of the image height is reserved for logo overlays. This area should have a simple, high-contrast background (solid color, subtle gradient, or simple texture) to ensure white logos remain clearly visible. DO NOT create a visible stripe or band - the background should flow naturally from top to bottom. ${zoneNarratives}
+The top 15% of the image should have a clean, uncluttered background (solid color, subtle gradient, or simple texture). Keep this area simple and clear - NO text, NO faces, NO detailed graphics in the upper 15%. The background should flow naturally from top to bottom without creating visible stripes or bands. ${zoneNarratives}
 
-The main event title and headline text belongs in the central area, starting at approximately 15-20% from the top edge. Keep all important text OUT of the logo overlay zone. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
+The main event title and headline text belongs in the central area, starting at approximately 15-20% from the top edge. Keep all important text out of the upper 15% area. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
 
-All typography, including the event name, tagline, and any other text elements, begins below the 15% logo overlay zone. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
+All typography, including the event name, tagline, and any other text elements, begins below the top 15% area. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
 
 When positioning the event title: Start the title text block at minimum 15% down from the top edge. Center the title horizontally, keeping it away from the leftmost 25% and rightmost 25% of the image width. Long titles should wrap to multiple lines rather than extending into corner areas.
+
+IMPORTANT: Keep the upper region completely empty. Generate ONLY the clean background.
 `
 }
 
@@ -129,12 +131,15 @@ export function buildZoneReminderSection(logoAwareness?: LogoAwarenessContext): 
 
   const positionList = positions.map(p => p.replace('-', ' ')).join(' and ')
 
-  // v3.6: Use narrative prose that survives prompt sanitization
+  // v3.7: Use descriptive language that AI will NOT render as visible text
+  // AVOID: "reserved for logos", "logo overlay", "brand logos" - Gemini renders these literally
   return `
 VISUAL LAYOUT REMINDER:
 
-The ${positionList} corners of this poster are reserved for brand logos that will be added later. These corner areas need clean, simple backgrounds.
+The ${positionList} corners of this poster need clean, simple backgrounds. Keep these corner areas clear of text and detailed graphics.
 
-For proper text placement in this design: The event title starts below the top header band (at least 15% down from the top). The title text is horizontally centered in the middle 50% of the image width, not extending into the corner areas. This spacing creates a professional look and allows room for branding elements.
+For proper text placement in this design: The event title starts below the top header area (at least 15% down from the top). The title text is horizontally centered in the middle 50% of the image width, not extending into the corner areas. This spacing creates a professional look.
+
+CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
 `
 }

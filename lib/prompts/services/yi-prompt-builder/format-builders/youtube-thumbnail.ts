@@ -161,7 +161,7 @@ ${typographyRules}
 A click-worthy thumbnail for video: "${data.videoTitle}"
 The thumbnail must communicate video value in 0.05 seconds.
 ${hasFace
-      ? `Feature: Expressive human face with ${data.expression || 'excited'} expression, filling 50-60% of frame (LEFT side for photo overlay zone)`
+      ? `Feature: Expressive human face with ${data.expression || 'excited'} expression, filling 50-60% of frame (LEFT side with clean background)`
       : `Feature: Compelling visual subject that draws the eye`}
 ${hasFace ? 'NOTE: Face zone will have photo overlaid. Generate clean, complementary background for face area.' : ''}
 </subject>
@@ -172,9 +172,9 @@ Layout: Two-zone composition
       ? `Expressive face - ${getExpressionDescription(data.expression)}, well-lit, looking toward camera, high contrast with background`
       : `Main visual subject - ${data.mainSubject || 'compelling focal point'}`}
 - RIGHT 40%: Bold text hook - 3-5 words maximum, readable at tiny sizes
-- AVOID: Bottom-right corner (YouTube duration badge overlay)
+- AVOID: Bottom-right corner (YouTube duration badge area)
 - AVOID: Bottom 10% (progress bar on hover)
-${options.logoAwareness?.hasLogo ? `- LOGO ZONE: ${options.logoAwareness.logoPosition} reserved for brand logo` : ''}
+${options.logoAwareness?.hasLogo ? `- Keep ${options.logoAwareness.logoPosition} area clean for branding` : ''}
 
 Background: ${options.designContext?.backgroundSetting || data.backgroundColor || 'Bright, saturated color that contrasts with subject'}
 Subject Treatment: Well-lit, high contrast, pops from background
@@ -205,13 +205,13 @@ ${YOUTUBE_THUMBNAIL_EXAMPLES}
 - Professional YouTuber quality
 - ${hasFace ? 'Face expression matches video emotion' : 'Clear compelling subject'}
 - High contrast throughout
-${options.logoAwareness?.hasLogo ? '- Logo area kept clear for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Small text, thin fonts, muted colors, boring expression, cluttered composition, content in corners (especially bottom-right), too many elements, blurry face, generic stock photo feel, text over face, more than 5 words, low contrast, pastel colors
-${options.logoAwareness?.hasLogo ? `Avoid: Critical content in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
-${hasFace ? `Avoid: Illustrated faces in face zone - keep background clean for photo overlay` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Critical content in ${options.logoAwareness.logoPosition} area` : ''}
+${hasFace ? `Avoid: Illustrated faces in face area - keep background clean` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

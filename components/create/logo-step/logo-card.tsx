@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -9,17 +10,20 @@ import {
 } from 'lucide-react'
 import { LogoPosition } from '@/lib/config/constants'
 import { LogoSizePreset } from '@/lib/constants/logoConstants'
+import type { OrganizationLogo } from '@/types/database.types'
 
 interface LogoCardProps {
-    logo: any
+    logo: OrganizationLogo
     isPlaced: boolean
     isSelected: boolean
     position: LogoPosition | null
-    size: string
     onSelect: () => void
-    onSizeChange: (size: LogoSizePreset) => void
-    onRemove: () => void
     isDisabled: boolean
+    // Props below are passed by parent but not used in this component
+    // Kept in interface for compatibility but not destructured
+    size?: string
+    onSizeChange?: (size: LogoSizePreset) => void
+    onRemove?: () => void
 }
 
 export function LogoCard({
@@ -27,27 +31,27 @@ export function LogoCard({
     isPlaced,
     isSelected,
     position,
-    size,
     onSelect,
-    onSizeChange,
-    onRemove,
     isDisabled,
 }: LogoCardProps) {
     return (
         <div
             onClick={() => !isDisabled && onSelect()}
             className={cn(
-                'group relative aspect-square rounded-lg border bg-card text-card-foreground shadow-sm transition-all overflow-hidden',
-                isSelected && 'ring-2 ring-primary border-primary z-10',
+                'group relative aspect-square rounded-lg bg-card text-card-foreground shadow-sm transition-all overflow-hidden',
+                isSelected && 'ring-2 ring-primary shadow-md z-10',
                 isPlaced && !isSelected && 'opacity-60 grayscale-[0.8]',
-                isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:shadow-md hover:border-primary/50'
+                isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5'
             )}
         >
             <div className="p-2 h-full flex items-center justify-center bg-white/50 dark:bg-slate-900/50">
-                <img
-                    src={logo.thumbnail_url || logo.file_url}
-                    alt={logo.name}
+                <Image
+                    src={logo.thumbnail_url || logo.file_url || ''}
+                    alt={logo.name || 'Logo'}
+                    width={120}
+                    height={120}
                     className="max-w-full max-h-full object-contain"
+                    unoptimized={true}
                 />
             </div>
 

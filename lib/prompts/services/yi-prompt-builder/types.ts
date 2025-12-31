@@ -165,6 +165,7 @@ export interface BriefAnalysisInput {
   description?: string
   venue?: string
   additionalContext?: string
+  theme?: string // NEW v5.5: Allow fallback to respect user theme
 }
 
 /**
@@ -181,6 +182,7 @@ export interface DesignContextForPrompt {
   iconicImagery?: string[]
   colorStrategy?: string
   moodDirection?: string
+  vibeKeywords?: string[]          // Vibe/energy keywords for dynamic prompts
   // v3.5: Extended design context for event posters
   creativeTwist?: string
   colorMood?: string
@@ -216,6 +218,13 @@ export interface DesignContextForPrompt {
   }
   layoutNarrative?: import('../../knowledge-base/design-architecture/types').LayoutNarrative
   overallDesignStrategy?: string // 2-3 sentences summarizing how all elements work together
+  // v6.0 Phase 3: Custom theme narrative for AI-generated themes
+  customThemeNarrative?: {
+    themeName: string              // Unique 2-4 word theme name
+    themeDescription: string       // One sentence description
+    visualLanguage: string         // Specific visual language and aesthetic
+    moodKeywords: string[]         // 3-4 mood keywords
+  }
 }
 
 /**
@@ -245,6 +254,10 @@ export interface EnhancedBuildOptions {
   resolution?: '1K' | '2K' | '4K'
   templateMode?: boolean
 
+  // NEW v5.5: Resolved colors from color resolution pipeline
+  // Ensures user-selected colors flow through without being overridden
+  resolvedColors?: import('@/lib/utils/resolve-color-config').ResolvedColors
+
   // NEW v3.1: Previously lost data now properly passed
   theme?: string                        // User's selected theme (professional, creative, elegant, etc.)
   style?: string                        // Design style preference
@@ -271,6 +284,13 @@ export interface EnhancedBuildOptions {
   textShadow?: import('./types/layout-styling').TextShadowConfig
   // Header logo band for Yi triple-logo layout (Yi, Bharat Rising, CII)
   headerLogoBand?: import('./types/layout-styling').HeaderLogoBandConfig
+  // Logo strip mode (v5.1: User-controlled visual strips for logo areas)
+  logoStripMode?: {
+    enabled: boolean
+    rows: ('header' | 'middle' | 'footer')[]
+    opacity?: number
+    logoBound?: boolean
+  }
   // Footer style for standardized Yi footer (skyline, contact, partner)
   footerStyle?: import('./types/layout-styling').FooterStyleConfig
   // Event details card for structured date/time/venue display
@@ -293,6 +313,20 @@ export interface EnhancedBuildOptions {
   // Role-based color configuration for different text elements (hero, headline, body, CTA, etc.)
   // Supports solid colors and gradients with WCAG accessibility validation
   multiColorTypography?: import('@/lib/config/design-constants').MultiColorTypographyConfig
+
+  // NEW v6.5: Pre-calculated speaker photo zone coordinates
+  // Enables coordination between Gemini prompt generation and Sharp overlay positioning
+  // Contains exact pixel coordinates to prevent text/photo overlaps
+  speakerPhotoZoneCoordinates?: {
+    x: number
+    y: number
+    width: number
+    height: number
+    topEdge: number
+    bottomEdge: number
+    leftEdge: number
+    rightEdge: number
+  }
 }
 
 // ============================================================
@@ -403,6 +437,7 @@ export interface FlyerFormData {
   /** Optional explicit event type (auto-inferred from title/description if not provided) */
   eventType?: string
   eventNote?: string
+  customFields?: Record<string, string>
 }
 
 export interface BusinessCardFormData {
@@ -593,6 +628,7 @@ export interface DesignBrief {
   hasFooterLogo?: boolean
   footerHeight?: number
   logoSafeZoneGuidance?: string
+  requestCustomTheme?: boolean  // v6.0 Phase 3: Request AI to generate custom theme instead of using predefined themes
 }
 
 export interface DesignIntelligenceResult {

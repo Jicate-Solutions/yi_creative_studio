@@ -31,13 +31,11 @@ export function CreateSidebar({
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col w-64 h-[calc(100vh-2rem)]',
-        'fixed top-4 left-4 z-50',
-        // Premium glass panel styling
-        'glass-panel',
-        'border border-white/30 dark:border-white/10',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
-        'ring-1 ring-white/10 dark:ring-white/5', // Subtle inner glow
+        'hidden md:flex flex-col w-64 h-screen',
+        'fixed top-0 left-0 z-50',
+        // Clean solid background
+        'bg-background',
+        'border-r border-border',
         className
       )}
     >

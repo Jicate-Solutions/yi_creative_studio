@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         success: true,
         schema: validatedSchema,
         metadata: {
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-haiku-4-5',
           processingTimeMs: Date.now() - startTime,
           cached: result.cached,
           cacheKey,

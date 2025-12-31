@@ -756,6 +756,15 @@
     box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35);
   }
 
+  /* Animation Utilities */
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-pulse-fast {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   /* Glass Outline Button - Subtle with shadow */
   .btn-glass-outline {
     background: rgba(255, 255, 255, 0.6);
@@ -1064,9 +1073,11 @@
     0% {
       background-position: 0% 50%;
     }
+
     50% {
       background-position: 100% 50%;
     }
+
     100% {
       background-position: 0% 50%;
     }
@@ -2626,12 +2637,14 @@
   body>button[style*="position: fixed"] {
     left: auto !important;
     right: 16px !important;
-    bottom: 72px !important; /* Above mobile nav (56px) + 16px gap */
+    bottom: 72px !important;
+    /* Above mobile nav (56px) + 16px gap */
   }
 }
 
 /* Bug Reporter - Adjust for desktop (no bottom nav) */
 @media (min-width: 768px) {
+
   [data-bug-reporter-button],
   button[class*="bug-reporter"],
   button[aria-label*="bug" i],

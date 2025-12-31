@@ -372,15 +372,24 @@ export function buildBrandContext(
       lines.push('')
     }
 
-    // Strict enforcement for brand colors, flexible for others
-    if (colorSource === 'brand') {
+    // v5.5: Strict enforcement for brand, custom, AND preset colors (user selections)
+    // Only fallback colors get flexible guidance
+    if (colorSource === 'brand' || colorSource === 'custom' || colorSource === 'preset') {
+      const colorTypeLabel = {
+        brand: 'organization brand',
+        custom: 'user-selected custom',
+        preset: 'user-selected preset',
+      }[colorSource] || colorSource
+
       lines.push(`STRICT COLOR COMPLIANCE REQUIRED:`)
       lines.push(`- Background MUST use Primary Color (${brandContext.primaryColor}) as dominant color - match the EXACT tone`)
       lines.push(`- DO NOT use generic interpretations - use the EXACT hex values provided above`)
       lines.push(`- Headlines MUST have high contrast against the background (7:1 ratio minimum)`)
       lines.push(`- CTAs/Buttons MUST use Accent Color (${brandContext.accentColor || brandContext.secondaryColor}) for maximum visibility`)
-      lines.push(`- These brand colors are NON-NEGOTIABLE - override any other color suggestions in this prompt`)
+      lines.push(`- These ${colorTypeLabel} colors are NON-NEGOTIABLE - override any other color suggestions in this prompt`)
+      lines.push(`- DO NOT substitute with theme-based colors, AI-generated palettes, or event-contextual colors`)
     } else {
+      // Only 'fallback' source gets flexible guidance
       lines.push(`COLOR PALETTE GUIDANCE:`)
       lines.push(`- Use these colors as the foundation for the design color scheme`)
       lines.push(`- Primary Color (${brandContext.primaryColor}) for main elements and backgrounds`)
@@ -610,13 +619,13 @@ export function buildSpeakerPhotoZoneContext(
   const isSingleSpeaker = config.isSingleSpeaker !== false
 
   // v3.5: Multi-speaker handling
+  // v3.7: Avoid "ZONE", "overlay", "composited" language that Gemini renders literally
   if (!isSingleSpeaker && speakerCount > 1) {
-    return `SPEAKER PHOTO ZONES: ${speakerCount} speaker photos will be composited onto the ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size} each, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) via post-processing. Reserve space for ${speakerCount} photos arranged with proper spacing. Keep these areas clean with simple backgrounds (solid color, subtle gradient, or matching design). No faces, people, human figures, placeholder shapes, or frames in these zones - the real photos will be added automatically.`
+    return `BACKGROUND AREAS: The ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area needs ${speakerCount} clean background sections (${SPEAKER_SIZE_DIMENSIONS[size] || size} each, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}). Keep these areas clean with simple backgrounds (solid color, subtle gradient, or matching design). Do not draw faces, people, human figures, shapes, frames, or text in these areas - just clean background.`
   }
 
-  // v3.6: Single speaker (original logic)
-  // v3.6: Return as plain text (no XML tags) to survive prompt sanitization
-  return `SPEAKER PHOTO ZONE: A speaker photo will be composited onto the ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size}, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) via post-processing. Keep this area clean with a simple background (solid color, subtle gradient, or matching design). No faces, people, human figures, placeholder shapes, or frames in this zone - the real photo will be added automatically.`
+  // v3.7: Single speaker - avoid trigger words
+  return `BACKGROUND AREA: The ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size}, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) needs a clean background. Keep this area clean with a simple background (solid color, subtle gradient, or matching design). Do not draw faces, people, human figures, shapes, frames, or text - just clean background.`
 }
 
 // ============================================================
@@ -631,14 +640,14 @@ export function formatSpeakerDetails(speaker: { name: string; designation?: stri
   const parts: string[] = []
 
   if (speaker.name) {
-    parts.push(`Name: "${speaker.name}"`)
+    parts.push(`"${speaker.name}"`)  // No "Name:" label - per CLAUDE.md, labels render as visible text
   }
 
   if (speaker.designation) {
-    parts.push(`Designation: "${speaker.designation}"`)
+    parts.push(`"${speaker.designation}"`)  // No "Designation:" label
   }
 
-  return parts.join('\n   ')
+  return parts.join(', ')  // Comma-separated instead of newlines for cleaner rendering
 }
 
 /**
@@ -1627,16 +1636,48 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
     }
   }
 
+  // v5.5: THEME OVERRIDE LOGIC
+  // If user provided a specific theme (e.g. "ai", "cyberpunk"), override generic presets
+  let themeOverrideContext: Partial<DesignContext> = {}
+  if (input.theme) {
+    const t = input.theme.toLowerCase()
+    if (t.includes('ai') || t.includes('tech') || t.includes('future') || t.includes('cyber')) {
+      themeOverrideContext = {
+        corePurpose: "Create a futuristic, high-tech design symbolizing innovation and the future",
+        visualElements: ["Neural network connections", "Digital particles", "Glowing circuit patterns", "Abstract data visualization"],
+        backgroundSetting: "Deep cyber-blue and violet gradient with technological texture and glowing nodes",
+        colorMood: "Futuristic and High-Tech (Neon Blue, Purple, Cyan)",
+        designStrategy: "Modern tech aesthetic with sleek lines and glowing elements"
+      }
+    } else if (t.includes('creative') || t.includes('art')) {
+      themeOverrideContext = {
+        corePurpose: "Create an expressive, artistic design that stands out",
+        visualElements: ["Abstract brush strokes", "Fluid shapes", "Dynamic composition", "Artistic textures"],
+        backgroundSetting: "Vibrant artistic background with rich texture and depth",
+        colorMood: "bold and expressive",
+        designStrategy: "Creative and unconventional layout"
+      }
+    } else if (t.includes('royal') || t.includes('luxury') || t.includes('gold')) {
+      themeOverrideContext = {
+        corePurpose: "Create a prestigious, high-end luxury design",
+        visualElements: ["Golden accents", "Elegant serif typography", "Subtle damask patterns", "Premium texture"],
+        backgroundSetting: "Deep royal color (navy, maroon, or black) with gold foil accents",
+        colorMood: "Luxurious and Premium (Gold, Black, Navy)",
+        designStrategy: "Elegant, symmetrical, and prestigious"
+      }
+    }
+  }
+
   // Base context (generic professional)
   const baseContext: DesignContext = {
-    corePurpose: preset?.corePurpose || "Create a professional and engaging design",
+    corePurpose: themeOverrideContext.corePurpose || preset?.corePurpose || "Create a professional and engaging design",
     desiredAction: "Engage and connect",
     emotionalJob: preset?.emotionalJob || "Feel informed and welcomed",
-    visualElements: preset?.visualElements || ["Clean layout", "Professional typography", "Relevant imagery"],
-    backgroundSetting: preset?.backgroundSetting || "Modern professional gradient background",
+    visualElements: themeOverrideContext.visualElements || preset?.visualElements || ["Clean layout", "Professional typography", "Relevant imagery"],
+    backgroundSetting: themeOverrideContext.backgroundSetting || preset?.backgroundSetting || "Modern professional gradient background",
     iconicImagery: preset?.iconicImagery || [],
-    colorMood: preset?.colorMood || "Professional and clean",
-    designStrategy: preset?.designStrategy || "Standard professional layout with clear hierarchy",
+    colorMood: themeOverrideContext.colorMood || preset?.colorMood || "Professional and clean",
+    designStrategy: themeOverrideContext.designStrategy || preset?.designStrategy || "Standard professional layout with clear hierarchy",
     successMetric: "Emotional connection and engagement",
     layoutGuidance: "Balanced layout with clear visual hierarchy",
     decorativeElements: preset?.decorativeElements || {
@@ -1652,13 +1693,13 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
         : "Professional announcement",
       emotionalArc: celebrationType ? "Anticipation -> Joy -> Connection"
         : eventType ? "Interest -> Engagement -> Action"
-        : "Clear -> Informative",
+          : "Clear -> Informative",
       themes: celebrationType ? ["Celebration", "Joy", "Connection"]
         : eventType ? ["Learning", "Engagement", "Growth"]
-        : ["Professional", "Clear"],
+          : ["Professional", "Clear"],
       transformation: celebrationType ? "Everyday -> Celebratory"
         : eventType ? "Curious -> Informed -> Inspired"
-        : "Uninformed -> Informed",
+          : "Uninformed -> Informed",
       context: {
         formality: celebrationType ? "casual" : "professional",
         energyLevel: celebrationType ? "high" : eventType ? "moderate" : "moderate",
@@ -1675,19 +1716,19 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
       energyDynamics: celebrationType ? "pulsing" : eventType ? "flowing" : "static",
       audienceResonance: celebrationType ? "Joy and celebration"
         : eventType ? "Interest and engagement"
-        : "Clarity and professionalism"
+          : "Clarity and professionalism"
     },
     typographyStrategy: {
       headlinePersonality: celebrationType ? "Elegant Display Serif"
         : eventType ? "Bold Modern Sans"
-        : "Clear Sans-Serif",
+          : "Clear Sans-Serif",
       fontRecommendations: {
         headline: celebrationType ? "Playfair Display or Cormorant Garamond"
           : eventType ? "Montserrat or Raleway"
-          : "Inter or Roboto",
+            : "Inter or Roboto",
         subheading: celebrationType ? "Lato or Open Sans"
           : eventType ? "Open Sans or Source Sans Pro"
-          : "Inter or Roboto",
+            : "Inter or Roboto",
         body: "Inter or Roboto"
       },
       multiColorStrategy: {
@@ -1697,7 +1738,7 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
       hierarchyFlow: "Center-dominant",
       sizingStrategy: celebrationType ? "dominant"
         : eventType ? "balanced"
-        : "balanced"
+          : "balanced"
     },
     colorStorytelling: {
       dominantHues: celebrationType ? [
@@ -1724,11 +1765,11 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
       visualHierarchy: ["Headline", "Supporting Message", "Branding"],
       contentAreaStyle: celebrationType ? "Centered celebration"
         : eventType ? "Professional event layout"
-        : "Standard professional",
+          : "Standard professional",
       logoStripTreatment: "modern",
       spatialDensity: celebrationType ? "rich"
         : eventType && sophisticationLevel === 'rich' ? "rich"
-        : "balanced"
+          : "balanced"
     },
     // v5.5: Enhanced decorativeElementsContext for both celebrations and events
     decorativeElementsContext: {
@@ -1740,7 +1781,7 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
       })),
       sophisticationLevel: sophisticationLevel === 'minimalist' ? 'refined'
         : sophisticationLevel === 'rich' ? 'playful'
-        : 'balanced',
+          : 'balanced',
       placementStrategy: sophisticationLevel === 'rich'
         ? celebrationType
           ? 'Multi-layered immersive placement with abundant festive elements at varying depths - background stars/sky, midground decorations/trees, foreground ornaments/details'
@@ -1767,5 +1808,77 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
 export function validateDesignContext(context: any): boolean {
   if (!context || typeof context !== 'object') return false
   return !!(context.corePurpose && context.visualElements)
+}
+
+// ============================================================
+// COLOR PRIORITY RESOLUTION (v6.0)
+// ============================================================
+
+/**
+ * Resolve color priority with strict user-first enforcement
+ * Priority Order: Custom > Brand > Design Intelligence > Event Default
+ *
+ * @param options - Color sources from different contexts
+ * @returns Resolved colors with source and enforcement level
+ */
+export function resolveColorPriority(options: {
+  customColors?: { primary: string; secondary?: string; accent?: string }
+  brandContext?: BrandContextPrompt
+  designIntelligenceColors?: { primary: string; secondary?: string; accent?: string }
+  eventContextColors?: { primary: string; secondary?: string; accent?: string }
+}): {
+  colors: { primary: string; secondary: string; accent: string }
+  source: 'custom' | 'brand' | 'ai' | 'event'
+  enforcement: 'strict' | 'flexible'
+} {
+  // PRIORITY 1: User custom colors (STRICT enforcement)
+  if (options.customColors?.primary) {
+    return {
+      colors: {
+        primary: options.customColors.primary,
+        secondary: options.customColors.secondary || '#FFFFFF',
+        accent: options.customColors.accent || '#000000'
+      },
+      source: 'custom',
+      enforcement: 'strict'
+    }
+  }
+
+  // PRIORITY 2: Brand colors (STRICT enforcement)
+  if (options.brandContext?.useBrandColors && options.brandContext.primaryColor) {
+    return {
+      colors: {
+        primary: options.brandContext.primaryColor,
+        secondary: options.brandContext.secondaryColor || '#FFFFFF',
+        accent: options.brandContext.accentColor || '#000000'
+      },
+      source: 'brand',
+      enforcement: 'strict'
+    }
+  }
+
+  // PRIORITY 3: AI Design Intelligence (FLEXIBLE guidance)
+  if (options.designIntelligenceColors?.primary) {
+    return {
+      colors: {
+        primary: options.designIntelligenceColors.primary,
+        secondary: options.designIntelligenceColors.secondary || '#FFFFFF',
+        accent: options.designIntelligenceColors.accent || '#000000'
+      },
+      source: 'ai',
+      enforcement: 'flexible'
+    }
+  }
+
+  // PRIORITY 4: Event defaults (FLEXIBLE)
+  return {
+    colors: {
+      primary: options.eventContextColors?.primary || '#005B96',
+      secondary: options.eventContextColors?.secondary || '#FFFFFF',
+      accent: options.eventContextColors?.accent || '#FF6B35'
+    },
+    source: 'event',
+    enforcement: 'flexible'
+  }
 }
 

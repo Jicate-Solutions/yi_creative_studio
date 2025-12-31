@@ -9,6 +9,8 @@ import type {
 } from './yi-prompt-builder/types'
 
 export type { DesignBrief, DesignContextForPrompt } from './yi-prompt-builder/types'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { EventProfile } from './event-understanding'
 import { safeJsonParse } from '@/lib/utils/json-repair'
 import {
   GoogleGenerativeAI,
@@ -21,6 +23,22 @@ import {
   generateFallbackContext,
   validateDesignContext,
 } from './yi-prompt-builder/context-helpers'
+import { getTemperatureConfig } from './prompt-optimization/config'
+import {
+  generateDesignContextCacheKey,
+  getCachedDesignContext,
+  setCachedDesignContext,
+} from './prompt-optimization/cache'
+
+// v6.0: Content-aware element mapping for maximum creativity
+import {
+  getContentRelatedElements,
+  generateUniquenessSeed,
+  getCreativityDirective,
+} from './content-element-mapper'
+
+// v6.0 Phase 2: Color personality for dynamic background generation
+import { analyzeColorPersonality } from '../helpers/color-personality'
 
 // ============================================================
 // PROMPT BUILDERS (Locally Defined)
@@ -60,6 +78,71 @@ function buildCreativeBriefPrompt(input: BriefAnalysisInput): string {
   return ''
 }
 
+/**
+ * v6.0: Build creativity enhancement section for the prompt
+ * Injects content-specific elements, ban list, and uniqueness directives
+ */
+function buildCreativityEnhancementSection(
+  uniquenessSeed: string,
+  creativityDirective: string,
+  contentElements: {
+    elements: string[]
+    backgrounds: string[]
+    decorativeAccents: string[]
+    matchedCategories: string[]
+  }
+): string {
+  return `
+
+=== CREATIVITY ENHANCEMENT v6.0 (MANDATORY) ===
+
+UNIQUENESS SEED: ${uniquenessSeed}
+This seed FORCES you to create something UNIQUE. Do NOT recycle designs.
+
+${creativityDirective}
+
+=== CONTENT-SPECIFIC VISUAL ELEMENTS (USE THESE) ===
+Based on the event content, you MUST incorporate elements from this curated list:
+
+RECOMMENDED VISUAL ELEMENTS (pick 2-3):
+${contentElements.elements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+
+RECOMMENDED BACKGROUND TREATMENTS (pick 1):
+${contentElements.backgrounds.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+
+RECOMMENDED DECORATIVE ACCENTS (pick 1-2):
+${contentElements.decorativeAccents.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+=== ABSOLUTELY BANNED PATTERNS (v6.0 - ZERO TOLERANCE) ===
+If you use ANY of these, the design will be REJECTED:
+
+❌ Generic gradient backgrounds (blue-to-purple, orange-to-pink default gradients)
+❌ Abstract geometric shapes WITHOUT meaning (random triangles, circles, hexagons)
+❌ Stock photo aesthetic (perfect corporate people, fake smiles, staged handshakes)
+❌ Default "professional" navy/gray/white color schemes for everything
+❌ Radial sunburst patterns behind text (overused, cliche)
+❌ Generic cityscape silhouettes as backgrounds
+❌ Floating 3D spheres or cubes with no purpose
+❌ Bokeh/blur backgrounds without thematic connection
+❌ Standard conference room or boardroom imagery
+❌ Generic tech/circuit patterns NOT connected to actual tech content
+❌ Basic world map backgrounds for non-global events
+❌ Overused lightbulb icons for innovation
+❌ Simple handshake icons for networking
+❌ Plain laurel wreaths without creativity
+
+=== CREATIVITY REQUIREMENT ===
+If your FIRST idea matches any banned pattern, IMMEDIATELY reject it and think deeper.
+Ask yourself: "What visual metaphor would SURPRISE and DELIGHT the viewer?"
+
+Example transformation:
+- BAD: "Networking event" → handshake icon
+- GOOD: "Networking event" → "Magnetic field visualization where diverse profile silhouettes are drawn together by invisible connection forces, with relationship threads forming a living constellation"
+
+YOU MUST BE BOLD. BE UNEXPECTED. BE MEMORABLE.
+`
+}
+
 
 // ============================================================
 // CONSTANTS & CONFIG
@@ -67,7 +150,7 @@ function buildCreativeBriefPrompt(input: BriefAnalysisInput): string {
 
 // Model configuration
 const GEMINI_MODEL = 'gemini-2.0-flash-exp' // Best for creative reasoning
-const CLAUDE_MODEL = 'claude-haiku-4-5-20251001' // Ultra-smart fallback
+const CLAUDE_MODEL = 'claude-haiku-4-5' // Ultra-smart fallback
 
 // ============================================================
 // PROMPT TEMPLATE
@@ -97,6 +180,30 @@ You think like a HUMAN ARTIST who reads event context, understands the VISUAL NA
     - "Climate Awareness Workshop for Kids" → Playful, educational, bright colors, cartoon elements
 
 You must analyze the FULL CONTEXT, not just the event type.
+
+=== CRITICAL: CREATIVE VARIATION (v5.3) ===
+
+Each generation should explore DIFFERENT creative directions while remaining event-appropriate:
+- VARY visual elements (don't always use handshake for networking events - explore connection nodes, conversation bubbles, digital interfaces, etc.)
+- EXPLORE different composition styles (try asymmetrical layouts, minimalist approaches, rich layered designs)
+- SUGGEST diverse color palettes (not just navy/gold for professional events - consider deep teal/copper, charcoal/rose gold, forest green/amber)
+- PROVIDE unique background settings (rooftop terraces, modern lounges, co-working spaces, NOT just generic hotel ballrooms)
+- THINK beyond obvious visual metaphors (networking ≠ always handshake; climate ≠ always earth/leaves)
+
+Generate fresh, distinctive creative direction that feels DIFFERENT from typical designs while perfectly capturing the event's story.
+
+=== CINEMATIC QUALITY STANDARDS (v6.0 - MOMENTUM) ===
+You are NOT creating a flat vector graphic. You are creating a CINEMATIC VISUAL EXPERIENCE.
+1. LIGHTING IS EVERYTHING:
+   - NEVER just say "professional lighting".
+   - SPECIFY: "Volumetric god-rays from top-right", "Neon rim lighting outlining the subject", "Soft diffused studio key light with cool fill", "Cinematic shallow depth of field (bokeh)".
+2. TEXTURE IS LIFE:
+   - AVOID flat colors.
+   - SPECIFY: "Matte finish cardstock texture", "Frosted glassmorphism with grain", "Brushed metal surfaces", "Fabric mesh patterns", "Liquid chrome distortions".
+3. BAN LIST (DO NOT USE):
+   - ❌ NO "Generic blue/orange gradients" (unless uniquely described like "Deep abyssal blue fading to bioluminescent teal").
+   - ❌ NO "Standard handshake icons" for networking (Use "interconnected constellation nodes" or "magnetic field lines").
+   - ❌ NO "Stock photo happy people" (Use "dynamic silhouettes", "motion-blurred crowds", or "stylized portraits").
 
 === 7 - STEP STORY - DRIVEN DESIGN FRAMEWORK ===
 
@@ -324,6 +431,45 @@ ANALYZE THE FOLLOWING CREATIVE BRIEF:
                       - Keep HEADER area clean for logos
                         - Use VISUAL language only in layoutGuidance(no "px", "zone", "overlay")
 
+=== CUSTOM THEME GENERATION (v6.0 Phase 3) ===
+
+When the user has NOT specified a predefined theme (or requests "AI Auto"):
+INVENT a UNIQUE theme name and visual language for this event based on its essence.
+
+DO NOT pick from standard themes (corporate, modern, bold, minimalist, etc.).
+CREATE a fusion theme that captures the event's unique character.
+
+Examples of Custom Theme Creation:
+- "AI + Sustainability Workshop" → Theme: "Bio-Digital Convergence"
+  Description: "Where organic growth meets digital innovation"
+  Visual Language: "Living technology aesthetic with bio-luminescent circuits and flowing data streams merging with botanical patterns"
+
+- "Youth Leadership Gala" → Theme: "Rising Phoenix Elegance"
+  Description: "Youthful energy refined with sophisticated prestige"
+  Visual Language: "Ascending gradient from vibrant youth colors to refined golds, with phoenix wing motifs in premium finish"
+
+- "Startup Networking Night" → Theme: "Neon Hustle Energy"
+  Description: "Dynamic entrepreneurial vibe meets urban tech culture"
+  Visual Language: "Electric neon accents on dark urban backdrop with magnetic connection lines and startup launch trajectories"
+
+- "Climate Action Conference" → Theme: "Earthrise Authority"
+  Description: "Environmental urgency meets leadership gravitas"
+  Visual Language: "Deep ocean blues rising to atmospheric whites with crystalline earth formations and authoritative geometric patterns"
+
+Your Custom Theme Must:
+1. Have a memorable name (2-4 words that evoke the event's essence)
+2. Describe a unique visual language (not just "professional" or "modern")
+3. Capture the event's emotional DNA (what makes THIS event special)
+4. Inspire visual elements that AI can generate (be specific, paintable, cinematic)
+
+Ask yourself: "If this event were a movie genre mash-up, what would it be?"
+- Don't just say "Professional" - say "Boardroom Rebellion" or "Corporate Metamorphosis"
+- Don't just say "Fun" - say "Kaleidoscope Carnival" or "Neon Playground"
+- Don't just say "Tech" - say "Quantum Noir" or "Holographic Renaissance"
+
+CRITICAL: Custom themes should be UNEXPECTED yet APPROPRIATE.
+The goal is to break free from the 22 predefined themes while staying true to the event's purpose.
+
 Return ONLY valid JSON with BOTH legacy fields(for backward compatibility) AND new story - driven fields:
   {
     "corePurpose": "What emotional job this design MUST accomplish",
@@ -338,7 +484,8 @@ CRITICAL RULES FOR ACCURACY:
 1. THE EVENT NAME IS THE SUPREME TRUTH. If the event is "Happy New Year", the design MUST be about New Year. Do NOT infer unrelated themes like "Women in Tech" or "Entrepreneurship" unless explicitly stated.
 2. If the user provided a specific theme (e.g., "AI"), apply that visual style TO the event, but do not change the event's meaning. (e.g., "AI themed New Year" is okay; "AI Conference" is NOT).
 3. Do not over-index on the Organization Name. Just because it is "Young Indians", does not mean every event is about youth empowerment.
-4. If the Event Description is sparse, rely on the Event Name literal meaning.,
+4. If the Event Description is sparse, rely on the Event Name literal meaning.
+5. VALIDATION REQUIREMENT: You MUST explicitly mention the Event Name in 'storyAnalysis.narrative' to pass automated validation.,
                     "successMetric": "What viewer thinks in 3 seconds",
                       "layoutGuidance": "Visual composition using design language only",
                         "typographyGuidance": {
@@ -423,8 +570,18 @@ CRITICAL RULES FOR ACCURACY:
       "visualHierarchy": ["first", "second", "third"],
         "spatialStory": "How space supports mood",
           "flowDirection": "left-to-right | center-out | asymmetric"
+    },
+
+    "customThemeNarrative": {
+      "themeName": "2-4 word unique theme name (e.g., 'Bio-Digital Convergence', 'Rising Phoenix Elegance', 'Quantum Noir')",
+      "themeDescription": "One sentence describing what this theme represents",
+      "visualLanguage": "Specific visual language and aesthetic approach for this custom theme",
+      "moodKeywords": ["keyword1", "keyword2", "keyword3", "keyword4"]
     }
   }
+
+IMPORTANT: Only populate customThemeNarrative when the user has NOT provided a specific theme OR when theme is 'ai' or 'auto'.
+If user specified a theme (corporate, modern, bold, etc.), leave customThemeNarrative as null or omit it.
   `
 
 // ============================================================
@@ -483,6 +640,14 @@ function validateContextMatchesEvent(
   })
 
   if (!hasEventReference) {
+    // v5.5: RELAXED VALIDATION FOR RICH DESIGNS
+    // If the context is very detailed (>800 chars) and clearly creative, we allow it even if it missed the specific keyword.
+    // This prevents "Smart" AI designs from being thrown away for "Dull" generic fallbacks.
+    if (contextString.length > 800) {
+      console.warn(`[Design Intelligence] ⚠️ Strict keyword validation failed ("${eventKeywords[0]}"), but context is rich (${contextString.length} chars). Allowing to prevent dull fallback.`)
+      return { valid: true }
+    }
+
     // v4.9: For greetings (like "Happy New Year"), check if context has ANY celebration/festive theme
     const isGreetingPattern = normalizedEventName.match(/^(happy|merry|congratulations|best wishes|seasons greetings)/i)
     if (isGreetingPattern) {
@@ -529,74 +694,267 @@ function validateContextMatchesEvent(
 // ============================================================
 
 export async function generateDesignContext(
-  input: DesignBrief
+  input: DesignBrief,
+  resolvedColors?: ResolvedColors,
+  eventProfile?: EventProfile | null
 ): Promise<DesignIntelligenceResult> {
   const startTime = Date.now()
-  let llmResponse: LLMResponse
+  const MAX_ATTEMPTS = 2
+  let lastError: any
 
-  try {
-    // Stage 1: Construct the Prompt
-    const prompt = buildDesignContextPrompt(DESIGN_INTELLIGENCE_PROMPT, input)
+  // ============================================================
+  // v6.0: CREATIVITY ENHANCEMENT - Unique seed for every generation
+  // This ensures each poster gets fresh, unique visual elements
+  // ============================================================
+  const uniquenessSeed = generateUniquenessSeed()
+  const creativityDirective = getCreativityDirective(uniquenessSeed)
 
-    // Stage 2: Call LLM (Gemini preferred, Claude fallback)
-    // We prioritize speed/cost for this step since it's "thinking" not "rendering"
-    try {
-      llmResponse = await callGemini(prompt)
-    } catch (e) {
-      console.warn('[Design Intelligence] Gemini failed, falling back to Claude', e)
-      llmResponse = await callClaude(prompt)
-    }
+  // Get content-related visual elements based on event name/type
+  const contentElements = getContentRelatedElements(
+    input.eventName || '',
+    input.eventType,
+    uniquenessSeed
+  )
 
-    // Stage 3: Parse & Validate
-    const designContext = parseDesignContext(llmResponse.text)
+  console.log('[Design Intelligence] 🎨 Creativity Enhancement Active:', {
+    seed: uniquenessSeed,
+    matchedCategories: contentElements.matchedCategories,
+    elementsCount: contentElements.elements.length
+  })
 
-    // NEW: Validate context matches event
-    const validation = validateContextMatchesEvent(
-      designContext,
-      input.eventName,
-      input.eventType
-    )
+  // ============================================================
+  // CACHE OPTIMIZATION (v5.5): Check cache before LLM call
+  // v6.0: DISABLED for creative formats to ensure variety
+  // ============================================================
+  const isCreativeFormat = ['event_poster', 'flyer', 'instagram_post', 'linkedin_post', 'invitation'].includes(input.formatId || '')
 
-    if (!validation.valid) {
-      console.error('[Design Intelligence] ⚠️  CONTEXT VALIDATION FAILED!')
-      console.error('[Design Intelligence] Reason:', validation.reason)
-      console.error('[Design Intelligence] Event Name:', input.eventName)
-      console.error('[Design Intelligence] Triggering fallback...')
-
-      // Trigger fallback by throwing error
-      throw new Error(`Context validation failed: ${validation.reason}`)
-    }
-
-    // Stage 4: Return Enriched Context
-    return {
-      context: designContext,
-      usage: {
-        model: llmResponse.model,
-        provider: llmResponse.model.includes('claude') ? 'claude' : 'gemini',
-        tokenUsage: llmResponse.tokenUsage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        durationMs: Date.now() - startTime,
-      },
-    }
-  } catch (error) {
-    console.error('[Design Intelligence] Failed to generate context:', error)
-    // Return safe fallback to prevent app crash
-    // Return safe fallback to prevent app crash
-    const fallbackContext = generateFallbackContext({
-      title: input.eventName,
-      description: input.details,
-      venue: input.venue,
-      additionalContext: input.additionalContext,
+  // Only use cache for non-creative formats (certificates, business cards, etc.)
+  if (!isCreativeFormat) {
+    const cacheKey = generateDesignContextCacheKey({
+      formatId: input.formatId,
+      eventType: input.eventType,
+      eventName: input.eventName,
+      theme: input.theme,
+      style: input.style,
+      hasSpeakerPhoto: input.hasSpeakerPhoto,
     })
 
-    return {
-      context: fallbackContext,
-      usage: {
-        model: 'fallback',
-        provider: 'gemini',
-        tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        durationMs: Date.now() - startTime,
-      },
+    const cachedContext = getCachedDesignContext(cacheKey)
+    if (cachedContext) {
+      console.log('[Design Intelligence] ✅ Cache HIT - Skipping LLM call')
+      return {
+        context: cachedContext as DesignContext,
+        usage: {
+          model: 'cached',
+          provider: 'gemini',
+          tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          durationMs: Date.now() - startTime,
+        },
+      }
     }
+  } else {
+    console.log('[Design Intelligence] 🎯 Creative format detected - Cache BYPASSED for maximum variety')
+  }
+  console.log('[Design Intelligence] ❌ Cache MISS - Calling LLM')
+
+  // Attempt generation loop
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      // Stage 1: Construct the Prompt with creativity enhancements
+      let prompt = buildDesignContextPrompt(DESIGN_INTELLIGENCE_PROMPT, input)
+
+      // v6.0: Inject creativity enhancements
+      prompt += buildCreativityEnhancementSection(uniquenessSeed, creativityDirective, contentElements)
+
+      // v6.0 Phase 2: Inject color brief for color-aware backgrounds
+      if (resolvedColors && resolvedColors.source !== 'fallback') {
+        const colorPersonality = analyzeColorPersonality(resolvedColors.primaryColor)
+
+        const colorBrief = `
+
+========================================
+USER COLOR PALETTE (MANDATORY - DRIVE VISUAL ATMOSPHERE):
+========================================
+
+Primary Color: ${resolvedColors.primaryColor} - ${colorPersonality.name}
+Secondary Color: ${resolvedColors.secondaryColor}
+Accent Color: ${resolvedColors.accentColor}
+Color Source: ${resolvedColors.source}
+
+COLOR PERSONALITY ANALYSIS:
+- Mood: ${colorPersonality.mood}
+- Visual Elements: ${colorPersonality.visualElements.join(', ')}
+- Background Style: ${colorPersonality.backgroundStyle}
+- Lighting: ${colorPersonality.lightingStyle}
+
+CRITICAL COLOR RULES (NON-NEGOTIABLE):
+1. The backgroundSetting MUST reflect this color's emotional personality (${colorPersonality.name})
+2. DO NOT use generic descriptions like "professional gradient" or "modern background"
+3. THINK: What story does ${resolvedColors.primaryColor} tell for this event?
+4. Examples of color-driven backgrounds:
+   - Deep green (#1c9924) → "Living forest environment with organic flowing forms and botanical patterns, bio-luminescent nodes"
+   - Vibrant orange (#FF6B35) → "High-energy environment with explosive radial patterns, motion blur effects, kinetic energy lines"
+   - Purple (#8B00FF) → "Premium elegant atmosphere with flowing curves, mystical patterns, sophisticated depth"
+5. Background MUST harmonize with ${colorPersonality.mood} atmosphere
+6. Visual elements SHOULD include: ${colorPersonality.visualElements.slice(0, 3).join(', ')}
+7. Lighting style SHOULD be: ${colorPersonality.lightingStyle}
+
+DEPTH LAYERS (Apply to backgroundSetting):
+- Foreground: ${colorPersonality.depthLayers.foreground}
+- Midground: ${colorPersonality.depthLayers.midground}
+- Background: ${colorPersonality.depthLayers.background}
+
+⚠️ CRITICAL: User selected these colors intentionally. The background MUST feel like it was designed FOR this color palette, not just colored in afterward.
+`
+        prompt += colorBrief
+        console.log(`[Design Intelligence] 🎨 Injected color personality: ${colorPersonality.name} (${resolvedColors.source})`)
+      }
+
+      // v6.5 Phase 1: Inject Event Understanding insights from Stage 1
+      // v6.5.1: Lowered threshold from 0.6 to 0.4 to use fallback Event Understanding profiles
+      // Fallback profiles (confidence ~0.5) still provide valuable event context vs random themes
+      if (eventProfile && eventProfile.confidence >= 0.4) {
+        const eventBrief = `
+
+========================================
+EVENT CONCEPT ANALYSIS (FROM STAGE 1 - SEMANTIC UNDERSTANDING):
+========================================
+
+EVENT: "${input.eventName}"
+
+LITERAL MEANING:
+${eventProfile.literalMeaning}
+
+METAPHORICAL INTERPRETATIONS:
+${eventProfile.metaphoricalMeanings.map(m => `- ${m}`).join('\n')}
+
+SELECTED VISUAL CONCEPT: ${eventProfile.selectedConcept}
+Concept Description: ${eventProfile.concepts.find(c => c.name === eventProfile.selectedConcept)?.description || ''}
+
+PRIMARY VISUAL ASSOCIATIONS (USE THESE):
+${eventProfile.visualAssociations.primary.map(v => `- ${v}`).join('\n')}
+
+SECONDARY VISUAL OPTIONS (IF NEEDED):
+${eventProfile.visualAssociations.secondary.map(v => `- ${v}`).join('\n')}
+
+ABSTRACT REPRESENTATIONS:
+${eventProfile.visualAssociations.abstract.map(v => `- ${v}`).join('\n')}
+
+EVENT CHARACTERISTICS:
+- Formality Level: ${eventProfile.formality}
+- Energy Level: ${eventProfile.energyLevel}
+- Emotional Tone: ${eventProfile.emotionalTone}
+
+CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
+1. The visual elements MUST reflect the event's CONCEPTUAL meaning, not just generic event imagery
+2. Use the PRIMARY visual associations as your main inspiration
+3. DO NOT default to generic business/corporate imagery (handshakes, business cards, suits)
+4. THINK: What does "${input.eventName}" MEAN conceptually? Use the literal and metaphorical meanings above
+5. The backgroundSetting and iconicImagery MUST include elements from the visual associations
+6. The selected concept "${eventProfile.selectedConcept}" should guide your entire design approach
+7. Confidence in this analysis: ${(eventProfile.confidence * 100).toFixed(0)}% - Trust these insights
+
+⚠️ CRITICAL: Event name "${input.eventName}" has specific conceptual meaning. Generate visuals that match THIS SPECIFIC concept, not generic event templates.
+`
+        prompt += eventBrief
+        console.log(`[Design Intelligence] 🎯 Injected Event Understanding: ${eventProfile.selectedConcept} (confidence: ${eventProfile.confidence})`)
+        console.log(`[Design Intelligence] Primary visuals: ${eventProfile.visualAssociations.primary.slice(0, 3).join(', ')}`)
+      } else if (eventProfile) {
+        console.log(`[Design Intelligence] ⚠️ Event Understanding available but confidence too low (${eventProfile.confidence}) - skipping injection`)
+      }
+
+      // Add strict enforcement on retry
+      if (attempt > 1) {
+        prompt += `\n\n⚠️ PREVIOUS ATTEMPT REJECTED: The developed context failed validation because it did not explicitly mention the event name "${input.eventName}".\nFIX: Ensure "storyAnalysis.narrative" explicitly contains the text "${input.eventName}".`
+        console.log(`[Design Intelligence] 🔄 RETRY ATTEMPT ${attempt}/${MAX_ATTEMPTS} for "${input.eventName}"`)
+      }
+
+      // Stage 2: Call LLM (Gemini preferred, Claude fallback)
+      let llmResponse: LLMResponse
+      try {
+        llmResponse = await callGemini(prompt, input.formatId) // v5.3: Pass formatId for temperature config
+      } catch (e) {
+        console.warn(`[Design Intelligence] Gemini failed (Attempt ${attempt}), falling back to Claude`, e)
+        llmResponse = await callClaude(prompt)
+      }
+
+      // Stage 3: Parse & Validate
+      const designContext = parseDesignContext(llmResponse.text)
+
+      // NEW: Validate context matches event
+      const validation = validateContextMatchesEvent(
+        designContext,
+        input.eventName,
+        input.eventType
+      )
+
+      if (!validation.valid) {
+        const reason = validation.reason || 'Unknown validation failure'
+        console.warn(`[Design Intelligence] ⚠️ Attempt ${attempt} Validation Failed: ${reason}`)
+
+        // If this is the last attempt, throw to trigger fallback
+        if (attempt === MAX_ATTEMPTS) {
+          throw new Error(`Context validation failed after ${MAX_ATTEMPTS} attempts: ${reason}`)
+        }
+
+        // Continue to next attempt
+        continue
+      }
+
+      // Stage 4: Store in cache (v5.5 optimization)
+      // v6.0: Only cache non-creative formats to maintain variety for posters/flyers
+      if (!isCreativeFormat) {
+        const cacheKey = generateDesignContextCacheKey({
+          formatId: input.formatId,
+          eventType: input.eventType,
+          eventName: input.eventName,
+          theme: input.theme,
+          style: input.style,
+          hasSpeakerPhoto: input.hasSpeakerPhoto,
+        })
+        setCachedDesignContext(cacheKey, designContext)
+      }
+
+      // Stage 5: Return Enriched Context (Success)
+      return {
+        context: designContext,
+        usage: {
+          model: llmResponse.model,
+          provider: llmResponse.model.includes('claude') ? 'claude' : 'gemini',
+          tokenUsage: llmResponse.tokenUsage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          durationMs: Date.now() - startTime,
+        },
+      }
+
+    } catch (error) {
+      console.error(`[Design Intelligence] Error in attempt ${attempt}:`, error)
+      lastError = error
+      // If critical error (not validation), we might still want to retry or just fail?
+      // For now, let's treat it as a failure that consumes an attempt
+      if (attempt === MAX_ATTEMPTS) break
+    }
+  }
+
+  // If we get here, all attempts failed
+  console.error('[Design Intelligence] All attempts failed. Triggering fallback.')
+
+  // Return safe fallback to prevent app crash
+  const fallbackContext = generateFallbackContext({
+    title: input.eventName,
+    description: input.details,
+    venue: input.venue,
+    additionalContext: input.additionalContext,
+    theme: input.theme, // v5.5: Pass theme to fallback generator
+  })
+
+  return {
+    context: fallbackContext,
+    usage: {
+      model: 'fallback',
+      provider: 'gemini',
+      tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      durationMs: Date.now() - startTime,
+    },
   }
 }
 
@@ -604,17 +962,20 @@ export async function generateDesignContext(
 // HELPERS
 // ============================================================
 
-async function callGemini(prompt: string): Promise<LLMResponse> {
+async function callGemini(prompt: string, formatId?: string): Promise<LLMResponse> {
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Missing Gemini API Key')
+
+  // Get format-specific temperature config (v5.3)
+  const tempConfig = getTemperatureConfig(formatId || 'event_poster')
 
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
     generationConfig: {
-      temperature: 0.7,
+      temperature: tempConfig.designIntelligence, // v5.3: Variable temp for creative variation (1.4 for creative formats)
       topK: 40,
-      topP: 0.95,
+      topP: tempConfig.topP, // v5.3: Variable topP (0.98 for creative)
       maxOutputTokens: 4096, // v3.6: Increased for deeper reasoning
       responseMimeType: 'application/json', // v3.6: Native JSON Mode!
     },
@@ -777,6 +1138,18 @@ function parseDesignContext(json: string): DesignContext {
     if (missing.length > 0) {
       console.warn('[Design Intelligence] Missing required fields:', missing)
       // We could throw here, or just let validation fail later
+    }
+
+    // v5.5: Ensure visualElements is populated (not empty array)
+    if (!parsed.visualElements || parsed.visualElements.length === 0) {
+      console.warn('[Design Intelligence] WARNING: visualElements empty, providing generic fallback')
+      parsed.visualElements = [
+        'dynamic composition with depth',
+        'modern professional setting',
+        'engaging visual hierarchy',
+        'bold graphic elements',
+        'contemporary design aesthetic'
+      ]
     }
 
     return parsed as DesignContext

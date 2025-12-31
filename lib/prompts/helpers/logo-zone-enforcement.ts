@@ -237,29 +237,30 @@ export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext)
 
   let regionGuidance = ''
   if (topZones.length > 0) {
-    regionGuidance += `\nTOP REGION (0-${safeArea.topSafe}%): Reserved for logo overlays. Keep this area CLEAN with simple background.`
+    regionGuidance += `\nTOP REGION (0-${safeArea.topSafe}%): Keep this area CLEAN with simple, uncluttered background.`
   }
   if (bottomZones.length > 0) {
-    regionGuidance += `\nBOTTOM REGION (${safeArea.bottomSafe}-100%): Reserved for footer overlays. Keep this area CLEAN.`
+    regionGuidance += `\nBOTTOM REGION (${safeArea.bottomSafe}-100%): Keep this area CLEAN with simple background.`
   }
 
   return `
-<forbidden_zones>
-LOGO OVERLAY ZONES - ABSOLUTELY NO TEXT OR IMPORTANT ELEMENTS IN THESE AREAS:
+<clean_background_areas>
+AREAS REQUIRING CLEAN BACKGROUNDS - NO TEXT OR COMPLEX ELEMENTS:
 
 ${zoneDescriptions}
 ${regionGuidance}
 
-STRICT REQUIREMENTS FOR FORBIDDEN ZONES:
+REQUIREMENTS FOR CLEAN BACKGROUND AREAS:
 1. Use ONLY solid colors, subtle gradients, or simple textures
 2. NO text, headlines, dates, or information of any kind
 3. NO faces, photos, or detailed imagery
-4. NO decorative elements that would compete with logos
-5. Keep background clean and uncluttered for maximum logo visibility
+4. NO decorative elements or frames
+5. Keep background simple and uncluttered
+6. Keep these areas completely empty
 
-SAFE CONTENT AREA: Y=${safeArea.topSafe}% to Y=${safeArea.bottomSafe}%
-Position ALL headlines, event details, CTAs, and important content within this safe area.
-</forbidden_zones>
+CONTENT AREA: Y=${safeArea.topSafe}% to Y=${safeArea.bottomSafe}%
+Position ALL headlines, event details, CTAs, and important content within this area.
+</clean_background_areas>
 `
 }
 
@@ -276,9 +277,10 @@ export function buildZoneReminderSection(logoAwareness?: LogoAwarenessContext): 
   const safeArea = getSafeContentArea(zones)
 
   return `
-REMINDER - LOGO ZONES:
-- Top ${safeArea.topSafe}% of image: Reserved for logos. Keep clean and simple.
-- Bottom ${100 - safeArea.bottomSafe}% of image: Reserved for footer. Keep clean.
+REMINDER - CLEAN BACKGROUND AREAS:
+- Top ${safeArea.topSafe}% of image: Keep clean and simple background, no text.
+- Bottom ${100 - safeArea.bottomSafe}% of image: Keep clean background.
 - Place ALL text and content between ${safeArea.topSafe}% and ${safeArea.bottomSafe}% from top.
+- Keep the top and bottom areas completely empty.
 `
 }

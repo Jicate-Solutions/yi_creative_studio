@@ -178,7 +178,7 @@ Content Hierarchy:
 - ${data.personName}: PRIMARY - most prominent, professional font
 - ${data.jobTitle}: SECONDARY - below name, slightly smaller
 ${data.companyName ? `- ${data.companyName}: With company logo` : ''}
-${options.logoAwareness?.hasLogo ? `- Logo: ${options.logoAwareness.logoPosition} (area kept clear for overlay)` : ''}
+${options.logoAwareness?.hasLogo ? `- Logo area: ${options.logoAwareness.logoPosition} (clean background)` : ''}
 
 Contact Section (organized, aligned):
   ${data.phoneNumber ? `- Phone: ${data.phoneNumber}` : ''}
@@ -221,13 +221,13 @@ ${BUSINESS_CARD_EXAMPLES}
 - MEMORABLE TEST: Distinctive but not gimmicky
 - HIERARCHY TEST: Name > Title > Company > Contact
 - UTILITY TEST: Easy to find key contact information quickly
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly applied' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Cluttered design, tiny unreadable text (under 7pt), too much information crammed in, unprofessional or playful fonts, busy backgrounds, poor contrast, text too close to edges (will be cut), gimmicky or flashy design
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

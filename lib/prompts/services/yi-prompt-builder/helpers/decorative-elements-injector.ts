@@ -72,10 +72,32 @@ export function buildDecorativeElementsSection(
     elements = designContext.visualElements.slice(0, maxElements)
     source = 'design_intelligence'
   }
-  // Priority 3: Curated elements from visual-elements-guide (fallback)
+  // Priority 3: Generic visual pool (v5.5 - NOT event-specific)
+  else if (eventType) {
+    const genericPool = [
+      'dynamic composition with depth',
+      'modern professional setting',
+      'engaging visual hierarchy',
+      'bold graphic elements',
+      'contemporary design aesthetic',
+      'clean geometric patterns',
+      'sophisticated visual balance',
+      'layered design elements',
+      'refined spatial composition',
+      'strategic focal points'
+    ]
+
+    // Randomize selection for variety
+    const shuffled = [...genericPool].sort(() => Math.random() - 0.5)
+    elements = shuffled.slice(0, maxElements)
+    source = 'generic_visual_pool'
+    console.log('[Decorative Elements] Using generic visual pool (avoiding event-type stereotypes)')
+  }
+  // Priority 4: Curated elements from visual-elements-guide (EMERGENCY FALLBACK ONLY - v5.5)
   else if (eventType && hasVisualElements(eventType)) {
     elements = getVisualElements(eventType).slice(0, maxElements)
-    source = 'visual_elements_guide'
+    source = 'visual_elements_guide_fallback'
+    console.warn('[Decorative Elements] WARNING: Using hardcoded event-type elements as emergency fallback')
   }
 
   // Optionally add iconic imagery if available
@@ -118,11 +140,12 @@ ${thematicElements.map((el, i) =>
      - Story Role: ${el.reasoning}`
     ).join('\n')}
 
-CRITICAL INSTRUCTIONS:
-- These decorations were specifically chosen to enhance THIS event's narrative
-- Place elements EXACTLY as specified (placement is part of the story)
-- Use EXACT opacity values (they create the right visual weight)
-- Each element has a REASON - they're not random decorations
+DESIGN SUGGESTIONS (AI-Generated):
+- These decorations were chosen to enhance this event's narrative
+- Use as creative guidance, but prioritize user-specified elements and colors
+- If user provided custom colors/design preferences, those take precedence over these suggestions
+- Adapt placement and opacity as needed for visual harmony with user's requirements
+- Each element has a contextual reason - they're not random decorations
 
 `
   }
@@ -147,7 +170,7 @@ ${iconicImagery.map((el, i) => `  ${i + 1}. ${el}`).join('\n')}`
     ? `DESIGN STRATEGY: PROFESSIONAL MINIMALISM
 - NEGATIVE SPACE: Maintain 40%+ of the canvas as clean "breathing space"
 - SUBTLETY: Use these elements as very low-opacity (8-15%) background textures or single sharp accents
-- CLARITY: Ensure no element competes with or touches the text headlines or logo zones
+- CLARITY: Ensure no element competes with or touches the text headlines or upper corner areas
 - IMPACT: One large, high-quality focal element is better than many small busy ones`
     : finalSophistication === 'playful' || sophistication === 'rich'
       ? `DESIGN STRATEGY: IMMERSIVE RICHNESS
@@ -167,7 +190,7 @@ ${storyDecorationsSection}${elementsSection}${imagerySection}
 
 ${strategyGuidance}
 - COLOR HARMONY: Elements must blend perfectly with the primary color palette
-- SACROSANCT ZONES: Do NOT place prominent elements in Logo Zones/Stripe (Top 15%) or Contact Zones (Bottom 10%)
+- CLEAR AREAS: Do NOT place prominent elements in the upper 15% or lower 10% of the design
 
 The goal is a SOPHISTICATED, CONTEXTUALLY-RELEVANT design that immediately tells viewers the event domain through professional visual language.
 </visual_design_elements>

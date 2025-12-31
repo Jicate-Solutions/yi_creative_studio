@@ -255,7 +255,11 @@
       "Bash(xargs:*)",
       "Bash(copy \"c:\\\\Users\\\\Admin\\\\Downloads\\\\Gemini_Generated_Image_idpg6tidpg6tidpg.png\" \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\public\\\\images\\\\yi-brand-showcase.png\" /Y)",
       "Bash(tee:*)",
-      "WebFetch(domain:www.monotype.com)"
+      "WebFetch(domain:www.monotype.com)",
+      "Bash(gh pr list:*)",
+      "Bash(del /f \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\.next\\\\dev\\\\lock\")",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:www.anthropic.com)"
     ],
     "deny": [],
     "ask": [],

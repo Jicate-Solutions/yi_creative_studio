@@ -19,6 +19,11 @@ import {
 } from '../context-helpers'
 import { WEB_BANNER_EXAMPLES } from '../examples'
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
@@ -27,7 +32,7 @@ import { getSophistication, getIntegratedZoneContext } from '../helpers/sophisti
 import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
 // ============================================================
-// SIZE VARIATIONS (v3.1)
+// SIZE VARIATIONS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface BannerSizeContext {
@@ -36,10 +41,15 @@ interface BannerSizeContext {
   textGuidance: string
   structure: string
   maxWords: number
+  visualStyle?: string  // v6.0: Enhanced with design intelligence
+  colorAdvice?: string  // v6.0: Enhanced with color personality
 }
 
-function getBannerLayoutForSize(size?: string): BannerSizeContext {
-  const sizeContexts: Record<string, BannerSizeContext> = {
+/**
+ * v6.0: Get base size constraints (dimensions, layout structure)
+ */
+function getBaseSizeConstraints(size?: string): Omit<BannerSizeContext, 'visualStyle' | 'colorAdvice'> {
+  const sizeConstraints: Record<string, Omit<BannerSizeContext, 'visualStyle' | 'colorAdvice'>> = {
     leaderboard: {
       dimensions: '728x90 pixels',
       layout: 'Horizontal strip layout - Text left/center, CTA right',
@@ -83,7 +93,84 @@ function getBannerLayoutForSize(size?: string): BannerSizeContext {
       maxWords: 15,
     },
   }
-  return sizeContexts[size?.toLowerCase().replace(/ /g, '_') || 'medium_rectangle'] || sizeContexts.medium_rectangle
+  return sizeConstraints[size?.toLowerCase().replace(/ /g, '_') || 'medium_rectangle'] || sizeConstraints.medium_rectangle
+}
+
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildWebBannerContextFromDesignIntelligence(
+  baseContext: Omit<BannerSizeContext, 'visualStyle' | 'colorAdvice'>,
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): BannerSizeContext {
+  const backgroundSetting = designContext.backgroundSetting
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('web_banner', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    ...baseContext,
+    visualStyle: `${themeInfo} - ${enhancedBackground} - Conversion-optimized web banner`,
+    colorAdvice: userColors ? `Primary: ${userColors.primaryColor}, CTA accent: ${userColors.accentColor || userColors.primaryColor}, high contrast for clicks` : 'Bold contrasting colors for web advertising',
+  }
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicWebBannerColorContext(
+  baseContext: Omit<BannerSizeContext, 'visualStyle' | 'colorAdvice'>,
+  userColors: ResolvedColors
+): BannerSizeContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground('web_banner', userColors)
+
+  return {
+    ...baseContext,
+    visualStyle: `${backgroundSetting} - ${colorPersonality.visualElements} - Conversion-focused web advertising`,
+    colorAdvice: `Primary: ${userColors.primaryColor}, CTA accent: ${userColors.accentColor || userColors.primaryColor}, optimized for clicks`,
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for Web Banner Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getBannerLayoutForSize(
+  size?: string,
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): BannerSizeContext {
+  const baseContext = getBaseSizeConstraints(size)
+
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Web Banner Context] Using Design Intelligence for ${size}`)
+    return buildWebBannerContextFromDesignIntelligence(baseContext, designContext, userColors)
+  }
+
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Web Banner Context] Using Color Personality (${userColors.source}) for ${size}`)
+    return buildDynamicWebBannerColorContext(baseContext, userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded size-specific visuals beyond constraints)
+  console.log(`[Web Banner Context] Using minimal fallback for ${size}`)
+  return {
+    ...baseContext,
+    visualStyle: 'Professional web advertising design - conversion-optimized',
+    colorAdvice: 'Professional palette with high-contrast CTA button for clicks',
+  }
 }
 
 // ============================================================
@@ -96,7 +183,12 @@ export function buildWebBannerPrompt(
 ): string {
   // Get size context (v3.1)
   const bannerSize = options.formatSize || data.size || 'medium_rectangle'
-  const sizeContext = getBannerLayoutForSize(bannerSize)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const sizeContext = getBannerLayoutForSize(
+    bannerSize,
+    options.resolvedColors,
+    options.designContext
+  )
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)
@@ -186,7 +278,7 @@ Layout: ${sizeContext.layout}
 Size-Specific Structure: ${sizeContext.structure}
 
 Flow: Left-to-right (for LTR audiences)
-- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'Small brand element, left side'}
+- LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (clean background)` : 'Small brand element, left side'}
 - HEADLINE: "${data.headline}" - primary message, immediately visible (max ${sizeContext.maxWords} words for this size)
 ${data.valueProposition ? `- VALUE: "${data.valueProposition}" - supporting message` : ''}
 ${data.offerDetails ? `- OFFER: "${data.offerDetails}" - highlighted special offer` : ''}
@@ -221,7 +313,7 @@ ${WEB_BANNER_EXAMPLES}
 - STANDOUT TEST: Stands out on various website backgrounds
 - SIZE TEST: Layout optimized for ${bannerSize} dimensions
 - QUALITY TEST: Professional digital advertising quality
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly applied' : ''}
 </quality_markers>
 
@@ -229,7 +321,7 @@ ${options.brandContext ? '- Brand colors properly applied' : ''}
 Avoid: Cluttered layout, too much text for banner size, no clear CTA, low contrast, competing messages, tiny unreadable fonts, looks like content not an ad, too subtle to notice
 ${bannerSize === 'leaderboard' ? 'For Leaderboard: Keep text extremely minimal (5 words max), horizontal flow only' : ''}
 ${bannerSize === 'wide_skyscraper' ? 'For Skyscraper: Stack elements vertically, avoid horizontal layouts' : ''}
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 </constraints>
 
 ${options?.preventionEnhancements?.length ? `

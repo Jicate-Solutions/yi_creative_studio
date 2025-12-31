@@ -333,7 +333,7 @@ export async function analyzeEventWithAgent(
   }
 
   const client = new Anthropic({ apiKey })
-  const modelName = 'claude-haiku-4-5-20251001' // Fast, cost-effective for analysis
+  const modelName = 'claude-haiku-4-5' // Fast, cost-effective for analysis
 
   // Build the system prompt with constraints
   const systemPrompt = buildAgentSystemPrompt(constraints)

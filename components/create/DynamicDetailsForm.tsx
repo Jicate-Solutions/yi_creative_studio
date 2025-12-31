@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FileText, Sparkles, Check, X, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useCreativeStore } from '@/stores/creative-store'
 import {
   getCreativeSchema,
   validateFormData,
@@ -237,7 +238,7 @@ function DynamicField({
         </Label>
         {suggestion && showSuggestion && (
           <div className="flex items-center gap-1 text-xs">
-            <Sparkles className="h-3 w-3 text-purple-500" />
+            <Sparkles className="h-3 w-3 text-primary" />
             <span className={confidenceColor}>
               {Math.round((suggestion.confidence || 0) * 100)}% confident
             </span>
@@ -782,13 +783,13 @@ export function DynamicDetailsForm({
               <FileText className="h-5 w-5 text-primary" />
               {displayName} Details
               {isUsingAISchema && !isDynamicSchemaFallback && (
-                <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 text-xs">
+                <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary text-xs">
                   <Sparkles className="h-3 w-3 mr-1" />
                   AI Fields
                 </Badge>
               )}
               {isUsingFormatSchema && (
-                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700 text-xs">
+                <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary text-xs">
                   Format Fields
                 </Badge>
               )}
@@ -821,7 +822,7 @@ export function DynamicDetailsForm({
             </div>
             <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-[0_0_10px_rgba(139,92,246,0.3)] transition-all duration-500 ease-out"
+                className="h-full gradient-yi shadow-[0_0_10px_rgba(0,91,150,0.3)] transition-all duration-500 ease-out"
                 style={{ width: `${Math.round((effectiveFields.filter(f => f.required && getFieldValue(f.id)).length / effectiveFields.filter(f => f.required).length) * 100) || 0}%` }}
               />
             </div>
@@ -877,12 +878,12 @@ export function DynamicDetailsForm({
                   size="icon"
                   onClick={onRequestSuggestions}
                   disabled={!canTriggerAI || isSuggestionsLoading}
-                  className="h-10 w-10 shrink-0 border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+                  className="h-10 w-10 shrink-0 border-primary/20 hover:bg-primary/5 hover:border-primary/30"
                   title="Get AI suggestions for form fields"
                 >
                   <Sparkles
                     className={cn(
-                      'h-4 w-4 text-purple-500',
+                      'h-4 w-4 text-primary',
                       isSuggestionsLoading ? 'animate-spin' : ''
                     )}
                   />
@@ -919,17 +920,17 @@ export function DynamicDetailsForm({
 
         {/* AI Trigger Button for section mode - shown above sections */}
         {!isDynamicSchemaLoading && useSections && onRequestSuggestions && (
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-violet-50 via-purple-50 to-fuchsia-50 border border-purple-100 rounded-xl shadow-sm relative overflow-hidden group">
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 via-primary/10 to-secondary/5 border border-primary/10 rounded-xl shadow-sm relative overflow-hidden group">
             <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex items-center gap-3 relative z-10">
               <div className="p-2 bg-white rounded-lg shadow-sm">
-                <Sparkles className="h-4 w-4 text-purple-600 animate-pulse" />
+                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-purple-900">
+                <span className="text-sm font-semibold text-primary">
                   AI Content Assistant
                 </span>
-                <span className="text-xs text-purple-700/80">
+                <span className="text-xs text-foreground/70">
                   {canTriggerAI
                     ? 'Ready to generate smart suggestions for you'
                     : `Start typing in "${firstUnfilledTextField?.label || 'Title'}" to unlock AI help`}
@@ -942,7 +943,7 @@ export function DynamicDetailsForm({
               size="sm"
               onClick={onRequestSuggestions}
               disabled={!canTriggerAI || isSuggestionsLoading}
-              className="relative z-10 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-md hover:shadow-lg transition-all"
+              className="relative z-10 gradient-yi hover:opacity-90 text-white border-0 shadow-md hover:shadow-lg transition-all"
             >
               <Sparkles
                 className={cn(
@@ -964,8 +965,8 @@ export function DynamicDetailsForm({
 
         {/* Bulk AI Actions */}
         {!isDynamicSchemaLoading && hasSuggestions && !isSuggestionsLoading && (
-          <div className="flex items-center justify-end gap-2 py-2 px-1 border-t border-dashed border-purple-200 bg-purple-50/50 rounded-b-lg">
-            <span className="text-xs text-purple-600 flex items-center gap-1 mr-auto">
+          <div className="flex items-center justify-end gap-2 py-2 px-1 border-t border-dashed border-primary/20 bg-primary/5 rounded-b-lg">
+            <span className="text-xs text-primary flex items-center gap-1 mr-auto">
               <Sparkles className="h-3 w-3" />
               AI Suggestions available
             </span>
@@ -1046,12 +1047,17 @@ export function DynamicDetailsForm({
                           size: (speakerPhotoValue as SpeakerPhotoCustomization)?.size || 200,
                           border: (speakerPhotoValue as SpeakerPhotoCustomization)?.border || { width: 3, color: '#005B96' },
                           shadow: (speakerPhotoValue as SpeakerPhotoCustomization)?.shadow ?? true,
+                          position: (speakerPhotoValue as SpeakerPhotoCustomization)?.position || 'center',
+                          verticalPosition: (speakerPhotoValue as SpeakerPhotoCustomization)?.verticalPosition || 'middle',
                         }}
                         layoutMode={(speakerPhotoValue as SpeakerPhotoCustomization)?.layoutMode || 'auto'}
                         layoutStrategy={(speakerPhotoValue as SpeakerPhotoCustomization)?.layoutStrategy}
                         spacing={(speakerPhotoValue as SpeakerPhotoCustomization)?.spacing || 20}
                         onAddSpeaker={() => {
-                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          // Read LATEST state directly from Zustand (not stale prop)
+                          const { formData } = useCreativeStore.getState()
+                          const currentSpeakers = formData?.designData?.customization?.speakerPhoto?.speakers || []
+
                           onSpeakerPhotoChange?.({
                             speakers: [
                               ...currentSpeakers,
@@ -1064,13 +1070,19 @@ export function DynamicDetailsForm({
                           })
                         }}
                         onRemoveSpeaker={(speakerId) => {
-                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          // Read LATEST state directly from Zustand (not stale prop)
+                          const { formData } = useCreativeStore.getState()
+                          const currentSpeakers = formData?.designData?.customization?.speakerPhoto?.speakers || []
+
                           onSpeakerPhotoChange?.({
                             speakers: currentSpeakers.filter(s => s.id !== speakerId)
                           })
                         }}
                         onUpdateSpeaker={(speakerId, updates) => {
-                          const currentSpeakers = (speakerPhotoValue as SpeakerPhotoCustomization)?.speakers || []
+                          // Read LATEST state directly from Zustand (not stale prop)
+                          const { formData } = useCreativeStore.getState()
+                          const currentSpeakers = formData?.designData?.customization?.speakerPhoto?.speakers || []
+
                           onSpeakerPhotoChange?.({
                             speakers: currentSpeakers.map(s =>
                               s.id === speakerId ? { ...s, ...updates } : s
@@ -1126,8 +1138,8 @@ export function DynamicDetailsForm({
               variant="outline"
               className={cn(
                 "text-xs",
-                isUsingAISchema && !isDynamicSchemaFallback && "bg-purple-50 border-purple-200",
-                isUsingFormatSchema && "bg-blue-50 border-blue-200"
+                isUsingAISchema && !isDynamicSchemaFallback && "bg-primary/5 border-primary/20",
+                isUsingFormatSchema && "bg-primary/5 border-primary/20"
               )}
             >
               {isUsingAISchema && !isDynamicSchemaFallback

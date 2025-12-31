@@ -54,10 +54,10 @@ import { safeJsonParse } from '@/lib/utils/json-repair'
 // ============================================================
 
 /** Default model for agent operations */
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001'
+const DEFAULT_MODEL = 'claude-haiku-4-5'
 
 /** Model for quick analysis */
-const ANALYSIS_MODEL = 'claude-haiku-4-5-20251001'
+const ANALYSIS_MODEL = 'claude-haiku-4-5'
 
 // ============================================================
 // AGENT CLASS

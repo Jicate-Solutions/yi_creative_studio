@@ -941,6 +941,59 @@ export type Database = {
         }
         Returns: undefined
       }
+      get_api_usage_analytics: {
+        Args: {
+          org_id: string
+          start_date: string | null
+        }
+        Returns: {
+          provider: string
+          request_type: string
+          model: string
+          total_cost_usd: number
+          total_input_tokens: number
+          total_output_tokens: number
+          total_cached_tokens: number
+          total_images: number
+          request_count: number
+          avg_duration_ms: number
+          success_count: number
+        }[]
+      }
+      get_daily_usage_trend: {
+        Args: {
+          org_id: string
+          start_date: string | null
+        }
+        Returns: {
+          usage_date: string
+          total_cost_usd: number
+          request_count: number
+          input_tokens: number
+          output_tokens: number
+          cached_tokens: number
+          image_count: number
+        }[]
+      }
+      get_recent_api_usage: {
+        Args: {
+          org_id: string
+          start_date: string | null
+          record_limit: number
+        }
+        Returns: {
+          id: string
+          provider: string
+          request_type: string
+          model: string
+          estimated_cost_usd: number
+          input_tokens: number
+          output_tokens: number
+          duration_ms: number
+          success: boolean
+          created_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

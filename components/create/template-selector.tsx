@@ -104,10 +104,10 @@ export function TemplateSelector({
                 <div
                   key={template.id}
                   className={cn(
-                    "relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all duration-200",
+                    "relative rounded-xl overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
                     selectedTemplate?.id === template.id
-                      ? "border-primary ring-2 ring-primary/20 shadow-md"
-                      : "border-border hover:border-primary/50 hover:shadow-sm"
+                      ? "ring-2 ring-primary shadow-md"
+                      : "hover:shadow-lg hover:-translate-y-0.5"
                   )}
                   onClick={() => handleSelectTemplate(template)}
                 >

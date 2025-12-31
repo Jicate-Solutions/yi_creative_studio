@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Clock, ChevronDown, Ruler } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 import { FormatSearch } from './format-search'
 import { FormatCategoryTabs } from './format-category-tabs'
@@ -17,6 +22,7 @@ import {
   type FormatCategoryId,
 } from '@/lib/config/creative-formats'
 import { useCreativeStore } from '@/stores/creative-store'
+import { cn } from '@/lib/utils'
 
 interface FormatSelectionInlineProps {
   onSelect?: (format: CreativeFormat) => void
@@ -93,51 +99,95 @@ export function FormatSelectionInline({
     // Just clear custom dimensions, keep format selection
   }, [])
 
+  const [customSizeOpen, setCustomSizeOpen] = useState(false)
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Search */}
-      <FormatSearch
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search formats (e.g., Instagram, poster, YouTube...)"
-      />
-
-      {/* Recent formats */}
-      {!searchQuery && recentFormats.length > 0 && (
-        <RecentFormats
-          recentFormatIds={recentFormats}
-          selectedFormatId={selectedFormat?.id}
-          onSelect={handleSelectFormat}
-        />
-      )}
-
-      {/* Category tabs */}
-      <FormatCategoryTabs
-        selectedCategory={selectedCategory}
-        onSelect={(cat) => {
-          setSelectedCategory(cat)
-          setSearchQuery('')
-        }}
-      />
-
-      {/* Format grid */}
-      <div className="max-h-[50vh] overflow-y-auto -mx-2 px-2">
-        <FormatGrid
-          formats={filteredFormats}
-          selectedFormatId={selectedFormat?.id}
-          onSelect={handleSelectFormat}
+    <div className="space-y-6">
+      {/* Search Section */}
+      <div className="glass-panel p-4 rounded-xl">
+        <FormatSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search formats (e.g., Instagram, poster, YouTube...)"
         />
       </div>
 
-      {/* Custom size */}
-      {!hideCustomSize && (
-        <div className="pt-4 border-t">
-          <CustomSizeForm
-            customDimensions={formData.customDimensions}
-            onApply={handleApplyCustomSize}
-            onClear={handleClearCustomSize}
+      {/* Recent Formats */}
+      {!searchQuery && recentFormats.length > 0 && (
+        <div className="glass-panel p-4 rounded-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Clock className="h-4 w-4 text-primary" />
+            </div>
+            <span className="text-sm font-medium">Recently Used</span>
+          </div>
+          <RecentFormats
+            recentFormatIds={recentFormats}
+            selectedFormatId={selectedFormat?.id}
+            onSelect={handleSelectFormat}
           />
         </div>
+      )}
+
+      {/* Main Selection Area */}
+      <div className="glass-panel p-4 rounded-xl">
+        {/* Category tabs */}
+        <FormatCategoryTabs
+          selectedCategory={selectedCategory}
+          onSelect={(cat) => {
+            setSelectedCategory(cat)
+            setSearchQuery('')
+          }}
+        />
+
+        {/* Format grid */}
+        <div className="mt-4 max-h-[50vh] overflow-y-auto -mx-2 px-2">
+          <FormatGrid
+            formats={filteredFormats}
+            selectedFormatId={selectedFormat?.id}
+            onSelect={handleSelectFormat}
+          />
+        </div>
+      </div>
+
+      {/* Custom Size - Collapsible advanced option */}
+      {!hideCustomSize && (
+        <Collapsible open={customSizeOpen} onOpenChange={setCustomSizeOpen}>
+          <CollapsibleTrigger className="w-full">
+            <div
+              className={cn(
+                'flex items-center justify-between p-4 rounded-xl transition-all duration-200',
+                'glass-panel hover:shadow-md cursor-pointer group',
+                customSizeOpen && 'shadow-inner bg-white/50 dark:bg-black/40'
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                  <Ruler className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <div className="text-left">
+                  <span className="text-sm font-medium">Custom Dimensions</span>
+                  <p className="text-xs text-muted-foreground">Create a custom canvas size</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                  customSizeOpen && 'rotate-180'
+                )}
+              />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="glass-inset p-4 rounded-xl mt-2">
+              <CustomSizeForm
+                customDimensions={formData.customDimensions}
+                onApply={handleApplyCustomSize}
+                onClear={handleClearCustomSize}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   )

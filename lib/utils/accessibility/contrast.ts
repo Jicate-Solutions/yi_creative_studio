@@ -149,7 +149,7 @@ export function checkTextContrast(
 
   return {
     passes,
-    ratio: Math.round(ratio * 100) / 100, // Round to 2 decimal places
+    ratio, // Fixed: Use full precision for accuracy (don't round for validation)
     level: actualLevel,
   }
 }

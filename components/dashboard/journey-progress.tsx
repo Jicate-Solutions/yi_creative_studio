@@ -118,7 +118,7 @@ export function JourneyProgress({ current, className }: JourneyProgressProps) {
         <div className="h-3 rounded-full bg-muted/50 overflow-hidden">
           {/* Animated fill */}
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-primary via-primary/80 to-secondary"
+            className="h-full rounded-full gradient-yi"
             initial={{ width: 0 }}
             animate={{ width: `${animatedProgress}%` }}
             transition={{

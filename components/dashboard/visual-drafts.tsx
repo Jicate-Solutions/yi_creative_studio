@@ -66,62 +66,23 @@ export function VisualDrafts({
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="columns-1 sm:columns-2 lg:columns-4 gap-6 space-y-6">
                 {creatives.map((creative, i) => (
-                    <DraftCard
-                        key={creative.id}
-                        creative={creative}
-                        index={i}
-                        isHovered={hoveredId === creative.id}
-                        onHover={() => setHoveredId(creative.id)}
-                        onLeave={() => setHoveredId(null)}
-                        onEdit={onEdit}
-                        onRegenerate={onRegenerate}
-                        onDownload={onDownload}
-                        onDelete={onDelete}
-                        onDuplicate={onDuplicate}
-                    />
+                    <div key={creative.id} className="break-inside-avoid mb-6">
+                        <DraftCard
+                            creative={creative}
+                            index={i}
+                            isHovered={hoveredId === creative.id}
+                            onHover={() => setHoveredId(creative.id)}
+                            onLeave={() => setHoveredId(null)}
+                            onEdit={onEdit}
+                            onRegenerate={onRegenerate}
+                            onDownload={onDownload}
+                            onDelete={onDelete}
+                            onDuplicate={onDuplicate}
+                        />
+                    </div>
                 ))}
-
-                {/* The "Creation Portal" Card */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.05 * creatives.length }}
-                >
-                    <Link
-                        href={ROUTES.create}
-                        className={cn(
-                            "group relative flex flex-col items-center justify-center aspect-[4/5] p-8 rounded-3xl transition-all duration-500",
-                            "glass-panel border-dashed border-primary/20 hover:border-primary/50 hover:bg-primary/5 shadow-none hover:shadow-lg",
-                            "overflow-hidden"
-                        )}
-                    >
-                        {/* Pulse effect background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <div className="absolute -inset-full bg-[radial-gradient(circle_at_center,rgba(0,149,255,0.05)_0%,transparent_70%)] group-hover:animate-pulse" />
-
-                        <div className="relative z-10 flex flex-col items-center text-center gap-6">
-                            <div className="relative">
-                                <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50" />
-                                <div className="relative w-16 h-16 rounded-2xl bg-background border border-border/50 flex items-center justify-center group-hover:rotate-12 group-hover:scale-110 transition-all duration-500 shadow-xl">
-                                    <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <span className="block text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">Start New Project</span>
-                                <p className="text-sm text-muted-foreground/60 group-hover:text-muted-foreground transition-colors max-w-[140px]">
-                                    Bring your next vision to life with AI
-                                </p>
-                            </div>
-
-                            <div className="h-1 w-12 rounded-full bg-border flex overflow-hidden">
-                                <div className="h-full w-0 group-hover:w-full bg-primary transition-all duration-700 ease-in-out" />
-                            </div>
-                        </div>
-                    </Link>
-                </motion.div>
             </div>
         </div>
     )
@@ -179,7 +140,7 @@ function DraftCard({
             <Link
                 href={`${ROUTES.gallery}?id=${creative.id}`}
                 className={cn(
-                    "block relative aspect-[4/5] rounded-3xl overflow-hidden transition-all duration-500",
+                    "block relative w-full rounded-3xl overflow-hidden transition-all duration-500",
                     "glass-card hover:bg-white/40 dark:hover:bg-white/10 hover:shadow-xl hover:-translate-y-1",
                     "group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] dark:group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)]"
                 )}
@@ -189,16 +150,16 @@ function DraftCard({
 
                 {/* Image / Thumbnail */}
                 {creative.image_url || creative.thumbnail_url ? (
-                    <div className="absolute inset-0">
+                    <div className="relative">
                         <img
                             src={creative.thumbnail_url || creative.image_url || ''}
                             alt={creative.title || 'Creative Draft'}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 grayscale-[20%] group-hover:grayscale-0"
+                            className="w-full h-auto object-cover group-hover:scale-110 transition-transform duration-700 grayscale-[20%] group-hover:grayscale-0"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transpose to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
                     </div>
                 ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-primary/5 to-transparent">
+                    <div className="w-full aspect-[4/5] flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-primary/5 to-transparent">
                         <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500">
                             <ImageIcon className="w-8 h-8 text-primary/40" />
                         </div>
@@ -335,7 +296,7 @@ function DraftCard({
                             {creative.title || 'Untitled Creative'}
                         </h3>
                         <div className="flex items-center gap-3">
-                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium" suppressHydrationWarning>
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                                 {formatDistanceToNow(new Date(creative.created_at))} ago
                             </p>

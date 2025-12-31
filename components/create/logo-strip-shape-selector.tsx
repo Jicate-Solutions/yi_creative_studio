@@ -48,10 +48,10 @@ export function LogoStripShapeSelector() {
               type="button"
               onClick={() => setLogoStripShape(shape.value)}
               className={cn(
-                "group relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all duration-200 hover:scale-[1.02]",
+                "group relative flex flex-col items-center justify-center gap-2 rounded-xl p-3 transition-all duration-200 hover:scale-[1.02]",
                 isSelected
-                  ? "border-indigo-500 bg-indigo-50/50 shadow-sm dark:border-indigo-400 dark:bg-indigo-900/20"
-                  : "border-transparent bg-white/50 hover:bg-white/80 dark:bg-white/5 dark:hover:bg-white/10"
+                  ? "ring-2 ring-indigo-500 bg-indigo-50/50 shadow-md dark:ring-indigo-400 dark:bg-indigo-900/20"
+                  : "bg-white/50 hover:bg-white/80 shadow-sm hover:shadow-md dark:bg-white/5 dark:hover:bg-white/10"
               )}
               title={shape.description}
             >

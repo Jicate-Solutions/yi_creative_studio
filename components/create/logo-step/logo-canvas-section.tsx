@@ -1,14 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import {
     LayoutGrid,
     MousePointerClick,
     X,
-    Settings2,
-    Square,
-    RectangleHorizontal,
-    Circle,
-    CircleOff
+    Settings2
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
-import { LogoPosition, LogoCategory } from '@/lib/config/constants'
+import { LogoPosition } from '@/lib/config/constants'
 import {
     LogoSizePreset,
     LogoBackgroundShape,
@@ -29,8 +26,14 @@ import {
     DEFAULT_LOGO_BACKGROUND,
     BACKGROUND_SHAPE_OPTIONS
 } from '@/lib/constants/logoConstants'
+import type { OrganizationLogo } from '@/types/database.types'
+import type { LogoPlacement } from '@/stores/creative-store'
 
 // Re-using types from original component logic
+interface CreativeFormData {
+    logosPlacements: LogoPlacement[]
+}
+
 interface ZoneConfig {
     label: string
     description: string
@@ -45,8 +48,8 @@ const ZONES: Record<string, ZoneConfig> = {
         label: 'Header Zone (Brand)',
         description: 'Best for main organization logos',
         positions: ['top-1', 'top-2', 'top-3', 'top-4', 'top-5', 'top-6'] as LogoPosition[],
-        color: 'bg-indigo-50/50 border-indigo-200/50 text-indigo-700',
-        hoverColor: 'hover:bg-indigo-50/80',
+        color: 'bg-primary/5 border-primary/20 text-primary',
+        hoverColor: 'hover:bg-primary/10',
         badgeVariant: 'default',
     },
     middle: {
@@ -67,9 +70,14 @@ const ZONES: Record<string, ZoneConfig> = {
     },
 }
 
+// TODO: Consider reducing props drilling by extracting from useCreativeStore:
+// - formData.logosPlacements can be accessed via store.formData.logosPlacements
+// - removeLogoPlacement, updateLogoSize, updateLogoBackground, updateLogoBackgroundStyle
+//   can be accessed from store methods
+// This would reduce props from 12 to ~6-7, improving maintainability
 interface LogoCanvasSectionProps {
-    logos: any[]
-    formData: any
+    logos: OrganizationLogo[]
+    formData: CreativeFormData
     selectedLogoId: string | null
     setSelectedLogoId: (id: string | null) => void
     handleCellClick: (position: LogoPosition) => void
@@ -77,8 +85,8 @@ interface LogoCanvasSectionProps {
     updateLogoSize: (logoId: string, size: LogoSizePreset) => void
     updateLogoBackground: (logoId: string, shape: LogoBackgroundShape) => void
     updateLogoBackgroundStyle: (logoId: string, style: Partial<LogoBackgroundStyle>) => void
-    migrateLogoPosition: (pos: any) => LogoPosition
-    getLogoAtPosition: (position: LogoPosition) => any
+    migrateLogoPosition: (pos: LogoPosition | string) => LogoPosition
+    getLogoAtPosition: (position: LogoPosition) => LogoPlacement | undefined
 }
 
 export function LogoCanvasSection({
@@ -94,11 +102,8 @@ export function LogoCanvasSection({
     migrateLogoPosition,
     getLogoAtPosition
 }: LogoCanvasSectionProps) {
-
-    const placedPositions = formData.logosPlacements.map((p: any) => migrateLogoPosition(p.position))
-
     return (
-        <div className="relative w-full max-w-full rounded-xl overflow-hidden shadow-2xl shadow-black/5 border border-white/20 dark:border-white/10 group min-h-[400px] flex flex-col justify-start">
+        <div className="relative w-full max-w-full rounded-xl overflow-hidden shadow-2xl shadow-black/10 group min-h-[400px] flex flex-col justify-start">
             {/* Dot Matrix Background */}
             <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-xl z-0" />
             <div
@@ -109,7 +114,7 @@ export function LogoCanvasSection({
                 }}
             />
 
-            <div className="relative z-10 p-5 space-y-6 max-w-5xl mx-auto w-full">
+            <div className="relative z-10 p-5 space-y-6 max-w-5xl mx-auto w-full" role="region" aria-label="Logo placement canvas">
                 {/* Header Zone */}
                 <ZoneRow
                     zone={ZONES.header}
@@ -138,8 +143,8 @@ export function LogoCanvasSection({
 
                 {/* Content placeholder - Glass Slab */}
                 <div className="h-24 rounded-xl border-2 border-dashed border-muted-foreground/10 bg-white/5 flex flex-col items-center justify-center backdrop-blur-sm">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mb-1.5">
-                        <LayoutGrid className="h-4 w-4 text-indigo-400" />
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center mb-1.5">
+                        <LayoutGrid className="h-4 w-4 text-primary/60" />
                     </div>
                     <p className="text-[10px] font-medium text-muted-foreground">Content Area</p>
                     <p className="text-[9px] text-muted-foreground/60">(Auto-generated)</p>
@@ -203,8 +208,8 @@ function ZoneRow({
 }: {
     zone: ZoneConfig
     selectedLogoId: string | null
-    logos: any[]
-    getLogoAtPosition: (position: LogoPosition) => any
+    logos: OrganizationLogo[]
+    getLogoAtPosition: (position: LogoPosition) => LogoPlacement | undefined
     onCellClick: (position: LogoPosition) => void
     onRemove: (logoId: string) => void
     onSizeChange: (logoId: string, size: LogoSizePreset) => void
@@ -215,16 +220,16 @@ function ZoneRow({
         <div className={cn('rounded-xl p-2 transition-all duration-200 group/zone hover:bg-white/50 dark:hover:bg-white/5', zone.color.replace('border-', 'border-0 ring-1 ring-inset ring-'))}>
             <div className="flex items-center justify-between mb-2 px-1">
                 <div className="flex items-center gap-2">
-                    <Badge variant={zone.badgeVariant as any} className="text-[10px] h-5 px-1.5 font-medium border-0 bg-white/50 dark:bg-black/20 backdrop-blur-sm shadow-none">
+                    <Badge variant={zone.badgeVariant ?? 'default'} className="text-[10px] h-5 px-1.5 font-medium border-0 bg-white/50 dark:bg-black/20 backdrop-blur-sm shadow-none">
                         {zone.label.split(' ')[0]}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium">{zone.description}</span>
                 </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1.5" role="grid" aria-label={`${zone.label} grid`}>
                 {zone.positions.map((position) => {
                     const placement = getLogoAtPosition(position)
-                    const logo = placement?.logo || logos.find((l: any) => l.id === placement?.logoId)
+                    const logo = placement?.logo || logos.find((l) => l.id === placement?.logoId)
                     const isOccupied = !!logo
                     const isAvailable = selectedLogoId && !isOccupied
                     const canPlace = selectedLogoId && (!isOccupied || placement?.logoId === selectedLogoId)
@@ -233,14 +238,23 @@ function ZoneRow({
                     const bgShape = placement?.backgroundShape || DEFAULT_LOGO_BACKGROUND.shape
                     const bgStyle = placement?.backgroundStyle || DEFAULT_LOGO_BACKGROUND.style
 
+                    const positionLabel = position.replace('-', ' slot ')
+
                     return (
-                        <div
+                        <button
                             key={position}
+                            type="button"
                             onClick={() => canPlace && onCellClick(position)}
+                            disabled={!canPlace && !isOccupied}
+                            role="gridcell"
+                            aria-label={isOccupied ? `${logo?.name || 'Logo'} at ${positionLabel}` : `Empty ${positionLabel}${isAvailable ? ', click to place logo' : ''}`}
+                            aria-selected={isOccupied}
                             className={cn(
-                                'aspect-[2/1] min-w-0 rounded-lg transition-all duration-300 flex items-center justify-center relative overflow-visible',
+                                'aspect-[2/1] min-w-0 rounded-lg transition-all duration-200 flex items-center justify-center relative overflow-visible',
                                 // BASE STATE: Glass tile
                                 'bg-white/40 dark:bg-white/5 backdrop-blur-sm shadow-sm border border-white/20',
+                                // FOCUS STATE
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                                 // OCCUPIED: Clean look
                                 isOccupied && 'bg-white/80 dark:bg-white/10 shadow-md ring-1 ring-black/5 dark:ring-white/10',
                                 // AVAILABLE (Drafting Mode): Pulsing ring
@@ -267,14 +281,17 @@ function ZoneRow({
                                                     bgStyle?.border && 'ring-1 ring-gray-200'
                                                 )}
                                             >
-                                                <img
-                                                    src={logo.thumbnail_url || logo.file_url}
-                                                    alt={logo.name}
+                                                <Image
+                                                    src={logo.thumbnail_url || logo.file_url || ''}
+                                                    alt={logo.name || 'Logo'}
+                                                    width={80}
+                                                    height={80}
                                                     className={cn(
                                                         'object-contain',
                                                         // Adjust image size based on background
                                                         bgShape !== 'none' ? 'w-[75%] h-[75%]' : 'w-full h-full'
                                                     )}
+                                                    unoptimized={true}
                                                 />
                                             </div>
                                             {/* Settings indicator */}
@@ -295,11 +312,11 @@ function ZoneRow({
                                     </PopoverContent>
                                 </Popover>
                             ) : (
-                                <span className="text-[8px] text-muted-foreground/30 font-mono">
+                                <span className="text-[8px] text-muted-foreground/30 font-mono" aria-hidden="true">
                                     {position.split('-')[1]}
                                 </span>
                             )}
-                        </div>
+                        </button>
                     )
                 })}
             </div>
@@ -315,7 +332,7 @@ function LogoOptionsPopover({
     onSizeChange,
     onRemove,
 }: {
-    logo: any
+    logo: OrganizationLogo
     placement: {
         size?: LogoSizePreset | number
         backgroundShape?: LogoBackgroundShape
@@ -335,10 +352,13 @@ function LogoOptionsPopover({
             {/* Logo name */}
             <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded border p-0.5 bg-white">
-                    <img
-                        src={logo.thumbnail_url || logo.file_url}
-                        alt={logo.name}
+                    <Image
+                        src={logo.thumbnail_url || logo.file_url || ''}
+                        alt={logo.name || 'Logo'}
+                        width={32}
+                        height={32}
                         className="w-full h-full object-contain"
+                        unoptimized={true}
                     />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -362,11 +382,12 @@ function LogoOptionsPopover({
                         <ToggleGroupItem
                             key={option.value}
                             value={option.value}
-                            className="h-8 w-8 p-0 data-[state=on]:bg-indigo-100 data-[state=on]:text-indigo-700 data-[state=on]:border-indigo-200"
+                            aria-label={option.label}
+                            className="h-8 w-8 p-0 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                             title={option.label}
                         >
                             {/* Icons here would need to be imported or conditional */}
-                            <span className="text-[10px]">{option.label.slice(0, 1)}</span>
+                            <span className="text-[10px]" aria-hidden="true">{option.label.slice(0, 1)}</span>
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>
@@ -375,7 +396,8 @@ function LogoOptionsPopover({
                 variant="ghost"
                 size="sm"
                 onClick={onRemove}
-                className="w-full h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                aria-label={`Remove ${logo.name || 'logo'} from placement`}
+                className="w-full h-8 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1"
             >
                 Remove
             </Button>

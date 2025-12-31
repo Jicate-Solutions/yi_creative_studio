@@ -6,7 +6,7 @@
 import type { CustomizationData, ColorConfig } from '@/lib/config/design-constants'
 import type { CreativeTemplate } from './knowledge-base/types'
 import type { LogoSafeZone } from './types/logo-awareness'
-import type { DesignContext } from './services/yi-prompt-builder/types'
+import type { DesignContext, EnhancedBuildOptions } from './services/yi-prompt-builder/types'
 
 // ============================================================
 // CREATIVE CONTENT (Event data for poster generation)
@@ -118,11 +118,52 @@ export interface ResolutionModifiers {
 }
 
 // ============================================================
+// SPEAKER CONTEXT (NEW)
+// ============================================================
+
+export interface SpeakerContext {
+  hasSpeakerPhoto: boolean
+  count: number
+  layout: 'side-by-side' | 'stacked' | 'grid' | 'single'
+  // v6.5: Position and shape for zone restriction instructions
+  speakerPhotoPosition?: 'left' | 'right' | 'center' | 'bottom-left' | 'bottom-right'
+  speakerPhotoShape?: 'circle' | 'rounded' | 'square'
+}
+
+// ============================================================
 // DESIGN CONTEXT (AI-Generated Design Intelligence)
 // ============================================================
 
 // Re-map DesignContext for consistency
 export type { DesignContext };
+
+// ============================================================
+// EVENT UNDERSTANDING (AI-Generated Event Analysis - Stage 1)
+// ============================================================
+
+/**
+ * Event Understanding result from Stage 1 AI analysis
+ * Re-exported from event-understanding.ts for convenience
+ */
+export type {
+  EventProfile,
+  VisualConcept,
+  EventUnderstandingInput
+} from './services/event-understanding';
+
+// ============================================================
+// TYPOGRAPHY INTELLIGENCE (AI-Generated Typography Guidance - Stage 1.5)
+// ============================================================
+
+/**
+ * Typography Intelligence result from Stage 1.5 AI analysis
+ * Re-exported from typography-intelligence.ts for convenience
+ */
+export type {
+  TypographyProfile,
+  TypographyAnalysisInput,
+  FontCharacteristics
+} from './services/typography-intelligence';
 
 // ============================================================
 // PROMPT INTENT (Model-Agnostic)
@@ -156,6 +197,10 @@ export interface PromptIntent {
     layoutGuidance: string
     hasLogos: boolean
   }
+  /** Ultra-Pro Design context (Direct from Claude) */
+  ultraProContext?: EnhancedBuildOptions['ultraProContext']
+  /** Speaker context for background suppression */
+  speakerContext?: SpeakerContext
 }
 
 // ============================================================
@@ -230,6 +275,13 @@ export interface GeneratePromptParams {
     activeLogos: LogoSafeZone[]
     layoutGuidance: string
     hasLogos: boolean
+  }
+  /** Speaker photo configuration */
+  speakerPhotoConfig?: {
+    enabled?: boolean
+    position?: string
+    size?: string
+    shape?: string
   }
 }
 

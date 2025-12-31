@@ -228,16 +228,22 @@ function binarySearchLightness(
     if (ratio < targetRatio) {
       // Move toward more extreme lightness
       if (mid > 50) {
-        low = mid // Go lighter
+        // Current color is light (mid > 50), need MORE contrast by going DARKER
+        // Darker = lower lightness values, so search lower range
+        high = mid  // Fixed: was incorrectly `low = mid`
       } else {
-        high = mid // Go darker
+        // Current color is dark (mid <= 50), need MORE contrast by going LIGHTER
+        // Lighter = higher lightness values, so search higher range
+        low = mid
       }
     } else {
       // Ratio is sufficient, try to minimize change
       if (mid > 50) {
-        high = mid // Try less light
+        // Current color is light, try to be less light (darker) to minimize change
+        high = mid
       } else {
-        low = mid // Try less dark
+        // Current color is dark, try to be less dark (lighter) to minimize change
+        low = mid
       }
     }
 
@@ -294,7 +300,8 @@ export function suggestAccessibleColors(
   }
 
   // Try adjusting foreground darker
-  const darkerFg = suggestAccessibleColor(foreground, background, targetLevel, isLargeText, true)
+  // Fixed: Use adjustForeground = false to get different suggestions by adjusting background
+  const darkerFg = suggestAccessibleColor(foreground, background, targetLevel, isLargeText, false)
   if (darkerFg && darkerFg !== lighterFg) {
     const ratio = getContrastRatio(darkerFg, background)
     if (ratio) {

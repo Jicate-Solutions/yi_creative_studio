@@ -39,9 +39,22 @@ import {
 // Import time formatter utility (v3.4)
 import { formatEventTime } from '@/lib/utils/time-formatter'
 
+// Import color personality system for dynamic background generation (v6.0 Phase 2)
+import {
+  analyzeColorPersonality,
+  generateColorAwareBackground,
+  generateVisualMetaphors,
+  type ColorPersonality,
+} from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt } from '../types'
+
 // Import logo zone enforcement helper (v3.5)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
+
+// Import dynamic color description builder (v5.4)
+import { buildColorDescriptionFromResolved } from '../../../helpers/color-narrative'
 
 // ============================================================
 // SIZE VARIATIONS (v3.1)
@@ -73,6 +86,81 @@ function getFlyerLayoutForSize(size?: string): FlyerSizeContext {
 }
 
 // ============================================================
+// COLOR-AWARE DYNAMIC CONTEXT HELPERS (v6.0 - Phase 2)
+// ============================================================
+
+/**
+ * Builds FlyerEventContext from Design Intelligence background setting
+ * Injects user colors into the AI-generated background description (print-optimized)
+ */
+function buildFlyerContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): FlyerEventContext {
+  const backgroundSetting = designContext.backgroundSetting || 'Professional modern design environment'
+  const designStrategy = designContext.designStrategy || 'Modern professional design'
+
+  // Inject user colors into background description if provided
+  let enhancedBackground = backgroundSetting
+  if (userColors && userColors.source !== 'fallback') {
+    const personality = analyzeColorPersonality(userColors.primaryColor)
+    enhancedBackground = `${backgroundSetting} - Dominated by ${userColors.primaryColor} (${personality.name}) with ${personality.mood} atmosphere. ${personality.backgroundStyle}. Print-optimized with CMYK-safe colors.`
+  }
+
+  // Extract decorative elements from design context
+  const decorativeElements: string[] = []
+  if (designContext.decorativeElements) {
+    if (designContext.decorativeElements.corners) decorativeElements.push(designContext.decorativeElements.corners)
+    if (designContext.decorativeElements.patterns) decorativeElements.push(designContext.decorativeElements.patterns)
+    if (designContext.decorativeElements.accents) decorativeElements.push(designContext.decorativeElements.accents)
+  }
+  if (userColors) {
+    const personality = analyzeColorPersonality(userColors.primaryColor)
+    decorativeElements.push(...personality.visualElements.slice(0, 3))
+  }
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    background: enhancedBackground,
+    decorativeElements: decorativeElements.length > 0 ? decorativeElements : ['Modern geometric patterns', 'Subtle accent lines'],
+    style: themeInfo,  // Use custom theme name + description if available
+    colors: userColors
+      ? `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor}, Accent: ${userColors.accentColor} (${userColors.source} colors, CMYK-safe)`
+      : designContext.colorMood || 'Balanced professional palette',
+    mood: designContext.emotionalJob || designContext.moodDirection || 'Professional, engaging',
+    printConsiderations: 'Optimized for print with high contrast, CMYK-safe colors, readable at distance',
+  }
+}
+
+/**
+ * Builds FlyerEventContext dynamically using color personality analysis
+ * Combines color mood with event type for unique visual narrative (print-optimized)
+ */
+function buildDynamicFlyerColorContext(
+  eventType: string,
+  userColors: ResolvedColors
+): FlyerEventContext {
+  const personality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundDescription = generateColorAwareBackground(eventType, userColors)
+
+  // Generate print-appropriate decorative elements
+  const decorativeElements = generateVisualMetaphors(eventType, personality)
+
+  return {
+    background: `${backgroundDescription} - Print-optimized with CMYK-safe color values.`,
+    decorativeElements: decorativeElements,
+    style: `${personality.name} themed ${eventType} design with ${personality.mood} atmosphere - professional print quality`,
+    colors: `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor}, Accent: ${userColors.accentColor} (${userColors.source} - ${personality.name}, CMYK-safe)`,
+    mood: `${personality.mood}, professional, print-appropriate`,
+    printConsiderations: `High contrast for readability, CMYK-safe color conversion, ${personality.name} color harmony, scannable at distance`,
+  }
+}
+
+// ============================================================
 // FLYER EVENT CONTEXTS (v3.2 - AI Background Generation)
 // ============================================================
 
@@ -92,423 +180,43 @@ interface FlyerEventContext {
 }
 
 /**
- * Get event-specific context for AI background generation
- * Maps event types to rich visual contexts with decorative elements
+ * Get event-specific context for AI background generation (v6.0 - Color-Aware)
+ * Uses 3-tier priority system:
+ * 1. Design Intelligence context (AI-generated custom backgrounds)
+ * 2. Color Personality (dynamic based on user colors)
+ * 3. Minimal Fallback (clean professional, no event-type assumptions)
  */
-function getFlyerEventContext(eventType: string = 'general', secondaryType?: string): FlyerEventContext {
-  const contexts: Record<string, FlyerEventContext> = {
-    // ============================================================
-    // COMMUNITY EVENTS
-    // ============================================================
-    blood_donation: {
-      background: 'Clean medical gradient from soft crimson red to white, with subtle heart and blood drop motifs in corners, life-saving ribbon accents along edges',
-      decorativeElements: [
-        'red cross medical symbol in corner',
-        'heart shape with blood drop icon',
-        'caring hands reaching out silhouette',
-        'life-saving ribbon badge',
-        'medical plus sign accents',
-      ],
-      style: 'Healthcare professional with warmth, urgency, and compassion',
-      colors: 'Medical crimson (#DC143C), soft coral (#FF6B6B), pure white, trust blue accent (#4A90D9)',
-      mood: 'Compassionate, heroic, life-saving urgency, community spirit',
-      printConsiderations: 'High contrast for urgent call-to-action visibility, CMYK-safe reds',
-    },
-    health_camp: {
-      background: 'Fresh gradient from clean healthcare green to white, with stethoscope and health shield icons in corners, subtle heartbeat line pattern',
-      decorativeElements: [
-        'stethoscope icon in decorative corner',
-        'health shield with cross symbol',
-        'heartbeat/ECG line pattern along edge',
-        'medical checkup clipboard icon',
-        'wellness leaf or heart icon',
-      ],
-      style: 'Medical professional, clean, trustworthy, welcoming',
-      colors: 'Healthcare green (#28A745), calm teal (#20C997), white, soft blue accent (#6CB2EB)',
-      mood: 'Caring, professional, reassuring, health-focused, community wellness',
-      printConsiderations: 'Clear iconography for quick health service recognition, readable at distance',
-    },
-    awareness_program: {
-      background: 'Gradient with cause-appropriate colors, awareness ribbon motifs, united hands silhouette, informational graphic elements',
-      decorativeElements: [
-        'awareness ribbon symbol (color varies by cause)',
-        'united hands or community circle',
-        'informational icons (lightbulb, speech bubble)',
-        'supportive embrace silhouette',
-        'knowledge/education symbols',
-      ],
-      style: 'Informative, impactful, community-focused, empowering',
-      colors: 'Cause-appropriate colors with emotional depth, supportive neutrals',
-      mood: 'Empowering, educational, mobilizing, hopeful, supportive',
-      printConsiderations: 'Statistics and facts should be clearly readable, high impact visuals',
-    },
-    charity_event: {
-      background: 'Warm, hopeful gradient with giving hands motif, heart shapes, community gathering silhouettes',
-      decorativeElements: [
-        'giving/donation hands icon',
-        'heart with hands symbol',
-        'community circle silhouette',
-        'hope/light rays emanating',
-        'helping hands reaching',
-      ],
-      style: 'Warm, compassionate, community-driven, hopeful',
-      colors: 'Warm orange (#FF8C00), hopeful gold (#FFD700), compassionate purple (#8B5CF6), white',
-      mood: 'Generous, hopeful, community spirit, making a difference',
-      printConsiderations: 'Emotional appeal through warm colors, clear donation information',
-    },
-
-    // ============================================================
-    // ACADEMIC EVENTS
-    // ============================================================
-    seminar: {
-      background: 'Professional navy blue gradient with subtle podium and microphone silhouettes, elegant geometric patterns, knowledge symbols',
-      decorativeElements: [
-        'podium with microphone icon',
-        'thought bubble or lightbulb symbol',
-        'open book or notebook icon',
-        'speaker silhouette at lectern',
-        'geometric knowledge patterns',
-      ],
-      style: 'Academic professional, intellectual, thought-provoking',
-      colors: 'Deep navy (#1E3A5F), scholarly burgundy (#722F37), gold accent (#D4AF37), white',
-      mood: 'Intellectual, prestigious, knowledge-focused, engaging, thought leadership',
-      printConsiderations: 'Space for speaker details and topic highlights, professional typography',
-    },
-    workshop: {
-      background: 'Warm gradient from vibrant orange to coral with hands-on activity icons, tool silhouettes, collaborative energy patterns',
-      decorativeElements: [
-        'hands working together icon',
-        'tools and equipment silhouettes',
-        'step-by-step progress indicators',
-        'lightbulb innovation symbol',
-        'collaborative gear/cog icons',
-      ],
-      style: 'Educational, approachable, practical, hands-on energy',
-      colors: 'Warm orange (#FF6B35), energetic coral (#FF8E72), skill blue (#005B96), white',
-      mood: 'Engaging, skill-building, collaborative energy, practical learning',
-      printConsiderations: 'Space for workshop schedule or learning outcomes, active visual feel',
-    },
-    conference: {
-      background: 'Sleek corporate gradient with stage lighting effects, networking silhouettes, professional geometric patterns',
-      decorativeElements: [
-        'conference stage with spotlight',
-        'networking people silhouettes',
-        'conference badge icons',
-        'presentation screen symbol',
-        'professional handshake icon',
-      ],
-      style: 'Corporate professional, networking-focused, prestigious',
-      colors: 'Deep corporate blue (#003366), gold accent (#D4AF37), white, subtle gray (#E5E7EB)',
-      mood: 'Professional, authoritative, opportunity-rich, networking energy',
-      printConsiderations: 'Multiple speaker sections may be needed, corporate quality feel',
-    },
-    webinar: {
-      background: 'Modern tech gradient with digital connection globe, video interface elements, streaming indicators',
-      decorativeElements: [
-        'laptop screen with presenter icon',
-        'video call grid tiles',
-        'digital globe with connections',
-        'play button and streaming icon',
-        'wifi/signal strength symbol',
-      ],
-      style: 'Digital, connected, accessible, modern tech',
-      colors: 'Tech blue (#0066FF), digital purple (#7C3AED), white, accent cyan (#06B6D4)',
-      mood: 'Accessible, modern, globally connected, tech-forward',
-      printConsiderations: 'Include QR code space for registration link, digital aesthetic',
-    },
-    training: {
-      background: 'Professional gradient with certification badge motifs, skill progression indicators, achievement symbols',
-      decorativeElements: [
-        'certification badge or seal',
-        'skill progression bar/steps',
-        'target/goal achievement icon',
-        'growth chart or upward arrow',
-        'learning pathway symbol',
-      ],
-      style: 'Professional development, achievement-focused, skill building',
-      colors: 'Achievement gold (#F59E0B), professional blue (#2563EB), success green (#10B981), white',
-      mood: 'Growth-oriented, professional development, achievement, certification pride',
-      printConsiderations: 'Certification details prominent, professional credibility feel',
-    },
-
-    // ============================================================
-    // COMPETITION EVENTS
-    // ============================================================
-    hackathon: {
-      background: 'Tech-dark gradient with code brackets, binary patterns, glowing screen effects, circuit board elements',
-      decorativeElements: [
-        'code brackets { } icon',
-        'laptop with code screen',
-        'timer/countdown display',
-        'lightbulb with circuit pattern',
-        'team collaboration icon',
-      ],
-      style: 'Tech startup energy, intense coding, innovation-driven',
-      colors: 'Electric blue (#00D4FF), neon green (#00FF88), deep tech purple (#7C3AED), dark background (#0F172A)',
-      mood: 'Intense innovation, team spirit, coding energy, competitive creativity',
-      printConsiderations: 'Challenge theme and prizes prominent, high-tech visual appeal',
-    },
-    competition: {
-      background: 'Dynamic gradient with trophy silhouette, medal icons, victory elements, competitive energy patterns',
-      decorativeElements: [
-        'trophy cup gleaming icon',
-        'medal with ribbon symbol',
-        'winner podium (1st, 2nd, 3rd)',
-        'victory star burst',
-        'celebration confetti elements',
-      ],
-      style: 'Competitive, achievement-focused, victory energy',
-      colors: 'Champion gold (#FFD700), competitive red (#DC3545), victory blue (#2563EB), white',
-      mood: 'Competitive excitement, victory spirit, achievement drive',
-      printConsiderations: 'Prize details and categories clearly visible, dynamic energy feel',
-    },
-    sports_event: {
-      background: 'High-energy gradient with motion blur effects, sports equipment silhouettes, stadium lighting',
-      decorativeElements: [
-        'sports equipment icons (contextual)',
-        'action athlete silhouette',
-        'stadium lights and arena',
-        'finish line or goal post',
-        'energy burst/motion lines',
-      ],
-      style: 'Dynamic, athletic, high-energy, action-packed',
-      colors: 'Bold red (#DC3545), energetic orange (#F97316), athletic blue (#3B82F6), white',
-      mood: 'Pumped, competitive, athletic spirit, team energy',
-      printConsiderations: 'Event schedule and venue map space, action-oriented design',
-    },
-    quiz: {
-      background: 'Smart gradient with question mark motifs, lightbulb icons, buzzer elements, knowledge symbols',
-      decorativeElements: [
-        'question mark icons',
-        'buzzer button symbol',
-        'lightbulb knowledge icon',
-        'brain/thinking symbol',
-        'scoreboard display',
-      ],
-      style: 'Intellectual challenge, fun competition, knowledge battle',
-      colors: 'Smart purple (#8B5CF6), knowledge blue (#3B82F6), gold (#F59E0B), white',
-      mood: 'Intellectually exciting, competitive fun, knowledge pride',
-      printConsiderations: 'Prize and participation info clear, engaging visual quiz feel',
-    },
-
-    // ============================================================
-    // CELEBRATION EVENTS
-    // ============================================================
-    festival: {
-      background: 'Vibrant multi-color gradient with fireworks, festive lights, celebration patterns, cultural decorative elements',
-      decorativeElements: [
-        'fireworks burst patterns',
-        'festive string lights',
-        'traditional decorations (diyas, lanterns)',
-        'celebration confetti',
-        'cultural motifs (rangoli, patterns)',
-      ],
-      style: 'Festive celebration, joyful, culturally rich',
-      colors: 'Festive gold (#FFD700), celebration red (#EF4444), vibrant orange (#F97316), festive purple (#A855F7)',
-      mood: 'Celebratory, joyous, community spirit, cultural pride',
-      printConsiderations: 'Festival-specific symbols culturally accurate, vibrant print colors',
-    },
-    cultural_event: {
-      background: 'Rich traditional gradient with cultural patterns, performance stage elements, artistic motifs',
-      decorativeElements: [
-        'traditional dance silhouette',
-        'classical music instruments',
-        'rangoli or mandala patterns',
-        'cultural attire silhouettes',
-        'artistic flourish elements',
-      ],
-      style: 'Traditional meets modern, heritage celebration, artistic',
-      colors: 'Rich red (#DC2626), traditional gold (#D4AF37), heritage orange (#EA580C), deep purple (#7C2D12)',
-      mood: 'Cultural pride, artistic celebration, heritage honor',
-      printConsiderations: 'Cultural authenticity in visual elements, elegant typography',
-    },
-    celebration: {
-      background: 'Joyful gradient with confetti patterns, balloon silhouettes, celebration burst elements',
-      decorativeElements: [
-        'confetti burst pattern',
-        'celebration balloons',
-        'party streamer accents',
-        'gift box or celebration cake icon',
-        'champagne/toast silhouette',
-      ],
-      style: 'Joyful celebration, party energy, milestone marking',
-      colors: 'Party pink (#EC4899), celebration purple (#A855F7), joyful yellow (#FCD34D), white',
-      mood: 'Joyful, celebratory, milestone achievement, party spirit',
-      printConsiderations: 'Event details prominent, celebratory but readable',
-    },
-
-    // ============================================================
-    // CORPORATE EVENTS
-    // ============================================================
-    inauguration: {
-      background: 'Grand ceremonial gradient with ribbon cutting elements, lamp lighting motifs, foundation symbols',
-      decorativeElements: [
-        'ribbon cutting with scissors icon',
-        'traditional lamp (diya) lighting',
-        'foundation stone symbol',
-        'ceremonial garland elements',
-        'grand opening arch',
-      ],
-      style: 'Prestigious, ceremonial, official grand opening',
-      colors: 'Prestigious gold (#D4AF37), ceremonial red (#DC2626), deep blue (#1E40AF), white',
-      mood: 'Grand, auspicious, milestone celebration, official prestige',
-      printConsiderations: 'Dignitary names prominently placed, ceremonial elegance',
-    },
-    product_launch: {
-      background: 'Dynamic spotlight gradient with unveiling curtain effects, spotlight beams, reveal elements',
-      decorativeElements: [
-        'spotlight beam icon',
-        'curtain reveal silhouette',
-        'product silhouette placeholder',
-        'camera flash effects',
-        'launch countdown element',
-      ],
-      style: 'Launch excitement, premium reveal, innovation showcase',
-      colors: 'Spotlight white (#FFFFFF), premium black (#0F172A), electric blue (#0EA5E9), accent gold (#F59E0B)',
-      mood: 'Anticipation, innovation, excitement, premium reveal',
-      printConsiderations: 'Product visual space prominent, launch date emphasized',
-    },
-    meetup: {
-      background: 'Friendly gradient with networking silhouettes, coffee cup icons, connection elements',
-      decorativeElements: [
-        'people networking silhouette',
-        'coffee cup icon',
-        'conversation bubble',
-        'handshake symbol',
-        'community circle',
-      ],
-      style: 'Friendly professional, casual networking, community connection',
-      colors: 'Friendly teal (#14B8A6), warm orange (#F97316), networking blue (#3B82F6), white',
-      mood: 'Welcoming, professional yet relaxed, community building',
-      printConsiderations: 'Venue and timing clear, approachable design feel',
-    },
-
-    // ============================================================
-    // NATIONAL EVENTS
-    // ============================================================
-    independence_day: {
-      background: 'Tricolor gradient (saffron-white-green) with patriotic elements, freedom symbols, flag motifs',
-      decorativeElements: [
-        'national flag silhouette',
-        'tricolor balloon elements',
-        'freedom fighter silhouette',
-        'Ashoka Chakra symbol',
-        'patriotic bird/dove',
-      ],
-      style: 'Patriotic celebration, respectful, national pride',
-      colors: 'Saffron (#FF9933), white (#FFFFFF), green (#138808), navy blue (#000080)',
-      mood: 'Patriotic pride, celebration of freedom, national unity',
-      printConsiderations: 'Flag usage follows national guidelines, respectful design',
-    },
-    republic_day: {
-      background: 'Ceremonial tricolor gradient with parade elements, constitution symbols, national emblem motifs',
-      decorativeElements: [
-        'parade float silhouette',
-        'constitution book symbol',
-        'national emblem lion',
-        'military march silhouette',
-        'tricolor ribbon',
-      ],
-      style: 'Ceremonial, constitutional pride, national celebration',
-      colors: 'Saffron (#FF9933), white (#FFFFFF), green (#138808), gold accent (#D4AF37)',
-      mood: 'Constitutional pride, unity, ceremonial celebration',
-      printConsiderations: 'Official symbols used with respect, dignified design',
-    },
-    teachers_day: {
-      background: 'Warm appreciation gradient with education symbols, apple icon, knowledge elements',
-      decorativeElements: [
-        'apple on books icon',
-        'blackboard with thank you',
-        'graduation cap symbol',
-        'knowledge lamp/light',
-        'bouquet or flower offering',
-      ],
-      style: 'Warm appreciation, educational respect, gratitude',
-      colors: 'Appreciation red (#EF4444), education blue (#3B82F6), warm gold (#F59E0B), white',
-      mood: 'Gratitude, respect for educators, warm appreciation',
-      printConsiderations: 'Teacher appreciation message prominent, warm design feel',
-    },
+function getFlyerEventContext(
+  eventType: string = 'general',
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): FlyerEventContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Flyer Context] Using Design Intelligence for ${eventType}`)
+    return buildFlyerContextFromDesignIntelligence(designContext, userColors)
   }
 
-  // Get base context or default
-  let context = contexts[eventType] || getDefaultFlyerContext()
-
-  // Enhance with secondary type if present (e.g., tech + workshop)
-  if (secondaryType) {
-    context = enhanceContextWithModifier(context, secondaryType)
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Flyer Context] Using Color Personality (${userColors.source}) for ${eventType}`)
+    return buildDynamicFlyerColorContext(eventType, userColors)
   }
 
-  return context
-}
-
-/**
- * Get default flyer context for unknown event types
- */
-function getDefaultFlyerContext(): FlyerEventContext {
+  // Priority 3: Minimal generic fallback (NO hardcoded event visuals)
+  console.log(`[Flyer Context] Using minimal fallback for ${eventType}`)
   return {
-    background: 'Clean professional gradient with subtle geometric patterns, modern abstract accents in corners',
+    background: 'Clean professional design environment with balanced composition - print-optimized',
     decorativeElements: [
-      'subtle geometric pattern elements',
-      'professional abstract shapes',
-      'modern line accents',
-      'elegant corner flourishes',
-      'brand-appropriate decorative dots',
+      'subtle modern patterns',
+      'professional geometric elements',
+      'balanced accent shapes',
     ],
-    style: 'Professional marketing, versatile, modern clean',
-    colors: 'Professional blue (#005B96), clean white, accent orange (#FF6B35), subtle gray (#6B7280)',
+    style: 'Professional marketing, modern clean, versatile - print-ready',
+    colors: 'Professional balanced palette (CMYK-safe)',
     mood: 'Professional, trustworthy, action-driving, versatile',
-    printConsiderations: 'CMYK-safe colors, high contrast for readability, versatile appeal',
+    printConsiderations: 'CMYK-safe colors, high contrast for readability, scannable at distance',
   }
-}
-
-/**
- * Enhance context with secondary modifier (tech, business, healthcare, etc.)
- */
-function enhanceContextWithModifier(context: FlyerEventContext, modifier: string): FlyerEventContext {
-  const modifierEnhancements: Record<string, Partial<FlyerEventContext>> = {
-    tech: {
-      decorativeElements: [
-        ...context.decorativeElements.slice(0, 3),
-        'subtle circuit pattern overlay',
-        'digital node connections',
-      ],
-      colors: context.colors + ', tech accent (#00D4FF)',
-      style: context.style + ', with modern tech sophistication',
-    },
-    business: {
-      decorativeElements: [
-        ...context.decorativeElements.slice(0, 3),
-        'business growth chart silhouette',
-        'professional briefcase icon',
-      ],
-      colors: context.colors + ', corporate navy (#1E3A5F)',
-      style: context.style + ', with corporate professionalism',
-    },
-    healthcare: {
-      decorativeElements: [
-        ...context.decorativeElements.slice(0, 3),
-        'health shield symbol',
-        'medical cross accent',
-      ],
-      colors: context.colors + ', healthcare green (#28A745)',
-      style: context.style + ', with healthcare trust',
-    },
-    creative: {
-      decorativeElements: [
-        ...context.decorativeElements.slice(0, 3),
-        'artistic brush stroke accents',
-        'creative palette elements',
-      ],
-      colors: context.colors + ', creative purple (#A855F7)',
-      style: context.style + ', with creative artistic flair',
-    },
-  }
-
-  const enhancement = modifierEnhancements[modifier]
-  if (enhancement) {
-    return { ...context, ...enhancement }
-  }
-  return context
 }
 
 // ============================================================
@@ -550,7 +258,7 @@ function buildAIBackgroundSection(
   if (!useAIBackground) {
     return {
       section: '',
-      eventContext: getDefaultFlyerContext(),
+      eventContext: getFlyerEventContext('general', options.resolvedColors, options.designContext),
       isActive: false,
       inferredType: null,
     }
@@ -569,7 +277,8 @@ function buildAIBackgroundSection(
   )
 
   const inferredType = data.eventType || inference.eventType
-  const eventContext = getFlyerEventContext(inferredType || 'general', inference.secondaryType)
+  // v6.0: Pass resolvedColors and designContext for dynamic color-aware generation
+  const eventContext = getFlyerEventContext(inferredType || 'general', options.resolvedColors, options.designContext)
 
   // Get visual elements from the guide if available
   let visualElements: string[]
@@ -610,7 +319,7 @@ CREATIVE FREEDOM - BUILD A RICH, ATMOSPHERIC DESIGN:
 
 ONLY AVOID placing prominent elements in:
 - Text content areas (headlines, dates, venue must be legible)
-- Logo overlay zones (header/footer if specified)
+- Header and footer areas (top 15%, bottom 10%)
 </ai_background_context>
 `
 
@@ -680,7 +389,7 @@ CREATIVE FREEDOM - BUILD A RICH, ATMOSPHERIC DESIGN:
 
 ONLY AVOID placing prominent elements in:
 - Text content areas (headlines, details must be legible)
-- Logo overlay zones (header/footer if specified)
+- Header and footer areas (top 15%, bottom 10%)
 </ai_background_context>
 `
 
@@ -747,7 +456,13 @@ export function buildFlyerPrompt(
   // Determine colors - use brand colors if available, then event context, then fallback
   let colorScheme: string
   if (options.brandContext?.primaryColor) {
-    colorScheme = `Brand colors: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}, accent ${options.brandContext.accentColor || 'complementary'}`
+    // v5.4: Use dynamic color description builder instead of simple string
+    colorScheme = buildColorDescriptionFromResolved({
+      source: options.brandContext.colorSource || 'preset',
+      primaryColor: options.brandContext.primaryColor,
+      secondaryColor: options.brandContext.secondaryColor || '#FFFFFF',
+      accentColor: options.brandContext.accentColor || '#000000',
+    })
   } else if (useAIBackground) {
     colorScheme = eventContext.colors
   } else {
@@ -768,6 +483,17 @@ export function buildFlyerPrompt(
   const visualStyle = useAIBackground
     ? eventContext.style
     : 'Professional marketing, print-ready'
+
+  // v6.0: Extract custom fields from compiled data (Fix for custom fields not rendering)
+  const customFieldsText: string[] = []
+  if (data.customFields && Object.keys(data.customFields).length > 0) {
+    for (const [fieldName, fieldValue] of Object.entries(data.customFields)) {
+      if (fieldValue && fieldValue.trim()) {
+        // Store just the value (no field name to prevent label rendering in Gemini)
+        customFieldsText.push(`"${fieldValue.trim()}"`)
+      }
+    }
+  }
 
   return `
 <task>Generate a professional print-ready promotional flyer</task>
@@ -815,7 +541,7 @@ Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
 Zone Structure (optimized for ${flyerSize}):
-- HEADER (15%): Organization logo ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'prominently at top'}
+- HEADER (15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
 - HEADLINE (25%): "${data.flyerTitle}" - bold, attention-grabbing
 - CONTENT (40%): Key information, benefits, details
 - ACTION (20%): CTA, contact info, event details
@@ -826,6 +552,7 @@ ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
 ${data.eventTime ? `- Time: "${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
+${customFieldsText.length > 0 ? `- Additional Details: ${customFieldsText.map(t => t).join(', ')}` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
 ${contactInfo.length > 0 ? `- Contact: ${contactInfo.join(' | ')}` : ''}
 
@@ -841,6 +568,7 @@ ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calen
 ${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
+${customFieldsText.length > 0 ? customFieldsText.map(text => `<text role="detail" prominence="medium" style="clear, readable">${text}</text>`).join('\n') : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
 ${contactInfo.length > 0 ? `<text role="contact" prominence="small" style="clean, readable">${contactInfo.join(' | ')}</text>` : ''}
 ${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
@@ -864,14 +592,14 @@ ${FLYER_EXAMPLES}
 - LEGIBILITY TEST: All text readable at ${flyerSize} print size
 - ACTION TEST: Clear CTA drives specific action
 ${useAIBackground ? '- CONTEXT TEST: Decorative elements match event type and enhance visual appeal' : ''}
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly applied' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Low resolution (not print-ready), web-only RGB colors, cluttered layout, tiny unreadable text, poor hierarchy, too many competing fonts, missing contact info
 ${flyerSize === 'A5' ? 'For A5: Avoid too much text - focus on essentials only' : ''}
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 ${useAIBackground ? 'Avoid: Decorative elements that obscure text, compete with headline, or overwhelm the design' : ''}
 </constraints>
 
@@ -916,7 +644,7 @@ AI MUST NOT GENERATE:
 
 USER PROVIDES (do not recreate or modify):
 - Exact text content (title, description, date, venue in quotes)
-- Organization logos (overlaid separately via Sharp)
+- Branding elements (added via post-processing)
 - Font family preference (from organization settings if available)
 </ai_control_boundary>
 `.trim()
@@ -977,7 +705,13 @@ export function buildFlyerPromptWithAgent(
   // Determine colors - use brand colors if available, then agent recommendation, then event context
   let colorScheme: string
   if (options.brandContext?.primaryColor) {
-    colorScheme = `Brand colors: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}, accent ${options.brandContext.accentColor || 'complementary'}`
+    // v5.4: Use dynamic color description builder instead of simple string
+    colorScheme = buildColorDescriptionFromResolved({
+      source: options.brandContext.colorSource || 'preset',
+      primaryColor: options.brandContext.primaryColor,
+      secondaryColor: options.brandContext.secondaryColor || '#FFFFFF',
+      accentColor: options.brandContext.accentColor || '#000000',
+    })
   } else if (options.agentRecommendation?.colorPalette) {
     const palette = options.agentRecommendation.colorPalette
     colorScheme = `Agent-recommended: ${palette.primary.name} (${palette.primary.hex}), ${palette.secondary.name} (${palette.secondary.hex}), ${palette.accent.name} (${palette.accent.hex})`
@@ -999,6 +733,17 @@ export function buildFlyerPromptWithAgent(
   // Determine visual style
   const visualStyle = options.agentRecommendation?.style
     || (useAIBackground ? eventContext.style : 'Professional marketing, print-ready')
+
+  // v6.0: Extract custom fields from compiled data (Fix for custom fields not rendering)
+  const customFieldsText: string[] = []
+  if (data.customFields && Object.keys(data.customFields).length > 0) {
+    for (const [fieldName, fieldValue] of Object.entries(data.customFields)) {
+      if (fieldValue && fieldValue.trim()) {
+        // Store just the value (no field name to prevent label rendering in Gemini)
+        customFieldsText.push(`"${fieldValue.trim()}"`)
+      }
+    }
+  }
 
   return `
 <task>Generate a professional print-ready promotional flyer</task>
@@ -1043,7 +788,7 @@ Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
 Zone Structure (optimized for ${flyerSize}):
-- HEADER (15%): Organization logo ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition} (kept clear for overlay)` : 'prominently at top'}
+- HEADER (15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
 - HEADLINE (25%): "${data.flyerTitle}" - bold, attention-grabbing
 - CONTENT (40%): Key information, benefits, details
 - ACTION (20%): CTA, contact info, event details
@@ -1054,6 +799,7 @@ ${data.eventDate ? `- Date: "${data.eventDate}" with calendar icon` : ''}
 ${data.eventTime ? `- Time: "${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}" with clock icon` : ''}
 ${data.venue ? `- Venue: "${data.venue}" with location marker` : ''}
 ${data.price ? `- Price: "${data.price}" - highlighted/emphasized` : ''}
+${customFieldsText.length > 0 ? `- Additional Details: ${customFieldsText.map(t => t).join(', ')}` : ''}
 - CTA: "${data.callToAction || 'Contact Us Today'}" - prominent button/banner
 ${contactInfo.length > 0 ? `- Contact: ${contactInfo.join(' | ')}` : ''}
 
@@ -1069,6 +815,7 @@ ${data.eventDate ? `<text role="date" prominence="medium" style="bold with calen
 ${data.eventTime ? `<text role="time" prominence="medium" style="bold with clock icon">${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}</text>` : ''}
 ${data.venue ? `<text role="venue" prominence="medium" style="clear with location icon">${data.venue}</text>` : ''}
 ${data.price ? `<text role="price" prominence="prominent" style="highlighted, badge or tag format">${data.price}</text>` : ''}
+${customFieldsText.length > 0 ? customFieldsText.map(text => `<text role="detail" prominence="medium" style="clear, readable">${text}</text>`).join('\n') : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
 ${contactInfo.length > 0 ? `<text role="contact" prominence="small" style="clean, readable">${contactInfo.join(' | ')}</text>` : ''}
 ${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
@@ -1093,14 +840,14 @@ ${FLYER_EXAMPLES}
 - ACTION TEST: Clear CTA drives specific action
 ${useAIBackground ? '- CONTEXT TEST: Decorative elements match event type and enhance visual appeal' : ''}
 ${options.agentRecommendation ? '- AGENT TEST: Design follows intelligent agent recommendations' : ''}
-${options.logoAwareness?.hasLogo ? '- Logo area clean for overlay' : ''}
+${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 ${options.brandContext ? '- Brand colors properly applied' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Low resolution (not print-ready), web-only RGB colors, cluttered layout, tiny unreadable text, poor hierarchy, too many competing fonts, missing contact info
 ${flyerSize === 'A5' ? 'For A5: Avoid too much text - focus on essentials only' : ''}
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} (logo zone)` : ''}
+${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 ${useAIBackground ? 'Avoid: Decorative elements that obscure text, compete with headline, or overwhelm the design' : ''}
 </constraints>
 

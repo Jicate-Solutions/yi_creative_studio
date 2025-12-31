@@ -469,13 +469,13 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
     spacing: 20,            // 20px gap between speakers
 
     // SHARED photo settings
-    shape: 'circle',
-    size: 200,
+    shape: 'circle',        // Circular mask applied, no solid background
+    size: 200,              // Photo diameter in pixels
     border: {
-      width: 3,
-      color: '#005B96',     // Yi brand primary color
+      width: 0,             // v6.0 Phase 5: DEPRECATED - No longer used (was solid background)
+      color: 'transparent', // v6.0 Phase 5: DEPRECATED - No longer used
     },
-    shadow: true,
+    shadow: true,           // v6.0 Phase 5: Drop shadow for visibility (default enabled)
 
     // LEGACY: Single speaker (backward compatibility)
     photoUrl: undefined,

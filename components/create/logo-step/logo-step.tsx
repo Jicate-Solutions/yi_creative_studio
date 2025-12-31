@@ -166,7 +166,7 @@ export function LogoStep() {
                         size="sm"
                         onClick={handleAIOptimize}
                         disabled={formData.logosPlacements.length === 0 || isOptimizing}
-                        className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 border-0 hover:from-indigo-600 hover:to-purple-700 shadow-sm"
+                        className="gap-2 gradient-yi hover:opacity-90 text-white border-0 shadow-sm"
                     >
                         {isOptimizing ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -207,17 +207,23 @@ export function LogoStep() {
                 <div className="flex-1 min-w-0 flex flex-col gap-4 h-full overflow-y-auto transition-all duration-300">
 
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col h-full">
-                        <TabsList className="w-full justify-start h-12 p-1 bg-muted/20 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl mb-4">
-                            <TabsTrigger value="logo-bar" className="flex-1 max-w-[200px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-                                <span className="flex items-center gap-2">
-                                    <Rows3 className="h-4 w-4" />
-                                    Logo Bar & Background
+                        <TabsList className="w-full justify-start h-12 p-1 glass-inset border-none rounded-xl mb-6 overflow-x-auto scrollbar-hide flex-nowrap">
+                            <TabsTrigger
+                                value="logo-bar"
+                                className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                            >
+                                <span className="flex items-center gap-1.5 sm:gap-2">
+                                    <Rows3 className="h-4 w-4 shrink-0" />
+                                    <span className="hidden sm:inline">Appearance</span>
                                 </span>
                             </TabsTrigger>
-                            <TabsTrigger value="position" className="flex-1 max-w-[200px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white/10">
-                                <span className="flex items-center gap-2">
-                                    <LayoutGrid className="h-4 w-4" />
-                                    Position
+                            <TabsTrigger
+                                value="position"
+                                className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                            >
+                                <span className="flex items-center gap-1.5 sm:gap-2">
+                                    <LayoutGrid className="h-4 w-4 shrink-0" />
+                                    <span className="hidden sm:inline">Placement</span>
                                 </span>
                             </TabsTrigger>
                         </TabsList>

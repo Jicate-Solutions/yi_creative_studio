@@ -63,7 +63,7 @@ interface AnalyticsData {
   creativesByVertical: Record<string, number>
   creativesByModel: Record<string, number>
   dailyActivity: Array<{ date: string; count: number; credits: number }>
-  topPerformingCreatives: Creative[]
+  topPerformingCreatives: Pick<Creative, 'id' | 'credits_used' | 'download_count' | 'generation_time_ms' | 'vertical' | 'ai_model' | 'created_at' | 'creative_type' | 'thumbnail_url' | 'image_url' | 'title'>[]
 }
 
 // Helper function to get icon for request type
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
     // Fetch creatives (only needed columns to reduce disk IO)
     let creativesQuery = supabase
       .from('creatives')
-      .select('id, credits_used, download_count, generation_time_ms, vertical, ai_model, created_at, creative_type')
+      .select('id, credits_used, download_count, generation_time_ms, vertical, ai_model, created_at, creative_type, thumbnail_url, image_url, title')
       .eq('organization_id', currentOrganization.id)
       .order('created_at', { ascending: false })
       .limit(1000) // Safety limit for 90 days of data

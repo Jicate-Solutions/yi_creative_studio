@@ -19,6 +19,11 @@ import {
 } from '../context-helpers'
 import { STORY_EXAMPLES } from '../examples'
 
+// v6.0 Phase 2: Color personality system
+import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/prompts/helpers/color-personality'
+import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
+import type { DesignContextForPrompt} from '../types'
+
 // Import logo zone enforcement helper (v3.4)
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
@@ -69,7 +74,7 @@ function getStoryPlatformContext(platform?: string): StoryPlatformContext {
 }
 
 // ============================================================
-// STORY TYPE CONTEXTS (v3.1)
+// STORY TYPE CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
 
 interface StoryTypeContext {
@@ -78,35 +83,78 @@ interface StoryTypeContext {
   textTreatment: string
 }
 
-function getStoryTypeContext(storyType?: string): StoryTypeContext {
-  const typeContexts: Record<string, StoryTypeContext> = {
-    announcement: {
-      mood: 'Exciting, newsworthy, attention-demanding',
-      visualStyle: 'Bold colors, celebratory elements, high energy',
-      textTreatment: 'Large impactful headline, minimal supporting text',
-    },
-    promotional: {
-      mood: 'Urgent, valuable, action-driving',
-      visualStyle: 'Commercial, offer-focused, CTA prominent',
-      textTreatment: 'Offer headline prominent, clear swipe-up CTA',
-    },
-    quote: {
-      mood: 'Thoughtful, inspiring, shareable',
-      visualStyle: 'Elegant, typography-focused, subtle background',
-      textTreatment: 'Quote centered, attribution below, minimal decoration',
-    },
-    event: {
-      mood: 'Exciting, FOMO-inducing, time-sensitive',
-      visualStyle: 'Event imagery, date/time prominent, energetic',
-      textTreatment: 'Event name bold, date/time visible, swipe for details',
-    },
-    behind_the_scenes: {
-      mood: 'Authentic, personal, engaging',
-      visualStyle: 'Raw, authentic, less polished, relatable',
-      textTreatment: 'Casual text overlays, handwritten feel',
-    },
+/**
+ * v6.0 Phase 2 & 3: Build context from Design Intelligence with color injection
+ */
+function buildStoryContextFromDesignIntelligence(
+  designContext: DesignContextForPrompt,
+  userColors?: ResolvedColors
+): StoryTypeContext {
+  const backgroundSetting = designContext.backgroundSetting
+  const designStrategy = designContext.designStrategy
+
+  // Inject color personality into background if user colors exist
+  const enhancedBackground = userColors
+    ? `${backgroundSetting} (Color direction: ${generateColorAwareBackground('story', userColors)})`
+    : backgroundSetting
+
+  // v6.0 Phase 3: Use custom theme if generated
+  const themeInfo = designContext.customThemeNarrative
+    ? `${designContext.customThemeNarrative.themeName} - ${designContext.customThemeNarrative.themeDescription}`
+    : designStrategy
+
+  return {
+    mood: designContext.moodDirection || 'Engaging, immersive, thumb-stopping',
+    visualStyle: `${themeInfo} - ${enhancedBackground} - Full-screen vertical story optimized`,
+    textTreatment: designContext.typographyGuidance?.headlineStyle || 'Large impactful headline centered in safe zone, high contrast',
   }
-  return typeContexts[storyType || 'announcement'] || typeContexts.announcement
+}
+
+/**
+ * v6.0 Phase 2: Build dynamic context based on color personality
+ */
+function buildDynamicStoryColorContext(
+  storyType: string,
+  userColors: ResolvedColors
+): StoryTypeContext {
+  const colorPersonality = analyzeColorPersonality(userColors.primaryColor)
+  const backgroundSetting = generateColorAwareBackground(storyType, userColors)
+
+  return {
+    mood: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, immersive`,
+    visualStyle: `${backgroundSetting} - ${colorPersonality.visualElements} - Full-screen vertical story`,
+    textTreatment: 'Large bold headline centered in safe zone, high contrast for mobile',
+  }
+}
+
+/**
+ * v6.0: 3-Tier Priority Chain for Story Context
+ * Priority 1: Design Intelligence → Priority 2: Color Personality → Priority 3: Minimal Fallback
+ */
+function getStoryTypeContext(
+  storyType?: string,
+  userColors?: ResolvedColors,
+  designContext?: DesignContextForPrompt
+): StoryTypeContext {
+  // Priority 1: Use AI Design Intelligence if available
+  if (designContext?.backgroundSetting) {
+    console.log(`[Story Context] Using Design Intelligence for ${storyType}`)
+    return buildStoryContextFromDesignIntelligence(designContext, userColors)
+  }
+
+  // Priority 2: Dynamic color-driven generation
+  if (userColors && userColors.source !== 'fallback') {
+    console.log(`[Story Context] Using Color Personality (${userColors.source}) for ${storyType}`)
+    return buildDynamicStoryColorContext(storyType || 'announcement', userColors)
+  }
+
+  // Priority 3: Minimal generic fallback (NO hardcoded story-type visuals)
+  console.log(`[Story Context] Using minimal fallback for ${storyType}`)
+  return {
+    mood: 'Professional, engaging, thumb-stopping',
+    visualStyle: 'Clean professional vertical story design - full-screen immersive',
+    textTreatment: 'Large headline centered in safe zone, high contrast, mobile-optimized',
+  }
 }
 
 // ============================================================
@@ -119,7 +167,12 @@ export function buildStoryPrompt(
 ): string {
   // Get platform and type contexts (v3.1)
   const platformContext = getStoryPlatformContext(data.platform)
-  const typeContext = getStoryTypeContext(options.contentType)
+  // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
+  const typeContext = getStoryTypeContext(
+    options.contentType,
+    options.resolvedColors,
+    options.designContext
+  )
 
   // Build core context sections
   const logoContext = buildLogoContext(options.logoAwareness)

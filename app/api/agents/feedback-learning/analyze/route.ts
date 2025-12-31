@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       await usageTracker.track(
         'feedback_learning_analyze',
         'claude',
-        'claude-haiku-4-5-20251001',
+        'claude-haiku-4-5',
         {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,

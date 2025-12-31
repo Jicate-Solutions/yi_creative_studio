@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         success: true,
         suggestions: cachedSuggestions,
         metadata: {
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-haiku-4-5',
           processingTimeMs: Date.now() - startTime,
           cached: true,
         },
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       success: true,
       suggestions,
       metadata: {
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         processingTimeMs: Date.now() - startTime,
         cached: false,
       },
@@ -269,7 +269,7 @@ async function callClaudeWithTimeout(
     const client = new Anthropic({ apiKey })
 
     const responsePromise = client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 1024,
       temperature: 0.7,
       system: FIELD_SUGGESTION_SYSTEM_PROMPT + '\n\nIMPORTANT: Respond with valid JSON only. No markdown, no code blocks, just raw JSON.',

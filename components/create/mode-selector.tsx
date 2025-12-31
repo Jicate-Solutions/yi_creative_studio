@@ -1,9 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { LayoutTemplate, Wand2, ArrowRight } from 'lucide-react'
-import type { CreationMode, ModeConfig, ModeBadgeVariant } from '@/types/design.types'
+import { LayoutTemplate, Wand2, Sparkles } from 'lucide-react'
+import type { CreationMode, ModeConfig } from '@/types/design.types'
 import { forwardRef, useRef, useCallback, type KeyboardEvent } from 'react'
 
 // Default mode configurations
@@ -12,27 +11,17 @@ const DEFAULT_MODES: ModeConfig[] = [
     id: 'template',
     label: 'Template',
     icon: LayoutTemplate,
-    badge: { text: 'Quick', variant: 'success' },
     description: 'Choose from professionally designed templates and customize the content. Perfect for quick and consistent results.',
     workflow: 'Select template, fill details, generate',
-    features: [
-      { text: 'Pre-designed layouts', variant: 'info-muted' },
-      { text: 'Consistent style', variant: 'secondary' },
-      { text: 'Faster creation', variant: 'warning-muted' },
-    ]
+    features: []
   },
   {
     id: 'scratch',
     label: 'From Scratch',
     icon: Wand2,
-    badge: { text: 'Pro', variant: 'gold' },
     description: 'Full creative control with themes, styles, and advanced customization. Generate unique designs based on your preferences.',
     workflow: 'Choose design options, fill details, generate',
-    features: [
-      { text: '22+ themes', variant: 'secondary' },
-      { text: '16 styles', variant: 'destructive-muted' },
-      { text: 'Full customization', variant: 'success-muted' },
-    ]
+    features: []
   }
 ]
 
@@ -47,12 +36,6 @@ interface ModeTabProps {
   isSelected: boolean
   onSelect: () => void
   onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void
-}
-
-// Badge variant mapping for gold
-const getBadgeVariant = (variant: ModeBadgeVariant) => {
-  if (variant === 'gold') return 'default'
-  return variant as 'success' | 'info' | 'warning' | 'default'
 }
 
 const ModeTab = forwardRef<HTMLButtonElement, ModeTabProps>(
@@ -70,33 +53,17 @@ const ModeTab = forwardRef<HTMLButtonElement, ModeTabProps>(
         onClick={onSelect}
         onKeyDown={onKeyDown}
         className={cn(
-          'flex-1 flex items-center justify-center gap-2 h-11 px-4',
+          'flex-1 min-w-[72px] flex items-center justify-center gap-2 h-12 px-4',
           'rounded-lg text-sm font-medium',
-          'transition-all duration-300',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
           isSelected
-            ? 'gradient-yi text-white shadow-[var(--shadow-primary)]'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            ? 'bg-white dark:bg-white/10 dark:text-primary text-foreground shadow-md'
+            : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-white/5'
         )}
       >
-        <Icon
-          className={cn(
-            'h-4 w-4 shrink-0',
-            isSelected && 'animate-icon-pop'
-          )}
-        />
+        <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{mode.label}</span>
-        {mode.badge && (
-          <Badge
-            variant={getBadgeVariant(mode.badge.variant)}
-            className={cn(
-              'text-[10px] px-1.5 py-0 h-4 hidden sm:inline-flex shrink-0',
-              mode.badge.variant === 'gold' && 'badge-gold text-[10px] px-1.5 py-0 h-4'
-            )}
-          >
-            {mode.badge.text}
-          </Badge>
-        )}
       </button>
     )
   }
@@ -122,51 +89,18 @@ function ModeDetailsPanel({ mode }: { mode: ModeConfig }) {
     >
       <div className="flex items-start gap-4">
         {/* Icon */}
-        <div className="p-3 rounded-xl gradient-yi shadow-lg shadow-primary/20 shrink-0">
-          <Icon className="h-6 w-6 text-white" />
+        <div className="p-3 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 shrink-0">
+          <Icon className="h-6 w-6 text-primary" />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <h3 className="text-lg font-semibold text-foreground">
-              {mode.label}
-            </h3>
-            {mode.badge && (
-              <Badge
-                variant={getBadgeVariant(mode.badge.variant)}
-                className={cn(
-                  'text-xs',
-                  mode.badge.variant === 'gold' && 'badge-gold text-xs'
-                )}
-              >
-                {mode.badge.text}
-              </Badge>
-            )}
-          </div>
-
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            {mode.label}
+          </h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {mode.description}
           </p>
-
-          {/* Workflow */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <ArrowRight className="h-4 w-4 text-accent shrink-0" />
-            <span>{mode.workflow}</span>
-          </div>
-
-          {/* Feature Badges */}
-          <div className="flex flex-wrap gap-2">
-            {mode.features.map((feature, index) => (
-              <Badge
-                key={index}
-                variant={(feature.variant || 'secondary') as 'default' | 'secondary' | 'destructive' | 'outline'}
-                className="text-xs"
-              >
-                {feature.text}
-              </Badge>
-            ))}
-          </div>
         </div>
       </div>
     </div>
@@ -206,21 +140,26 @@ export function ModeSelector({ mode, onModeChange, modes = DEFAULT_MODES }: Mode
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-foreground">
-          How would you like to create?
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Choose your creation method
-        </p>
+      {/* Header with Icon */}
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
+          <Sparkles className="h-5 w-5 text-primary" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground">
+            How would you like to create?
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Choose your creation method
+          </p>
+        </div>
       </div>
 
       {/* Segmented Control */}
       <div
         role="tablist"
         aria-label="Select creation mode"
-        className="glass-subtle p-1 rounded-xl shadow-[var(--shadow-card)] flex w-full"
+        className="glass-inset p-1 rounded-xl border-none flex w-full"
       >
         {modes.map((modeConfig, index) => (
           <ModeTab

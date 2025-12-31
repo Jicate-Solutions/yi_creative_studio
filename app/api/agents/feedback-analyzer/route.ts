@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createUsageTracker } from '@/lib/services/api-usage'
 
 // Model constant for easy updates
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+const HAIKU_MODEL = 'claude-haiku-4-5'
 
 // Initialize Anthropic client with explicit API key
 function getAnthropicClient(): Anthropic | null {

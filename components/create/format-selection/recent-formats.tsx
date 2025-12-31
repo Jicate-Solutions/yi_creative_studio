@@ -52,11 +52,11 @@ export function RecentFormats({
               type="button"
               onClick={() => onSelect(format)}
               className={cn(
-                'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all',
-                'text-sm font-medium',
+                'inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all',
+                'text-sm font-medium shadow-sm',
                 isSelected
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-card hover:border-primary/50 hover:bg-accent/50 text-foreground'
+                  ? 'bg-primary/10 text-primary ring-2 ring-primary/20'
+                  : 'bg-card hover:bg-accent/50 text-foreground hover:shadow-md'
               )}
             >
               <span className="text-xs text-muted-foreground">{format.aspectRatio}</span>

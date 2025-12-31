@@ -69,6 +69,51 @@ function calculateYPosition(
 }
 
 /**
+ * Calculate exact speaker photo coordinates for pre-generation use
+ * This function enables coordination between Gemini prompt generation and Sharp overlay
+ *
+ * @param config - Photo configuration
+ * @param dimensions - Image dimensions
+ * @returns Exact pixel coordinates and bounding box information
+ */
+export function calculateSpeakerPhotoCoordinates(
+  config: {
+    position: PhotoPosition
+    verticalPosition?: PhotoVerticalPosition
+    size: number
+    borderWidth?: number
+  },
+  dimensions: { width: number; height: number }
+): {
+  x: number
+  y: number
+  width: number
+  height: number
+  topEdge: number
+  bottomEdge: number
+  leftEdge: number
+  rightEdge: number
+} {
+  const padding = 40
+  const borderWidth = config.borderWidth || 0
+  const totalPhotoSize = config.size + borderWidth * 2
+
+  const x = calculateXPosition(config.position, dimensions.width, totalPhotoSize, padding)
+  const y = calculateYPosition(config.verticalPosition, dimensions.height, totalPhotoSize, padding)
+
+  return {
+    x,
+    y,
+    width: totalPhotoSize,
+    height: totalPhotoSize,
+    topEdge: y,
+    bottomEdge: y + totalPhotoSize,
+    leftEdge: x,
+    rightEdge: x + totalPhotoSize,
+  }
+}
+
+/**
  * Apply shape masking to a photo buffer
  */
 async function applyShapeMask(
@@ -118,7 +163,9 @@ async function applyShapeMask(
 }
 
 /**
- * Apply border to a shaped photo
+ * DEPRECATED v6.0 Phase 5: Apply border to a shaped photo
+ * This function created solid background behind speaker photos - replaced by addSpeakerPhotoShadow()
+ * Kept for backward compatibility but should not be used in new code
  */
 async function applyBorder(
   photoBuffer: Buffer,
@@ -127,6 +174,8 @@ async function applyBorder(
   borderWidth: number,
   borderColor: string
 ): Promise<Buffer> {
+  console.warn('[Speaker Photo] applyBorder() is DEPRECATED - use addSpeakerPhotoShadow() instead')
+
   if (borderWidth <= 0) {
     return photoBuffer
   }
@@ -177,6 +226,122 @@ async function applyBorder(
     ])
     .png()
     .toBuffer()
+}
+
+/**
+ * v6.0 Phase 5: Adds drop shadow to speaker photo (NO solid background)
+ * Replaces applyBorder() to enable transparent speaker photos on AI backgrounds
+ *
+ * @param photoBuffer - Circular/rounded/square masked photo buffer
+ * @param size - Photo size in pixels
+ * @param shape - Photo shape (circle, rounded, square)
+ * @param shadowConfig - Shadow configuration
+ * @returns Buffer with photo and drop shadow on transparent background
+ */
+async function addSpeakerPhotoShadow(
+  photoBuffer: Buffer,
+  size: number,
+  shape: PhotoShape,
+  shadowConfig: { blur: number; opacity: number; offset: { x: number; y: number } } = {
+    blur: 15,
+    opacity: 0.5,
+    offset: { x: 3, y: 3 }
+  }
+): Promise<Buffer> {
+  const shadowPadding = shadowConfig.blur + Math.max(Math.abs(shadowConfig.offset.x), Math.abs(shadowConfig.offset.y))
+  const totalSize = size + shadowPadding * 2
+
+  try {
+    // Create shadow using SVG filter matching photo shape
+    let shadowMaskSvg: string
+
+    if (shape === 'circle') {
+      const radius = size / 2
+      shadowMaskSvg = `
+        <svg width="${size}" height="${size}">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="${shadowConfig.blur}" />
+              <feOffset dx="${shadowConfig.offset.x}" dy="${shadowConfig.offset.y}" result="offsetblur" />
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="${shadowConfig.opacity}" />
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="${radius}" cy="${radius}" r="${radius}" fill="black" filter="url(#shadow)" />
+        </svg>
+      `
+    } else if (shape === 'rounded') {
+      const borderRadius = Math.floor(size * 0.1)
+      shadowMaskSvg = `
+        <svg width="${size}" height="${size}">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="${shadowConfig.blur}" />
+              <feOffset dx="${shadowConfig.offset.x}" dy="${shadowConfig.offset.y}" result="offsetblur" />
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="${shadowConfig.opacity}" />
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <rect width="${size}" height="${size}" rx="${borderRadius}" ry="${borderRadius}" fill="black" filter="url(#shadow)" />
+        </svg>
+      `
+    } else {
+      // square
+      shadowMaskSvg = `
+        <svg width="${size}" height="${size}">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="${shadowConfig.blur}" />
+              <feOffset dx="${shadowConfig.offset.x}" dy="${shadowConfig.offset.y}" result="offsetblur" />
+              <feComponentTransfer>
+                <feFuncA type="linear" slope="${shadowConfig.opacity}" />
+              </feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <rect width="${size}" height="${size}" fill="black" filter="url(#shadow)" />
+        </svg>
+      `
+    }
+
+    // Create canvas with shadow (transparent background)
+    const result = await sharp({
+      create: {
+        width: totalSize,
+        height: totalSize,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }  // Transparent background
+      }
+    })
+    .composite([
+      {
+        input: photoBuffer,
+        top: shadowPadding,
+        left: shadowPadding,
+      }
+    ])
+    .png()
+    .toBuffer()
+
+    console.log(`[Speaker Photo] Added drop shadow (${size}px → ${totalSize}px with ${shadowConfig.blur}px blur)`)
+    return result
+  } catch (error) {
+    console.error('[Speaker Photo] Error creating shadow:', error)
+    return photoBuffer  // Fallback to original
+  }
 }
 
 /**
@@ -249,11 +414,33 @@ async function prepareSpeakerPhoto(
     .png()
     .toBuffer()
 
-  // Apply shape mask
+  // Apply shape mask (circular cutout)
   processedBuffer = await applyShapeMask(processedBuffer, config.size, config.shape)
 
-  // Apply border if specified
+  // v6.0 Phase 5: NEW - Add drop shadow for visibility (NO solid background)
+  // Replaces the old border logic which created solid white/colored backgrounds
+  const shouldAddShadow = config.shadow !== false  // Default to true if not specified
+
+  if (shouldAddShadow) {
+    processedBuffer = await addSpeakerPhotoShadow(
+      processedBuffer,
+      config.size,
+      config.shape,
+      {
+        blur: 15,
+        opacity: 0.5,
+        offset: { x: 3, y: 3 }
+      }
+    )
+    console.log('[Speaker Photo] Applied drop shadow (no solid background)')
+  } else {
+    console.log('[Speaker Photo] Shadow disabled - photo will sit directly on AI background')
+  }
+
+  // DEPRECATED: Old border logic kept for backward compatibility
+  // This creates solid backgrounds which override AI-generated backgrounds
   if (config.border.width > 0) {
+    console.warn('[Speaker Photo] Border is DEPRECATED and creates visual conflicts with AI backgrounds')
     processedBuffer = await applyBorder(
       processedBuffer,
       config.size,
@@ -271,8 +458,63 @@ async function prepareSpeakerPhoto(
 // ============================================================
 
 /**
- * Calculate speaker photo positions based on layout strategy
+ * Calculate the anchor point (base X/Y) based on user's position settings
+ * This determines WHERE the photo block should be placed on the image
+ */
+function calculateAnchorPosition(config: {
+  position: PhotoPosition
+  verticalPosition: PhotoVerticalPosition | undefined
+  imageWidth: number
+  imageHeight: number
+  blockWidth: number
+  blockHeight: number
+  padding: number
+}): { anchorX: number; anchorY: number } {
+  const { position, verticalPosition, imageWidth, imageHeight, blockWidth, blockHeight, padding } = config
+
+  // Calculate X based on horizontal position
+  let anchorX: number
+  switch (position) {
+    case 'left':
+      anchorX = padding
+      break
+    case 'right':
+      anchorX = imageWidth - blockWidth - padding
+      break
+    case 'center':
+    default:
+      anchorX = Math.floor((imageWidth - blockWidth) / 2)
+      break
+  }
+
+  // Calculate Y based on vertical position
+  // Use percentages to place photo group at the right vertical position
+  const positionPercentages: Record<PhotoVerticalPosition, number> = {
+    'top': 0.15,
+    'upper': 0.30,
+    'middle': 0.50,
+    'lower': 0.65,
+    'bottom': 0.80,
+  }
+
+  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.65
+  const baseY = Math.floor(imageHeight * percentage)
+
+  // Center the block at the target Y position
+  let anchorY = baseY - Math.floor(blockHeight / 2)
+
+  // Clamp to stay within bounds
+  anchorY = Math.max(padding, Math.min(anchorY, imageHeight - blockHeight - padding))
+
+  return { anchorX, anchorY }
+}
+
+/**
+ * Calculate speaker photo positions based on layout strategy AND user position settings
  * Supports 2-10 speakers with different layout modes
+ *
+ * @param config.position - Horizontal position (left/center/right) where the speaker block should be placed
+ * @param config.verticalPosition - Vertical position (top/upper/middle/lower/bottom) where the block should be placed
  */
 export function calculateMultiSpeakerPositions(config: {
   speakerCount: number
@@ -281,53 +523,80 @@ export function calculateMultiSpeakerPositions(config: {
   imageHeight: number
   photoSize: number
   spacing: number
+  position?: PhotoPosition
+  verticalPosition?: PhotoVerticalPosition
 }): Array<{ x: number; y: number }> {
-  const { speakerCount, layout, imageWidth, imageHeight, photoSize, spacing } = config
+  const {
+    speakerCount,
+    layout,
+    imageWidth,
+    imageHeight,
+    photoSize,
+    spacing,
+    position = 'center',
+    verticalPosition = 'lower',
+  } = config
   const positions: Array<{ x: number; y: number }> = []
   const padding = 40
 
-  if (layout === 'side-by-side') {
-    // Horizontal row - works for 2-3 speakers
-    const totalWidth = speakerCount * photoSize + (speakerCount - 1) * spacing
-    const startX = Math.max(padding, (imageWidth - totalWidth) / 2)
-    const centerY = Math.floor(imageHeight / 2 - photoSize / 2)
+  // Calculate block dimensions based on layout
+  let blockWidth: number
+  let blockHeight: number
 
+  if (layout === 'side-by-side') {
+    blockWidth = speakerCount * photoSize + (speakerCount - 1) * spacing
+    blockHeight = photoSize
+  } else if (layout === 'stacked') {
+    blockWidth = photoSize
+    blockHeight = speakerCount * photoSize + (speakerCount - 1) * spacing
+  } else {
+    // Grid layout
+    const cols = 2
+    const rows = Math.ceil(speakerCount / cols)
+    blockWidth = cols * photoSize + (cols - 1) * spacing
+    blockHeight = rows * photoSize + (rows - 1) * spacing
+  }
+
+  // Get the anchor position based on user settings
+  const { anchorX, anchorY } = calculateAnchorPosition({
+    position,
+    verticalPosition,
+    imageWidth,
+    imageHeight,
+    blockWidth,
+    blockHeight,
+    padding,
+  })
+
+  console.log(`[Speaker Positions] Anchor at x:${anchorX}, y:${anchorY} for position:${position}, vertical:${verticalPosition}`)
+
+  if (layout === 'side-by-side') {
+    // Horizontal row - place photos from anchor point
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
-        x: Math.floor(startX + i * (photoSize + spacing)),
-        y: centerY,
+        x: Math.floor(anchorX + i * (photoSize + spacing)),
+        y: anchorY,
       })
     }
   } else if (layout === 'stacked') {
-    // Vertical stack - works for 2-4 speakers
-    const totalHeight = speakerCount * photoSize + (speakerCount - 1) * spacing
-    const centerX = Math.floor(imageWidth / 2 - photoSize / 2)
-    const startY = Math.max(padding, (imageHeight - totalHeight) / 2)
-
+    // Vertical stack - place photos from anchor point
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
-        x: centerX,
-        y: Math.floor(startY + i * (photoSize + spacing)),
+        x: anchorX,
+        y: Math.floor(anchorY + i * (photoSize + spacing)),
       })
     }
   } else if (layout === 'grid') {
-    // 2-column grid - works for 4-10 speakers
+    // 2-column grid
     const cols = 2
-    const rows = Math.ceil(speakerCount / cols)
-
-    const gridWidth = cols * photoSize + (cols - 1) * spacing
-    const gridHeight = rows * photoSize + (rows - 1) * spacing
-
-    const startX = Math.max(padding, (imageWidth - gridWidth) / 2)
-    const startY = Math.max(padding, (imageHeight - gridHeight) / 2)
 
     for (let i = 0; i < speakerCount; i++) {
       const row = Math.floor(i / cols)
       const col = i % cols
 
       positions.push({
-        x: Math.floor(startX + col * (photoSize + spacing)),
-        y: Math.floor(startY + row * (photoSize + spacing)),
+        x: Math.floor(anchorX + col * (photoSize + spacing)),
+        y: Math.floor(anchorY + row * (photoSize + spacing)),
       })
     }
   }
@@ -337,7 +606,7 @@ export function calculateMultiSpeakerPositions(config: {
 
 /**
  * Overlay multiple speaker photos onto base image
- * Uses shared settings with dynamic positioning based on layout strategy
+ * Uses shared settings with dynamic positioning based on layout strategy AND user position settings
  */
 export async function overlayMultipleSpeakerPhotos(config: {
   baseImageBuffer: Buffer
@@ -347,6 +616,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
     size: number
     border: { width: number; color: string }
     shadow: boolean
+    position?: PhotoPosition
+    verticalPosition?: PhotoVerticalPosition
   }
   layoutMode: LayoutMode
   layoutStrategy?: LayoutStrategy
@@ -379,7 +650,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
     ? autoDetectSpeakerLayout(speakers.length)
     : (layoutStrategy || 'side-by-side')
 
-  // Calculate positions for all speakers
+  // Calculate positions for all speakers using user's position settings
   const positions = calculateMultiSpeakerPositions({
     speakerCount: speakers.length,
     layout: finalLayout,
@@ -387,7 +658,11 @@ export async function overlayMultipleSpeakerPhotos(config: {
     imageHeight,
     photoSize: sharedSettings.size,
     spacing,
+    position: sharedSettings.position,
+    verticalPosition: sharedSettings.verticalPosition,
   })
+
+  console.log(`[Speaker Overlay] Using position: ${sharedSettings.position || 'center'}, vertical: ${sharedSettings.verticalPosition || 'lower'}`)
 
   // Prepare all speaker photos in parallel
   const preparedPhotos = await Promise.all(
@@ -554,6 +829,10 @@ export async function processImageWithSpeakerPhoto(
   // Multi-speaker mode
   if (normalized.speakers && normalized.speakers.length > 0) {
     console.log('[Speaker Overlay] Using multi-speaker overlay')
+    console.log('[Speaker Overlay] Position settings:', {
+      position: normalized.position,
+      verticalPosition: normalized.verticalPosition,
+    })
     resultBuffer = await overlayMultipleSpeakerPhotos({
       baseImageBuffer: imageBuffer,
       speakers: normalized.speakers,
@@ -562,6 +841,8 @@ export async function processImageWithSpeakerPhoto(
         size: normalized.size,
         border: normalized.border,
         shadow: normalized.shadow,
+        position: normalized.position,
+        verticalPosition: normalized.verticalPosition,
       },
       layoutMode: normalized.layoutMode || 'auto',
       layoutStrategy: normalized.layoutStrategy,

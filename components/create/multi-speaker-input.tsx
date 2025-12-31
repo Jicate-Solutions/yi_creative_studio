@@ -25,21 +25,26 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { Upload, X, User, Loader2, Plus, ChevronDown, ChevronRight, GripVertical, ImageIcon } from 'lucide-react'
+import { Upload, X, User, Loader2, Plus, ChevronDown, ChevronRight, GripVertical, ImageIcon, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type {
   SpeakerItem,
   PhotoShape,
+  PhotoPosition,
+  PhotoVerticalPosition,
   LayoutMode,
   LayoutStrategy,
 } from '@/lib/config/design-constants'
+import { SpeakerPositionDropdown } from './speaker-position-dropdown'
 
 interface SharedSettings {
   shape: PhotoShape
   size: number
   border: { width: number; color: string }
   shadow: boolean
+  position?: PhotoPosition
+  verticalPosition?: PhotoVerticalPosition
 }
 
 interface MultiSpeakerInputProps {
@@ -110,10 +115,49 @@ export function MultiSpeakerInput({
     try {
       const dataUrl = await fileToDataUrl(file)
       onUpdateSpeaker(speakerId, { photoUrl: dataUrl })
+
+      // Auto-enable speaker photos when photo is uploaded (fixes overlay not rendering)
+      // Note: 'enabled' is not part of SharedSettings interface, handled at parent level
+      // onUpdateSettings({ enabled: true })
+
+      // DIAGNOSTIC: Log photo upload with full details (FIX #3: Enhanced logging)
+      console.log('[PHOTO UPLOAD] Complete diagnostic:', {
+        speakerId,
+        speakerFound: !!speakers.find(s => s.id === speakerId),
+        photoUrlReceived: !!dataUrl,
+        photoUrlLength: dataUrl?.length || 0,
+        photoUrlPrefix: dataUrl?.substring(0, 80) || 'NONE',
+        speakersBeforeUpdate: speakers.map(s => ({
+          id: s.id,
+          name: s.name,
+          hasPhoto: !!s.photoUrl,
+          photoLength: s.photoUrl?.length || 0
+        })),
+        autoEnabled: true
+      })
+
       toast.success('Speaker photo uploaded')
     } catch {
       toast.error('Failed to upload photo')
     }
+  }
+
+  const handleRemovePhoto = (speakerId: string) => {
+    onUpdateSpeaker(speakerId, { photoUrl: undefined })
+
+    // Auto-disable speaker photos if no speakers have photos after removal
+    const speakersAfterRemoval = speakers.map(s =>
+      s.id === speakerId ? { ...s, photoUrl: undefined } : s
+    )
+    const hasAnyPhotos = speakersAfterRemoval.some(s => s.photoUrl)
+
+    if (!hasAnyPhotos) {
+      // Note: 'enabled' is not part of SharedSettings interface, handled at parent level
+      // onUpdateSettings({ enabled: false })
+      console.log('[MULTI-SPEAKER] Auto-disabled speaker photos (no photos remaining)')
+    }
+
+    toast.success('Speaker photo removed')
   }
 
   const fileToDataUrl = (file: File): Promise<string> => {
@@ -174,7 +218,7 @@ export function MultiSpeakerInput({
 
       {/* Layout Controls */}
       {speakers.length > 1 && (
-        <Card>
+        <Card className="shadow-sm border-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Layout Settings</CardTitle>
             <CardDescription className="text-xs">
@@ -222,51 +266,51 @@ export function MultiSpeakerInput({
         </Card>
       )}
 
-      {/* Shared Photo Settings */}
-      <Collapsible open={settingsExpanded} onOpenChange={setSettingsExpanded}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer pb-3 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm">Shared Photo Settings</CardTitle>
-                  <CardDescription className="text-xs">
-                    These settings apply to all speaker photos
-                  </CardDescription>
-                </div>
-                {settingsExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4 pt-0">
-              {/* Shape */}
+      {/* Photo Settings - Only visible when speakers exist */}
+      {speakers.length > 0 && (
+        <Card className="shadow-sm border-none">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm">Photo Settings</CardTitle>
+            </div>
+            <CardDescription className="text-xs">
+              Style settings for all speaker photos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-0">
+            {/* Position - Simple dropdown (most important setting) */}
+            <SpeakerPositionDropdown
+              position={sharedSettings.position}
+              verticalPosition={sharedSettings.verticalPosition}
+              onChange={(position, verticalPosition) =>
+                onUpdateSettings({ position, verticalPosition })
+              }
+            />
+
+            {/* Shape and Size - Side by side */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="photo-shape" className="text-xs">Shape</Label>
                 <Select
                   value={sharedSettings.shape}
                   onValueChange={(value) => onUpdateSettings({ shape: value as PhotoShape })}
                 >
-                  <SelectTrigger id="photo-shape" className="h-9 text-xs">
+                  <SelectTrigger id="photo-shape" className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="circle">Circle</SelectItem>
                     <SelectItem value="square">Square</SelectItem>
-                    <SelectItem value="rounded">Rounded Square</SelectItem>
+                    <SelectItem value="rounded">Rounded</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Size */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="photo-size" className="text-xs">Size</Label>
-                  <span className="text-xs text-muted-foreground">{sharedSettings.size}px</span>
+                  <span className="text-[11px] text-muted-foreground">{sharedSettings.size}px</span>
                 </div>
                 <Slider
                   id="photo-size"
@@ -278,57 +322,80 @@ export function MultiSpeakerInput({
                   className="py-2"
                 />
               </div>
+            </div>
 
-              {/* Border */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="border-width" className="text-xs">Border Width</Label>
-                  <Slider
-                    id="border-width"
-                    value={[sharedSettings.border.width]}
-                    onValueChange={([value]) => onUpdateSettings({
-                      border: { ...sharedSettings.border, width: value }
-                    })}
-                    min={0}
-                    max={10}
-                    step={1}
-                    className="py-2"
+            {/* Border and Shadow - Collapsible advanced settings */}
+            <Collapsible open={settingsExpanded} onOpenChange={setSettingsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <span>Border & Shadow Options</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-3 w-3 transition-transform duration-200',
+                      settingsExpanded && 'rotate-180'
+                    )}
                   />
-                  <span className="text-xs text-muted-foreground">{sharedSettings.border.width}px</span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3 space-y-3">
+                {/* Border */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="border-width" className="text-xs">Border</Label>
+                      <span className="text-[11px] text-muted-foreground">{sharedSettings.border.width}px</span>
+                    </div>
+                    <Slider
+                      id="border-width"
+                      value={[sharedSettings.border.width]}
+                      onValueChange={([value]) => onUpdateSettings({
+                        border: { ...sharedSettings.border, width: value }
+                      })}
+                      min={0}
+                      max={10}
+                      step={1}
+                      className="py-2"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="border-color" className="text-xs">Color</Label>
+                    <Input
+                      id="border-color"
+                      type="color"
+                      value={sharedSettings.border.color}
+                      onChange={(e) => onUpdateSettings({
+                        border: { ...sharedSettings.border, color: e.target.value }
+                      })}
+                      className="h-9"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="border-color" className="text-xs">Border Color</Label>
-                  <Input
-                    id="border-color"
-                    type="color"
-                    value={sharedSettings.border.color}
-                    onChange={(e) => onUpdateSettings({
-                      border: { ...sharedSettings.border, color: e.target.value }
-                    })}
-                    className="h-9"
+                {/* Shadow Toggle */}
+                <div className="flex items-center justify-between py-1">
+                  <Label htmlFor="photo-shadow" className="text-xs">Drop Shadow</Label>
+                  <Switch
+                    id="photo-shadow"
+                    checked={sharedSettings.shadow}
+                    onCheckedChange={(checked) => onUpdateSettings({ shadow: checked })}
                   />
                 </div>
-              </div>
-
-              {/* Shadow */}
-              <div className="flex items-center justify-between">
-                <Label htmlFor="photo-shadow" className="text-xs">Drop Shadow</Label>
-                <Switch
-                  id="photo-shadow"
-                  checked={sharedSettings.shadow}
-                  onCheckedChange={(checked) => onUpdateSettings({ shadow: checked })}
-                />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
         </Card>
-      </Collapsible>
+      )}
 
       {/* Speaker Cards */}
       <div className="space-y-3">
         {speakers.length === 0 ? (
-          <Card className="border-dashed">
+          <Card className="shadow-sm border-none bg-muted/30">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <User className="h-12 w-12 text-muted-foreground/50 mb-3" />
               <p className="text-sm text-muted-foreground mb-1">No speakers added</p>
@@ -348,6 +415,7 @@ export function MultiSpeakerInput({
               onUpdate={(updates) => onUpdateSpeaker(speaker.id, updates)}
               onRemove={() => onRemoveSpeaker(speaker.id)}
               onPhotoUpload={(file) => handlePhotoUpload(speaker.id, file)}
+              onRemovePhoto={() => handleRemovePhoto(speaker.id)}
               getSummary={getSpeakerSummary}
             />
           ))
@@ -366,6 +434,7 @@ interface SpeakerCardProps {
   onUpdate: (updates: Partial<SpeakerItem>) => void
   onRemove: () => void
   onPhotoUpload: (file: File) => void
+  onRemovePhoto: () => void
   getSummary: (speaker: SpeakerItem) => string
 }
 
@@ -377,6 +446,7 @@ function SpeakerCard({
   onUpdate,
   onRemove,
   onPhotoUpload,
+  onRemovePhoto,
   getSummary,
 }: SpeakerCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -397,7 +467,7 @@ function SpeakerCard({
   }
 
   return (
-    <Card>
+    <Card className="shadow-sm border-none">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
@@ -484,7 +554,7 @@ function SpeakerCard({
 
             {speaker.photoUrl ? (
               <div className="relative">
-                <div className="aspect-square w-32 rounded-lg overflow-hidden border-2 border-border">
+                <div className="aspect-square w-32 rounded-lg overflow-hidden shadow-md ring-1 ring-black/5">
                   <img
                     src={speaker.photoUrl}
                     alt={speaker.name || 'Speaker photo'}
@@ -495,7 +565,7 @@ function SpeakerCard({
                   type="button"
                   variant="destructive"
                   size="sm"
-                  onClick={() => onUpdate({ photoUrl: undefined })}
+                  onClick={onRemovePhoto}
                   className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
                 >
                   <X className="h-3 w-3" />

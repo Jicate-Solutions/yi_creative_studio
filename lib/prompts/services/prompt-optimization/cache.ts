@@ -133,6 +133,7 @@ export function generateDesignContextCacheKey(params: {
 /**
  * Generate a cache key for Ultra-Pro Prompt requests
  * Based on: formatId + eventName hash + key field values
+ * v5.5: Added variationSeed to force unique keys for creative formats
  */
 export function generateUltraProCacheKey(params: {
   formatId?: string
@@ -140,6 +141,7 @@ export function generateUltraProCacheKey(params: {
   eventType?: string
   hasSpeaker?: boolean
   hasVenue?: boolean
+  variationSeed?: string // NEW: Forces unique cache key for creative variation
 }): string {
   const parts = [
     CACHE_CONFIG.keyPrefix,
@@ -153,6 +155,11 @@ export function generateUltraProCacheKey(params: {
   if (params.eventName) {
     const nameHash = strongHash(params.eventName)
     parts.push(nameHash)
+  }
+
+  // NEW: Add variation seed for creative formats (v5.5)
+  if (params.variationSeed) {
+    parts.push(params.variationSeed)
   }
 
   return parts.join(':')

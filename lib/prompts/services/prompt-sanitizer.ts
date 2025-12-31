@@ -391,3 +391,61 @@ export function detectLabelLeaks(text: string): string[] {
 export function isPromptClean(prompt: string): boolean {
   return detectLabelLeaks(prompt).length === 0
 }
+
+// ============================================================
+// SELECTIVE SANITIZATION (v6.5.1)
+// ============================================================
+
+/**
+ * Gentle sanitization - ONLY removes field labels (e.g., "Event Name:", "Date:")
+ * Preserves XML structure, instruction words, and design terminology.
+ * Use for XML-structured prompts from YiPromptBuilder.
+ */
+export function stripFieldLabelsOnly(prompt: string): string {
+  if (!prompt) return ''
+
+  let cleaned = prompt
+
+  // ONLY remove field label patterns like "Event Name:", "Date:", etc.
+  for (const pattern of FIELD_LABEL_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '')
+  }
+
+  // Clean up whitespace only
+  cleaned = cleaned
+    .replace(/\n{3,}/g, '\n\n')  // Max 2 newlines
+    .replace(/[ \t]{2,}/g, ' ')   // Max 1 space
+    .trim()
+
+  return cleaned
+}
+
+/**
+ * Detects if a prompt is XML-structured from YiPromptBuilder.
+ * XML-structured prompts should use gentle sanitization to preserve AI insights.
+ *
+ * v6.5.2 FIX: Added actual tags used by YiPromptBuilder event-poster builder:
+ * - <layout_composition_rules> (primary tag, always present)
+ * - <typography_and_color_specifications>
+ * - <ai_decorative_elements>
+ * - <creative_twist>
+ *
+ * Original tags kept for compatibility with other formats.
+ *
+ * Future improvement: Use regex /<[a-z_]+[^>]*>/i to detect ANY XML tags
+ * (more robust but less explicit).
+ */
+export function isXmlStructuredPrompt(prompt: string): boolean {
+  return (
+    // Original checks (may be used in other formats)
+    prompt.includes('<scene_description>') ||
+    prompt.includes('<text role=') ||
+    prompt.includes('<composition_instructions>') ||
+    prompt.includes('<background_setting>') ||
+    // v6.5.2 FIX: Add actual tags used by YiPromptBuilder event-poster
+    prompt.includes('<layout_composition_rules>') ||
+    prompt.includes('<typography_and_color_specifications>') ||
+    prompt.includes('<ai_decorative_elements>') ||
+    prompt.includes('<creative_twist>')
+  )
+}

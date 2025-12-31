@@ -51,8 +51,8 @@ export interface TypographyContext {
   brandColors?: string[]
   /** Whether the creative has a speaker photo (influences layout) */
   hasSpeakerPhoto?: boolean
-  /** Additional form data for context (optional) */
-  formData?: Record<string, any>
+  // formData removed - all required data is extracted to individual fields
+  // (was passing entire Zustand store with non-serializable data)
 }
 
 /**

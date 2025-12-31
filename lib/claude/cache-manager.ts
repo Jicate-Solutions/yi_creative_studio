@@ -30,7 +30,7 @@ export interface GenerateResponse<T = unknown> {
 // Constants
 // ============================================================================
 
-const MODEL_NAME = 'claude-haiku-4-5-20251001'
+const MODEL_NAME = 'claude-haiku-4-5'
 
 // ============================================================================
 // In-Memory Cache for Generated Schemas
