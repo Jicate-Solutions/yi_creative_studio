@@ -56,9 +56,15 @@ const POSITION_TO_ZONE: Record<string, { xStart: number; xEnd: number; yStart: n
 /**
  * Build forbidden zones section for AI prompt
  * v3.6: Uses NARRATIVE PROSE instead of XML tags to survive sanitization
+ * v6.0: Enhanced with dual-stripe awareness for two-row logo layouts
  */
-export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext): string {
+export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext, dualStripeMode?: boolean): string {
   if (!logoAwareness?.hasLogo) return ''
+
+  // v6.0: Dual-stripe mode adjusts percentages for two-row logo layout
+  const headerPercent = dualStripeMode ? 18 : 15
+  const titleStartMin = dualStripeMode ? 20 : 15
+  const titleStartRange = dualStripeMode ? '20-22%' : '15-20%'
 
   const zones: Array<{ name: string; xStart: number; xEnd: number; yStart: number; yEnd: number }> = []
 
@@ -94,13 +100,13 @@ export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext)
   return `
 LAYOUT COMPOSITION REQUIREMENTS:
 
-The top 15% of the image should have a clean, uncluttered background (solid color, subtle gradient, or simple texture). Keep this area simple and clear - NO text, NO faces, NO detailed graphics in the upper 15%. The background should flow naturally from top to bottom without creating visible stripes or bands. ${zoneNarratives}
+The top ${headerPercent}% of the image should have a clean, uncluttered background (solid color, subtle gradient, or simple texture). Keep this area simple and clear - NO text, NO faces, NO detailed graphics in the upper ${headerPercent}%. The background should flow naturally from top to bottom without creating visible stripes or bands. ${zoneNarratives}
 
-The main event title and headline text belongs in the central area, starting at approximately 15-20% from the top edge. Keep all important text out of the upper 15% area. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
+The main event title and headline text belongs in the central area, starting at approximately ${titleStartRange} from the top edge. Keep all important text out of the upper ${headerPercent}% area. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
 
-All typography, including the event name, tagline, and any other text elements, begins below the top 15% area. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
+All typography, including the event name, tagline, and any other text elements, begins below the top ${headerPercent}% area. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
 
-When positioning the event title: Start the title text block at minimum 15% down from the top edge. Center the title horizontally, keeping it away from the leftmost 25% and rightmost 25% of the image width. Long titles should wrap to multiple lines rather than extending into corner areas.
+When positioning the event title: Start the title text block at minimum ${titleStartMin}% down from the top edge. Center the title horizontally, keeping it away from the leftmost 25% and rightmost 25% of the image width. Long titles should wrap to multiple lines rather than extending into corner areas.
 
 IMPORTANT: Keep the upper region completely empty. Generate ONLY the clean background.
 `

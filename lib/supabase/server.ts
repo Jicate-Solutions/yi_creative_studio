@@ -25,6 +25,19 @@ export async function createClient() {
           }
         },
       },
+      // Add timeout configuration to prevent indefinite hangs
+      global: {
+        fetch: (url, options = {}) => {
+          // 15-second timeout for Storage operations (longer than AI API calls)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+          return fetch(url, {
+            ...options,
+            signal: controller.signal,
+          }).finally(() => clearTimeout(timeoutId));
+        },
+      },
     }
   )
 }

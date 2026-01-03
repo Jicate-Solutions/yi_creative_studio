@@ -893,21 +893,31 @@ Integrate this creative twist prominently into the background or decorative elem
       roles: ['headline', 'subheadline'],
       intensity: 'subtle',
     },
-    // Header logo band for Yi triple-logo layout
+    // Header logo band for Yi logo layout
     // v5.1: User-controlled via logoStripMode toggle
-    headerLogoBand: {
-      enabled: options.logoStripMode?.enabled || false, // v5.1: Respect user's logo strip toggle
-      heightPercent: 12,
-      backgroundStyle: options.logoStripMode?.enabled
-        ? (sophistication === 'rich'
-          ? 'solid white band with subtle shadow for logo visibility on immersive backgrounds'
-          : 'clean white stripe with high contrast for professional logo display')
-        : (sophistication === 'rich'
-          ? 'transparent / integrated header for immersive background'
-          : 'transparent overlay mode - simple background for logo visibility'),
-      logoLayout: 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right',
-      secondaryLogos: !!options.verticalId,  // Include vertical logos if applicable
-    },
+    // v6.0: Dual-stripe detection for two-row logo layouts
+    headerLogoBand: (() => {
+      const logoStripEnabled = options.logoStripMode?.enabled || false
+      // v6.0: Detect dual-stripe mode: Both primary logos AND vertical logos present
+      const hasDualStripe = logoStripEnabled && !!options.verticalId
+
+      return {
+        enabled: logoStripEnabled,
+        heightPercent: hasDualStripe ? 18 : 12,  // v6.0: 18% for dual-stripe, 12% for single-stripe
+        dualStripeMode: hasDualStripe,  // v6.0: Flag for context builders
+        backgroundStyle: logoStripEnabled
+          ? (sophistication === 'rich'
+            ? 'solid white band with subtle shadow for logo visibility on immersive backgrounds'
+            : 'clean white stripe with high contrast for professional logo display')
+          : (sophistication === 'rich'
+            ? 'transparent / integrated header for immersive background'
+            : 'transparent overlay mode - simple background for logo visibility'),
+        logoLayout: hasDualStripe
+          ? 'two rows of logos: Row 1 (Yi, Bharat Rising, CII), Row 2 (vertical program logos)'  // v6.0: Dual-stripe layout
+          : 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right',
+        secondaryLogos: !!options.verticalId,  // Include vertical logos if applicable
+      }
+    })(),
     // Footer with Yi chapter branding (only if user provided footer data)
     footerStyle: {
       enabled: !!options.footerContext, // Only enable if user explicitly provided footer contact data
@@ -1001,13 +1011,24 @@ POSTER LAYOUT AND COMPOSITION:
    - "${eventName}" must be the dominant focal point.
 ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
-3. HEADER AREA (v5.3 - Reserved for Post-Processing):
+3. HEADER AREA (v6.0 - Dual-Stripe Enhanced):
   ${options.logoStripMode?.enabled
-      ? `- The top 8% of the canvas is RESERVED and will be replaced in post-processing.
+      ? (options.logoStripMode.enabled && options.verticalId
+        ? `- CRITICAL - TWO-ROW LOGO LAYOUT:
+  - The top 18% of your canvas accommodates TWO rows of logos (added in post-processing).
+  - First row (top 10%): Yi, Bharat Rising, CII logos
+  - Second row (next 8%): Vertical program logos (Yi Learning, Yi Innovation, etc.)
+  - DO NOT generate any content in this 18% zone - only clean background
+
+  YOUR CONTENT STARTS HERE:
+  - BEGIN your main headline at 20% from the top edge (NOT earlier)
+  - Measure from absolute top (0%) to the top of your first text line
+  - This 2% gap (18% logo area + 2% buffer = 20% start) prevents overlap with second logo row`
+        : `- The top 8% of the canvas is RESERVED and will be replaced in post-processing.
   - START your design at approximately 8% from the top edge.
   - Do NOT extend backgrounds, gradients, or any graphics into the top 8%.
   - Treat 8% from top as the TOP EDGE of your design canvas.
-  - Position the main headline starting at approximately 15% from top.`
+  - Position the main headline starting at approximately 15% from top.`)
       : `- DO NOT create a visible stripe, band, or separate header section.
   - The background should flow naturally from top to bottom.
   - ${sophistication === 'minimalist'
@@ -1106,7 +1127,7 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
 TEXT TO DISPLAY IN THE IMAGE(render these exact words):
   - Main headline: "${eventName}"
 ${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
-  - Date & Time: "${formatEventDate(data.eventDate)} | ${data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)}"
+  - Date${data.eventTime ? ' & Time' : ''}: "${formatEventDate(data.eventDate)}${data.eventTime ? ' | ' + (data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)) : ''}"
     - Location: "${data.venue || ''}"
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
 ${customFieldsText.length > 0 ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}` : ''}

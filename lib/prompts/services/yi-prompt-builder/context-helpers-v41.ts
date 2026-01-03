@@ -83,33 +83,58 @@ export function buildTextShadowContext(shadowConfig?: TextShadowConfig): string 
 // ============================================================
 
 /**
- * Build header logo band context for Yi triple-logo layout
+ * Build header logo band context for Yi logo layout
  * v4.1 - Creates white rounded rectangle header with 3 logos
+ * v6.0 - Enhanced with dual-stripe support for two-row logo layouts
  */
 export function buildHeaderLogoBandContext(bandConfig?: HeaderLogoBandConfig): string {
   if (!bandConfig?.enabled) return ''
 
-  const heightPercent = bandConfig.heightPercent || 12
+  // Dual-stripe mode: Two rows of logos (brand + vertical)
+  const dualStripeMode = bandConfig.dualStripeMode || false
+  const heightPercent = dualStripeMode ? 18 : (bandConfig.heightPercent || 12)
+  const titleStartPercent = dualStripeMode ? 20 : 15
+
   const backgroundStyle = bandConfig.backgroundStyle || 'solid white or solid light-color rounded rectangle container'
   const logoLayout = bandConfig.logoLayout || 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right'
 
   const lines: string[] = []
-  lines.push(`HEADER LOGO BAND (top ${heightPercent}% of design):`)
-  lines.push(`Create a ${backgroundStyle} spanning the full width at the top of the design.`)
-  lines.push(`This header band contains ${logoLayout}.`)
+
+  // Enhanced header description for dual-stripe
+  if (dualStripeMode) {
+    lines.push(`HEADER LOGO BAND (top ${heightPercent}% of design):`)
+    lines.push(`This design features a TWO-ROW logo header occupying the top ${heightPercent} percent of the canvas.`)
+    lines.push(`${logoLayout}`)
+    lines.push(`Create a clean, simple background in this area (solid color or subtle gradient).`)
+    lines.push(`CRITICAL: Keep this zone completely clear - NO text, NO faces, NO detailed graphics in the top ${heightPercent}%.`)
+    lines.push(`The main event title MUST START BELOW the ${heightPercent} percent line.`)
+    lines.push(`Title starting position: Begin your headline at ${titleStartPercent} percent from the top edge.`)
+    lines.push(`Background should flow seamlessly from top to bottom without creating visible stripes or rectangular sections.`)
+  } else {
+    // Original single-stripe logic
+    lines.push(`HEADER LOGO BAND (top ${heightPercent}% of design):`)
+    lines.push(`Create a ${backgroundStyle} spanning the full width at the top of the design.`)
+    lines.push(`This header band contains ${logoLayout}.`)
+  }
 
   // Only enforce strict clean background if the style explicitly asks for it or defaults to it
   if (!backgroundStyle.toLowerCase().includes('transparent') && !backgroundStyle.toLowerCase().includes('integrated')) {
-    lines.push(`The band MUST have a clean, solid background color (preferably white or very light) to ensure logo visibility.`)
+    if (!dualStripeMode) {
+      lines.push(`The band MUST have a clean, solid background color (preferably white or very light) to ensure logo visibility.`)
+    }
     lines.push(`CRITICAL: This is a STRICT PROTECTED ZONE. Absolutely NO complex patterns, photos, textures, or ambient lighting effects should spill into this area.`)
-    lines.push(`Keep this zone simple and distinct from the main background content.`)
+    if (!dualStripeMode) {
+      lines.push(`Keep this zone simple and distinct from the main background content.`)
+    }
   } else {
     lines.push(`Ensure logos remain visible against the background (use white logos if background is dark).`)
   }
 
-  lines.push(`This zone is reserved for branding elements that will be overlaid during post-processing.`)
+  if (!dualStripeMode) {
+    lines.push(`This zone is reserved for branding elements that will be overlaid during post-processing.`)
+  }
 
-  if (bandConfig.secondaryLogos) {
+  if (bandConfig.secondaryLogos && !dualStripeMode) {
     lines.push(`Below the main header band, there may be additional vertical or campaign logos in small white badge containers. These must also sit on clean, non-busy background areas.`)
   }
 

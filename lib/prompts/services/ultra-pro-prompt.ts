@@ -211,13 +211,15 @@ export async function generateUltraProPrompt(
   provider: 'claude' | 'gemini' = 'claude',
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
-  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string } // Custom colors to enforce (v5.3)
+  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
+  dualStripeMode?: boolean // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
   console.log('[Ultra-Pro Prompt] Format:', compiledData.format?.name || 'default')
   console.log('[Ultra-Pro Prompt] Provider:', provider)
   console.log('[Ultra-Pro Prompt] Design Context:', designContext ? 'PROVIDED (v5.0 enhancement)' : 'NOT PROVIDED (fallback mode)')
+  console.log('[Ultra-Pro Prompt] Dual-Stripe Mode:', dualStripeMode ? 'YES (18% reserved, 20% text start)' : 'NO (8% reserved, 15% text start)')
 
   if (designContext) {
     console.log('[Ultra-Pro Prompt] Story Analysis:', designContext.storyAnalysis?.narrative?.substring(0, 100) || '(none)')
@@ -291,14 +293,18 @@ CRITICAL: Your enhancedPrompt MUST integrate these story-driven insights into a 
 
   // Build logo strip instructions (v5.3: AI should NOT extend into reserved area - Sharp handles it)
   // IMPORTANT: When logo strip enabled, AI should START design below the reserved area
+  // v6.0: Dual-stripe mode uses 18% reserved (vs 8% single-stripe) and 20% text start (vs 15%)
+  const reservedPercent = dualStripeMode ? 18 : 8
+  const textStartPercent = dualStripeMode ? 20 : 15
+
   const logoStripInstructions = logoStripEnabled
     ? `
 TOP AREA GUIDANCE (CRITICAL):
-- The top 8% of the canvas is RESERVED and will be replaced in post-processing.
-- START your design at approximately 8% from the top edge.
-- Do NOT extend backgrounds, gradients, or any graphics into the top 8%.
-- Treat 8% from top as the TOP EDGE of your design canvas.
-- Position the main headline starting at approximately 15% from top.`
+- The top ${reservedPercent}% of the canvas is RESERVED and will be replaced in post-processing.
+- START your design at approximately ${reservedPercent}% from the top edge.
+- Do NOT extend backgrounds, gradients, or any graphics into the top ${reservedPercent}%.
+- Treat ${reservedPercent}% from top as the TOP EDGE of your design canvas.
+- Position the main headline starting at approximately ${textStartPercent}% from top.${dualStripeMode ? '\n- DUAL-STRIPE MODE: Two rows of logos occupy top 18%, ensure 2% buffer before text.' : ''}`
     : `
 TOP AREA GUIDANCE:
 - DO NOT create any visible stripe, band, or header section at the top.
@@ -439,20 +445,22 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
  * v5.0: Now accepts designContext parameter
  * v5.1: Now accepts logoStripEnabled parameter
  * v5.3: Now accepts resolvedColors parameter
+ * v6.0: Now accepts dualStripeMode parameter
  */
 export async function generateUltraProPromptSafe(
   compiledData: CompiledFormData,
   provider: 'claude' | 'gemini' = 'claude',
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
-  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string } // Custom colors to enforce (v5.3)
+  resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
+  dualStripeMode?: boolean // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {
-      prompt: generateFallbackPrompt(compiledData, logoStripEnabled),
+      prompt: generateFallbackPrompt(compiledData, logoStripEnabled, dualStripeMode),
       usage: {
         provider,
         model: 'fallback',
@@ -653,10 +661,12 @@ function parseUltraProPrompt(
 
 function generateFallbackPrompt(
   compiledData: CompiledFormData,
-  logoStripEnabled?: boolean
+  logoStripEnabled?: boolean,
+  dualStripeMode?: boolean // v6.0: Whether dual-stripe header mode is enabled
 ): UltraProPrompt {
   console.log('[Ultra-Pro Prompt] Using fallback prompt generation')
   console.log('[Ultra-Pro Prompt] Logo strip enabled:', logoStripEnabled ? 'YES' : 'NO')
+  console.log('[Ultra-Pro Prompt] Dual-stripe mode:', dualStripeMode ? 'YES' : 'NO')
 
   const eventName = compiledData.eventName || 'Event'
   const secondaryText: string[] = []

@@ -58,7 +58,7 @@ export interface TextShadowConfig {
 export interface HeaderLogoBandConfig {
   /** Enable header logo band */
   enabled: boolean
-  /** Height as percentage of total design (default: 12) */
+  /** Height as percentage of total design (default: 12 single-stripe, 18 dual-stripe) */
   heightPercent?: number
   /** Background container style (default: 'white rounded rectangle container') */
   backgroundStyle?: string
@@ -66,6 +66,8 @@ export interface HeaderLogoBandConfig {
   logoLayout?: string
   /** Include secondary logos below header (Yuva, Thalir, vertical badges) */
   secondaryLogos?: boolean
+  /** Dual-stripe mode: true when both primary logos AND vertical logos present (Row 1 + Row 2) */
+  dualStripeMode?: boolean
 }
 
 // ============================================================

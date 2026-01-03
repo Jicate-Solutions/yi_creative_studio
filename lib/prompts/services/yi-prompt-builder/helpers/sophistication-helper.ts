@@ -45,32 +45,40 @@ export function getSophistication(options: EnhancedBuildOptions, defaultMode: 'r
 /**
  * Returns the Zone Contexts (Forbidden + Reminder), potentially overridden for Rich designs or Logo Strip mode.
  * v5.2: Sharp post-processing adds the logo strip background - AI just keeps area clean
+ * v6.0: Enhanced with dual-stripe awareness for two-row logo layouts
  * - If logo strip enabled: Keep top area CLEAN (Sharp adds the white strip background)
  * - If logo strip disabled + Rich: Use immersive mode (no visible band)
  * - If logo strip disabled + Minimalist/Balanced: Use default (no visible band, simple background)
  */
 export function getIntegratedZoneContext(options: EnhancedBuildOptions, sophistication: 'minimalist' | 'balanced' | 'rich') {
-    let forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
+    // v6.0: Detect dual-stripe mode (logoStripMode enabled + verticalId present)
+    const dualStripeMode = (options.logoStripMode?.enabled || false) && !!options.verticalId
+
+    let forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness, dualStripeMode)
     let zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
 
     // v5.3: PRIORITY 1 - If logo strip enabled, Sharp handles entire logo strip area
-    // AI should START the design below the logo strip area (approximately 8% from top)
-    // Sharp will overlay a white strip with logos - AI design should not extend into this area
+    // v6.0: Adjusted percentages for dual-stripe mode (18% header, 20% title start)
+    // AI should START the design below the logo strip area (8% for single, 18% for dual)
+    // Sharp will overlay logo strip(s) - AI design should not extend into this area
     if (options.logoStripMode?.enabled) {
+        const headerPercent = dualStripeMode ? 18 : 8
+        const titleStartPercent = dualStripeMode ? 20 : 15
+
         zoneReminderContext = `
 CRITICAL - TOP AREA IS RESERVED:
-- START your design at approximately 8% from the top edge.
-- The top 8% is handled separately - do NOT generate anything there.
-- Your main design canvas begins BELOW the 8% line.
-- Position all visual elements (backgrounds, graphics, text) starting from 8% down.`
+- START your design at approximately ${headerPercent}% from the top edge.
+- The top ${headerPercent}% is handled separately - do NOT generate anything there.
+- Your main design canvas begins BELOW the ${headerPercent}% line.
+- Position all visual elements (backgrounds, graphics, text) starting from ${headerPercent}% down.`
 
         forbiddenZonesContext = `
 LAYOUT GUIDANCE:
-- The top 8% of the canvas is reserved and will be replaced.
-- Begin your background design at 8% from the top.
-- Position the main headline starting at approximately 15-20% from top.
-- Do NOT let background elements, gradients, or graphics extend into the top 8%.
-- Treat 8% from top as the TOP EDGE of your design canvas.`
+- The top ${headerPercent}% of the canvas is reserved and will be replaced.
+- Begin your background design at ${headerPercent}% from the top.
+- Position the main headline starting at approximately ${titleStartPercent}% from top.
+- Do NOT let background elements, gradients, or graphics extend into the top ${headerPercent}%.
+- Treat ${headerPercent}% from top as the TOP EDGE of your design canvas.`
 
         return { forbiddenZonesContext, zoneReminderContext }
     }

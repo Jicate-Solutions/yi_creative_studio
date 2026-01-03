@@ -107,6 +107,24 @@ async function uploadImageToStorage(
 
   if (uploadError) {
     console.error('[uploadImageToStorage] Upload error:', uploadError)
+    console.error('[uploadImageToStorage] Error details:', {
+      message: uploadError.message,
+      bucket: 'creatives',
+      filename,
+    })
+
+    // Detect common error patterns and provide helpful guidance
+    if (uploadError.message?.includes('<!DOCTYPE') || uploadError.message?.includes('<html')) {
+      console.error('[uploadImageToStorage] 🔍 CRITICAL: Supabase returned HTML instead of JSON')
+      console.error('[uploadImageToStorage] This indicates:')
+      console.error('  1. Storage bucket "creatives" does not exist, OR')
+      console.error('  2. Bucket has incorrect permissions/RLS policies')
+      console.error('  → Solution: Create bucket in Supabase dashboard with public access')
+      throw new Error(
+        'Storage bucket not configured. Please create "creatives" bucket in Supabase dashboard with public access enabled.'
+      )
+    }
+
     throw new Error(`Failed to upload image to storage: ${uploadError.message}`)
   }
 
@@ -857,7 +875,13 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] Enhancing Design Intelligence with Ultra-Pro prompt optimization...')
       console.log('[Generate] Logo Strip Mode:', logoStripMode?.enabled ? 'ENABLED' : 'disabled')
 
-      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'gemini', designContext, logoStripMode?.enabled || false, resolvedColors)
+      // v6.0: Detect dual-stripe mode for ultra-pro-prompt text placement
+      // Dual-stripe: primary logos (Yi/Bharat/CII) + vertical program logos = 18% header + 20% text start
+      // Single-stripe: primary logos only = 8% header + 15% text start
+      const dualStripeMode = (logoStripMode?.enabled || false) && !!verticalSlug
+      console.log('[Generate] Dual-Stripe Mode:', dualStripeMode ? 'YES (20% text start)' : 'NO (15% text start)')
+
+      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'gemini', designContext, logoStripMode?.enabled || false, resolvedColors, dualStripeMode)
       const ultraProPrompt = ultraProResult.prompt
 
       console.log('[Generate] === ULTRA-PRO RESULT ===')

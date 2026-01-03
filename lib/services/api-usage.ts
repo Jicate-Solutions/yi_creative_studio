@@ -112,40 +112,79 @@ export interface UsageAnalytics {
 // ============================================================
 
 /**
- * Track API usage - logs to the api_usage table
+ * Retry with exponential backoff
+ * @param fn Function to retry
+ * @param maxRetries Maximum retry attempts (default: 3)
+ * @param baseDelay Base delay in ms (default: 1000)
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T | null> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries - 1
+
+      if (isLastAttempt) {
+        console.error(`[Retry] All ${maxRetries} attempts failed:`, error)
+        return null
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, attempt)
+      console.warn(`[Retry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  return null
+}
+
+/**
+ * Track API usage - logs to the api_usage table with retry logic
  */
 export async function trackApiUsage(record: ApiUsageRecord): Promise<void> {
   try {
-    const supabase = await createClient()
+    const result = await retryWithBackoff(async () => {
+      const supabase = await createClient()
 
-    const insertData: ApiUsageInsert = {
-      organization_id: record.organizationId,
-      user_id: record.userId,
-      creative_id: record.creativeId,
-      request_type: record.requestType,
-      provider: record.provider,
-      model: record.model,
-      input_tokens: record.inputTokens,
-      output_tokens: record.outputTokens,
-      cached_tokens: record.cachedTokens || 0,
-      image_count: record.imageCount || 0,
-      estimated_cost_usd: record.estimatedCostUsd,
-      duration_ms: record.durationMs,
-      success: record.success,
-      error_message: record.errorMessage,
-      prompt_length: record.promptLength,
-      metadata: record.metadata || {},
-    }
+      const insertData: ApiUsageInsert = {
+        organization_id: record.organizationId,
+        user_id: record.userId,
+        creative_id: record.creativeId,
+        request_type: record.requestType,
+        provider: record.provider,
+        model: record.model,
+        input_tokens: record.inputTokens,
+        output_tokens: record.outputTokens,
+        cached_tokens: record.cachedTokens || 0,
+        image_count: record.imageCount || 0,
+        estimated_cost_usd: record.estimatedCostUsd,
+        duration_ms: record.durationMs,
+        success: record.success,
+        error_message: record.errorMessage,
+        prompt_length: record.promptLength,
+        metadata: record.metadata || {},
+      }
 
-    const { error } = await supabase.from('api_usage').insert(insertData)
+      const { error } = await supabase.from('api_usage').insert(insertData)
 
-    if (error) {
-      console.error('[API Usage] Failed to track usage:', error)
-    } else {
-      console.log(`[API Usage] Tracked: ${record.requestType} | ${record.provider}/${record.model} | $${record.estimatedCostUsd.toFixed(4)}`)
+      if (error) throw error
+
+      console.log(
+        `[API Usage] Tracked: ${record.requestType} | ${record.provider}/${record.model} | ` +
+        `${record.inputTokens + record.outputTokens} tokens | $${record.estimatedCostUsd.toFixed(4)}`
+      )
+      return true
+    }, 3, 1000) // 3 retries with 1s base delay
+
+    if (!result) {
+      console.error('[API Usage] Failed to track after 3 retries (non-blocking)')
     }
   } catch (err) {
-    console.error('[API Usage] Error tracking usage:', err)
+    console.error('[API Usage] Unexpected error:', err)
   }
 }
 
