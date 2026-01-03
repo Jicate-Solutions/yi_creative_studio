@@ -50,12 +50,13 @@ export interface LogoTypeConfig {
 export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   // BRAND LOGOS - Header Strip (mandatory fixed positions - AUTO-LOCKED)
   // Updated for 6-column grid: top-1 (left), top-3/top-4 (center), top-6 (right)
+  // Note: \s* added at start/end of patterns to handle trailing/leading whitespace in logo names
   'yi-main': {
     type: 'brand',
     patterns: [
-      /^yi$/i,                    // Exact match "Yi" only
-      /^yi\s*logo$/i,             // "Yi Logo" or "YiLogo"
-      /^young\s*indians$/i,       // "Young Indians" (main org)
+      /^\s*yi\s*$/i,              // Exact match "Yi" (with whitespace tolerance)
+      /^\s*yi\s*logo\s*$/i,       // "Yi Logo" or "YiLogo"
+      /^\s*young\s*indians\s*$/i, // "Young Indians" (main org)
     ],
     defaultPosition: 'top-1',     // Left edge in 6-column grid
     displayName: 'Yi Logo',
@@ -66,20 +67,23 @@ export const LOGO_TYPE_CONFIGS: Record<string, LogoTypeConfig> = {
   'bharat-rising': {
     type: 'brand',
     patterns: [
-      /bharat\s*rising/i,
-      /bharatrising/i,
+      /^\s*bharat\s*rising\s*$/i,
+      /^\s*bharatrising\s*$/i,
+      /^\s*bharat\s*one\s*$/i,     // "Bharat ONE" theme variant
+      /^\s*bharatone\s*$/i,
+      /^\s*one\s*$/i,              // Short form "ONE"
     ],
-    defaultPosition: 'top-3',     // Center-left in 6-column grid
+    defaultPosition: 'top-2',     // Second from left in 6-column grid (Yi → Bharat → ... → CII)
     displayName: 'Bharat Rising',
-    description: '2025 theme logo - top-center per brand guidelines',
+    description: '2025 theme logo - second position per brand guidelines',
     strip: 'header',
     isAutoLocked: true,           // Brand logos are auto-locked
   },
   'cii-main': {
     type: 'brand',
     patterns: [
-      /^cii$/i,                   // Exact match "CII"
-      /^cii\s*logo$/i,            // "CII Logo"
+      /^\s*cii\s*$/i,             // Exact match "CII" (with whitespace tolerance)
+      /^\s*cii\s*logo\s*$/i,      // "CII Logo"
       /confederation.*india/i,    // "Confederation of Indian Industry"
     ],
     defaultPosition: 'top-6',     // Right edge in 6-column grid

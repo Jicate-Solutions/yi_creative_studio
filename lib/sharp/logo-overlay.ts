@@ -563,12 +563,25 @@ async function createLogoStrip(
     // Extract unique columns used
     const usedColumns = Array.from(new Set(logos.map(l => l.column))).sort((a, b) => a - b)
 
-    // If already using full width (columns 1 and 6), no redistribution needed
+    // v6.7 FIX: Always respect user's column selections when both edges are used
     if (usedColumns.includes(1) && usedColumns.includes(totalColumns)) {
+      console.log('[Logo Overlay] ✅ User selected both edges - preserving original columns')
       return logos.map(l => ({ ...l, virtualColumn: l.column }))
     }
 
-    // Calculate even distribution
+    // v6.7 FIX: For other cases, preserve middle column selections too
+    // Only redistribute if columns are clustered (all on one side)
+    const hasLeftCluster = usedColumns.every(col => col <= 3)
+    const hasRightCluster = usedColumns.every(col => col >= 4)
+
+    if (!hasLeftCluster && !hasRightCluster) {
+      // User spread logos across canvas - preserve selections
+      console.log('[Logo Overlay] ✅ User spread logos across canvas - preserving columns')
+      return logos.map(l => ({ ...l, virtualColumn: l.column }))
+    }
+
+    // Only redistribute when logos are clustered on one side
+    console.log('[Logo Overlay] ⚠️ Logos clustered - applying redistribution')
     const logoCount = usedColumns.length
     const virtualColumns: number[] = []
 
@@ -614,12 +627,17 @@ async function createLogoStrip(
   console.log('[Logo Overlay] ═══ COLUMN REDISTRIBUTION ═══')
   console.log('[Logo Overlay] Original Columns:', logos.map(l => l.column).join(', '))
   console.log('[Logo Overlay] Virtual Columns:', redistributedLogos.map(l => l.virtualColumn).join(', '))
-  console.log('[Logo Overlay] Distribution Pattern:',
-    redistributedLogos.length === 3 ? '[1, 4, 6] - Left, Center-Right, Right' :
-    redistributedLogos.length === 2 ? '[1, 6] - Edges' :
-    redistributedLogos.length === 1 ? '[3] - Center' :
-    redistributedLogos.length === 4 ? '[1, 2, 5, 6] - Evenly Distributed' :
-    'Custom')
+
+  // v6.7 FIX: Show ACTUAL virtual columns instead of hardcoded pattern
+  const virtualColumnsStr = `[${redistributedLogos.map(l => l.virtualColumn).join(', ')}]`
+  const patternDescription =
+    redistributedLogos.length === 1 ? 'Center' :
+    redistributedLogos.length === 2 ? 'Edges' :
+    redistributedLogos.length === 3 ? 'Left, Center-Right, Right' :
+    redistributedLogos.length >= 4 ? 'Evenly Distributed' :
+    'Custom'
+
+  console.log('[Logo Overlay] Distribution Pattern:', `${virtualColumnsStr} - ${patternDescription}`)
 
   // Step 2: Group by VIRTUAL columns (not original columns)
   const logosByColumn: Map<number, typeof redistributedLogos> = new Map()

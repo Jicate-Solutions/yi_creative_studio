@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLogos } from '@/hooks'
 import { useCreativeStore } from '@/stores/creative-store'
 import { LogoSettingsSection } from './logo-settings-section'
@@ -29,7 +29,8 @@ export function LogoStep() {
         updateLogoBackgroundStyle,
         setLogoBackgroundColor,
         setLogoStripMode,
-        applyOptimizedPlacements
+        applyOptimizedPlacements,
+        initializeDefaultLogoPlacements
     } = useCreativeStore()
 
     const [selectedLogoId, setSelectedLogoId] = useState<string | null>(null)
@@ -40,6 +41,18 @@ export function LogoStep() {
         settings: false,
         library: true
     })
+
+    // Track if we've already initialized brand logos for this session
+    const hasInitializedRef = useRef(false)
+
+    // Auto-place brand logos (Yi, CII, Bharat Rising) when logos are loaded
+    // Yi Brand Guidelines 2025: These logos are CONSTANT for every poster
+    useEffect(() => {
+        if (logos.length > 0 && !isLoading && !hasInitializedRef.current) {
+            initializeDefaultLogoPlacements(logos)
+            hasInitializedRef.current = true
+        }
+    }, [logos, isLoading, initializeDefaultLogoPlacements])
 
     const placedPositions = formData.logosPlacements.map((p) => migrateLogoPosition(p.position))
     const placedLogoIds = formData.logosPlacements.map((p) => p.logoId)

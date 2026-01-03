@@ -587,10 +587,12 @@ const SPEAKER_SIZE_DIMENSIONS: Record<string, string> = {
   large: '40-45% of design width',
 }
 
+// v6.8: Removed visual shape language to prevent Gemini from drawing zone indicators
+// Strategy: Describe the area as "atmospheric continuation" not "photo frame zone"
 const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
-  circle: 'circular photo frame area - keep background suitable for round cutout',
-  rounded: 'rounded rectangle photo frame - keep background suitable for rounded corners',
-  square: 'square photo frame - keep background suitable for rectangular cutout',
+  circle: 'atmospheric gradient area blending with overall design - maintain visual flow',
+  rounded: 'atmospheric gradient area blending with overall design - maintain visual flow',
+  square: 'atmospheric gradient area blending with overall design - maintain visual flow',
 }
 
 /**

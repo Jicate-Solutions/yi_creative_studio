@@ -478,17 +478,17 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
 
     // SHARED photo settings
     shape: 'circle',        // Circular mask applied, no solid background
-    size: 200,              // Photo diameter in pixels
+    size: 320,              // v6.11: Reduced to 320px (30% of 1080px width) for better balance
     border: {
-      width: 0,             // v6.0 Phase 5: DEPRECATED - No longer used (was solid background)
-      color: 'transparent', // v6.0 Phase 5: DEPRECATED - No longer used
+      width: 0,             // v6.9.1: DISABLED - Border is deprecated and incompatible with shadow (causes Sharp dimension error)
+      color: '#FFFFFF',     // Border feature replaced by drop shadow in v6.0 Phase 5
     },
     shadow: true,           // v6.0 Phase 5: Drop shadow for visibility (default enabled)
 
     // LEGACY: Single speaker (backward compatibility)
     photoUrl: undefined,
-    position: 'center',
-    verticalPosition: 'lower',
+    position: 'left',             // v6.15: Default to bottom-left for better visual balance
+    verticalPosition: 'bottom',   // v6.15: Bottom position keeps speaker photo out of main content area
   },
   footer: {
     style: 'minimal',

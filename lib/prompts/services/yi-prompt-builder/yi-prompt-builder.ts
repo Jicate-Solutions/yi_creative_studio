@@ -79,17 +79,27 @@ VISUAL ELEMENTS from <visual_design_elements> section:
 - A health camp should FEEL medical and caring through its visual language
 
 ═══════════════════════════════════════════════════════════════════════════════
-INSTRUCTION vs CONTENT SEPARATION
+INSTRUCTION vs CONTENT SEPARATION (CRITICAL - ZERO TOLERANCE)
 ═══════════════════════════════════════════════════════════════════════════════
 
 NEVER render as visible text:
-- Instruction phrases: "Generate", "Create", "Include", "Apply", "Use", "Render", "Design", "Make"
-- XML tags and design terminology
-- Technical terms: aspect ratio, resolution, DPI, zone, hierarchy
+- Instruction phrases: "Generate", "Create", "Include", "Apply", "Use", "Render", "Design", "Make", "Feature", "Display", "Present"
+- Domain keywords: "AI", "Tech", "Innovation", "Networking", "Professional", "Creative", "Modern", "Digital", "Smart", "Leadership", "Collaboration"
+- Event type labels: "Conference", "Workshop", "Seminar", "Summit", "Meetup", "Gathering", "Chapter Event", "Session"
+- Action verbs: "Connect", "Innovate", "Celebrate", "Learn", "Inspire", "Empower", "Transform", "Discover"
+- Visual element descriptions: If design context mentions "holographic nodes", create the VISUAL, DO NOT add "HOLOGRAPHIC NODES" as text
+- Single-word descriptors from visual guidance: "celebration", "networking", "insights", "workshops"
+- XML tags and technical terms: aspect ratio, resolution, DPI, zone, hierarchy, layout, composition
 
 ONLY render as visible text:
-- Content inside <text role="...">content</text> tags
-- The quoted values are the EXACT text to render
+- Exact content inside <text role="...">USER CONTENT HERE</text> tags
+- The quoted values are the EXACT text to render - DO NOT paraphrase, enhance, summarize, or add to them
+- If <text role="headline">Happy New Year</text>, render ONLY "Happy New Year" - NOT "Happy New Year 2024", NOT "Celebrate the New Year"
+
+CRITICAL VALIDATION CHECKPOINT (Ask yourself before rendering ANYTHING):
+"Is this text I'm about to render explicitly inside a <text role='...'> tag?"
+→ If YES: Render it EXACTLY as provided (character-for-character match)
+→ If NO: DO NOT render it (it's visual guidance, decorative context, or instruction - NOT text content)
 
 ═══════════════════════════════════════════════════════════════════════════════
 AI CONTROL BOUNDARY

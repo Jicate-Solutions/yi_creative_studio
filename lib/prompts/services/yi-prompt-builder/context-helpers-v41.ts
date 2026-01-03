@@ -14,6 +14,9 @@ import type {
 
 import type { FooterContactContext, DesignContextForPrompt } from './types'
 
+// NEW v6.12: Text color resolver for WCAG compliance
+import { getContrastSafeTextColor } from '@/lib/utils/text-color-resolver'
+
 // ============================================================
 // TEXT ALIGNMENT CONTEXT (v4.1)
 // ============================================================
@@ -211,7 +214,8 @@ export function buildStandardYiFooter(params: {
 export function buildEventDetailsCardContext(
   cardConfig?: EventDetailsCardConfig,
   eventData?: { date?: string; time?: string; venue?: string },
-  designContext?: DesignContextForPrompt // NEW v4.2: Design Intelligence context
+  designContext?: DesignContextForPrompt, // NEW v4.2: Design Intelligence context
+  colorSource?: any // NEW v6.12: For text color validation
 ): string {
   if (!cardConfig?.enabled || !eventData) return ''
 
@@ -255,6 +259,21 @@ export function buildEventDetailsCardContext(
       emotionalTemp === 'cool' ? 'cool white (#F8FBFF)' :
         'pure white (#FFFFFF)')
 
+  // NEW v6.12: Calculate WCAG-compliant text color for card content
+  // Extract hex from background description
+  const bgHex = bgColorValue.match(/#[A-Fa-f0-9]{6}/)?.[0] || '#FFFFFF'
+
+  // Get contrast-safe text color (prefer existing body color if valid)
+  const cardTextColor = getContrastSafeTextColor(
+    bgHex,
+    colorSource?.body?.color,
+    {
+      targetLevel: 'AA',
+      isLargeText: false,  // Venue text is normal size
+      preserveHue: false   // Prioritize contrast over hue
+    }
+  )
+
   // Build the context
   const lines: string[] = []
 
@@ -291,6 +310,10 @@ export function buildEventDetailsCardContext(
 
   lines.push(`The card should have adequate padding (16-24px) and clean typography. Text inside the card should be left-aligned for structured readability.`)
 
+  // NEW v6.12: Inject WCAG-compliant text color specification
+  lines.push(`CRITICAL TEXT COLOR SPECIFICATION: All text inside this card MUST use ${cardTextColor} for WCAG AA compliance with ${bgHex} background (verified contrast).`)
+  lines.push(`DO NOT substitute or approximate this text color - accessibility requirement.`)
+
   return lines.join(' ')
 }
 
@@ -312,6 +335,7 @@ export function buildAllV41Contexts(options: {
   eventDetailsCard?: EventDetailsCardConfig
   eventData?: { date?: string; time?: string; venue?: string }
   designContext?: DesignContextForPrompt // NEW v4.2: Story-driven design context
+  colorSource?: any // NEW v6.12: For text color validation
 }): string {
   const contexts: string[] = []
 
@@ -328,10 +352,12 @@ export function buildAllV41Contexts(options: {
   if (footerStyleContext) contexts.push(footerStyleContext)
 
   // v4.2: Pass designContext for story-driven styling
+  // v6.12: Pass colorSource for WCAG text color validation
   const eventCardContext = buildEventDetailsCardContext(
     options.eventDetailsCard,
     options.eventData,
-    options.designContext
+    options.designContext,
+    options.colorSource
   )
   if (eventCardContext) contexts.push(eventCardContext)
 

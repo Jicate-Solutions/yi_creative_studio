@@ -47,6 +47,7 @@ import {
   generateDesignContextSafe,
   type DesignBrief,
 } from '@/lib/prompts/services/design-intelligence'
+import { sanitizeDesignContext } from '@/lib/prompts/helpers/design-context-sanitizer'
 import {
   generateEventUnderstanding,
   generateFallbackEventProfile,
@@ -525,23 +526,24 @@ export async function POST(request: NextRequest) {
 
       const eventName = formDataContent.eventName || compiledData.eventName || parsedContent.eventName || ''
 
+      // v6.6 FIX: Hoist speakers definition to main scope so it's available for validation later
+      const speakers: Array<{ name: string, designation?: string }> = []
+      const speakerName = formDataContent.guestName || compiledData.speakerName
+      const speakerDesignation = formDataContent.guestDesignation || compiledData.speakerDesignation
+
+      if (speakerName) {
+        speakers.push({
+          name: speakerName,
+          designation: speakerDesignation ?? undefined
+        })
+      }
+
       if (formatId && shouldUseEventUnderstanding(formatId, eventName)) {
         console.log('[Generate] === STAGE 1: EVENT UNDERSTANDING ===')
         console.log('[Generate] Event:', eventName)
         console.log('[Generate] Analyzing event concept semantically...')
 
         try {
-          // Build speaker list from available data
-          const speakers = []
-          const speakerName = formDataContent.guestName || compiledData.speakerName
-          const speakerDesignation = formDataContent.guestDesignation || compiledData.speakerDesignation
-
-          if (speakerName) {
-            speakers.push({
-              name: speakerName,
-              designation: speakerDesignation ?? undefined
-            })
-          }
 
           eventProfile = await generateEventUnderstanding({
             eventName,
@@ -796,7 +798,10 @@ export async function POST(request: NextRequest) {
       // v6.0 Phase 2: Pass resolvedColors for color-aware background generation
       // v6.5 Phase 1: Pass eventProfile from Stage 1 for concept-driven design
       const designContextResult = await generateDesignContextSafe(designBrief, resolvedColors, eventProfile)
-      designContext = designContextResult.context
+
+      // CRITICAL: Sanitize Design Context to filter risky single-word keywords
+      // Prevents Gemini from rendering visual guidance as visible text labels
+      designContext = sanitizeDesignContext(designContextResult.context)
 
       // NEW: Context validation logging
       // v6.0: VALIDATION REMOVED - Trust Design Intelligence validation
@@ -1113,7 +1118,10 @@ export async function POST(request: NextRequest) {
         // v6.5.2: Added explicit width/height checks to prevent undefined property access
         let speakerPhotoZoneCoordinates: ReturnType<typeof calculateSpeakerPhotoCoordinates> | undefined
         if (buildOptions.speakerPhotoConfig && originalSpeakerPhotoConfig && selectedFormat?.width && selectedFormat?.height) {
-          const photoSizeMap = { small: 80, medium: 100, large: 120 }
+          // v6.9: Updated to match design spec (25-40% of poster width)
+          // For 1080px width: small=26%, medium=30%, large=35%
+          // This provides proper visual prominence for speaker photos
+          const photoSizeMap = { small: 280, medium: 320, large: 380 }
           const photoSize = (buildOptions.speakerPhotoConfig.size && photoSizeMap[buildOptions.speakerPhotoConfig.size as keyof typeof photoSizeMap]) || 100
           const borderWidth = originalSpeakerPhotoConfig.border?.width || 0
 
@@ -1123,6 +1131,7 @@ export async function POST(request: NextRequest) {
               verticalPosition: originalSpeakerPhotoConfig.verticalPosition || 'top',
               size: photoSize,
               borderWidth: borderWidth,
+              shadow: originalSpeakerPhotoConfig.shadow,  // v6.6: Pass shadow config for accurate positioning
             },
             {
               width: selectedFormat.width,
@@ -1147,6 +1156,21 @@ export async function POST(request: NextRequest) {
         const finalXmlPrompt = verticalSlug
           ? injectVerticalContext(xmlPrompt, verticalSlug)
           : xmlPrompt
+
+        // CRITICAL: Validate speaker text presence in XML tags
+        const formSpeakers = (userFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
+        if (formSpeakers && formSpeakers.length > 0) {
+          const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/);
+
+          if (!speakerNameMatch) {
+            console.error('[Generation] 🚨 SPEAKER TEXT NOT IN <text role> TAGS!');
+            console.error('[Generation] ⚠️ Speaker will NOT render in image');
+            console.error('[Generation] Expected speaker:', formSpeakers[0]?.name);
+            console.error('[Generation] Speakers array length:', formSpeakers.length);
+          } else {
+            console.log('[Generation] ✅ Speaker text found in XML tags:', speakerNameMatch[1]);
+          }
+        }
 
         // v5.5: Validate that user colors made it into the final prompt
         if (resolvedColors.source !== 'fallback') {

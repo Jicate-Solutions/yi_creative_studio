@@ -79,6 +79,87 @@ function buildCreativeBriefPrompt(input: BriefAnalysisInput): string {
 }
 
 /**
+ * v6.13: Deduplicate visual elements between Event Understanding and Content Mapper
+ * Prevents compounding bias where same elements appear from multiple sources
+ *
+ * Strategy:
+ * - Event Understanding visuals are more specific → preferred
+ * - Content Mapper adds category-based elements
+ * - Remove Content Mapper elements that are semantically similar to Event Understanding
+ * - Keep only 5-7 unique elements total (not 10-15)
+ *
+ * Example:
+ * - Event Understanding: ["compass rose", "winding path"]
+ * - Content Mapper: ["compass rose with illuminated north star", "journey map", "lighthouse"]
+ * - Result: ["compass rose", "winding path", "journey map", "lighthouse"] (4 unique, removed duplicate compass)
+ */
+function deduplicateVisualElements(
+  eventUnderstandingVisuals: string[] | undefined,
+  contentMapperElements: string[]
+): string[] {
+  if (!eventUnderstandingVisuals || eventUnderstandingVisuals.length === 0) {
+    // No Event Understanding → return Content Mapper as-is (limited to 5)
+    return contentMapperElements.slice(0, 5)
+  }
+
+  // Combine all Event Understanding visuals (primary + secondary + abstract)
+  const eventVisuals = eventUnderstandingVisuals
+
+  // Function to check if two visual descriptions are semantically similar
+  const areSimilar = (visual1: string, visual2: string): boolean => {
+    const v1Lower = visual1.toLowerCase()
+    const v2Lower = visual2.toLowerCase()
+
+    // Extract key concept words (nouns) from each visual
+    const extractKeywords = (text: string): string[] => {
+      // Remove common descriptors, keep conceptual nouns
+      const cleaned = text
+        .replace(/\b(prominent|subtle|illuminated|with|and|or|for|through|of|the|a|an)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      return cleaned.split(' ').filter(word => word.length > 3)
+    }
+
+    const keywords1 = extractKeywords(v1Lower)
+    const keywords2 = extractKeywords(v2Lower)
+
+    // Check for significant keyword overlap (≥50% of shorter list)
+    const commonKeywords = keywords1.filter(k1 =>
+      keywords2.some(k2 => k1.includes(k2) || k2.includes(k1))
+    )
+
+    const shorterLength = Math.min(keywords1.length, keywords2.length)
+    const overlapRatio = commonKeywords.length / (shorterLength || 1)
+
+    return overlapRatio >= 0.5
+  }
+
+  // Filter Content Mapper elements: keep only if NOT similar to any Event Understanding visual
+  const uniqueContentElements = contentMapperElements.filter(contentElement => {
+    return !eventVisuals.some(eventVisual => areSimilar(eventVisual, contentElement))
+  })
+
+  console.log('[Design Intelligence] 🔧 Visual Element Deduplication:')
+  console.log(`  Event Understanding visuals: ${eventVisuals.length}`)
+  console.log(`  Content Mapper elements (before): ${contentMapperElements.length}`)
+  console.log(`  Content Mapper elements (after): ${uniqueContentElements.length}`)
+  console.log(`  Removed duplicates: ${contentMapperElements.length - uniqueContentElements.length}`)
+
+  // Combine: Event Understanding (all) + Unique Content Mapper (filtered)
+  // Limit total to 7 elements for balance (not 10-15 which causes repetition)
+  const combinedElements = [
+    ...eventVisuals,
+    ...uniqueContentElements
+  ].slice(0, 7)
+
+  console.log(`  Final combined elements: ${combinedElements.length}`)
+  console.log(`  Elements: ${combinedElements.slice(0, 3).join(', ')}...`)
+
+  return combinedElements
+}
+
+/**
  * v6.0: Build creativity enhancement section for the prompt
  * Injects content-specific elements, ban list, and uniqueness directives
  */
@@ -470,6 +551,40 @@ Ask yourself: "If this event were a movie genre mash-up, what would it be?"
 CRITICAL: Custom themes should be UNEXPECTED yet APPROPRIATE.
 The goal is to break free from the 22 predefined themes while staying true to the event's purpose.
 
+═══════════════════════════════════════════════════════════════════════════════
+=== CRITICAL OUTPUT RESTRICTIONS (MANDATORY COMPLIANCE) ===
+═══════════════════════════════════════════════════════════════════════════════
+
+Your visualElements/iconicImagery fields MUST be VISUAL DESCRIPTIONS, never single-word keywords.
+
+⚠️ FORBIDDEN (Gemini will render these as TEXT LABELS, not visuals):
+❌ Single-word keywords: "innovation", "networking", "celebration", "tech", "ai", "leadership", "collaboration"
+❌ Event type labels: "conference", "workshop", "seminar", "summit", "insights", "workshops"
+❌ Domain terms: "professional", "creative", "modern", "digital", "smart"
+❌ Generic descriptors: "elements", "symbols", "icons", "graphics"
+
+✅ CORRECT (Multi-word VISUAL descriptions that Gemini renders as SHAPES, not text):
+✅ "Interconnected geometric nodes with glowing cyan pathways creating network visualization"
+✅ "Radial sunburst pattern with translucent light rays at 5% opacity emanating from center"
+✅ "Flowing organic leaf shapes with frosted glass effect and subtle shadow depth"
+✅ "Holographic neural network nodes connected by animated data stream lines"
+✅ "Constellation of hexagonal shapes linked by relationship lines in isometric perspective"
+
+🔍 VALIDATION CHECKPOINT (Apply to EVERY visualElement before finalizing):
+Ask yourself: "If Gemini renders this element, will it create VISUAL SHAPES/PATTERNS or TEXT?"
+→ If answer is "TEXT" or "single word", REWRITE to be multi-word visual/geometric/atmospheric description
+→ If answer is "SHAPES", keep it
+
+📝 EXAMPLES OF PROPER TRANSFORMATION:
+"innovation" → "Holographic 3D brain visualization with neural pathways and synaptic connections"
+"networking" → "Constellation of interconnected circular nodes with relationship link lines"
+"celebration" → "Explosive radial particle burst with confetti-like geometric shapes in motion"
+"leadership" → "Ascending staircase visualization with guiding light beam and upward momentum"
+"tech" → "Circuit board pattern with glowing trace lines and microchip geometric elements"
+"ai" → "Neural network visualization with interconnected nodes and data flow animations"
+
+⚠️ CRITICAL: This is NOT optional. Single-word visualElements will cause TEXT to appear in the generated image instead of visual elements. This breaks user trust and creates content they never approved.
+
 Return ONLY valid JSON with BOTH legacy fields(for backward compatibility) AND new story - driven fields:
   {
     "corePurpose": "What emotional job this design MUST accomplish",
@@ -710,7 +825,7 @@ export async function generateDesignContext(
   const creativityDirective = getCreativityDirective(uniquenessSeed)
 
   // Get content-related visual elements based on event name/type
-  const contentElements = getContentRelatedElements(
+  let contentElements = getContentRelatedElements(
     input.eventName || '',
     input.eventType,
     uniquenessSeed
@@ -721,6 +836,28 @@ export async function generateDesignContext(
     matchedCategories: contentElements.matchedCategories,
     elementsCount: contentElements.elements.length
   })
+
+  // v6.13: Apply deduplication if Event Understanding is available
+  // Prevents compounding bias where same visuals come from both sources
+  if (eventProfile && eventProfile.visualAssociations) {
+    const allEventVisuals = [
+      ...eventProfile.visualAssociations.primary,
+      ...eventProfile.visualAssociations.secondary,
+      ...eventProfile.visualAssociations.abstract
+    ]
+
+    const deduplicatedElements = deduplicateVisualElements(
+      allEventVisuals,
+      contentElements.elements
+    )
+
+    contentElements = {
+      ...contentElements,
+      elements: deduplicatedElements
+    }
+
+    console.log('[Design Intelligence] ✅ Deduplication applied - combined Event Understanding + Content Mapper without repetition')
+  }
 
   // ============================================================
   // CACHE OPTIMIZATION (v5.5): Check cache before LLM call
@@ -880,6 +1017,21 @@ CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
 
       // Stage 3: Parse & Validate
       const designContext = parseDesignContext(llmResponse.text)
+
+      // CRITICAL: Validate visualElements for text label risks
+      const riskyKeywords = ['innovation', 'networking', 'tech', 'celebration', 'leadership', 'collaboration', 'conference', 'workshop', 'seminar', 'summit', 'insights', 'workshops', 'professional', 'creative', 'modern', 'digital'];
+      const riskyElements = designContext?.visualElements?.filter(el => {
+        const trimmed = el.toLowerCase().trim();
+        return riskyKeywords.some(keyword => trimmed === keyword || trimmed === `${keyword}s`);
+      }) || [];
+
+      if (riskyElements.length > 0) {
+        console.error('[Design Intelligence] 🚨 RISKY SINGLE-WORD visualElements DETECTED:', riskyElements);
+        console.error('[Design Intelligence] ⚠️ These will likely be rendered as TEXT by Gemini instead of visual elements!');
+        console.error('[Design Intelligence] Event:', input.eventName);
+      } else if (designContext?.visualElements && designContext.visualElements.length > 0) {
+        console.log('[Design Intelligence] ✅ All visualElements are multi-word descriptions (safe from text rendering)');
+      }
 
       // NEW: Validate context matches event
       const validation = validateContextMatchesEvent(

@@ -46,6 +46,7 @@ import {
   Coins,
   Maximize2,
   Minimize2,
+  ImageOff,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -76,6 +77,7 @@ export default function GalleryPage() {
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [creativeForExport, setCreativeForExport] = useState<Creative | null>(null)
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
   // PERFORMANCE: Debounce search to prevent re-fetch on every keystroke
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -150,6 +152,7 @@ export default function GalleryPage() {
       }
 
       setCreatives(data.creatives || [])
+      setFailedImages(new Set()) // Clear failed images on fresh fetch
     } catch (error) {
       console.error('Error fetching creatives:', error)
       setIsLoading(false)
@@ -409,7 +412,7 @@ export default function GalleryPage() {
             >
               {/* Image Container - Natural Height */}
               <div className="relative overflow-hidden rounded-t-xl">
-                {(creative.thumbnail_url || creative.image_url) ? (
+                {(creative.thumbnail_url || creative.image_url) && !failedImages.has(creative.id) ? (
                   <Image
                     src={creative.thumbnail_url || creative.image_url}
                     alt={creative.title || 'Creative'}
@@ -419,10 +422,17 @@ export default function GalleryPage() {
                     className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                     style={{ height: 'auto' }}
                     loading="lazy"
+                    onError={() => {
+                      setFailedImages(prev => new Set(prev).add(creative.id))
+                    }}
                   />
                 ) : (
                   <div className="w-full h-48 bg-muted flex items-center justify-center">
-                    <Sparkles className="h-8 w-8 text-muted-foreground/50" />
+                    {failedImages.has(creative.id) ? (
+                      <ImageOff className="h-8 w-8 text-muted-foreground/50" />
+                    ) : (
+                      <Sparkles className="h-8 w-8 text-muted-foreground/50" />
+                    )}
                   </div>
                 )}
 

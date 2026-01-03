@@ -71,6 +71,20 @@ export function useAIModels() {
     }
   }, [fetchModels, models.length])
 
+  // Auto-select default model when models load (only if no model currently selected)
+  useEffect(() => {
+    if (models.length > 0 && !selectedModel) {
+      // Models are already sorted by display_order ascending
+      // First model is the recommended default
+      const defaultModel = models[0]
+
+      if (defaultModel) {
+        console.log('[AI Models] Auto-selecting default model:', defaultModel.name)
+        selectModel(defaultModel.id)
+      }
+    }
+  }, [models, selectedModel, selectModel])
+
   return {
     models,
     selectedModel,

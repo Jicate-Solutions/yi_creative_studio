@@ -24,6 +24,9 @@ import {
 import { buildAllV41Contexts } from '../context-helpers-v41'
 import { EVENT_POSTER_EXAMPLES } from '../examples'
 
+// NEW v6.12: Text color resolver for WCAG compliance
+import { validateTextContrast, getContrastSafeTextColor } from '@/lib/utils/text-color-resolver'
+
 // Import design architecture for ultra-pro quality
 import {
   getTypographyPromptFragment,
@@ -400,6 +403,57 @@ function formatEventDate(dateString: string | undefined): string {
   }
 }
 
+/**
+ * Build speaker text section with MANDATORY XML role tags
+ * Ensures speaker names ALWAYS render when provided, regardless of photo presence
+ *
+ * CRITICAL FIX: Speaker text was previously included in narrative descriptions,
+ * which Gemini treated as instructions rather than renderable content.
+ * This function wraps ALL speaker data in explicit <text role="..."> tags.
+ */
+function buildSpeakerTextSection(
+  speakers: Array<{ name: string; designation?: string }>,
+  colorSource: any
+): string {
+  if (!speakers || speakers.length === 0) {
+    return '';
+  }
+
+  const speakerTextElements = speakers.map((speaker, index) => {
+    const num = index + 1;
+    const nameColor = (colorSource as any).speaker_name?.color || 'white';
+    const desigColor = (colorSource as any).speaker_designation?.color || '#D0D0D0';
+
+    const nameTag = `<text role="speaker_name_${num}" color="${nameColor}" prominence="prominent">${speaker.name}</text>`;
+    const desigTag = speaker.designation
+      ? `<text role="speaker_designation_${num}" color="${desigColor}" prominence="medium">${speaker.designation}</text>`
+      : '';
+
+    return `${nameTag}${desigTag ? '\n' + desigTag : ''}`;
+  }).join('\n\n');
+
+  return `
+<!-- ============================================================ -->
+<!-- SPEAKER TEXT (MANDATORY RENDERING) -->
+<!-- ============================================================ -->
+<!-- The following speaker text MUST appear in the final image -->
+<!-- This is USER-PROVIDED CONTENT, not optional decorative text -->
+<!-- Even if no speaker photos are overlaid, this text MUST render -->
+${speakerTextElements}
+
+<instruction>
+CRITICAL SPEAKER TEXT RENDERING RULES:
+1. The speaker names and designations above are USER-PROVIDED CONTENT (not instructions)
+2. They MUST be rendered visibly in the image regardless of whether speaker photos are present
+3. Position speaker text in the designated speaker zone with prominence matching the role tags
+4. DO NOT omit speaker text even if you think it's redundant with photo overlays
+5. Speaker text rendering is MANDATORY - its absence is a generation failure
+6. Use the specified colors for each role to create proper visual hierarchy
+7. Position in lower-third or bottom area with visual prominence and clear readability
+</instruction>
+`;
+}
+
 // ============================================================
 // MAIN BUILDER
 // ============================================================
@@ -466,8 +520,17 @@ export function buildEventPosterPrompt(
 
   // Build speaker zone context from options.speakerPhotoConfig (v3.1)
   // This uses the config passed from API route, which preserves the zone even when user has own photo
-  const speakerZoneContext = buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
+
+  // v6.8: DISABLED speaker photo zone context injection
+  // Reason: Any mention of "zone", "area", or shapes causes Gemini to draw visual indicators
+  // New strategy: Let speaker photo overlay handle positioning WITHOUT Gemini awareness
+  // The overlay works perfectly - we just need Gemini to NOT draw placeholders
+  const speakerZoneContext = '' // buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
   const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+
+  if (hasSpeakerPhoto) {
+    console.log('[Event Poster] v6.8: Speaker photo zone context DISABLED to prevent Gemini from drawing circular placeholders')
+  }
 
 
 
@@ -660,6 +723,56 @@ export function buildEventPosterPrompt(
           })
           colorSource.speaker_name = speakerNameColor
           colorSource.speaker_designation = speakerDesignationColor
+        }
+      }
+
+      // NEW v6.12: WCAG Contrast Validation Layer
+      // Validate body text color against event details card background
+      if (options.designContext?.vibeAndMood?.emotionalTemperature) {
+        // Extract card background hex from emotional temperature mapping
+        const emotionalTemp = options.designContext.vibeAndMood.emotionalTemperature
+        const cardBackgroundHex =
+          emotionalTemp === 'warm' ? '#FFF8F0' :
+          emotionalTemp === 'cool' ? '#F8FBFF' :
+          '#FFFFFF'
+
+        // Validate body text if it's a valid hex color (not AI descriptive text)
+        const bodyColorValue = (colorSource.body as any)?.color
+        if (bodyColorValue && /^#[0-9A-F]{6}$/i.test(bodyColorValue)) {
+          const validation = validateTextContrast(
+            bodyColorValue,
+            cardBackgroundHex,
+            'body',
+            false // Normal text size
+          )
+
+          if (!validation.passes) {
+            console.warn(`[Event Poster v6.12] Body text contrast FAIL: ${bodyColorValue} on ${cardBackgroundHex} = ${validation.ratio.toFixed(2)}:1 (need 4.5:1)`)
+
+            // Auto-correct to WCAG AA compliant color
+            const safeBodyColor = getContrastSafeTextColor(
+              cardBackgroundHex,
+              bodyColorValue,
+              {
+                targetLevel: 'AA',
+                isLargeText: false,
+                preserveHue: true // Try to keep color family if possible
+              }
+            )
+
+            // Verify the correction worked
+            const verifyResult = validateTextContrast(safeBodyColor, cardBackgroundHex, 'body', false)
+
+            colorSource.body = {
+              color: safeBodyColor,
+              description: `Auto-corrected for WCAG AA (${verifyResult.ratio.toFixed(2)}:1 contrast)`,
+              contrastRatio: verifyResult.ratio
+            }
+
+            console.log(`[Event Poster v6.12] ✓ Body text corrected: ${bodyColorValue} → ${safeBodyColor} (${verifyResult.ratio.toFixed(2)}:1)`)
+          } else {
+            console.log(`[Event Poster v6.12] ✓ Body text contrast passes: ${bodyColorValue} on ${cardBackgroundHex} = ${validation.ratio.toFixed(2)}:1`)
+          }
         }
       }
 
@@ -908,37 +1021,36 @@ ${data.registrationInfo ? `   - "${data.registrationInfo}" button should be plac
     }
 
 ${speakers.length > 0 ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''} TEXT POSITIONING & TYPOGRAPHY:
-${hasSpeakerPhoto ? `   🎯 WITH SPEAKER PHOTOS (EXACT PIXEL COORDINATES):
-${options.speakerPhotoZoneCoordinates ? `
-   ⚠️  RESERVED ZONE (NO TEXT ALLOWED):
-   - X: ${options.speakerPhotoZoneCoordinates.leftEdge}px to ${options.speakerPhotoZoneCoordinates.rightEdge}px
-   - Y: ${options.speakerPhotoZoneCoordinates.topEdge}px to ${options.speakerPhotoZoneCoordinates.bottomEdge}px
-   - This zone will have a circular speaker photo overlay added post-processing
-   - DO NOT place ANY text, decorative elements, or visual clutter in this zone
+${hasSpeakerPhoto ? `   ${
+  // v6.8: REMOVED pixel coordinate instructions
+  // These explicit zone boundaries caused Gemini to draw visual markers
+  // Speaker photo overlay doesn't need Gemini to reserve space - it overlays on top of ANY background
+  ''
+}
+   SPEAKER TEXT POSITIONING (v6.10.1 - regression fix):
+   - Render speaker name and designation as a unified text block in proximity to speaker content
+   - Position in reading sequence: after headline, before event details
+   - Vertical spacing: minimal gap between name and designation (grouped together)
+   - Alignment: center-aligned for visual cohesion
 
-   📝 TITLE PLACEMENT CONSTRAINT:
-   - Event title "${eventName}" MUST be positioned in Y-coordinates: 0px to ${Math.max(options.speakerPhotoZoneCoordinates.topEdge - 50, 400)}px
-   - Keep title ABOVE the speaker photo zone to prevent overlaps
-   - Title should be in upper area for maximum prominence` : ''}
-   ${speakers.map((speaker, index) => {
+   ⚠️ CRITICAL RENDERING CONSTRAINT:
+   - DO NOT draw: circular frames, white circles, oval shapes, photo placeholders, or zone markers
+   - DO NOT create: visual indicators, shape outlines, or placeholder graphics
+   - Background: keep clean and continuous (speaker photograph composited separately via post-processing)
+   - Text renders directly on background; photo overlay happens after AI generation
+
+${speakers.map((speaker, index) => {
       const speakerLabel = speakers.length > 1 ? `Speaker ${index + 1}` : 'Speaker'
-      const textSide = options.speakerPhotoConfig?.position === 'left' ? 'right' : 'left'
-      return `- ${speakerLabel}: ${options.speakerPhotoZoneCoordinates ? `Reserve zone X:${options.speakerPhotoZoneCoordinates.leftEdge}-${options.speakerPhotoZoneCoordinates.rightEdge}px, Y:${options.speakerPhotoZoneCoordinates.topEdge}-${options.speakerPhotoZoneCoordinates.bottomEdge}px for photo overlay` : `Reserve ${options.speakerPhotoConfig?.position || 'left'} zone for photo overlay`}
-     - Position "${speaker.name}" text ADJACENT to photo zone (${textSide} side, ${options.speakerPhotoZoneCoordinates ? `X > ${options.speakerPhotoZoneCoordinates.rightEdge + 30}px` : `with 30px spacing`})
-     - Name: ${speaker.name} - Use SEMIBOLD weight, MEDIUM size in ${(colorSource as any).speaker_name?.color || 'white'} (${(colorSource as any).speaker_name?.description || 'prominent speaker color'})
-     ${speaker.designation ? `- Designation: ${speaker.designation} - Use REGULAR weight, SMALL-MEDIUM size in ${(colorSource as any).speaker_designation?.color || '#D0D0D0'} (${(colorSource as any).speaker_designation?.description || 'subtle supporting color'})` : ''}
-     - Stack: Name ABOVE designation with minimal spacing
-     - CRITICAL: Speaker text must be READABLE and NOT overlap with reserved photo zone`
-    }).join('\n   ')}` : `   📝 WITHOUT SPEAKER PHOTOS (TEXT ONLY):
-   ${speakers.map((speaker, index) => {
-      const speakerLabel = speakers.length > 1 ? `Speaker ${index + 1}` : 'Speaker'
+      // v6.12.1: Removed "Name:" and "Designation:" labels to prevent rendering as visible text
       return `- ${speakerLabel}:
-     - Name: ${speaker.name} - Use SEMIBOLD weight, LARGE-MEDIUM size in ${(colorSource as any).speaker_name?.color || 'white'} (${(colorSource as any).speaker_name?.description || 'prominent speaker color'})
-     ${speaker.designation ? `- Designation: ${speaker.designation} - Use REGULAR weight, MEDIUM size in ${(colorSource as any).speaker_designation?.color || '#D0D0D0'} (${(colorSource as any).speaker_designation?.description || 'subtle supporting color'})` : ''}
-     - Stack: Name ABOVE designation
-     - Position: Lower-third or bottom-center with visual prominence
-     - Add subtle visual separator (line, dot, or icon) between name and designation`
-    }).join('\n   ')}`}
+     - ${speaker.name} - Use SEMIBOLD weight, MEDIUM size in ${(colorSource as any).speaker_name?.color || 'white'} (${(colorSource as any).speaker_name?.description || 'prominent speaker color'})
+     ${speaker.designation ? `- ${speaker.designation} - Use REGULAR weight, SMALL-MEDIUM size in ${(colorSource as any).speaker_designation?.color || '#D0D0D0'} (${(colorSource as any).speaker_designation?.description || 'subtle supporting color'})` : ''}
+     - Stack: Name ABOVE designation with minimal spacing`
+    }).join('\n   ')}
+` : ''}
+
+${buildSpeakerTextSection(speakers, colorSource)}
+
    - Group speaker name and designation together visually (similar to Date/Time/Venue grouping).
 ${speakers.length > 1 ? `
    📊 MULTI-SPEAKER LAYOUT (${speakers.length} speakers):
@@ -983,6 +1095,14 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
 - Make ${options.brandContext.primaryColor} the DOMINANT color of the entire design
 ` : (options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : '')}
 
+// v6.12.1: Debug logging for unauthorized tagline issue
+  if (eventDescription) {
+    console.warn('[Event Poster v6.12.1] ⚠️ UNAUTHORIZED TAGLINE DETECTED:', eventDescription)
+    console.warn('[Event Poster v6.12.1] Source check: data.eventDescription:', data.eventDescription)
+    console.warn('[Event Poster v6.12.1] Source check: rawData.eventTagline:', (rawData as any).eventTagline)
+    console.warn('[Event Poster v6.12.1] Source check: rawData.tagline:', (rawData as any).tagline)
+  }
+
 TEXT TO DISPLAY IN THE IMAGE(render these exact words):
   - Main headline: "${eventName}"
 ${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
@@ -992,7 +1112,8 @@ ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
 ${customFieldsText.length > 0 ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}` : ''}
 ${speakers.length > 0 ? `${speakers.length > 1 ? '- Speakers (render with typography guidance from section 5):\n   ' : '- Speaker (render with typography guidance from section 5):\n   '}${speakers.map((speaker, index) => {
   const speakerNum = speakers.length > 1 ? `${index + 1}. ` : ''
-  return `${speakerNum}NAME: "${speaker.name}" (semibold, medium, ${(colorSource as any).speaker_name?.color || 'white'})${speaker.designation ? `\n      DESIGNATION: "${speaker.designation}" (regular, small-medium, ${(colorSource as any).speaker_designation?.color || '#D0D0D0'})` : ''}`
+  // v6.12.1: CRITICAL FIX - Remove "NAME:" and "DESIGNATION:" labels to prevent Gemini from rendering them
+  return `${speakerNum}"${speaker.name}" (semibold, medium, ${(colorSource as any).speaker_name?.color || 'white'})${speaker.designation ? `\n      "${speaker.designation}" (regular, small-medium, ${(colorSource as any).speaker_designation?.color || '#D0D0D0'})` : ''}`
 }).join('\n   ')}` : ''}
 ${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
 ${eventNote ? `- Footer: "${eventNote}"` : ''}
@@ -1023,31 +1144,12 @@ ${sophistication === 'rich'
       : `The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.`
     }
     ${hasSpeakerPhoto ? `
-🎯 SPEAKER PHOTO ZONES (${speakers.length} ${speakers.length > 1 ? 'zones' : 'zone'}):
-⚠️ CRITICAL: Keep these zones VISUALLY EMPTY for photo overlay (added in post-processing)
-
-Photo zones: ${speakers.map((s, i) => `${options.speakerPhotoConfig?.position || 'left'} zone for ${s.name}`).join(', ')}
-
-SPEAKER PHOTO ZONE REQUIREMENTS (MANDATORY):
-✅ ALLOWED in photo zone:
-   - SOLID gradient background ONLY (matching overall color scheme)
-   - Subtle texture/noise (max 5% opacity)
-   - Smooth color transitions
-
-❌ FORBIDDEN in photo zone:
-   - NO decorative elements (leaves, patterns, circuits, graphics, illustrations)
-   - NO text, labels, or typography
-   - NO faces, people, human figures, silhouettes
-   - NO circular frames, rings, or geometric shapes
-   - NO visual complexity - keep it MINIMAL and CLEAN
-   - Think: "Reserved parking spot" - keep it EMPTY for the photo
-
-💡 Analogy: Imagine placing a circular photo sticker on the poster. The area under the sticker should be a SIMPLE, SOLID color so the photo doesn't compete with background elements.
-
-⚠️ CRITICAL: Speaker names and designations MUST appear as TEXT ADJACENT to photo zones (NOT inside photo zones).
-- Refer to Section 5 for exact positioning: ${options.speakerPhotoConfig?.position === 'left' ? 'right' : 'left'} side of photo zones
-- Maintain 30px minimum spacing between text and photo zones
-- Follow typography guidance: ${(colorSource as any).speaker_name?.color || 'white'} for names, ${(colorSource as any).speaker_designation?.color || '#D0D0D0'} for designations` : ''}
+${
+  // v6.8: REMOVED all speaker photo zone constraint language
+  // Reason: ANY mention of "zones", "forbidden shapes", or "photo placement" causes Gemini to visualize it
+  // New strategy: Gemini creates background freely, Sharp handles photo overlay independently
+  ''
+}` : ''}
 ${speakers.length > 0 && !hasSpeakerPhoto ? `
 📝 SPEAKER TEXT ONLY (No Photos):
 - Speakers ${speakers.map(s => `"${s.name}"`).join(', ')} appear as TEXT with visual prominence

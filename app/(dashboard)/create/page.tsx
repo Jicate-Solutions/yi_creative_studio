@@ -239,7 +239,7 @@ export default function CreatePage() {
   const STREAMING_ENABLED = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true'
 
   const { verticals, selectedVertical, selectVertical, isLoading: isVerticalsLoading, error: verticalsError, fetchVerticals } = useVerticals()
-  const { models, selectedModel, selectModel, getModelCost } = useAIModels()
+  const { models, selectedModel, selectModel, getModelCost, isLoading: isModelsLoading } = useAIModels()
   const { logos, fetchLogos } = useLogos()
   const { canAfford, deductCredits, balance: creditsBalance } = useCredits()
   const { isOnline } = useOnlineStatus()
@@ -500,7 +500,24 @@ export default function CreatePage() {
   }, [templateResize.resizeError])
 
   const creditCost = getModelCost()
-  const canGenerate = selectedVertical && selectedModel && canAfford(creditCost) && isOnline
+  const canGenerate = useMemo(() => {
+    const result = selectedVertical && selectedModel && canAfford(creditCost) && isOnline
+
+    // Debug logging (remove after fix confirmed)
+    console.log('[Generate Button] canGenerate evaluation:', {
+      canGenerate: result,
+      selectedVertical: !!selectedVertical,
+      selectedVerticalName: selectedVertical?.name,
+      selectedModel: !!selectedModel,
+      selectedModelName: selectedModel?.name,
+      canAfford: canAfford(creditCost),
+      creditCost,
+      balance: creditsBalance,
+      isOnline
+    })
+
+    return result
+  }, [selectedVertical, selectedModel, creditCost, isOnline, canAfford, creditsBalance])
 
   async function handleGenerate(overrideModel?: { model_id: string; provider: string }) {
     // Use override model if provided (from regenerate), otherwise use selected model
@@ -1706,24 +1723,45 @@ export default function CreatePage() {
                             <div className="flex items-center gap-2">
                               <Wand2 className="h-4 w-4 text-muted-foreground" />
                               <Label className="text-sm font-medium">AI Model</Label>
-                            </div>
-                            <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Select model" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {models.map((model) => (
-                                  <SelectItem key={model.id} value={model.id}>
-                                    <div className="flex items-center gap-2">
-                                      <span>{getModelDisplayName(model.slug)}</span>
-                                      <Badge variant="secondary" className="text-xs">
-                                        {model.credits_cost}
+                              {selectedModel && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-xs gap-1">
+                                        <Sparkles className="h-3 w-3" />
+                                        Auto
                                       </Badge>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs max-w-[200px]">
+                                        Recommended model selected automatically. You can change it anytime.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                            {isModelsLoading ? (
+                              <Skeleton className="h-9 w-[180px]" />
+                            ) : (
+                              <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue placeholder={models.length > 0 ? "Select model" : "No models available"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {models.map((model) => (
+                                    <SelectItem key={model.id} value={model.id}>
+                                      <div className="flex items-center gap-2">
+                                        <span>{getModelDisplayName(model.slug)}</span>
+                                        <Badge variant="secondary" className="text-xs">
+                                          {model.credits_cost}
+                                        </Badge>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                         )}
 

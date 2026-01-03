@@ -226,6 +226,9 @@ interface CreativeState {
   setModels: (models: AIModel[]) => void
   setLogos: (logos: OrganizationLogo[]) => void
 
+  // Auto-initialize brand logos (Yi, CII, Bharat Rising) in their fixed positions
+  initializeDefaultLogoPlacements: (availableLogos: OrganizationLogo[]) => void
+
   // Format selection actions (Canva-style)
   selectFormat: (formatId: CreativeFormatId) => void
   setCustomDimensions: (width: number, height: number) => void
@@ -409,6 +412,76 @@ export const useCreativeStore = create<CreativeState>()(
       setModels: (models) => set({ models }),
 
       setLogos: (logos) => set({ logos }),
+
+      // Auto-initialize brand logos (Yi, CII, Bharat Rising) in their fixed positions
+      // Yi Brand Guidelines 2025: These 3 logos are CONSTANT for every poster
+      initializeDefaultLogoPlacements: (availableLogos) => {
+        const { formData } = get()
+        const currentPlacements = formData.logosPlacements
+
+        // Brand logo patterns to auto-place (Yi, Bharat ONE, and CII)
+        // These 3 logos are CONSTANT for every poster
+        // Note: \s* added at start/end to handle trailing/leading whitespace in logo names
+        const brandLogoConfigs = [
+          {
+            patterns: [/^\s*yi\s*$/i, /^\s*yi\s*logo\s*$/i, /^\s*young\s*indians\s*$/i],
+            position: 'top-1' as LogoPosition,
+            displayName: 'Yi Logo',
+          },
+          {
+            patterns: [/^\s*bharat\s*one\s*$/i, /^\s*bharatone\s*$/i, /^\s*one\s*$/i],
+            position: 'top-2' as LogoPosition,
+            displayName: 'Bharat ONE',
+          },
+          {
+            patterns: [/^\s*cii\s*$/i, /^\s*cii\s*logo\s*$/i, /confederation.*india/i],
+            position: 'top-6' as LogoPosition,
+            displayName: 'CII Logo',
+          },
+        ]
+
+        const newPlacements: LogoPlacement[] = [...currentPlacements]
+        const placedLogoIds = currentPlacements.map(p => p.logoId)
+
+        for (const config of brandLogoConfigs) {
+          // Find matching logo in available logos
+          const matchingLogo = availableLogos.find(logo =>
+            config.patterns.some(pattern => pattern.test(logo.name))
+          )
+
+          if (matchingLogo && !placedLogoIds.includes(matchingLogo.id)) {
+            // Check if position is already taken
+            const positionTaken = newPlacements.some(p => p.position === config.position)
+
+            if (!positionTaken) {
+              const logoType = detectLogoType(matchingLogo.name)
+
+              newPlacements.push({
+                logoId: matchingLogo.id,
+                position: config.position,
+                size: DEFAULT_LOGO_SIZE,
+                logo: matchingLogo,
+                isLocked: true, // Brand logos are always locked
+                logoType,
+                backgroundShape: DEFAULT_LOGO_BACKGROUND.shape,
+                backgroundStyle: { ...DEFAULT_LOGO_BACKGROUND.style },
+              })
+
+              console.log(`[AutoPlace] ${config.displayName} placed at ${config.position}`)
+            }
+          }
+        }
+
+        // Only update if we added new placements
+        if (newPlacements.length > currentPlacements.length) {
+          set({
+            formData: {
+              ...formData,
+              logosPlacements: newPlacements,
+            },
+          })
+        }
+      },
 
       // Format selection actions (Canva-style)
       selectFormat: (formatId) => {

@@ -9,6 +9,8 @@ import type {
   LayoutStrategy,
 } from '@/lib/config/design-constants'
 import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
+import { findSafePositionWithPreference, findSafeOverlayZoneNearText } from './intelligent-positioning'
+import { detectSpeakerTextPosition } from '@/lib/ai/vision/text-detector'
 
 // Re-export types for use by other modules
 export type { LayoutStrategy }
@@ -41,21 +43,37 @@ function calculateXPosition(
 
 /**
  * Calculate y position based on PhotoVerticalPosition
- * Maps position to percentage of image height
+ *
+ * SEMANTIC BEHAVIOR (v6.6 clarification):
+ * - Percentages represent where the photo CENTER should be positioned
+ * - Function calculates TOP edge by subtracting half the photo size
+ * - photoSize MUST include borders AND shadow padding for accurate positioning
+ *
+ * @param verticalPosition - Vertical position preset (top/upper/middle/lower/bottom)
+ * @param imageHeight - Total image height in pixels
+ * @param photoSize - TOTAL size including borders + shadow padding
+ * @param padding - Minimum edge padding in pixels
+ * @returns Y-coordinate for photo TOP edge
+ *
+ * @example
+ * // "lower" position on 1350px image with 136px total photo size:
+ * // - Center target: 1350 * 0.65 = 877px
+ * // - Top edge: 877 - 68 = 809px
+ * // - Bottom edge: 809 + 136 = 945px
  */
 function calculateYPosition(
   verticalPosition: PhotoVerticalPosition | undefined,
   imageHeight: number,
-  photoSize: number,
+  photoSize: number,  // CRITICAL: Must include shadow padding
   padding: number
 ): number {
-  // Map vertical positions to percentages
+  // Percentages define where photo CENTER should be
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
-    'top': 0.15,      // 15% from top
-    'upper': 0.30,    // 30% from top
-    'middle': 0.50,   // 50% (center)
-    'lower': 0.65,    // 65% from top
-    'bottom': 0.80,   // 80% from top
+    'top': 0.15,      // Center at 15% from top
+    'upper': 0.30,    // Center at 30% from top
+    'middle': 0.50,   // Center at 50% (exact middle)
+    'lower': 0.65,    // Center at 65% from top
+    'bottom': 0.80,   // Center at 80% from top
   }
 
   const percentage = positionPercentages[verticalPosition || 'lower'] || 0.65
@@ -82,6 +100,7 @@ export function calculateSpeakerPhotoCoordinates(
     verticalPosition?: PhotoVerticalPosition
     size: number
     borderWidth?: number
+    shadow?: boolean  // NEW: Shadow toggle (defaults to true for backward compatibility)
   },
   dimensions: { width: number; height: number }
 ): {
@@ -96,10 +115,24 @@ export function calculateSpeakerPhotoCoordinates(
 } {
   const padding = 40
   const borderWidth = config.borderWidth || 0
-  const totalPhotoSize = config.size + borderWidth * 2
+
+  // v6.6 CRITICAL FIX: Include shadow padding to match actual buffer size
+  // Shadow config from addSpeakerPhotoShadow(): { blur: 15, offset: 3 } → padding = 18px per side
+  const shouldAddShadow = config.shadow !== false  // Default to true for backward compatibility
+  const shadowPadding = shouldAddShadow ? 18 : 0
+  const totalPhotoSize = config.size + borderWidth * 2 + shadowPadding * 2
 
   const x = calculateXPosition(config.position, dimensions.width, totalPhotoSize, padding)
   const y = calculateYPosition(config.verticalPosition, dimensions.height, totalPhotoSize, padding)
+
+  // v6.7 DEBUG: Log coordinate calculation for System 1 (Gemini prompts)
+  console.log('[Coord System 1] calculateSpeakerPhotoCoordinates():')
+  console.log(`  - Input: position=${config.position}, vertical=${config.verticalPosition}, size=${config.size}`)
+  console.log(`  - Shadow: shouldAdd=${shouldAddShadow}, padding=${shadowPadding}px`)
+  console.log(`  - Total size: ${totalPhotoSize}px (size + border*2 + shadow*2)`)
+  console.log(`  - Image dimensions: ${dimensions.width}x${dimensions.height}`)
+  console.log(`  - Calculated X: ${x}, Y: ${y}`)
+  console.log(`  - Base calculation: (${dimensions.width} - ${totalPhotoSize}) / 2 = ${(dimensions.width - totalPhotoSize) / 2}`)
 
   return {
     x,
@@ -345,6 +378,217 @@ async function addSpeakerPhotoShadow(
 }
 
 /**
+ * Add glow/halo effect around speaker photo (v6.10 Phase 3)
+ * Creates a subtle light rim that helps photo blend with poster design
+ * This effect is applied BEFORE shadow for optimal visual layering
+ *
+ * @param photoBuffer - The photo buffer with transparent background
+ * @param size - Original photo size
+ * @param shape - Photo shape (circle, rounded, square)
+ * @param glowConfig - Glow configuration
+ * @returns Promise<Buffer> - Photo with glow effect
+ */
+async function addPhotoGlow(
+  photoBuffer: Buffer,
+  size: number,
+  shape: PhotoShape,
+  glowConfig: {
+    color: string    // Glow color in rgba format
+    size: number     // Glow thickness in pixels
+    blur: number     // Glow softness (higher = more diffused)
+  } = {
+    color: 'rgba(255,255,255,0.4)',  // Subtle white glow
+    size: 12,
+    blur: 20
+  }
+): Promise<Buffer> {
+  const { color, size: glowSize, blur } = glowConfig
+  const totalSize = size + glowSize * 2
+
+  try {
+    // Parse rgba color
+    const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+    if (!rgbaMatch) {
+      console.warn('[Speaker Photo] Invalid glow color format, using white')
+      // Fallback to white glow
+      return photoBuffer
+    }
+
+    const r = parseInt(rgbaMatch[1])
+    const g = parseInt(rgbaMatch[2])
+    const b = parseInt(rgbaMatch[3])
+    const a = parseFloat(rgbaMatch[4] || '1')
+
+    // Create glow layer using SVG matching the photo shape
+    let glowSvg: string
+
+    if (shape === 'circle') {
+      const radius = totalSize / 2
+      glowSvg = `
+        <svg width="${totalSize}" height="${totalSize}">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="${blur}" />
+            </filter>
+          </defs>
+          <circle cx="${radius}" cy="${radius}" r="${size / 2}"
+                  fill="rgb(${r},${g},${b})"
+                  opacity="${a}"
+                  filter="url(#glow)" />
+        </svg>
+      `
+    } else if (shape === 'rounded') {
+      const borderRadius = Math.floor(size * 0.1)
+      glowSvg = `
+        <svg width="${totalSize}" height="${totalSize}">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="${blur}" />
+            </filter>
+          </defs>
+          <rect x="${glowSize}" y="${glowSize}"
+                width="${size}" height="${size}"
+                rx="${borderRadius}" ry="${borderRadius}"
+                fill="rgb(${r},${g},${b})"
+                opacity="${a}"
+                filter="url(#glow)" />
+        </svg>
+      `
+    } else {
+      // square
+      glowSvg = `
+        <svg width="${totalSize}" height="${totalSize}">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="${blur}" />
+            </filter>
+          </defs>
+          <rect x="${glowSize}" y="${glowSize}"
+                width="${size}" height="${size}"
+                fill="rgb(${r},${g},${b})"
+                opacity="${a}"
+                filter="url(#glow)" />
+        </svg>
+      `
+    }
+
+    // Create glow layer
+    const glowBuffer = await sharp(Buffer.from(glowSvg))
+      .resize(totalSize, totalSize)
+      .png()
+      .toBuffer()
+
+    // Composite photo on top of glow
+    const result = await sharp(glowBuffer)
+      .composite([{
+        input: photoBuffer,
+        top: glowSize,
+        left: glowSize
+      }])
+      .png()
+      .toBuffer()
+
+    console.log(`[Speaker Photo] Added glow effect (${size}px → ${totalSize}px)`)
+    return result
+  } catch (error) {
+    console.error('[Speaker Photo] Error creating glow:', error)
+    return photoBuffer  // Fallback to original
+  }
+}
+
+/**
+ * Add thin visible border around speaker photo (v6.11)
+ * Creates a subtle 2-3px border ring for better separation from background
+ * This approach avoids dimension conflicts by adding border AFTER glow but BEFORE shadow
+ *
+ * @param photoBuffer - The photo buffer (already with glow if enabled)
+ * @param size - Current photo size (including glow padding)
+ * @param shape - Photo shape (circle, rounded, square)
+ * @param borderConfig - Border configuration
+ * @returns Promise<Buffer> - Photo with thin border ring
+ */
+async function addThinBorder(
+  photoBuffer: Buffer,
+  size: number,
+  shape: PhotoShape,
+  borderConfig: {
+    width: number    // Border width in pixels (2-3px recommended)
+    color: string    // Border color (hex or rgba)
+  } = {
+    width: 3,
+    color: '#FFFFFF'  // White border by default
+  }
+): Promise<Buffer> {
+  const { width, color } = borderConfig
+
+  try {
+    // Get current dimensions
+    const metadata = await sharp(photoBuffer).metadata()
+    const currentSize = metadata.width || size
+
+    // Create border ring SVG matching the photo shape
+    let borderSvg: string
+
+    if (shape === 'circle') {
+      const radius = currentSize / 2
+      const innerRadius = radius - width
+      borderSvg = `
+        <svg width="${currentSize}" height="${currentSize}">
+          <circle cx="${radius}" cy="${radius}" r="${radius}"
+                  fill="none"
+                  stroke="${color}"
+                  stroke-width="${width}" />
+        </svg>
+      `
+    } else if (shape === 'rounded') {
+      const borderRadius = Math.floor(currentSize * 0.1)
+      borderSvg = `
+        <svg width="${currentSize}" height="${currentSize}">
+          <rect x="${width / 2}" y="${width / 2}"
+                width="${currentSize - width}" height="${currentSize - width}"
+                rx="${borderRadius}" ry="${borderRadius}"
+                fill="none"
+                stroke="${color}"
+                stroke-width="${width}" />
+        </svg>
+      `
+    } else {
+      // square
+      borderSvg = `
+        <svg width="${currentSize}" height="${currentSize}">
+          <rect x="${width / 2}" y="${width / 2}"
+                width="${currentSize - width}" height="${currentSize - width}"
+                fill="none"
+                stroke="${color}"
+                stroke-width="${width}" />
+        </svg>
+      `
+    }
+
+    // Create border layer
+    const borderBuffer = await sharp(Buffer.from(borderSvg))
+      .resize(currentSize, currentSize)
+      .png()
+      .toBuffer()
+
+    // Composite photo with border overlay
+    const result = await sharp(photoBuffer)
+      .composite([{
+        input: borderBuffer,
+        blend: 'over'
+      }])
+      .png()
+      .toBuffer()
+
+    console.log(`[Speaker Photo] Added thin border (${width}px ${color})`)
+    return result
+  } catch (error) {
+    console.error('[Speaker Photo] Error adding border:', error)
+    return photoBuffer  // Fallback to original
+  }
+}
+
+/**
  * Apply drop shadow to an image
  */
 async function applyShadow(
@@ -414,25 +658,64 @@ async function prepareSpeakerPhoto(
     .png()
     .toBuffer()
 
+  // v6.10 Phase 2: Remove background (light/white backgrounds)
+  // This creates clean integration with poster backgrounds by removing photo studio backgrounds
+  try {
+    processedBuffer = await removeBackgroundByColor(processedBuffer, {
+      targetColor: '#FFFFFF',  // Remove white/light backgrounds
+      threshold: 60,           // Color similarity threshold (0-255)
+      feather: 3              // Edge smoothing for natural transition
+    })
+    console.log('[Speaker Photo] Background removed using color threshold')
+  } catch (error) {
+    console.warn('[Speaker Photo] Background removal failed, continuing without it:', error)
+    // Continue with original photo if background removal fails
+  }
+
   // Apply shape mask (circular cutout)
   processedBuffer = await applyShapeMask(processedBuffer, config.size, config.shape)
 
-  // v6.0 Phase 5: NEW - Add drop shadow for visibility (NO solid background)
-  // Replaces the old border logic which created solid white/colored backgrounds
+  // v6.10 Phase 3: Add visual effects for better integration
+  // Layered effects: glow (halo) + enhanced shadow for professional look
   const shouldAddShadow = config.shadow !== false  // Default to true if not specified
 
   if (shouldAddShadow) {
+    // Step 1: Add glow/halo effect (helps photo blend with design)
+    processedBuffer = await addPhotoGlow(
+      processedBuffer,
+      config.size,
+      config.shape,
+      {
+        color: 'rgba(255,255,255,0.4)',  // Subtle white glow
+        size: 12,                        // 12px glow thickness
+        blur: 20                         // Soft, diffused glow
+      }
+    )
+
+    // Step 1.5: Add thin visible border (v6.11)
+    processedBuffer = await addThinBorder(
+      processedBuffer,
+      config.size,
+      config.shape,
+      {
+        width: 3,           // 3px thin border
+        color: '#FFFFFF'    // White border for separation
+      }
+    )
+
+    // Step 2: Add enhanced shadow (v6.11: more visible)
+    // v6.11 enhancement: blur 20→22, opacity 0.7→0.8, offset 6→8 for better visibility
     processedBuffer = await addSpeakerPhotoShadow(
       processedBuffer,
       config.size,
       config.shape,
       {
-        blur: 15,
-        opacity: 0.5,
-        offset: { x: 3, y: 3 }
+        blur: 22,           // More diffused shadow (v6.11)
+        opacity: 0.8,       // More prominent - 80% visible (v6.11)
+        offset: { x: 8, y: 8 }  // More depth - 8px offset (v6.11)
       }
     )
-    console.log('[Speaker Photo] Applied drop shadow (no solid background)')
+    console.log('[Speaker Photo] Applied glow + border + enhanced shadow (v6.11) for professional integration')
   } else {
     console.log('[Speaker Photo] Shadow disabled - photo will sit directly on AI background')
   }
@@ -451,6 +734,82 @@ async function prepareSpeakerPhoto(
   }
 
   return processedBuffer
+}
+
+/**
+ * Remove background by color threshold (v6.10 Phase 2)
+ * Replaces similar colors with transparency to remove photo backgrounds
+ * Useful for removing white, gray, or beige backgrounds from speaker photos
+ *
+ * @param imageBuffer - The image buffer to process
+ * @param options - Configuration for background removal
+ * @param options.targetColor - Color to remove (hex format, e.g., '#FFFFFF')
+ * @param options.threshold - Color similarity threshold (0-255, lower = more strict)
+ * @param options.feather - Edge smoothing in pixels (0 = hard edge)
+ * @returns Promise<Buffer> - Processed image with transparent background
+ */
+async function removeBackgroundByColor(
+  imageBuffer: Buffer,
+  options: {
+    targetColor: string
+    threshold: number
+    feather: number
+  }
+): Promise<Buffer> {
+  const { targetColor, threshold, feather } = options
+
+  // Parse target color to RGB
+  const target = {
+    r: parseInt(targetColor.slice(1, 3), 16),
+    g: parseInt(targetColor.slice(3, 5), 16),
+    b: parseInt(targetColor.slice(5, 7), 16)
+  }
+
+  // Load image and get raw pixel data
+  const image = sharp(imageBuffer)
+  const { data, info } = await image
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  // Process each pixel
+  const pixels = new Uint8ClampedArray(data)
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i]
+    const g = pixels[i + 1]
+    const b = pixels[i + 2]
+
+    // Calculate Euclidean color distance
+    const distance = Math.sqrt(
+      Math.pow(r - target.r, 2) +
+      Math.pow(g - target.g, 2) +
+      Math.pow(b - target.b, 2)
+    )
+
+    // Make transparent if within threshold
+    if (distance < threshold) {
+      // Apply feathering for smooth edges
+      if (feather > 0 && distance > threshold - feather) {
+        // Gradual transparency near the edge
+        const alpha = ((distance - (threshold - feather)) / feather) * 255
+        pixels[i + 3] = Math.min(255, Math.max(0, Math.floor(alpha)))
+      } else {
+        // Full transparency
+        pixels[i + 3] = 0
+      }
+    }
+  }
+
+  // Convert back to image
+  return await sharp(pixels, {
+    raw: {
+      width: info.width,
+      height: info.height,
+      channels: 4
+    }
+  })
+  .png()
+  .toBuffer()
 }
 
 // ============================================================
@@ -504,7 +863,18 @@ function calculateAnchorPosition(config: {
   let anchorY = baseY - Math.floor(blockHeight / 2)
 
   // Clamp to stay within bounds
+  const beforeClampingY = anchorY
   anchorY = Math.max(padding, Math.min(anchorY, imageHeight - blockHeight - padding))
+
+  // v6.7 DEBUG: Log anchor calculation details
+  console.log('[Anchor Calculation] Details:')
+  console.log(`  - Block size: ${blockWidth}x${blockHeight}`)
+  console.log(`  - Base X calculation: (${imageWidth} - ${blockWidth}) / 2 = ${(imageWidth - blockWidth) / 2}`)
+  console.log(`  - Vertical percentage: ${percentage} (${verticalPosition})`)
+  console.log(`  - Base Y: ${baseY}, offset: ${Math.floor(blockHeight / 2)}`)
+  console.log(`  - Before clamping: anchorY=${beforeClampingY}`)
+  console.log(`  - After clamping: anchorY=${anchorY}`)
+  console.log(`  - Clamp range: [${padding}, ${imageHeight - blockHeight - padding}]`)
 
   return { anchorX, anchorY }
 }
@@ -525,6 +895,7 @@ export function calculateMultiSpeakerPositions(config: {
   spacing: number
   position?: PhotoPosition
   verticalPosition?: PhotoVerticalPosition
+  shadow?: boolean  // v6.6: Shadow toggle for accurate block size calculation
 }): Array<{ x: number; y: number }> {
   const {
     speakerCount,
@@ -535,26 +906,33 @@ export function calculateMultiSpeakerPositions(config: {
     spacing,
     position = 'center',
     verticalPosition = 'lower',
+    shadow,
   } = config
   const positions: Array<{ x: number; y: number }> = []
   const padding = 40
 
-  // Calculate block dimensions based on layout
+  // v6.6 CRITICAL FIX: Include shadow padding in block dimensions
+  // Shadow config from addSpeakerPhotoShadow(): { blur: 15, offset: 3 } → padding = 18px per side
+  const shouldAddShadow = shadow !== false  // Default to true for backward compatibility
+  const shadowPadding = shouldAddShadow ? 18 : 0
+  const effectivePhotoSize = photoSize + shadowPadding * 2
+
+  // Calculate block dimensions based on layout (using effective size with shadow)
   let blockWidth: number
   let blockHeight: number
 
   if (layout === 'side-by-side') {
-    blockWidth = speakerCount * photoSize + (speakerCount - 1) * spacing
-    blockHeight = photoSize
+    blockWidth = speakerCount * effectivePhotoSize + (speakerCount - 1) * spacing
+    blockHeight = effectivePhotoSize
   } else if (layout === 'stacked') {
-    blockWidth = photoSize
-    blockHeight = speakerCount * photoSize + (speakerCount - 1) * spacing
+    blockWidth = effectivePhotoSize
+    blockHeight = speakerCount * effectivePhotoSize + (speakerCount - 1) * spacing
   } else {
     // Grid layout
     const cols = 2
     const rows = Math.ceil(speakerCount / cols)
-    blockWidth = cols * photoSize + (cols - 1) * spacing
-    blockHeight = rows * photoSize + (rows - 1) * spacing
+    blockWidth = cols * effectivePhotoSize + (cols - 1) * spacing
+    blockHeight = rows * effectivePhotoSize + (rows - 1) * spacing
   }
 
   // Get the anchor position based on user settings
@@ -568,13 +946,21 @@ export function calculateMultiSpeakerPositions(config: {
     padding,
   })
 
+  // v6.7 DEBUG: Log coordinate calculation for System 2 (Sharp overlay)
+  console.log('[Coord System 2] calculateMultiSpeakerPositions():')
+  console.log(`  - Input: position=${position}, vertical=${verticalPosition}, photoSize=${photoSize}`)
+  console.log(`  - Shadow: shouldAdd=${shouldAddShadow}, padding=${shadowPadding}px`)
+  console.log(`  - Effective size: ${effectivePhotoSize}px (photoSize + shadow*2)`)
+  console.log(`  - Block dimensions: ${blockWidth}x${blockHeight}`)
+  console.log(`  - Image dimensions: ${imageWidth}x${imageHeight}`)
+  console.log(`  - Calculated anchor: x=${anchorX}, y=${anchorY}`)
   console.log(`[Speaker Positions] Anchor at x:${anchorX}, y:${anchorY} for position:${position}, vertical:${verticalPosition}`)
 
   if (layout === 'side-by-side') {
     // Horizontal row - place photos from anchor point
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
-        x: Math.floor(anchorX + i * (photoSize + spacing)),
+        x: Math.floor(anchorX + i * (effectivePhotoSize + spacing)),
         y: anchorY,
       })
     }
@@ -583,7 +969,7 @@ export function calculateMultiSpeakerPositions(config: {
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
         x: anchorX,
-        y: Math.floor(anchorY + i * (photoSize + spacing)),
+        y: Math.floor(anchorY + i * (effectivePhotoSize + spacing)),
       })
     }
   } else if (layout === 'grid') {
@@ -595,8 +981,8 @@ export function calculateMultiSpeakerPositions(config: {
       const col = i % cols
 
       positions.push({
-        x: Math.floor(anchorX + col * (photoSize + spacing)),
-        y: Math.floor(anchorY + row * (photoSize + spacing)),
+        x: Math.floor(anchorX + col * (effectivePhotoSize + spacing)),
+        y: Math.floor(anchorY + row * (effectivePhotoSize + spacing)),
       })
     }
   }
@@ -650,17 +1036,158 @@ export async function overlayMultipleSpeakerPhotos(config: {
     ? autoDetectSpeakerLayout(speakers.length)
     : (layoutStrategy || 'side-by-side')
 
-  // Calculate positions for all speakers using user's position settings
-  const positions = calculateMultiSpeakerPositions({
-    speakerCount: speakers.length,
-    layout: finalLayout,
-    imageWidth,
-    imageHeight,
-    photoSize: sharedSettings.size,
-    spacing,
-    position: sharedSettings.position,
-    verticalPosition: sharedSettings.verticalPosition,
-  })
+  // v6.14 INTELLIGENT POSITIONING: Analyze image to find safe overlay zones
+  let positions: Array<{ x: number; y: number }>
+
+  if (speakers.length === 1) {
+    // v6.15: STEP 1 - Detect speaker text position using Gemini Vision
+    const shouldAddShadow = sharedSettings.shadow !== false
+    const shadowPadding = shouldAddShadow ? 18 : 0
+    const borderWidth = sharedSettings.border?.width || 3
+    let totalPhotoSize = sharedSettings.size + borderWidth * 2 + shadowPadding * 2
+
+    console.log('[Speaker Overlay v6.15] 🎯 Starting AI-powered text detection + grouping...')
+    console.log(`[Speaker Overlay v6.15] Speaker name: "${speakers[0].name}"`)
+    console.log(`[Speaker Overlay v6.15] Photo size: ${sharedSettings.size}px, Total with shadow: ${totalPhotoSize}px`)
+
+    try {
+      // STEP 1: Detect where Gemini rendered speaker text
+      const textDetection = await detectSpeakerTextPosition(
+        baseImageBuffer,
+        speakers[0].name,
+        imageHeight
+      )
+
+      let safePosition: any
+
+      if (textDetection.detected && textDetection.centerY) {
+        // STEP 2a: Text detected - Use grouping-aware positioning
+        console.log('[Speaker Overlay v6.15] ✅ Speaker text detected - using grouping positioning')
+
+        const groupingResult = await findSafeOverlayZoneNearText(
+          baseImageBuffer,
+          {
+            width: totalPhotoSize,
+            height: totalPhotoSize
+          },
+          {
+            centerY: textDetection.centerY,
+            boundingBox: textDetection.boundingBox  // v6.15.1: Pass bounding box for collision detection
+          },
+          {
+            hasLogosAtTop: true,
+            preferredSide: sharedSettings.position || 'auto',
+            groupingRadius: 150,  // Max 150px away from text
+            minConfidence: 0.4
+          }
+        )
+
+        safePosition = groupingResult
+
+        // v6.17: Extract dynamic size from grouping result
+        const effectiveSize = safePosition.finalSize ?? sharedSettings.size
+
+        if (safePosition.sizeReduced) {
+          console.log(`[Speaker Overlay v6.17.1] 📏 Dynamic sizing applied:`)
+          console.log(`  - Original total size: ${safePosition.originalSize}px (with shadow+border)`)
+          console.log(`  - Reduced to: ${effectiveSize}px (total, includes shadow+border)`)
+          console.log(`  - Size reduction: ${safePosition.originalSize! - effectiveSize}px`)
+          console.log(`  - Reason: ${safePosition.reasoning}`)
+
+          // v6.17.1 FIX: finalSize is already TOTAL size (includes shadow+border)
+          // Extract base size by reversing the calculation
+          const borderWidth = sharedSettings.border?.width || 3
+          const shadowPadding = sharedSettings.shadow !== false ? 18 : 0
+          const baseSize = effectiveSize - borderWidth * 2 - shadowPadding * 2
+
+          sharedSettings.size = baseSize  // Update base size
+          totalPhotoSize = effectiveSize  // Use returned total size directly (no recalculation)
+
+          console.log(`  - Extracted base size: ${baseSize}px`)
+          console.log(`  - Final total size: ${totalPhotoSize}px (no double-counting)`)
+        }
+
+        console.log('[Speaker Overlay v6.17] ✅ Grouping positioning complete:')
+        console.log(`  - Text center Y: ${textDetection.centerY}px`)
+        console.log(`  - Photo Y: ${safePosition.y}px`)
+        console.log(`  - Photo size: ${effectiveSize}px${safePosition.sizeReduced ? ' (dynamically reduced)' : ''}`)
+        console.log(`  - Distance from text: ${Math.abs(safePosition.y + totalPhotoSize/2 - textDetection.centerY)}px`)
+        console.log(`  - Within grouping range: ${groupingResult.withinGroupingRange ? 'YES ✅' : 'NO ⚠️'}`)
+        console.log(`  - Selected zone: ${safePosition.zone}`)
+        console.log(`  - Confidence: ${(safePosition.confidence * 100).toFixed(1)}%`)
+      } else {
+        // STEP 2b: Text not detected - Fall back to standard intelligent positioning
+        console.warn('[Speaker Overlay v6.15] ⚠️ Speaker text NOT detected by Vision API')
+        console.log('[Speaker Overlay v6.15] 🔄 Falling back to standard intelligent positioning (v6.14)')
+
+        safePosition = await findSafePositionWithPreference(
+          baseImageBuffer,
+          {
+            width: totalPhotoSize,
+            height: totalPhotoSize
+          },
+          {
+            position: sharedSettings.position || 'center',
+            vertical: sharedSettings.verticalPosition || 'lower'
+          },
+          {
+            hasLogosAtTop: true,
+            minConfidence: 0.4,
+            allowOverride: true
+          }
+        )
+
+        console.log('[Speaker Overlay v6.15] ✅ Standard positioning complete (fallback):')
+        console.log(`  - Selected zone: ${safePosition.zone}`)
+        console.log(`  - Confidence: ${(safePosition.confidence * 100).toFixed(1)}%`)
+        console.log(`  - Position: (${safePosition.x}, ${safePosition.y})`)
+      }
+
+      positions = [{ x: safePosition.x, y: safePosition.y }]
+
+      // Final positioning summary
+      console.log('[Speaker Overlay v6.15] 📍 Final Position Summary:')
+      console.log(`  - Strategy: ${textDetection.detected ? 'GROUPING (text-aware)' : 'STANDARD (v6.14 fallback)'}`)
+      console.log(`  - Position: (${safePosition.x}, ${safePosition.y})`)
+      console.log(`  - Reasoning: ${safePosition.reasoning}`)
+
+      if (safePosition.confidence < 0.4) {
+        console.warn('[Speaker Overlay v6.15] ⚠️ Low confidence - all zones are busy!')
+        console.warn('[Speaker Overlay v6.15] 💡 Consider repositioning or reducing visual complexity')
+      }
+    } catch (error) {
+      // Fallback to hardcoded positioning if all AI systems fail
+      console.error('[Speaker Overlay v6.15] ❌ AI positioning failed:', error)
+      console.log('[Speaker Overlay v6.15] 🔄 Falling back to hardcoded positioning')
+
+      const coords = calculateSpeakerPhotoCoordinates(
+        {
+          position: sharedSettings.position || 'center',
+          verticalPosition: sharedSettings.verticalPosition || 'lower',
+          size: sharedSettings.size,
+          borderWidth: sharedSettings.border.width || 0,
+          shadow: sharedSettings.shadow,
+        },
+        { width: imageWidth, height: imageHeight }
+      )
+
+      positions = [{ x: coords.x, y: coords.y }]
+      console.log('[Speaker Overlay v6.15] Fallback position: (', coords.x, ',', coords.y, ')')
+    }
+  } else {
+    // Multiple speakers: Use multi-speaker positioning
+    positions = calculateMultiSpeakerPositions({
+      speakerCount: speakers.length,
+      layout: finalLayout,
+      imageWidth,
+      imageHeight,
+      photoSize: sharedSettings.size,
+      spacing,
+      position: sharedSettings.position,
+      verticalPosition: sharedSettings.verticalPosition,
+      shadow: sharedSettings.shadow,  // v6.6: Pass shadow config for accurate positioning
+    })
+  }
 
   console.log(`[Speaker Overlay] Using position: ${sharedSettings.position || 'center'}, vertical: ${sharedSettings.verticalPosition || 'lower'}`)
 
@@ -684,6 +1211,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
 
           const photoBuffer = await prepareSpeakerPhoto(speaker.photoUrl!, tempConfig)
 
+          // v6.6: Position already calculated with effectivePhotoSize by calculateMultiSpeakerPositions()
+          // No additional shadow adjustment needed here - the position accounts for shadow padding
           return {
             buffer: photoBuffer,
             position: positions[index],
@@ -802,6 +1331,24 @@ export async function processImageWithSpeakerPhoto(
   if (!normalized.enabled) {
     return imageDataUrl
   }
+
+  // v6.9: Updated to match design spec (25-40% of poster width)
+  // For 1080px width: small=26%, medium=30%, large=35%
+  // MUST match app/api/generate/route.ts:1124 for coordinate sync
+  // This provides proper visual prominence for speaker photos
+  const photoSizeMap = { small: 280, medium: 320, large: 380 }
+  const mappedSize =
+    normalized.size <= 280 ? photoSizeMap.small :
+    normalized.size <= 320 ? photoSizeMap.medium :
+    photoSizeMap.large
+
+  console.log(`[Speaker Overlay] v6.9: Size synchronization applied`)
+  console.log(`  - Original size: ${normalized.size}px`)
+  console.log(`  - Mapped size: ${mappedSize}px (${normalized.size <= 280 ? 'small' : normalized.size <= 320 ? 'medium' : 'large'})`)
+  console.log(`  - This matches Gemini prompt zone calculation for coordinate alignment`)
+
+  // Override size with mapped value
+  normalized.size = mappedSize
 
   // Extract base64 data from data URL
   let imageBuffer: Buffer
