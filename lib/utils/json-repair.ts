@@ -1,8 +1,10 @@
-
 /**
  * JSON Repair Utility
  * Robust functions for fixing broken or truncated JSON from LLMs
+ * v12.0: Added jsonrepair library for handling unquoted property names
  */
+
+import { jsonrepair } from 'jsonrepair'
 
 /**
  * Repair truncated JSON string by closing open structures
@@ -81,20 +83,39 @@ export function cleanJSON(text: string): string {
 
 /**
  * Safe parse with auto-repair
+ * v12.0: Added jsonrepair library as second attempt for handling unquoted property names,
+ * trailing commas, and other syntax errors that our manual repair doesn't catch
  */
 export function safeJsonParse<T>(text: string, fallback?: T): T {
+    const cleaned = cleanJSON(text)
+
+    // First attempt: Direct parse
     try {
-        const cleaned = cleanJSON(text)
         return JSON.parse(cleaned)
     } catch (e1) {
+        // Second attempt: Use jsonrepair library (handles unquoted keys, trailing commas, etc.)
         try {
-            // Try repairing
-            const cleaned = cleanJSON(text)
-            const repaired = repairTruncatedJSON(cleaned)
-            return JSON.parse(repaired)
+            const repairedByLibrary = jsonrepair(cleaned)
+            console.log('[safeJsonParse] Fixed with jsonrepair library')
+            return JSON.parse(repairedByLibrary)
         } catch (e2) {
-            if (fallback) return fallback
-            throw new Error(`Failed to parse JSON even after repair: ${e2}`)
+            // Third attempt: Manual truncation repair (for closing brackets/braces)
+            try {
+                const repairedManually = repairTruncatedJSON(cleaned)
+                return JSON.parse(repairedManually)
+            } catch (e3) {
+                // Fourth attempt: jsonrepair on manually repaired string
+                try {
+                    const repairedManually = repairTruncatedJSON(cleaned)
+                    const finalRepair = jsonrepair(repairedManually)
+                    console.log('[safeJsonParse] Fixed with combined repair approach')
+                    return JSON.parse(finalRepair)
+                } catch (e4) {
+                    console.error('[safeJsonParse] All repair attempts failed:', e4)
+                    if (fallback !== undefined) return fallback
+                    throw new Error(`Failed to parse JSON even after repair: ${e4}`)
+                }
+            }
         }
     }
 }

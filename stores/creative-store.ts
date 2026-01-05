@@ -5,8 +5,8 @@ import type { LogoPosition } from '@/lib/config/constants'
 import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
 import type { CreationMode } from '@/types/design.types'
-import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape, TypographyConfig, SpeakerPhotoCustomization } from '@/lib/config/design-constants'
-import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, ExportSettings, AspectRatioId, ResolutionId, ColorConfig, CustomColors, LogoStripShape, TypographyConfig, SpeakerPhotoCustomization, Enhanced4RowStripMode, InitiativeTextConfig, PartnerLabelConfig, FooterRowConfig, FooterLayout } from '@/lib/config/design-constants'
+import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG, DEFAULT_ENHANCED_4ROW_STRIP, DEFAULT_FOOTER_CONFIG, MAX_VERTICAL_LOGOS } from '@/lib/config/design-constants'
 import type { TypographySuggestion } from '@/types/typography-suggestions'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
@@ -78,7 +78,8 @@ interface CreativeFormData {
   formData: Record<string, unknown>
   logosPlacements: LogoPlacement[]
   logoBackgroundColor: string // Global background color for all logos (hex)
-  logoStripMode: LogoStripMode // Unified strip layout for logos
+  logoStripMode: LogoStripMode // Unified strip layout for logos (legacy 3-row)
+  enhanced4RowStrip: Enhanced4RowStripMode // NEW: Enhanced 4-row strip system
   // Creation mode and design data
   creationMode: CreationMode
   templateId: string | null
@@ -252,12 +253,36 @@ interface CreativeState {
   updateLogoBackground: (logoId: string, shape: LogoBackgroundShape) => void
   updateLogoBackgroundStyle: (logoId: string, style: Partial<LogoBackgroundStyle>) => void
   setLogoBackgroundColor: (color: string) => void // Global background color for all logos
-  // Logo strip mode actions
+  // Logo strip mode actions (legacy 3-row)
   setLogoStripMode: (stripMode: LogoStripMode) => void
   toggleLogoStripRow: (row: LogoStripRow) => void
   setLogoStripShape: (shape: LogoStripShape) => void
   setLogoStripOpacity: (opacity: number) => void
   setLogoStripLogoBound: (logoBound: boolean) => void
+
+  // Enhanced 4-row strip actions
+  setEnhanced4RowEnabled: (enabled: boolean) => void
+  setEnhanced4RowVersion: (version: '4-row' | '4-row-split') => void
+  updateInitiativeText: (config: Partial<InitiativeTextConfig>) => void
+  updatePartnerLabel: (config: Partial<PartnerLabelConfig>) => void
+  addVerticalLogo4Row: (logoId: string) => void // max 6 enforcement
+  removeVerticalLogo4Row: (logoId: string) => void
+  reorderVerticalLogos4Row: (logoIds: string[]) => void
+  setPartnerLogo: (logoId: string | null) => void
+  update4RowBackground: (config: Partial<Enhanced4RowStripMode['background']>) => void
+  set4RowBrandEnabled: (enabled: boolean) => void
+  set4RowVerticalEnabled: (enabled: boolean) => void
+
+  // Footer row actions (split layout - row 4 at bottom)
+  setFooterEnabled: (enabled: boolean) => void
+  updateFooterConfig: (config: Partial<FooterRowConfig>) => void
+  updateFooterHashtag: (hashtag: { enabled?: boolean; text?: string }) => void
+  updateFooterWebsite: (website: { enabled?: boolean; url?: string; socialHandle?: string }) => void
+  updateFooterDigitalPartner: (partner: Partial<FooterRowConfig['digitalPartner']>) => void
+  updateFooterBackground: (background: Partial<FooterRowConfig['background']>) => void
+  setFooterLayout: (layout: FooterLayout) => void
+  setFooterPartnerLogo: (logoId: string | null) => void
+
   // AI Logo Position Optimization
   applyOptimizedPlacements: (optimizedPlacements: Array<{
     logoId: string
@@ -365,6 +390,7 @@ const initialFormData: CreativeFormData = {
   logosPlacements: [],
   logoBackgroundColor: DEFAULT_LOGO_BACKGROUND_COLOR,
   logoStripMode: DEFAULT_LOGO_STRIP_MODE,
+  enhanced4RowStrip: DEFAULT_ENHANCED_4ROW_STRIP, // NEW: Enhanced 4-row strip
   creationMode: 'template',
   templateId: null,
   designData: DEFAULT_DESIGN_DATA,
@@ -472,14 +498,59 @@ export const useCreativeStore = create<CreativeState>()(
           }
         }
 
-        // Only update if we added new placements
-        if (newPlacements.length > currentPlacements.length) {
+        // v9.0: Auto-detect JICATE logo and set as default footer partner
+        // JICATE = Joint Initiative for Collective Action and Transformative Education
+        const jicateLogo = availableLogos.find(logo =>
+          logo.name && /jicate/i.test(logo.name)
+        )
+
+        // Get current footer partner status
+        const currentFooterPartnerId = formData.enhanced4RowStrip.footer?.digitalPartner?.logoId
+
+        // Only update if we added new placements OR have a JICATE logo to set as default partner
+        if (newPlacements.length > currentPlacements.length || (jicateLogo && !currentFooterPartnerId)) {
+          // v7.0: Also sync brand logo IDs to enhanced4RowStrip for 4-row strip rendering
+          const brandLogoIds = newPlacements
+            .filter(p => ['top-1', 'top-2', 'top-6'].includes(p.position))
+            .sort((a, b) => {
+              // Sort by position: top-1, top-2, top-6
+              const order = ['top-1', 'top-2', 'top-6']
+              return order.indexOf(a.position) - order.indexOf(b.position)
+            })
+            .map(p => p.logoId)
+
           set({
             formData: {
               ...formData,
               logosPlacements: newPlacements,
+              enhanced4RowStrip: {
+                ...formData.enhanced4RowStrip,
+                rows: {
+                  ...formData.enhanced4RowStrip.rows,
+                  brand: {
+                    ...formData.enhanced4RowStrip.rows.brand,
+                    logoIds: brandLogoIds,
+                  },
+                },
+                // v9.0: Set JICATE as default footer partner if detected and no partner set
+                footer: {
+                  ...formData.enhanced4RowStrip.footer,
+                  digitalPartner: {
+                    ...formData.enhanced4RowStrip.footer.digitalPartner,
+                    // Only set if JICATE found AND no partner already set
+                    ...(jicateLogo && !currentFooterPartnerId ? {
+                      logoId: jicateLogo.id,
+                      enabled: true,
+                    } : {}),
+                  },
+                },
+              },
             },
           })
+          console.log('[AutoPlace] Brand logo IDs synced to 4-row strip:', brandLogoIds)
+          if (jicateLogo && !currentFooterPartnerId) {
+            console.log('[AutoPlace] JICATE set as default footer partner:', jicateLogo.name)
+          }
         }
       },
 
@@ -815,6 +886,338 @@ export const useCreativeStore = create<CreativeState>()(
             logoStripMode: {
               ...state.formData.logoStripMode,
               logoBound,
+            },
+          },
+        })),
+
+      // ============================================================
+      // ENHANCED 4-ROW STRIP ACTIONS
+      // ============================================================
+
+      setEnhanced4RowEnabled: (enabled) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              enabled,
+            },
+            // Disable legacy 3-row when 4-row is enabled
+            logoStripMode: enabled
+              ? { ...state.formData.logoStripMode, enabled: false }
+              : state.formData.logoStripMode,
+          },
+        })),
+
+      setEnhanced4RowVersion: (version) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              version,
+            },
+          },
+        })),
+
+      updateInitiativeText: (config) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                initiative: {
+                  ...state.formData.enhanced4RowStrip.rows.initiative,
+                  ...config,
+                },
+              },
+            },
+          },
+        })),
+
+      updatePartnerLabel: (config) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                partner: {
+                  ...state.formData.enhanced4RowStrip.rows.partner,
+                  ...config,
+                },
+              },
+            },
+          },
+        })),
+
+      addVerticalLogo4Row: (logoId) =>
+        set((state) => {
+          const currentLogos = state.formData.enhanced4RowStrip.rows.vertical.logoIds
+          // Enforce max 6 logos
+          if (currentLogos.length >= MAX_VERTICAL_LOGOS) {
+            console.warn(`[4-Row Strip] Max ${MAX_VERTICAL_LOGOS} vertical logos allowed`)
+            return state
+          }
+          // Prevent duplicates
+          if (currentLogos.includes(logoId)) {
+            return state
+          }
+          return {
+            formData: {
+              ...state.formData,
+              enhanced4RowStrip: {
+                ...state.formData.enhanced4RowStrip,
+                rows: {
+                  ...state.formData.enhanced4RowStrip.rows,
+                  vertical: {
+                    ...state.formData.enhanced4RowStrip.rows.vertical,
+                    logoIds: [...currentLogos, logoId],
+                    enabled: true, // Auto-enable when logo added
+                  },
+                },
+              },
+            },
+          }
+        }),
+
+      removeVerticalLogo4Row: (logoId) =>
+        set((state) => {
+          const currentLogos = state.formData.enhanced4RowStrip.rows.vertical.logoIds
+          const updatedLogos = currentLogos.filter((id) => id !== logoId)
+          return {
+            formData: {
+              ...state.formData,
+              enhanced4RowStrip: {
+                ...state.formData.enhanced4RowStrip,
+                rows: {
+                  ...state.formData.enhanced4RowStrip.rows,
+                  vertical: {
+                    ...state.formData.enhanced4RowStrip.rows.vertical,
+                    logoIds: updatedLogos,
+                    // Auto-disable if no logos left
+                    enabled: updatedLogos.length > 0,
+                  },
+                },
+              },
+            },
+          }
+        }),
+
+      reorderVerticalLogos4Row: (logoIds) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                vertical: {
+                  ...state.formData.enhanced4RowStrip.rows.vertical,
+                  logoIds: logoIds.slice(0, MAX_VERTICAL_LOGOS), // Enforce max
+                },
+              },
+            },
+          },
+        })),
+
+      setPartnerLogo: (logoId) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                partner: {
+                  ...state.formData.enhanced4RowStrip.rows.partner,
+                  logoId,
+                },
+              },
+            },
+          },
+        })),
+
+      update4RowBackground: (config) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              background: {
+                ...state.formData.enhanced4RowStrip.background,
+                ...config,
+              },
+            },
+          },
+        })),
+
+      set4RowBrandEnabled: (enabled) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                brand: {
+                  ...state.formData.enhanced4RowStrip.rows.brand,
+                  enabled,
+                },
+              },
+            },
+          },
+        })),
+
+      set4RowVerticalEnabled: (enabled) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                vertical: {
+                  ...state.formData.enhanced4RowStrip.rows.vertical,
+                  enabled,
+                },
+              },
+            },
+          },
+        })),
+
+      // ============================================================
+      // FOOTER ROW ACTIONS (Split Layout - Row 4 at Bottom)
+      // ============================================================
+
+      setFooterEnabled: (enabled) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                enabled,
+              },
+            },
+          },
+        })),
+
+      updateFooterConfig: (config) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                ...config,
+              },
+            },
+          },
+        })),
+
+      updateFooterHashtag: (hashtag) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                hashtag: {
+                  ...state.formData.enhanced4RowStrip.footer.hashtag,
+                  ...hashtag,
+                },
+              },
+            },
+          },
+        })),
+
+      updateFooterWebsite: (website) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                website: {
+                  ...state.formData.enhanced4RowStrip.footer.website,
+                  ...website,
+                },
+              },
+            },
+          },
+        })),
+
+      updateFooterDigitalPartner: (partner) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                digitalPartner: {
+                  ...state.formData.enhanced4RowStrip.footer.digitalPartner,
+                  ...partner,
+                },
+              },
+            },
+          },
+        })),
+
+      updateFooterBackground: (background) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                background: {
+                  ...state.formData.enhanced4RowStrip.footer.background,
+                  ...background,
+                },
+              },
+            },
+          },
+        })),
+
+      setFooterLayout: (layout) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                layout,
+              },
+            },
+          },
+        })),
+
+      // v7.0: Auto-enable digitalPartner when logo is selected
+      setFooterPartnerLogo: (logoId) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                digitalPartner: {
+                  ...state.formData.enhanced4RowStrip.footer.digitalPartner,
+                  logoId,
+                  enabled: !!logoId, // Auto-enable when logo selected
+                },
+              },
             },
           },
         })),

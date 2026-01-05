@@ -375,9 +375,9 @@ export default function GalleryPage() {
 
       {/* Gallery Grid - Masonry Layout */}
       {isLoading ? (
-        <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-3 sm:gap-4">
           {[...Array(8)].map((_, i) => (
-            <Card key={i} className="break-inside-avoid mb-4 glass-card border-none shadow-none">
+            <Card key={i} className="break-inside-avoid mb-3 sm:mb-4 glass-card border-none shadow-none">
               <div
                 className="bg-muted rounded-t-xl animate-pulse"
                 style={{ height: [200, 280, 320, 240, 260, 300, 220, 290][i % 8] }}
@@ -403,11 +403,11 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-3 sm:gap-4">
           {creatives.map((creative) => (
             <div
               key={creative.id}
-              className="break-inside-avoid mb-4 glass-card group cursor-pointer hover:scale-[1.01] transition-all duration-300"
+              className="break-inside-avoid mb-3 sm:mb-4 glass-card group cursor-pointer hover:scale-[1.01] transition-all duration-300"
               onClick={() => setSelectedCreative(creative)}
             >
               {/* Image Container - Natural Height */}

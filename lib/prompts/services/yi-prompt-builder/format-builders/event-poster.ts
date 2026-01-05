@@ -18,6 +18,7 @@ import {
   buildLayoutZoneContext,
   buildLanguageContext,
   buildSpeakerPhotoZoneContext,
+  buildLogoStripZoneContext,
   formatSpeakerDetails,
   formatMultipleSpeakers,
 } from '../context-helpers'
@@ -454,6 +455,32 @@ CRITICAL SPEAKER TEXT RENDERING RULES:
 `;
 }
 
+/**
+ * Build headline text section with XML role tags (v13.0)
+ *
+ * CRITICAL: Wraps headline in explicit <text role> tags to force Gemini rendering.
+ * Pattern copied from buildSpeakerTextSection() which successfully renders speaker names.
+ *
+ * Previously, headline was defined as plain bullet: "- Main headline: ${eventName}"
+ * Gemini treated "Main headline:" as instruction label, not renderable content.
+ *
+ * Root Cause Fix: Headlines were missing/invisible in generated posters because they lacked
+ * the XML role tags that make speaker text render successfully. This function applies the
+ * EXACT same pattern that works for speaker photos to the headline text.
+ *
+ * @param eventName - The event title to render
+ * @param colorSource - Color palette with hero color for headline
+ * @returns XML-tagged headline text that Gemini will render
+ */
+function buildHeadlineTextSection(
+  eventName: string,
+  colorSource: any
+): string {
+  const headlineColor = colorSource.hero?.color || '#FFFFFF'
+
+  return `<text role="event_headline" color="${headlineColor}" prominence="dominant" size="largest">${eventName}</text>`
+}
+
 // ============================================================
 // MAIN BUILDER
 // ============================================================
@@ -514,6 +541,34 @@ export function buildEventPosterPrompt(
   const orgContext = buildOrganizationContext(options.organizationContext)
   const layoutContext = buildLayoutZoneContext(options.layout)
   const langContext = buildLanguageContext(options.language)
+
+  // NEW v7.0: Build logo strip zone context for 4-Row Enhanced Strip
+  // This tells Gemini to reserve space for logo strips (header and footer)
+  const logoStripZoneContext = buildLogoStripZoneContext(options.logoStripZoneCoordinates)
+  if (logoStripZoneContext) {
+    console.log('[Event Poster] v7.0: Logo strip zone context added for 4-Row Enhanced Strip')
+  }
+
+  // v12.4: Extract footer zone info for layout composition section reinforcement
+  const hasFooterContent = options.logoStripZoneCoordinates?.activeRows?.footer || false
+  const footerReservePercent = options.logoStripZoneCoordinates?.footerReservePercent || 0
+  const headerReservePercent = options.logoStripZoneCoordinates?.headerReservePercent || 18
+  const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
+
+  // v12.5: Extract header boundary for Additional Details positioning
+  const headerStartPercent = options.logoStripMode?.enabled && options.verticalId ? 20 : 15
+
+  // v12.6: Complete text positioning system - explicit Y-coordinates for ALL elements
+  const textZones = {
+    header: { start: 0, end: headerReservePercent },
+    headline: { start: headerStartPercent, end: headerStartPercent + 7 }, // 20-27% or 15-22%
+    tagline: { start: headerStartPercent + 8, end: headerStartPercent + 12 }, // 28-32% or 23-27%
+    dateVenue: { start: headerStartPercent + 13, end: headerStartPercent + 20 }, // 33-40% or 28-35%
+    speakers: { start: headerStartPercent + 22, end: headerStartPercent + 32 }, // 42-52% or 37-47%
+    additionalDetails: { start: 54, end: 100 - footerReservePercent - 5 }, // 54-83%
+    buffer: { start: 100 - footerReservePercent - 3, end: 100 - footerReservePercent }, // 85-88%
+    footer: { start: 100 - footerReservePercent, end: 100 } // 88-100%
+  }
 
   // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
 
@@ -800,17 +855,31 @@ FONT STYLES (MOOD-BASED):
 - Body Style: ${tg.bodyStyle}
 - Hierarchy: ${tg.hierarchy}
 
-TEXT HIERARCHY:
+TEXT HIERARCHY (v13.0 - ENFORCED):
 
-The event name "${eventName}" should be the LARGEST and most prominent text element, using bold typography in ${colorSource.hero.color} (${colorSource.hero.description}). Make it the clear visual focal point.
+The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${colorSource.hero.color} (${colorSource.hero.description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
 
-Speaker names or tagline text should be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+🎯 TEXT HIERARCHY ENFORCEMENT:
+1. Event Headline: LARGEST (ultra-bold, ${colorSource.hero.color})
+2. Tagline/Speaker Names: MEDIUM (${colorSource.headline.color})
+3. Date/Venue: SMALL supporting text (${colorSource.body.color})
+4. Additional Details: SMALLEST supporting text
 
-Date, venue, and event details should be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
+CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
+The event headline "${eventName}" MUST be:
+- Readable from 10 feet away
+- Instantly visible in 3-second scan
+- NEVER obscured by decorative elements
+- Rendered ON TOP of all visual elements (highest z-index)
+- The FIRST element viewers notice (not decorative graphics)
+
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+
+Date, venue, and event details MUST be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" should be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text should be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability
@@ -832,17 +901,31 @@ COLOR APPLICATION:
 TYPOGRAPHY SYSTEM:
 - Alignment Strategy: ${fallbackAlignment}-aligned layout (varied composition)
 
-TEXT HIERARCHY:
+TEXT HIERARCHY (v13.0 - ENFORCED):
 
-The event name "${eventName}" should be the LARGEST and most prominent text element, using bold typography in ${colorSource.hero.color} (${colorSource.hero.description}). Make it the clear visual focal point.
+The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${colorSource.hero.color} (${colorSource.hero.description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
 
-Speaker names or tagline text should be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+🎯 TEXT HIERARCHY ENFORCEMENT:
+1. Event Headline: LARGEST (ultra-bold, ${colorSource.hero.color})
+2. Tagline/Speaker Names: MEDIUM (${colorSource.headline.color})
+3. Date/Venue: SMALL supporting text (${colorSource.body.color})
+4. Additional Details: SMALLEST supporting text
 
-Date, venue, and event details should be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
+CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
+The event headline "${eventName}" MUST be:
+- Readable from 10 feet away
+- Instantly visible in 3-second scan
+- NEVER obscured by decorative elements
+- Rendered ON TOP of all visual elements (highest z-index)
+- The FIRST element viewers notice (not decorative graphics)
+
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+
+Date, venue, and event details MUST be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" should be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text should be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability
@@ -997,7 +1080,9 @@ ${options.ultraProContext.designGuidance || 'Follow the visual scene description
 
 ${hasSpeakerPhoto ? speakerZoneContext : ''}
 
-POSTER LAYOUT AND COMPOSITION:
+${logoStripZoneContext ? `${logoStripZoneContext}
+
+` : ''}POSTER LAYOUT AND COMPOSITION:
 
   <layout_composition_rules>
     1. HIERARCHY OVER RIGIDITY:
@@ -1005,52 +1090,134 @@ POSTER LAYOUT AND COMPOSITION:
    - If alignment is 'left', align key text elements to a strong left grid line.
    - If alignment is 'asymmetric', create a dynamic balance between text and visuals.
 
-2. LOGICAL GROUPING:
-  - Group Date, Time, and Venue together visually(e.g., using icons or a divider).
-   - "${eventName}" must be the dominant focal point.
-   - "${eventName}" must be the dominant focal point.
-${data.registrationInfo ? `   - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
+2. DATE, TIME, AND VENUE POSITIONING:
+  - SAFE Y-COORDINATE RANGE: ${textZones.dateVenue.start}-${textZones.dateVenue.end}% from top
+  - Group Date, Time, and Venue together as a unified visual block
+  - Position this group at approximately ${textZones.dateVenue.start}% from top (BELOW tagline if present)
+  - CRITICAL: This group MUST start at or below ${textZones.dateVenue.start}%, NOT in the header zone (0-${textZones.header.end}%)
+  - Use icons or dividers to enhance visual grouping
+  - "${eventName}" must remain the dominant focal point above this section
+${data.registrationInfo ? `  - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
-3. HEADER AREA (v6.0 - Dual-Stripe Enhanced):
+3. HEADER AREA (v12.7 - Unified Layout Constraints):
   ${options.logoStripMode?.enabled
-      ? (options.logoStripMode.enabled && options.verticalId
-        ? `- CRITICAL - TWO-ROW LOGO LAYOUT:
-  - The top 18% of your canvas accommodates TWO rows of logos (added in post-processing).
-  - First row (top 10%): Yi, Bharat Rising, CII logos
-  - Second row (next 8%): Vertical program logos (Yi Learning, Yi Innovation, etc.)
-  - DO NOT generate any content in this 18% zone - only clean background
+    ? `- The top ${textZones.header.end}% of the canvas is reserved for branding elements (applied in post-processing).`
+    : `- The top ${textZones.header.end}% should have a clean, simple background for optimal visual flow.`
+  }
 
-  YOUR CONTENT STARTS HERE:
-  - BEGIN your main headline at 20% from the top edge (NOT earlier)
-  - Measure from absolute top (0%) to the top of your first text line
-  - This 2% gap (18% logo area + 2% buffer = 20% start) prevents overlap with second logo row`
-        : `- The top 8% of the canvas is RESERVED and will be replaced in post-processing.
-  - START your design at approximately 8% from the top edge.
-  - Do NOT extend backgrounds, gradients, or any graphics into the top 8%.
-  - Treat 8% from top as the TOP EDGE of your design canvas.
-  - Position the main headline starting at approximately 15% from top.`)
-      : `- DO NOT create a visible stripe, band, or separate header section.
-  - The background should flow naturally from top to bottom.
-  - ${sophistication === 'minimalist'
-        ? 'Keep the top 10% simple (solid color or subtle gradient).'
-        : 'Extend your immersive background to the top edge.'}
-  - Keep the top 10% area clean with only background elements (no text, faces, or graphics).`
+  🚫 FORBIDDEN ZONE - TOP ${textZones.header.end}% (v12.7):
+  - DO NOT generate any content in the top ${textZones.header.end}% (0-${textZones.header.end}%) zone
+  - NO text of any kind (not even small text)
+  - NO decorative elements or graphics
+  - ONLY clean background (solid color, subtle gradient, or simple texture)
+
+  ✅ TEXT PLACEMENT RULES (v12.7):
+  - Main headline: BEGIN at minimum ${textZones.headline.start}% from top (NOT earlier)
+  ${eventDescription ? `- Tagline: BEGIN at minimum ${textZones.tagline.start}% from top` : ''}
+  - Date/Venue: BEGIN at minimum ${textZones.dateVenue.start}% from top
+  ${speakers.length > 0 ? `- Speakers: BEGIN at minimum ${textZones.speakers.start}% from top` : ''}
+  ${customFieldsText.length > 0 ? `- Additional Details: BEGIN at minimum ${textZones.additionalDetails.start}% from top` : ''}
+
+  🎯 VERTICAL LAYOUT SYSTEM (v12.7):
+  All text elements MUST respect these minimum Y-coordinates to avoid header overlap.
+  The background flows seamlessly from top (0%) to bottom (100%) without creating visible bands or stripes.
+
+🎯 TEXT PROTECTION ZONES (v13.0 - MANDATORY CLEARANCE):
+
+The following areas MUST remain CLEAR for text readability:
+- HEADLINE ZONE: ${textZones.headline.start}% to ${textZones.headline.end}% from top (Y-axis)
+  - HORIZONTAL: Center 50% of canvas width (25-75% X-axis)
+  - PURPOSE: Event name "${eventName}" rendering area
+  - RULE: NO decorative elements, NO complex graphics, ONLY simple background
+
+${eventDescription ? `- TAGLINE ZONE: ${textZones.tagline.start}% to ${textZones.tagline.end}% from top
+  - HORIZONTAL: Center 60% of canvas width (20-80% X-axis)
+  - RULE: Simple gradient background only, NO competing visual elements
+` : ''}
+VISUAL ELEMENTS PLACEMENT (v13.0):
+- Decorative elements (phones, speedometers, icons) MUST be placed OUTSIDE text zones
+- Use CORNERS and EDGES for visual elements (0-20% or 80-100% X-axis)
+- Use SUBTLE OPACITY (30-50%) for background elements that might near text
+- If element conflicts with text zone → REMOVE the element
+
+LAYERING SPECIFICATION (v13.0 - CRITICAL):
+- TEXT = Foreground layer (z-index: 100)
+- Visual decorative elements = Background layer (z-index: 1)
+- NEVER render decorative elements above text
+- Text MUST always be readable, NEVER obscured by visuals
+
+${hasFooterContent && footerReservePercent > 0 ? `
+
+4. FOOTER AREA (CRITICAL SAFE ZONE):
+  - The bottom ${footerReservePercent}% of the canvas is STRICTLY RESERVED for footer bar overlay
+  - STOP all content at ${100 - footerReservePercent}% from the top edge (measured from absolute top at 0%)
+  - The footer bar will contain: hashtag, website URL, and partner logo
+
+  🚫 FORBIDDEN IN FOOTER ZONE (bottom ${footerReservePercent}%):
+  - NO text of any kind (headlines, body text, captions, call-to-action)
+  - NO decorative elements (icons, shapes, patterns, graphics)
+  - NO visual content (photos, illustrations, logos)
+  - ONLY clean background (solid color, subtle gradient - that's it)
+
+  YOUR CONTENT ENDS HERE:
+  - FINISH your last text element by ${100 - footerReservePercent}% from top (NOT later)
+  - Measure from absolute top (0%) to the bottom of your last text line
+  - This ${footerReservePercent}% gap (at bottom) prevents overlap with footer bar
+  - Leave adequate breathing room - don't position text exactly at ${100 - footerReservePercent}%
+` : ''}
+${customFieldsText.length > 0 ? `
+
+${hasFooterContent && footerReservePercent > 0 ? '5' : '4'}. ADDITIONAL DETAILS POSITIONING (CRITICAL):
+  - Additional Details text MUST be positioned in the SAFE ZONE between header and footer
+  - SAFE Y-COORDINATE RANGE: ${textZones.additionalDetails.start}-${textZones.additionalDetails.end}% from top
+  - Target position: Middle-lower area of the canvas (approximately ${textZones.additionalDetails.start}-${textZones.additionalDetails.end - 10}% from top)
+  - This text appears AFTER main event details but BEFORE the footer boundary at ${textZones.footer.start}%
+
+  PLACEMENT RULES:
+  - Position Additional Details BELOW the main event information (title, date, venue, speakers)
+  - Position Additional Details ABOVE the ${textZones.footer.start}% footer boundary (with at least 5% buffer)
+  - CRITICAL: Additional Details MUST start at or below ${textZones.additionalDetails.start}%, NOT in the header zone (0-${textZones.header.end}%)
+  - If there are speakers, position Additional Details AFTER the speaker section
+  - Leave adequate spacing (minimum 3% gap) between Additional Details and footer boundary
+  - The bottom of the Additional Details text block MUST NOT exceed ${textZones.additionalDetails.end}% from top
+
+  RENDERING FORMAT:
+  - Render as clean, scannable list or 2-column grid (see TOPICS AND CONTENT LAYOUT section)
+  - Use icons or bullets for visual hierarchy
+  - Ensure line-height is at least 1.5x for readability
+` : ''}
+    ${eventDescription ? `${(() => {
+  let num = 4
+  if (hasFooterContent && footerReservePercent > 0) num++
+  if (customFieldsText.length > 0) num++
+  return num
+})()}. TAGLINE POSITIONING:
+  - SAFE Y-COORDINATE RANGE: ${textZones.tagline.start}-${textZones.tagline.end}% from top
+  - Position tagline BELOW the headline with minimum 1% gap
+  - The tagline appears AFTER "${eventName}" at approximately ${textZones.tagline.start}% from top
+  - CRITICAL: Tagline MUST start at or below ${textZones.tagline.start}%, NOT in the header zone (0-${textZones.header.end}%)
+  - Text content: "${eventDescription}"` : ''
     }
 
-    ${eventDescription ? `4. TAGLINE:
-   - Place "${eventDescription}" in a supporting relationship to the title.` : ''
-    }
-
-${speakers.length > 0 ? `5. SPEAKER${speakers.length > 1 ? 'S' : ''} TEXT POSITIONING & TYPOGRAPHY:
+${speakers.length > 0 ? `${(() => {
+  let num = 4
+  if (hasFooterContent && footerReservePercent > 0) num++
+  if (customFieldsText.length > 0) num++
+  if (eventDescription) num++
+  return num
+})()}. SPEAKER${speakers.length > 1 ? 'S' : ''} TEXT POSITIONING & TYPOGRAPHY:
 ${hasSpeakerPhoto ? `   ${
   // v6.8: REMOVED pixel coordinate instructions
   // These explicit zone boundaries caused Gemini to draw visual markers
   // Speaker photo overlay doesn't need Gemini to reserve space - it overlays on top of ANY background
   ''
 }
-   SPEAKER TEXT POSITIONING (v6.10.1 - regression fix):
-   - Render speaker name and designation as a unified text block in proximity to speaker content
-   - Position in reading sequence: after headline, before event details
+   SPEAKER TEXT POSITIONING & TYPOGRAPHY:
+   - SAFE Y-COORDINATE RANGE: ${textZones.speakers.start}-${textZones.speakers.end}% from top
+   - Render speaker name and designation as a unified text block
+   - Position speaker section at approximately ${textZones.speakers.start}% from top
+   - CRITICAL: Speaker text MUST start at or below ${textZones.speakers.start}%, NOT in the header zone (0-${textZones.header.end}%)
+   - Position AFTER date/venue group, BEFORE additional details section
    - Vertical spacing: minimal gap between name and designation (grouped together)
    - Alignment: center-aligned for visual cohesion
 
@@ -1083,7 +1250,14 @@ ${speakers.length > 1 ? `
    - Balance: Ensure visual balance across the entire speaker section` : ''}` : ''
     }
 
-${data.entryFee ? `${speakers.length > 0 ? '6' : '5'}. FEE:
+${data.entryFee ? `${(() => {
+      let feeSection = 4
+      if (hasFooterContent && footerReservePercent > 0) feeSection++
+      if (customFieldsText.length > 0) feeSection++
+      if (eventDescription) feeSection++
+      if (speakers.length > 0) feeSection++
+      return feeSection
+    })()}. FEE:
    - "Registration fee: ${data.entryFee}" can be a subtle detail or a badge.` : ''
     }
   </layout_composition_rules>
@@ -1124,20 +1298,20 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
     console.warn('[Event Poster v6.12.1] Source check: rawData.tagline:', (rawData as any).tagline)
   }
 
-TEXT TO DISPLAY IN THE IMAGE(render these exact words):
-  - Main headline: "${eventName}"
-${eventDescription ? `- Tagline: "${eventDescription}"` : ''}
+TEXT TO DISPLAY IN THE IMAGE (render these exact words):
+${buildHeadlineTextSection(eventName, colorSource)}
+${eventDescription ? `<text role="event_tagline" color="${colorSource.headline?.color || '#E0E0E0'}" prominence="medium" size="medium">${eventDescription}</text>` : ''}
   - Date${data.eventTime ? ' & Time' : ''}: "${formatEventDate(data.eventDate)}${data.eventTime ? ' | ' + (data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)) : ''}"
     - Location: "${data.venue || ''}"
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
-${customFieldsText.length > 0 ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}` : ''}
+${customFieldsText.length > 0 || eventNote ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}${eventNote ? `\n   "${eventNote}"` : ''}` : ''}
 ${speakers.length > 0 ? `${speakers.length > 1 ? '- Speakers (render with typography guidance from section 5):\n   ' : '- Speaker (render with typography guidance from section 5):\n   '}${speakers.map((speaker, index) => {
   const speakerNum = speakers.length > 1 ? `${index + 1}. ` : ''
   // v6.12.1: CRITICAL FIX - Remove "NAME:" and "DESIGNATION:" labels to prevent Gemini from rendering them
   return `${speakerNum}"${speaker.name}" (semibold, medium, ${(colorSource as any).speaker_name?.color || 'white'})${speaker.designation ? `\n      "${speaker.designation}" (regular, small-medium, ${(colorSource as any).speaker_designation?.color || '#D0D0D0'})` : ''}`
 }).join('\n   ')}` : ''}
 ${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
-${eventNote ? `- Footer: "${eventNote}"` : ''}
+${'' /* v14.0: eventNote moved to Additional Details section (line 1307) - Footer section now available for future use */}
 
 ${decorativeElementsContext}
 
@@ -1152,12 +1326,32 @@ ${buildMultiColorTypographyInstructions(options.multiColorTypography)}
 
 ${EVENT_POSTER_EXAMPLES}
 
-QUALITY STANDARDS:
-This poster passes the 3 - SECOND TEST where What, When, Where are instantly visible.The event name "${eventName}" is the dominant text element and impossible to miss.The design is readable from both close - up on a phone and at distance as a printed poster.Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom.The call - to - action stands out and drives action.All text is clearly legible against its background.
+QUALITY STANDARDS (v13.0 - TEXT READABILITY FOCUS):
+This poster passes the 3-SECOND TEXT READABILITY TEST:
+✅ The event name "${eventName}" is INSTANTLY VISIBLE as the largest text (readable from 10ft)
+✅ Headline is NEVER obscured by decorative elements or complex backgrounds
+✅ Text is rendered ON TOP (foreground) with visual elements in background
+✅ What, When, Where information is clear and legible
+✅ All text has sufficient contrast against backgrounds (WCAG AAA minimum)
+✅ Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom
+✅ The call-to-action stands out and drives action
+
+TEXT PROMINENCE VALIDATION (v13.0):
+- Event headline "${eventName}" MUST be larger than ANY other text element
+- Headline MUST be the FIRST thing viewers notice (not decorative graphics)
+- If a viewer cannot identify the event name in 3 seconds → GENERATION FAILED
+- The design is readable from both close-up on a phone and at distance as a printed poster
 ${sophistication === 'rich'
       ? 'The design MUST be visually stunning with adequate contrast in the top area.'
       : 'The top 15% should have a simple, clean background (solid color or subtle gradient). Keep this area empty.'
     }
+${hasFooterContent && footerReservePercent > 0
+      ? ` The bottom ${footerReservePercent}% is completely empty with ZERO text or graphics - only clean background for footer bar overlay.`
+      : ''
+    }${customFieldsText.length > 0 && footerReservePercent > 0
+      ? ` Additional Details text is positioned in the middle-lower area (50-${100 - footerReservePercent - 5}% from top), with adequate spacing above the footer boundary at ${100 - footerReservePercent}%.`
+      : ''
+    } All text elements respect vertical boundaries: Main headline at ${textZones.headline.start}%+, ${eventDescription ? `tagline at ${textZones.tagline.start}%+, ` : ''}date/venue at ${textZones.dateVenue.start}%+${speakers.length > 0 ? `, speakers at ${textZones.speakers.start}%+` : ''}${customFieldsText.length > 0 ? `, additional details at ${textZones.additionalDetails.start}-${textZones.additionalDetails.end}%` : ''}. NO text overlaps the header zone (0-${textZones.header.end}%) or footer zone (${textZones.footer.start}-100%). The background flows seamlessly without creating visible separation bands.
 
 DESIGN CONSTRAINTS:
 ${sophistication === 'rich'
@@ -1176,6 +1370,15 @@ ${speakers.length > 0 && !hasSpeakerPhoto ? `
 - Speakers ${speakers.map(s => `"${s.name}"`).join(', ')} appear as TEXT with visual prominence
 - Do NOT draw circular frames, silhouettes, or visual representations of people
 - Follow Section 5 typography guidance: semibold names, regular designations` : ''}
+
+FINAL LAYOUT VERIFICATION (v12.7):
+Before generating the image, verify that:
+1. The top ${textZones.header.end}% of the canvas (0-${textZones.header.end}%) contains ONLY background - NO text or graphics
+2. Main headline begins at or below ${textZones.headline.start}% from top
+3. All text elements respect their minimum Y-coordinates: ${eventDescription ? `tagline at ${textZones.tagline.start}%+, ` : ''}date/venue at ${textZones.dateVenue.start}%+${speakers.length > 0 ? `, speakers at ${textZones.speakers.start}%+` : ''}${customFieldsText.length > 0 ? `, additional details at ${textZones.additionalDetails.start}%+` : ''}
+${hasFooterContent && footerReservePercent > 0
+  ? `4. The bottom ${textZones.footer.start}% of the canvas (${textZones.footer.start}-100%) contains ONLY background - NO text or graphics
+` : ''}5. The background flows naturally from top to bottom without creating visible horizontal bands or stripes
 
 ${zoneReminderContext}
 

@@ -710,6 +710,101 @@ export function buildFooterContactContext(footerContext?: FooterContactContext):
 }
 
 // ============================================================
+// LOGO STRIP ZONE CONTEXT (v7.0)
+// ============================================================
+
+/**
+ * Logo strip zone coordinates type
+ * Mirrors EnhancedBuildOptions['logoStripZoneCoordinates']
+ */
+interface LogoStripZoneCoordinates {
+  headerHeight: number
+  headerReservePercent: number
+  footerHeight: number
+  footerReservePercent: number
+  activeRows: {
+    brand: boolean
+    vertical: boolean
+    initiative: boolean
+    footer: boolean
+  }
+}
+
+/**
+ * Build logo strip zone context for 4-Row Enhanced Strip
+ * Tells Gemini AI to reserve space for logo strips (header and footer)
+ * Similar to buildSpeakerPhotoZoneContext - keeps zones clean for overlay
+ *
+ * v7.0: New function to pass logo strip layout information to Gemini AI
+ * This prevents AI-generated content from overlapping with logo overlay areas
+ */
+export function buildLogoStripZoneContext(
+  logoStripZone?: LogoStripZoneCoordinates
+): string {
+  if (!logoStripZone) return ''
+
+  const { headerReservePercent, footerReservePercent, activeRows } = logoStripZone
+
+  // Only generate context if there's actual content in the strips
+  const hasHeaderContent = activeRows.brand || activeRows.vertical || activeRows.initiative
+  const hasFooterContent = activeRows.footer
+
+  if (!hasHeaderContent && !hasFooterContent) return ''
+
+  const instructions: string[] = []
+
+  // Header strip zone instruction
+  if (hasHeaderContent && headerReservePercent > 0) {
+    const headerElements: string[] = []
+    if (activeRows.brand) headerElements.push('brand logos')
+    if (activeRows.vertical) headerElements.push('program logos')
+    if (activeRows.initiative) headerElements.push('chapter text')
+
+    instructions.push(
+      `HEADER ZONE (top ${headerReservePercent}% of design): Reserved for ${headerElements.join(', ')} overlay. ` +
+      `Keep this area clean with simple, uncluttered background (solid color, subtle gradient, or minimal pattern). ` +
+      `Do NOT place headlines, important text, or key visuals in this zone.`
+    )
+  }
+
+  // Footer strip zone instruction
+  // v12.4: CRITICAL - Multi-layer reinforcement with exact pixel calculations to permanently fix footer overlap
+  if (hasFooterContent && footerReservePercent > 0) {
+    // v12.4: Calculate exact pixel height from actual canvas height (not assumed 1350px)
+    const canvasHeight = logoStripZone.headerHeight > 0
+      ? Math.round(logoStripZone.headerHeight / (logoStripZone.headerReservePercent / 100))
+      : 1344 // Fallback to standard 9:16 portrait height
+    const exactPixelHeight = Math.round((footerReservePercent / 100) * canvasHeight)
+    const contentEndPoint = 100 - footerReservePercent
+
+    instructions.push(
+      `🚫🚫🚫 CRITICAL FOOTER ZONE (bottom ${footerReservePercent}% = ${exactPixelHeight}px of ${canvasHeight}px canvas): ` +
+      `ABSOLUTELY NO TEXT OR CONTENT ALLOWED IN THIS AREA. ` +
+      `This is a POST-GENERATION OVERLAY ZONE - a solid footer bar will be overlaid here AFTER AI generation. ` +
+      `The footer bar contains: hashtag, website URL, and partner logo. ` +
+      `ANY content placed in the bottom ${footerReservePercent}% WILL BE COMPLETELY HIDDEN by the footer bar overlay. ` +
+      `\n\n` +
+      `CONTENT BOUNDARY (CRITICAL): ` +
+      `All text, graphics, and visual elements MUST END by ${contentEndPoint}% from top. ` +
+      `Position your last text element NO LOWER than ${contentEndPoint}% measured from top edge (0% = top). ` +
+      `Leave the bottom ${footerReservePercent}% completely empty - only background color/gradient allowed. ` +
+      `Think of ${contentEndPoint}% as the HARD BOTTOM EDGE of your design canvas.`
+    )
+  }
+
+  // Safe content zone instruction
+  if (headerReservePercent > 0 || footerReservePercent > 0) {
+    const safeStart = headerReservePercent || 0
+    const safeEnd = 100 - (footerReservePercent || 0)
+    instructions.push(
+      `SAFE CONTENT ZONE (${safeStart}% to ${safeEnd}% of height): Place all headlines, body text, key visuals, and important design elements within this zone to ensure no overlap with logo strip overlays.`
+    )
+  }
+
+  return `LOGO STRIP LAYOUT ZONES:\n${instructions.join('\n')}`
+}
+
+// ============================================================
 // COMBINED CONTEXT BUILDER
 // ============================================================
 

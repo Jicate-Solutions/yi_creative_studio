@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { CompiledFormData } from './form-data-compiler'
 import { buildTextBriefFromCompiled } from './form-data-compiler'
+import { safeJsonParse } from '@/lib/utils/json-repair'
 
 // Import prompt optimization utilities
 import {
@@ -575,7 +576,8 @@ async function callGemini(
     generationConfig: {
       temperature, // Dynamic temperature based on format type
       topP, // Dynamic top-P for word choice variation
-      maxOutputTokens: 1500,
+      maxOutputTokens: 2000, // Increased from 1500 for complex responses
+      responseMimeType: 'application/json', // v7.0: Force valid JSON output
     }
   })
 
@@ -636,7 +638,8 @@ function parseUltraProPrompt(
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0])
+    // v7.0: Use safeJsonParse with repair logic instead of bare JSON.parse
+    const parsed = safeJsonParse<any>(jsonMatch[0])
 
     // Ensure all required fields exist
     return {
@@ -651,6 +654,7 @@ function parseUltraProPrompt(
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] JSON parse error:', error)
+    console.error('[Ultra-Pro Prompt] Raw JSON (first 500 chars):', jsonMatch[0].substring(0, 500))
     return generateFallbackPrompt(compiledData, logoStripEnabled)
   }
 }

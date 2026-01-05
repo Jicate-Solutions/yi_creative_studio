@@ -274,8 +274,8 @@ export default function BulkGenerationPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Layers className="h-8 w-8" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Layers className="h-6 w-6 sm:h-8 sm:w-8" />
             Bulk Generation
           </h1>
           <p className="text-muted-foreground">
@@ -283,7 +283,7 @@ export default function BulkGenerationPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-lg px-3 py-1">
+          <Badge variant="outline" className="text-base sm:text-lg px-2 py-1 sm:px-3">
             {creditsBalance} credits
           </Badge>
         </div>
@@ -356,14 +356,14 @@ export default function BulkGenerationPage() {
 
       {/* Items List */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Generation Items</CardTitle>
             <CardDescription>
               Add items with different titles/variations
             </CardDescription>
           </div>
-          <Button onClick={addItem} disabled={isGenerating}>
+          <Button onClick={addItem} disabled={isGenerating} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
@@ -372,16 +372,16 @@ export default function BulkGenerationPage() {
           {bulkItems.map((item, index) => (
             <div
               key={item.id}
-              className="flex items-start gap-4 p-4 border rounded-lg"
+              className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
             >
-              <div className="flex items-center gap-2 min-w-[80px]">
+              <div className="flex items-center gap-2 w-full sm:w-auto sm:min-w-[80px]">
                 <span className="text-sm font-medium text-muted-foreground">
                   #{index + 1}
                 </span>
                 {getStatusIcon(item.status)}
               </div>
 
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 w-full space-y-2">
                 <Input
                   placeholder="Title / Headline"
                   value={item.title}
@@ -450,7 +450,7 @@ export default function BulkGenerationPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <p className="text-sm font-medium">
                 Total Cost: {totalCreditsNeeded} credits
@@ -467,7 +467,7 @@ export default function BulkGenerationPage() {
               size="lg"
               onClick={generateAll}
               disabled={isGenerating || !canGenerate || !selectedModel}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
             >
               {isGenerating ? (
                 <>

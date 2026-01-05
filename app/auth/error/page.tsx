@@ -7,24 +7,24 @@ import { ROUTES } from '@/lib/config/constants'
 
 export default function AuthErrorPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
       <Card className="w-full max-w-md text-center">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
+        <CardHeader className="px-4 sm:px-6">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <Logo size="lg" />
           </div>
-          <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-            <AlertTriangle className="h-8 w-8 text-destructive" />
+          <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-3 sm:mb-4">
+            <AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-destructive" />
           </div>
-          <CardTitle className="text-2xl">Authentication Error</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl">Authentication Error</CardTitle>
           <CardDescription>
             Something went wrong during authentication.
             This could be due to an expired or invalid link.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+        <CardContent className="space-y-4 px-4 sm:px-6">
+          <div className="bg-muted/50 rounded-lg p-3 sm:p-4 text-sm text-muted-foreground">
             <p>
               Please try signing in again. If the problem persists,
               contact support for assistance.

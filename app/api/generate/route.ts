@@ -22,14 +22,15 @@ async function getSharp(): Promise<typeof sharp> {
   }
   return sharpInstance
 }
-import { processImageWithLogos, resizeImageToExactDimensions, type LogoPosition } from '@/lib/sharp/logo-overlay'
+import { processImageWithLogos, resizeImageToExactDimensions, applyEnhanced4RowStrip, applyEnhanced4RowStripSplit, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
 import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
-import type { DesignData, CustomizationData } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
   DIMENSION_QUALITY,
+  ENHANCED_STRIP_ROW_HEIGHTS, // v12.3: Import actual row heights for accurate safe zone calculation
   getLogoStripStyleByVibe // NEW: for auto-selecting strip shape based on vibe
 } from '@/lib/config/design-constants'
 import {
@@ -71,6 +72,60 @@ import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-i
 import { sanitizeForGemini, detectLabelLeaks, stripFieldLabelsOnly, isXmlStructuredPrompt } from '@/lib/prompts/services/prompt-sanitizer'
 import { sanitizeForLogging } from '@/lib/utils/sanitize-log-data'
 import { randomUUID } from 'crypto'
+import type { FooterRowConfig } from '@/lib/config/design-constants'
+
+/**
+ * Check if footer has any content to render
+ * Matches the logic in lib/sharp/logo-overlay.ts (createEnhanced4RowFooterStrip)
+ * v12.1: Used for footer safe zone calculation
+ *
+ * @param footer - Footer configuration
+ * @returns true if footer has content (hashtag, website, or digital partner)
+ */
+function hasFooterContent(footer?: FooterRowConfig): boolean {
+  if (!footer) return false
+
+  return !!(
+    footer.hashtag.text.trim() ||
+    footer.website.url.trim() ||
+    footer.website.socialHandle?.trim() ||
+    footer.digitalPartner.logoId ||
+    footer.digitalPartner.labelText.trim()
+  )
+}
+
+/**
+ * Check if brand logos row has content to render
+ * v12.2: Used for header safe zone calculation
+ *
+ * @param enhanced4RowStrip - Enhanced 4-row strip configuration
+ * @returns true if brand logos exist
+ */
+function hasBrandLogos(enhanced4RowStrip: Enhanced4RowStripMode): boolean {
+  return (enhanced4RowStrip?.rows?.brand?.logoIds?.length ?? 0) > 0
+}
+
+/**
+ * Check if vertical logos row has content to render
+ * v12.2: Used for header safe zone calculation
+ *
+ * @param enhanced4RowStrip - Enhanced 4-row strip configuration
+ * @returns true if vertical logos exist
+ */
+function hasVerticalLogos(enhanced4RowStrip: Enhanced4RowStripMode): boolean {
+  return (enhanced4RowStrip?.rows?.vertical?.logoIds?.length ?? 0) > 0
+}
+
+/**
+ * Check if initiative text row has content to render
+ * v12.2: Used for header safe zone calculation
+ *
+ * @param enhanced4RowStrip - Enhanced 4-row strip configuration
+ * @returns true if initiative text exists
+ */
+function hasInitiativeText(enhanced4RowStrip: Enhanced4RowStripMode): boolean {
+  return !!(enhanced4RowStrip?.rows?.initiative?.text?.trim())
+}
 
 /**
  * Upload base64 image data to Supabase Storage and return the public URL.
@@ -158,6 +213,7 @@ export async function POST(request: NextRequest) {
       logosPlacements,
       logoBackgroundColor, // Global background color for all logos
       logoStripMode, // Unified strip layout mode
+      enhanced4RowStrip, // Enhanced 4-row strip mode (Yi Brand Guidelines 2025)
       organizationId,
       templateId,
       templateUrl,
@@ -181,6 +237,7 @@ export async function POST(request: NextRequest) {
         opacity?: number // Strip opacity 0-100
         logoBound?: boolean // When true, strip only covers logo area
       } // Strip layout mode
+      enhanced4RowStrip?: Enhanced4RowStripMode // Enhanced 4-row strip mode
       organizationId: string
       templateId: string | null
       templateUrl: string | null
@@ -1166,6 +1223,121 @@ export async function POST(request: NextRequest) {
           console.log('[Generate] Speaker photo zone coordinates calculated:', speakerPhotoZoneCoordinates)
         }
 
+        // v7.0: Calculate logo strip zone coordinates for 4-Row Enhanced Strip
+        // This tells Gemini AI to reserve space for logo strips (header and footer)
+        // Similar to how speakerPhotoZoneCoordinates works for speaker photos
+        let logoStripZoneCoordinates: EnhancedBuildOptions['logoStripZoneCoordinates'] | undefined
+        if (enhanced4RowStrip?.enabled && selectedFormat?.width && selectedFormat?.height) {
+          const { height } = selectedFormat
+
+          // v12.3: CRITICAL FIX - Use ACTUAL row heights from ENHANCED_STRIP_ROW_HEIGHTS constants
+          // Previously used outdated hardcoded values (brand=80, vertical=70) causing ~30px overlap
+          // Now uses actual rendering heights (brand=95, vertical=85) + correct spacing/padding
+
+          // v12.2: CRITICAL FIX - ALL rows (header + footer) now use content-based checks
+          // Previously used .enabled flags, causing AI content to overlap when enabled=false but content exists
+          // v12.1 fixed footer, v12.2 extends fix to header rows (brand, vertical, initiative)
+          // Determine which rows are active
+          const activeRows = {
+            brand: hasBrandLogos(enhanced4RowStrip),          // v12.2: Content-based check
+            vertical: hasVerticalLogos(enhanced4RowStrip),    // v12.2: Content-based check
+            initiative: hasInitiativeText(enhanced4RowStrip), // v12.2: Content-based check
+            footer: hasFooterContent(enhanced4RowStrip.footer), // v12.1: Content-based check
+          }
+
+          // v12.2: Debug logging for ALL rows safe zone calculation
+          console.log('[Logo Strip Safe Zone] Content checks:', {
+            header: {
+              brand: {
+                enabled: enhanced4RowStrip.rows.brand?.enabled,
+                hasLogos: hasBrandLogos(enhanced4RowStrip),
+                willReserve: activeRows.brand,
+              },
+              vertical: {
+                enabled: enhanced4RowStrip.rows.vertical?.enabled,
+                hasLogos: hasVerticalLogos(enhanced4RowStrip),
+                willReserve: activeRows.vertical,
+              },
+              initiative: {
+                enabled: enhanced4RowStrip.rows.initiative?.enabled,
+                hasText: hasInitiativeText(enhanced4RowStrip),
+                willReserve: activeRows.initiative,
+              },
+            },
+            footer: {
+              enabled: enhanced4RowStrip.footer?.enabled,
+              hasHashtag: !!enhanced4RowStrip.footer?.hashtag.text.trim(),
+              hasWebsite: !!(enhanced4RowStrip.footer?.website.url.trim() || enhanced4RowStrip.footer?.website.socialHandle?.trim()),
+              hasPartner: !!(enhanced4RowStrip.footer?.digitalPartner.logoId || enhanced4RowStrip.footer?.digitalPartner.labelText.trim()),
+              willReserve: activeRows.footer,
+            },
+          })
+
+          // Calculate header strip height (ROW 1 + ROW 2 + ROW 3)
+          // v12.3: CRITICAL FIX - Use actual ENHANCED_STRIP_ROW_HEIGHTS constants instead of outdated hardcoded values
+          // Previously: brand=80, vertical=70, initiative=40 (WRONG!)
+          // Actual rendering: brand=95, vertical=85, initiative=40 (from design-constants.ts)
+          // This mismatch caused AI content to overlap logo strips by ~30px
+
+          // Count active rows for spacing calculation
+          const activeHeaderRowCount = [activeRows.brand, activeRows.vertical, activeRows.initiative].filter(Boolean).length
+
+          let headerHeight = 0
+          if (activeRows.brand) headerHeight += ENHANCED_STRIP_ROW_HEIGHTS.brand       // 95px (was 80)
+          if (activeRows.vertical) headerHeight += ENHANCED_STRIP_ROW_HEIGHTS.vertical    // 85px (was 70)
+          if (activeRows.initiative) headerHeight += ENHANCED_STRIP_ROW_HEIGHTS.initiative  // 40px (unchanged)
+
+          // Add row spacing between rows (8px between each row)
+          if (activeHeaderRowCount > 1) {
+            headerHeight += (activeHeaderRowCount - 1) * 8  // 8px spacing between rows
+          }
+
+          // Add vertical padding (12px top + 12px bottom = 24px total)
+          headerHeight += 24
+
+          // Cap header at 25% of canvas height
+          headerHeight = Math.min(headerHeight, height * 0.25)
+
+          // Calculate footer height (ROW 4 - Footer Bar)
+          // v12.4: CRITICAL - Increased footer reserve from ~10% to ~12% for better AI compliance
+          // Footer bar height (80px default) + 88px buffer for guaranteed AI content clearance
+          let footerHeight = 0
+          if (activeRows.footer) {
+            const baseFooterHeight = enhanced4RowStrip.footer?.height || 80 // v11.2: Updated default from 62 to 80
+            // v12.4: Increased buffer from 60px to 88px for stronger AI compliance (168px total = ~12% of 1400px canvas)
+            // This larger buffer creates a "reinforcement zone" that Gemini AI is more likely to respect
+            footerHeight = baseFooterHeight + 88 // = 168px total reserve (~12% for standard 1400px canvas, ~13% for 1344px)
+            // v11.2: Increased cap from 12% to 15% to ensure adequate space for footer
+            footerHeight = Math.min(footerHeight, height * 0.15)
+          }
+
+          logoStripZoneCoordinates = {
+            headerHeight: Math.round(headerHeight),
+            headerReservePercent: Math.round((headerHeight / height) * 100),
+            footerHeight: Math.round(footerHeight),
+            footerReservePercent: Math.round((footerHeight / height) * 100),
+            activeRows,
+          }
+
+          // v12.3: Enhanced logging to show header height breakdown
+          console.log('[Generate] Logo strip zone coordinates calculated:', {
+            ...logoStripZoneCoordinates,
+            headerBreakdown: {
+              brandHeight: activeRows.brand ? ENHANCED_STRIP_ROW_HEIGHTS.brand : 0,
+              verticalHeight: activeRows.vertical ? ENHANCED_STRIP_ROW_HEIGHTS.vertical : 0,
+              initiativeHeight: activeRows.initiative ? ENHANCED_STRIP_ROW_HEIGHTS.initiative : 0,
+              rowSpacing: activeHeaderRowCount > 1 ? (activeHeaderRowCount - 1) * 8 : 0,
+              verticalPadding: 24,
+              totalBeforeCap: (activeRows.brand ? ENHANCED_STRIP_ROW_HEIGHTS.brand : 0) +
+                              (activeRows.vertical ? ENHANCED_STRIP_ROW_HEIGHTS.vertical : 0) +
+                              (activeRows.initiative ? ENHANCED_STRIP_ROW_HEIGHTS.initiative : 0) +
+                              (activeHeaderRowCount > 1 ? (activeHeaderRowCount - 1) * 8 : 0) + 24,
+              canvasHeight: height,
+              capAt25Percent: height * 0.25,
+            },
+          })
+        }
+
         // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
         // The "no placeholder" instruction is added in format builders instead
 
@@ -1174,6 +1346,8 @@ export async function POST(request: NextRequest) {
           ...buildOptions,
           // v6.5: Pass calculated speaker photo coordinates to prompt builder
           speakerPhotoZoneCoordinates,
+          // v7.0: Pass calculated logo strip zone coordinates to prompt builder
+          logoStripZoneCoordinates,
         })
 
         // Inject vertical context if applicable (redundant with buildOptions.verticalId but kept for compatibility)
@@ -1405,7 +1579,9 @@ ${typographyProfile.hierarchy}
     }
 
     // If logos need to be overlaid, process with Sharp
-    if (logosPlacements && logosPlacements.length > 0) {
+    // v14.2: Skip individual logo placement when enhanced 4-row strip is enabled
+    // The 4-row strip fetches and places brand logos from logosPlacements automatically
+    if (logosPlacements && logosPlacements.length > 0 && !enhanced4RowStrip?.enabled) {
       // NEW v4.8: Design Intelligence for Logo Strips
       // If user hasn't manually selected a strip shape, infer it from the AI's design strategy/vibe
       let stripShape = designData?.stripShape
@@ -1420,6 +1596,207 @@ ${typographyProfile.hierarchy}
       console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}, opacity: ${logoStripMode?.opacity ?? 100}%, logoBound: ${logoStripMode?.logoBound ?? false}`)
       console.log(`Logo strip shape: ${stripShape || 'default (curved)'}`) // NEW v3.11
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
+    } else if (enhanced4RowStrip?.enabled) {
+      console.log('[Logo Placement] Skipping individual logo placement - Enhanced 4-Row Strip will handle brand logos')
+    }
+
+    // ========================================================
+    // ENHANCED 4-ROW STRIP OVERLAY (Yi Brand Guidelines 2025)
+    // 4-row unified logo stripe OR split layout (header + footer)
+    // ========================================================
+    if (enhanced4RowStrip?.enabled) {
+      const isSplitLayout = enhanced4RowStrip.version === '4-row-split'
+      console.log(`[Enhanced 4-Row Strip] Processing ${isSplitLayout ? 'SPLIT (header+footer)' : 'UNIFIED'} strip overlay...`)
+      console.log('[Enhanced 4-Row Strip] Configuration:', {
+        version: enhanced4RowStrip.version || '4-row',
+        brandEnabled: enhanced4RowStrip.rows.brand.enabled,
+        verticalEnabled: enhanced4RowStrip.rows.vertical.enabled,
+        verticalLogoCount: enhanced4RowStrip.rows.vertical.logoIds.length,
+        initiativeEnabled: enhanced4RowStrip.rows.initiative.enabled,
+        initiativeText: enhanced4RowStrip.rows.initiative.text,
+        partnerEnabled: enhanced4RowStrip.rows.partner.enabled,
+        partnerLabel: enhanced4RowStrip.rows.partner.labelText,
+        backgroundColor: enhanced4RowStrip.background.color,
+        ...(isSplitLayout && {
+          footerEnabled: enhanced4RowStrip.footer?.enabled,
+          footerHashtag: enhanced4RowStrip.footer?.hashtag?.text,
+          footerWebsite: enhanced4RowStrip.footer?.website?.url,
+          footerDigitalPartner: enhanced4RowStrip.footer?.digitalPartner?.enabled,
+        }),
+      })
+
+      try {
+        // v7.1: Fetch logo buffers from Supabase storage
+        // Enhanced with organization filter and better error logging
+        const fetchLogoBuffer = async (logoId: string): Promise<{ logoId: string; buffer: Buffer; width: number; height: number } | null> => {
+          // First: Try to get URL from logosPlacements (already sent in payload)
+          let logoUrl = logosPlacements?.find(p => p.logoId === logoId)?.logo?.file_url
+          let source = 'logosPlacements'
+
+          // Second: If not in logosPlacements, query the organization_logos table with organization filter
+          // This handles enhanced4RowStrip logos selected from the logos dropdown
+          if (!logoUrl) {
+            const { data: logoData, error } = await supabase
+              .from('organization_logos')
+              .select('file_url, organization_id, name')
+              .eq('id', logoId)
+              .eq('organization_id', organizationId) // Filter by organization for RLS
+              .single()
+
+            if (error) {
+              console.warn(`[Enhanced 4-Row Strip] Supabase query error for logo ${logoId} (org: ${organizationId}):`, error.message)
+            }
+
+            if (logoData?.file_url) {
+              logoUrl = logoData.file_url
+              source = `logos table (org: ${organizationId})`
+            }
+          }
+
+          // Third: Fallback - try without organization filter (for shared/global logos)
+          if (!logoUrl) {
+            const { data: sharedLogoData, error: sharedError } = await supabase
+              .from('organization_logos')
+              .select('file_url, name')
+              .eq('id', logoId)
+              .single()
+
+            if (sharedError) {
+              console.warn(`[Enhanced 4-Row Strip] Shared logo query error for ${logoId}:`, sharedError.message)
+            }
+
+            if (sharedLogoData?.file_url) {
+              logoUrl = sharedLogoData.file_url
+              source = 'shared logos (fallback)'
+              console.log(`[Enhanced 4-Row Strip] Found logo ${logoId} in shared logos: ${sharedLogoData.name}`)
+            }
+          }
+
+          if (!logoUrl) {
+            console.warn(`[Enhanced 4-Row Strip] No URL found for logo ${logoId} - checked logosPlacements + logos table (org: ${organizationId}) + shared`)
+            return null
+          }
+
+          console.log(`[Enhanced 4-Row Strip] Fetching logo ${logoId} from ${source}: ${logoUrl.substring(0, 80)}...`)
+
+          try {
+            const response = await fetch(logoUrl)
+            if (!response.ok) {
+              console.error(`[Enhanced 4-Row Strip] HTTP error fetching logo ${logoId}: ${response.status}`)
+              return null
+            }
+            const buffer = Buffer.from(await response.arrayBuffer())
+            const sharp = await getSharp()
+            const metadata = await sharp(buffer).metadata()
+            return {
+              logoId,
+              buffer,
+              width: metadata.width || 100,
+              height: metadata.height || 100,
+            }
+          } catch (err) {
+            console.error(`[Enhanced 4-Row Strip] Failed to fetch logo ${logoId}:`, err)
+            return null
+          }
+        }
+
+        // Log vertical logo IDs for debugging
+        console.log('[Enhanced 4-Row Strip] Vertical logo IDs to fetch:', enhanced4RowStrip.rows.vertical.logoIds)
+
+        // Fetch all brand logos (Yi, Bharat ONE, CII - from logosPlacements)
+        const brandLogoIds = enhanced4RowStrip.rows.brand.logoIds.length > 0
+          ? enhanced4RowStrip.rows.brand.logoIds
+          : logosPlacements?.slice(0, 3).map(p => p.logoId) || []
+
+        const brandLogosPromises = brandLogoIds.map(fetchLogoBuffer)
+        const brandLogosResults = await Promise.all(brandLogosPromises)
+        const brandLogos = brandLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
+
+        // Fetch vertical logos
+        const verticalLogosPromises = enhanced4RowStrip.rows.vertical.logoIds.map(fetchLogoBuffer)
+        const verticalLogosResults = await Promise.all(verticalLogosPromises)
+        const verticalLogos = verticalLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
+
+        // Fetch partner logo if configured (unified mode uses rows.partner, split mode uses footer.digitalPartner)
+        let partnerLogo: { logoId: string; buffer: Buffer; width: number; height: number } | undefined
+        const partnerLogoId = isSplitLayout
+          ? enhanced4RowStrip.footer?.digitalPartner?.logoId
+          : enhanced4RowStrip.rows.partner.logoId
+        if (partnerLogoId) {
+          const result = await fetchLogoBuffer(partnerLogoId)
+          if (result) partnerLogo = result
+        }
+
+        console.log('[Enhanced 4-Row Strip] Fetched logos:', {
+          brandCount: brandLogos.length,
+          verticalCount: verticalLogos.length,
+          hasPartnerLogo: !!partnerLogo,
+          layoutMode: isSplitLayout ? 'split' : 'unified',
+        })
+
+        // Convert image URL to buffer for processing
+        const imageResponse = await fetch(imageUrl)
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image for 4-row strip: ${imageResponse.status}`)
+        }
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
+
+        // Apply the enhanced 4-row strip (unified or split based on version)
+        let processedBuffer: Buffer
+        if (isSplitLayout) {
+          // Split layout: Header at top, Footer at bottom
+          console.log('[Enhanced 4-Row Strip] Using SPLIT layout (header at top, footer at bottom)')
+
+          // v8.0: Debug footer configuration before rendering
+          console.log('[Footer Debug - API Route] Footer config being passed to rendering:', {
+            footerEnabled: enhanced4RowStrip.footer?.enabled,
+            hashtag: {
+              text: enhanced4RowStrip.footer?.hashtag?.text,
+              enabled: enhanced4RowStrip.footer?.hashtag?.enabled,
+            },
+            website: {
+              url: enhanced4RowStrip.footer?.website?.url,
+              socialHandle: enhanced4RowStrip.footer?.website?.socialHandle,
+              enabled: enhanced4RowStrip.footer?.website?.enabled,
+            },
+            digitalPartner: {
+              labelText: enhanced4RowStrip.footer?.digitalPartner?.labelText,
+              logoId: enhanced4RowStrip.footer?.digitalPartner?.logoId,
+              enabled: enhanced4RowStrip.footer?.digitalPartner?.enabled,
+            },
+          })
+
+          processedBuffer = await applyEnhanced4RowStripSplit(
+            imageBuffer,
+            enhanced4RowStrip,
+            {
+              brandLogos,
+              verticalLogos,
+              partnerLogo,
+            }
+          )
+        } else {
+          // Unified layout: All 4 rows at top
+          console.log('[Enhanced 4-Row Strip] Using UNIFIED layout (all rows at top)')
+          processedBuffer = await applyEnhanced4RowStrip(
+            imageBuffer,
+            enhanced4RowStrip,
+            {
+              brandLogos,
+              verticalLogos,
+              partnerLogo,
+            }
+          )
+        }
+
+        // Convert back to base64 data URL for storage upload
+        const base64 = processedBuffer.toString('base64')
+        imageUrl = `data:image/png;base64,${base64}`
+        console.log(`[Enhanced 4-Row Strip] Successfully applied ${isSplitLayout ? 'SPLIT' : 'UNIFIED'} strip`)
+      } catch (error) {
+        console.error('[Enhanced 4-Row Strip] Failed to apply strip overlay:', error)
+        // Continue with original image on error
+      }
     }
 
     // ========================================================
@@ -1466,12 +1843,32 @@ ${typographyProfile.hierarchy}
       const mimeMatch = header.match(/data:([^;]+);/)
       const mimeType = mimeMatch ? mimeMatch[1] : 'image/png'
 
-      try {
-        imageUrl = await uploadImageToStorage(base64Data, mimeType, organizationId, supabase)
-        console.log('[Generate] Image uploaded successfully to Storage')
-      } catch (uploadError) {
-        console.error('[Generate] Failed to upload to Storage, falling back to base64:', uploadError)
-        // Keep base64 as fallback - don't fail generation due to storage issues
+      // v7.0: Retry logic for storage upload with exponential backoff
+      const MAX_UPLOAD_ATTEMPTS = 3
+      let uploadAttempts = 0
+      let uploadSuccess = false
+      const originalBase64 = imageUrl // Preserve original for fallback
+
+      while (uploadAttempts < MAX_UPLOAD_ATTEMPTS && !uploadSuccess) {
+        uploadAttempts++
+        try {
+          imageUrl = await uploadImageToStorage(base64Data, mimeType, organizationId, supabase)
+          console.log(`[Generate] Image uploaded successfully to Storage (attempt ${uploadAttempts}/${MAX_UPLOAD_ATTEMPTS})`)
+          uploadSuccess = true
+        } catch (uploadError) {
+          console.error(`[Generate] Upload attempt ${uploadAttempts}/${MAX_UPLOAD_ATTEMPTS} failed:`, uploadError)
+          if (uploadAttempts < MAX_UPLOAD_ATTEMPTS) {
+            // Exponential backoff: 1s, 2s, 4s
+            const delayMs = 1000 * Math.pow(2, uploadAttempts - 1)
+            console.log(`[Generate] Retrying upload in ${delayMs}ms...`)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
+          }
+        }
+      }
+
+      if (!uploadSuccess) {
+        console.warn('[Generate] All upload attempts failed, falling back to base64')
+        imageUrl = originalBase64 // Restore original base64 as fallback
       }
     }
 

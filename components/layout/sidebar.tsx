@@ -111,6 +111,12 @@ const settingsNavItems: NavItem[] = [
     icon: CreditCard,
     adminOnly: true,
   },
+  {
+    title: 'Admin Credits',
+    href: ROUTES.adminCredits,
+    icon: Coins,
+    adminOnly: true,
+  },
 ]
 
 export function Sidebar() {

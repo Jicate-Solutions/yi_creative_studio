@@ -627,6 +627,13 @@ export const COLOR_PALETTES = {
     secondary: '#EC4899',
     accent: '#FBCFE8',
   },
+  green_yellow_cream: {
+    id: 'green_yellow_cream',
+    name: 'Green & Yellow',
+    primary: '#0b6d41',
+    secondary: '#ffde59',
+    accent: '#fbfbee',
+  },
 } as const
 
 export type ColorPaletteId = keyof typeof COLOR_PALETTES
@@ -710,7 +717,7 @@ export const LOGO_STRIP_SHAPES: Record<LogoStripShape, LogoStripShapeOption> = {
 } as const
 
 // Default logo strip shape
-export const DEFAULT_LOGO_STRIP_SHAPE: LogoStripShape = 'curved'
+export const DEFAULT_LOGO_STRIP_SHAPE: LogoStripShape = 'rounded'
 
 // Get logo strip shape by value
 export const getLogoStripShapeByValue = (value: string) =>
@@ -746,14 +753,14 @@ export interface LogoStripStyleConfig {
  */
 export const VIBE_TO_LOGO_STRIP_STYLE: Record<string, LogoStripStyleConfig> = {
   prestigious: {
-    shape: 'curved',
+    shape: 'rounded',
     style: 'sophisticated',
     shadow: 'subtle',
     gradient: false,
     border: false,
   },
   empowering: {
-    shape: 'curved',
+    shape: 'rounded',
     style: 'sophisticated',
     shadow: 'medium',
     gradient: false,
@@ -823,7 +830,7 @@ export const VIBE_TO_LOGO_STRIP_STYLE: Record<string, LogoStripStyleConfig> = {
     border: false,
   },
   elegant: {
-    shape: 'curved',
+    shape: 'rounded',
     style: 'sophisticated',
     shadow: 'subtle',
     gradient: false,
@@ -1670,3 +1677,258 @@ export const DEFAULT_DESIGN_DATA: DesignData = {
   typography: DEFAULT_TYPOGRAPHY_CONFIG,
   stripShape: DEFAULT_LOGO_STRIP_SHAPE, // NEW v3.11: Default to curved strip
 }
+
+// ============================================================
+// ENHANCED 4-ROW LOGO STRIPE SYSTEM (v5.0)
+// ============================================================
+// Unified 4-row strip with brand logos, vertical logos, initiative text, and partner
+
+export type EnhancedStripRow = 'brand' | 'vertical' | 'initiative' | 'partner'
+
+/**
+ * Initiative text styling configuration
+ * Used for Row 3: Chapter initiative text like "YI Erode Initiative"
+ */
+export interface InitiativeTextConfig {
+  enabled: boolean
+  text: string // e.g., "YI Erode Initiative"
+  fontFamily: 'montserrat' | 'poppins' | 'inter'
+  fontSize: number // 18-32px
+  fontWeight: 'normal' | 'medium' | 'semibold' | 'bold'
+  fontStyle: 'normal' | 'italic'
+  color: string // Hex color
+  letterSpacing: number // In pixels
+  textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+  alignment: 'left' | 'center' | 'right'
+  effects: {
+    shadow: boolean
+    shadowColor: string
+    shadowBlur: number
+    shadowOffsetX: number
+    shadowOffsetY: number
+    gradient: boolean
+    gradientColors: [string, string]
+    gradientDirection: 'horizontal' | 'vertical'
+  }
+}
+
+/**
+ * Partner label configuration
+ * Used for Row 4: "Digital Partner – [Logo]" format
+ */
+export interface PartnerLabelConfig {
+  enabled: boolean
+  labelText: string // e.g., "Digital Partner"
+  separator: string // e.g., "–" or "|"
+  logoId: string | null // Reference to partner logo in organization logos
+  fontSize: number // 14-20px
+  fontWeight: 'normal' | 'medium' | 'semibold' | 'bold'
+  color: string // Hex color
+  alignment: 'left' | 'center' | 'right'
+  logoPosition: 'before' | 'after' // Logo before or after text
+  logoSize: number // 40-80px
+}
+
+/**
+ * Enhanced 4-row logo strip mode
+ * Supports brand logos, vertical logos, initiative text, and partner row
+ *
+ * Two layout modes:
+ * - '4-row': Unified strip at top (all 4 rows together)
+ * - '4-row-split': Header strip (rows 1-3) at top + Footer strip (row 4) at bottom
+ */
+export interface Enhanced4RowStripMode {
+  enabled: boolean
+  version: '4-row' | '4-row-split' // '4-row-split' enables split layout
+
+  // Header row configurations (rows 1-3)
+  rows: {
+    brand: {
+      enabled: boolean
+      logoIds: string[] // Auto-filled with Yi, Bharat ONE, CII
+    }
+    vertical: {
+      enabled: boolean
+      logoIds: string[] // User-selected vertical logos (max 6)
+    }
+    initiative: InitiativeTextConfig
+    partner: PartnerLabelConfig // Used in unified mode ('4-row')
+  }
+
+  // Footer row configuration (row 4) - used in split mode ('4-row-split')
+  footer: FooterRowConfig
+
+  // Header background settings (applies to rows 1-3)
+  background: {
+    color: string // Background color (default: white)
+    opacity: number // 0-100
+    shape: LogoStripShape // rectangle, curved, angled, etc.
+  }
+
+  // Layout settings
+  rowSpacing: number // Pixels between rows (4-12, default: 8)
+  padding: {
+    horizontal: number // Left/right padding (default: 20)
+    vertical: number // Top/bottom padding (default: 12)
+  }
+
+  // Width behavior
+  logoBound: boolean // When true, strip only covers logo area; when false, edge-to-edge
+}
+
+// Default initiative text config
+export const DEFAULT_INITIATIVE_CONFIG: InitiativeTextConfig = {
+  enabled: false,
+  text: 'Yi Erode Initiative',
+  fontFamily: 'poppins', // v11.1: Changed from montserrat to poppins per user request
+  fontSize: 24, // User preference: Keep at 24px
+  fontWeight: 'bold',
+  fontStyle: 'normal',
+  color: '#005B96', // Yi Blue
+  letterSpacing: 1,
+  textTransform: 'none', // v11.1: Changed from uppercase to none - preserve user input case
+  alignment: 'center',
+  effects: {
+    shadow: false,
+    shadowColor: 'rgba(0,0,0,0.2)',
+    shadowBlur: 4,
+    shadowOffsetX: 0,
+    shadowOffsetY: 2,
+    gradient: false,
+    gradientColors: ['#005B96', '#FF6B35'],
+    gradientDirection: 'horizontal',
+  },
+}
+
+// Default partner label config
+export const DEFAULT_PARTNER_CONFIG: PartnerLabelConfig = {
+  enabled: false,
+  labelText: 'Digital Partner',
+  separator: '–',
+  logoId: null,
+  fontSize: 16,
+  fontWeight: 'medium',
+  color: '#1A1A1A',
+  alignment: 'center',
+  logoPosition: 'after',
+  logoSize: 60,
+}
+
+// ============================================================
+// FOOTER ROW CONFIGURATION (Split Layout - Row 4 at Bottom)
+// ============================================================
+
+/**
+ * Footer row layout options
+ * - spread: Elements distributed across width (hashtag left, website center, partner right)
+ * - center: All elements centered together
+ * - left-right: Hashtag/website left, partner right
+ */
+export type FooterLayout = 'spread' | 'center' | 'left-right'
+
+/**
+ * Footer row configuration for split layout
+ * Row 4 appears at the BOTTOM of the poster as a separate bar
+ *
+ * Reference: Yi Kanniyakumari poster with footer:
+ * [#YIKANNIYAKUMARI | www.youngindians.net | Digital Partner – Logo]
+ */
+export interface FooterRowConfig {
+  enabled: boolean
+
+  // Configurable content sections
+  hashtag: {
+    enabled: boolean
+    text: string // e.g., "#YIKANNIYAKUMARI"
+  }
+  website: {
+    enabled: boolean
+    url: string // e.g., "www.youngindians.net"
+    socialHandle?: string // e.g., "@ yi.kanniyakumari"
+  }
+  digitalPartner: {
+    enabled: boolean
+    labelText: string // e.g., "Digital Partner"
+    separator: string // e.g., "–"
+    logoId: string | null
+    logoSize: number // 40-80px
+  }
+
+  // Footer-specific styling
+  layout: FooterLayout
+  fontSize: number // 12-18px
+  fontWeight: 'normal' | 'medium' | 'semibold' | 'bold'
+  textColor: string // Text color (default: white on orange)
+
+  // Footer background (independent from header)
+  background: {
+    color: string // User configurable (orange gradient default)
+    opacity: number // 0-100
+    shape: LogoStripShape
+  }
+
+  // Dimensions
+  height: number // Footer bar height (40-60px)
+  padding: {
+    horizontal: number
+    vertical: number
+  }
+}
+
+// Default footer configuration
+export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
+  enabled: false,
+  hashtag: { enabled: true, text: '' },
+  website: { enabled: true, url: '', socialHandle: '' },
+  digitalPartner: {
+    enabled: true,
+    labelText: 'Digital Partner',
+    separator: '–',
+    logoId: null,
+    logoSize: 70, // v11.2: Increased from 62 to 70 to match ROW 1 brand logos
+  },
+  layout: 'spread',
+  fontSize: 14,
+  fontWeight: 'medium',
+  textColor: '#005B96', // Yi primary blue for visibility on white
+  background: {
+    color: '#FFFFFF', // White background for clean look
+    opacity: 100,
+    shape: 'rectangle',
+  },
+  height: 80, // v11.2: Increased from 62 to 80 to accommodate larger partner logo
+  padding: { horizontal: 20, vertical: 8 },
+}
+
+// Default enhanced 4-row strip mode
+export const DEFAULT_ENHANCED_4ROW_STRIP: Enhanced4RowStripMode = {
+  enabled: false,
+  version: '4-row-split', // Default to split layout (header + footer)
+  rows: {
+    brand: { enabled: true, logoIds: [] },
+    vertical: { enabled: false, logoIds: [] },
+    initiative: DEFAULT_INITIATIVE_CONFIG,
+    partner: DEFAULT_PARTNER_CONFIG,
+  },
+  footer: DEFAULT_FOOTER_CONFIG,
+  background: {
+    color: '#FFFFFF',
+    opacity: 100,
+    shape: 'rounded',
+  },
+  rowSpacing: 8,
+  padding: { horizontal: 20, vertical: 12 },
+  logoBound: false,
+}
+
+// Row height configuration for 4-row system
+// v12.0: Increased ROW 1, ROW 2, and ROW 4 heights for ~28-31% larger logos
+export const ENHANCED_STRIP_ROW_HEIGHTS = {
+  brand: 95, // v12.0: +15px → 95 × 0.95 = 90px logo height (was 80 → 70px)
+  vertical: 85, // v12.0: +15px → 85 × 0.95 = 80px logo height (was 70 → 61px)
+  initiative: 40, // Text row - unchanged
+  partner: 95, // v12.0: +15px → 95 × 0.95 = 90px logo height (match ROW 1)
+} as const
+
+// Maximum vertical logos allowed
+export const MAX_VERTICAL_LOGOS = 6

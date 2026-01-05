@@ -249,8 +249,8 @@ export default function TemplatesPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Library className="h-8 w-8" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Library className="h-6 w-6 sm:h-8 sm:w-8" />
             Templates
           </h1>
           <p className="text-muted-foreground">
@@ -309,7 +309,7 @@ export default function TemplatesPage() {
           </div>
           {activeTab === 'images' ? (
             <Select value={verticalFilter} onValueChange={setVerticalFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by vertical" />
               </SelectTrigger>
@@ -324,7 +324,7 @@ export default function TemplatesPage() {
             </Select>
           ) : (
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>

@@ -156,7 +156,7 @@ function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'templa
         </div>
       )}
       {type === 'template' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`${skeletonClasses} aspect-[3/4]`} />
           ))}
@@ -175,7 +175,7 @@ function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'templa
         </div>
       )}
       {type === 'grid' && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className={`${skeletonClasses} aspect-square`} />
           ))}
@@ -752,6 +752,8 @@ export default function CreatePage() {
         logosPlacements: optimizedPlacements,
         logoBackgroundColor: formData.logoBackgroundColor,
         logoStripMode: formData.logoStripMode,
+        // v7.0: Pass 4-row logo strip configuration to API
+        enhanced4RowStrip: formData.enhanced4RowStrip,
         organizationId: currentOrganization.id,
         templateId: selectedTemplate?.id || null,
         templateUrl: selectedTemplate?.image_url || null,
@@ -1147,7 +1149,7 @@ export default function CreatePage() {
                       </CardHeader>
                       <CardContent>
                         {isVerticalsLoading ? (
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {[...Array(6)].map((_, i) => (
                               <Skeleton key={i} className="h-28 rounded-xl" />
                             ))}
@@ -1169,7 +1171,7 @@ export default function CreatePage() {
                             </Button>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {verticals.map((vertical) => (
                               <Tooltip key={vertical.id}>
                                 <TooltipTrigger asChild>
@@ -1827,7 +1829,7 @@ export default function CreatePage() {
                           Preview
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="flex-1 flex items-center justify-center p-4 min-h-[500px]">
+                      <CardContent className="flex-1 flex items-center justify-center p-2 sm:p-4 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
                         <div
                           className="relative rounded-lg bg-gradient-to-br from-muted/30 to-muted/60 border border-dashed border-muted-foreground/20 flex items-center justify-center overflow-hidden w-full h-full"
                           style={{
@@ -1954,17 +1956,19 @@ export default function CreatePage() {
                     variant="outline"
                     onClick={handleBack}
                     disabled={step === 1 || isGenerating}
+                    aria-label="Go back to previous step"
                     className={cn(
-                      "gap-2 border-2 transition-all duration-300",
+                      "gap-1.5 px-3 sm:gap-2 sm:px-4 border-2 transition-all duration-300",
                       "hover:border-primary hover:text-primary"
                     )}
                   >
                     <ArrowLeft className="h-4 w-4" />
                     <span className="hidden sm:inline">Back</span>
+                    <span className="sm:hidden text-xs">Back</span>
                   </Button>
 
-                  {/* Step info for mobile */}
-                  <div className="text-sm text-slate-600 dark:text-slate-400 lg:hidden font-medium">
+                  {/* Step info for mobile - shown on all mobile/tablet sizes */}
+                  <div className="block lg:hidden text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
                     Step {step} of 7
                   </div>
 
@@ -1973,8 +1977,15 @@ export default function CreatePage() {
                     <Button
                       onClick={handleGenerateWithDateCheck}
                       disabled={!canGenerate || isGenerating}
+                      aria-label={
+                        isGenerating
+                          ? "Generating your creative"
+                          : !isOnline
+                          ? "Cannot generate while offline"
+                          : `Generate creative for ${creditCost} credits`
+                      }
                       className={cn(
-                        "gap-2 px-6 transition-all duration-300",
+                        "gap-1.5 px-3 sm:gap-2 sm:px-6 transition-all duration-300",
                         "btn-primary",
                         "text-white font-semibold",
                         "hover:-translate-y-0.5",
@@ -1985,16 +1996,19 @@ export default function CreatePage() {
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
                           <span className="hidden sm:inline">Generating...</span>
+                          <span className="sm:hidden text-xs">Gen...</span>
                         </>
                       ) : !isOnline ? (
                         <>
                           <WifiOff className="h-4 w-4" />
                           <span className="hidden sm:inline">Offline</span>
+                          <span className="sm:hidden text-xs">Offline</span>
                         </>
                       ) : (
                         <>
                           <Sparkles className="h-4 w-4" />
                           <span className="hidden sm:inline">Generate</span>
+                          <span className="sm:hidden text-xs">Gen</span>
                           <Badge variant="secondary" className="ml-1 text-xs bg-white/20 text-white border-0">
                             {creditCost} credits
                           </Badge>
@@ -2006,8 +2020,13 @@ export default function CreatePage() {
                     <Button
                       onClick={handleNext}
                       disabled={!canProceed() || isStepProcessing}
+                      aria-label={
+                        isStepProcessing
+                          ? "Processing your input"
+                          : "Continue to next step"
+                      }
                       className={cn(
-                        "gap-2 px-6 transition-all duration-300",
+                        "gap-1.5 px-3 sm:gap-2 sm:px-6 transition-all duration-300",
                         "btn-primary",
                         "text-white font-semibold",
                         "hover:-translate-y-0.5",
@@ -2018,10 +2037,12 @@ export default function CreatePage() {
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
                           <span className="hidden sm:inline">Optimizing...</span>
+                          <span className="sm:hidden text-xs">Wait...</span>
                         </>
                       ) : (
                         <>
                           <span className="hidden sm:inline">Continue</span>
+                          <span className="sm:hidden text-xs">Next</span>
                           <ArrowRight className="h-4 w-4" />
                         </>
                       )}

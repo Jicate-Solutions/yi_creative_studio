@@ -82,19 +82,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+        <CardHeader className="text-center px-4 sm:px-6">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <Logo size="lg" />
           </div>
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl">Welcome back</CardTitle>
           <CardDescription>
             Sign in to your account to continue
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6">
           {/* Google Sign In */}
           <Button
             type="button"
@@ -194,7 +194,7 @@ export default function LoginPage() {
           </Form>
         </CardContent>
 
-        <CardFooter className="flex flex-col gap-4">
+        <CardFooter className="flex flex-col gap-4 px-4 sm:px-6">
           <p className="text-sm text-muted-foreground text-center">
             Don&apos;t have an account?{' '}
             <Link href={ROUTES.signup} className="text-primary hover:underline font-medium">

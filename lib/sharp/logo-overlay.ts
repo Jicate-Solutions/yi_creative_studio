@@ -10,7 +10,16 @@ import {
   type LogoBackgroundStyle,
   DEFAULT_LOGO_BACKGROUND,
 } from '@/lib/constants/logoConstants'
-import { type LogoStripShape, DEFAULT_LOGO_STRIP_SHAPE } from '@/lib/config/design-constants'
+import {
+  type LogoStripShape,
+  DEFAULT_LOGO_STRIP_SHAPE,
+  type Enhanced4RowStripMode,
+  type InitiativeTextConfig,
+  type PartnerLabelConfig,
+  type FooterRowConfig,
+  ENHANCED_STRIP_ROW_HEIGHTS,
+} from '@/lib/config/design-constants'
+import { renderInitiativeText, renderPartnerLabel, renderFooterBar } from './svg-text-renderer'
 
 // Logo position grid (18 positions - 6 columns × 3 rows) - matches lib/config/constants.ts
 export type LogoPosition =
@@ -55,6 +64,26 @@ function hexToRgba(hex: string, opacity: number): string {
 }
 
 /**
+ * Convert hex color to Sharp-compatible background object
+ * v14.1: Sharp's create.background expects {r, g, b, alpha} format
+ *
+ * @param hex - Hex color string (e.g., '#FFFFFF')
+ * @param opacityPercent - Opacity as percentage (0-100)
+ * @returns Sharp-compatible color object
+ *
+ * Format requirements:
+ * - r, g, b: 0-255 (byte range for RGB channels)
+ * - alpha: 0-1 (decimal percentage, NOT 0-255)
+ */
+function hexToSharpBackground(hex: string, opacityPercent: number): { r: number; g: number; b: number; alpha: number } {
+  const cleanHex = hex.replace('#', '')
+  const r = parseInt(cleanHex.substring(0, 2), 16)
+  const g = parseInt(cleanHex.substring(2, 4), 16)
+  const b = parseInt(cleanHex.substring(4, 6), 16)
+  return { r, g, b, alpha: opacityPercent / 100 }  // Convert 0-100 to 0-1
+}
+
+/**
  * Generate SVG mask for different logo strip shapes
  * Creates a mask that will be applied to the rectangular strip
  */
@@ -65,12 +94,13 @@ function generateStripShapeSVG(
   backgroundColor: string,
   opacity: number = 100 // 0-100
 ): string {
-  // Apply opacity to the background color
-  const fillColor = opacity < 100 ? hexToRgba(backgroundColor, opacity) : backgroundColor
+  // v14.3: Semi-transparent background for logo visibility
+  // Use rgba() format - proven to work with Sharp's SVG-to-PNG conversion
+  const fillColor = hexToRgba(backgroundColor, opacity)
+
   switch (shape) {
     case 'curved': {
-      // Smooth wave at top and bottom edges
-      const waveDepth = Math.min(height * 0.15, 15) // 15% of height or max 15px
+      const waveDepth = Math.min(height * 0.15, 15)
       return `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
           <path d="
@@ -85,49 +115,35 @@ function generateStripShapeSVG(
         </svg>
       `
     }
-
     case 'angled': {
-      // Diagonal cut edges (parallelogram)
-      const angleOffset = Math.min(height * 0.4, 30) // 40% of height or max 30px
+      const angleOffset = Math.min(height * 0.4, 30)
       return `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
           <path d="
-            M ${angleOffset},0
-            L ${width},0
-            L ${width - angleOffset},${height}
-            L 0,${height}
+            M 0,0
+            L ${width},${angleOffset}
+            L ${width},${height}
+            L 0,${height - angleOffset}
             Z
           " fill="${fillColor}"/>
         </svg>
       `
     }
-
     case 'rounded': {
-      // Rounded rectangle with corner radius
-      const cornerRadius = Math.min(height * 0.25, 20) // 25% of height or max 20px
+      const radius = Math.min(height * 0.5, 20)
       return `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect
-            x="0"
-            y="0"
-            width="${width}"
-            height="${height}"
-            rx="${cornerRadius}"
-            ry="${cornerRadius}"
-            fill="${fillColor}"
-          />
+          <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="${fillColor}"/>
         </svg>
       `
     }
-
     case 'tapered': {
-      // Trapezoid shape (wider at bottom)
-      const taperAmount = Math.min(width * 0.05, 40) // 5% of width or max 40px
+      const taperWidth = Math.min(height * 0.3, 20)
       return `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
           <path d="
-            M ${taperAmount},0
-            L ${width - taperAmount},0
+            M ${taperWidth},0
+            L ${width - taperWidth},0
             L ${width},${height}
             L 0,${height}
             Z
@@ -135,19 +151,11 @@ function generateStripShapeSVG(
         </svg>
       `
     }
-
     case 'rectangle':
     default: {
-      // Standard rectangle (no shape transformation)
       return `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect
-            x="0"
-            y="0"
-            width="${width}"
-            height="${height}"
-            fill="${fillColor}"
-          />
+          <rect x="0" y="0" width="${width}" height="${height}" fill="${fillColor}"/>
         </svg>
       `
     }
@@ -1174,7 +1182,8 @@ export async function overlayLogosOnImage(config: OverlayConfig): Promise<Buffer
         const stripOpacity = config.stripMode?.opacity ?? 100
         const logoBound = config.stripMode?.logoBound ?? false
         // v6.0 Phase 5: Extract background rendering flag
-        const renderStripBackground = config.stripMode?.enabled ?? true
+        // v7.0: Changed default to false - only render white background when explicitly enabled
+        const renderStripBackground = config.stripMode?.enabled ?? false
 
         const stripResult = await createLogoStrip(
           imageWidth,
@@ -1555,4 +1564,690 @@ export async function resizeImageToExactDimensions(
   }
 
   return `data:image/png;base64,${resizedBuffer.toString('base64')}`
+}
+
+// ============================================================
+// ENHANCED 4-ROW LOGO STRIP SYSTEM
+// ============================================================
+
+/**
+ * Logo data with buffer for rendering
+ */
+interface LogoBufferData {
+  logoId: string
+  buffer: Buffer
+  width: number
+  height: number
+}
+
+/**
+ * Result of creating enhanced 4-row strip
+ */
+interface Enhanced4RowStripResult {
+  stripBuffer: Buffer
+  stripHeight: number
+  stripLeft: number // X offset for logoBound mode
+}
+
+/**
+ * Create unified 4-row logo strip with all content
+ *
+ * Rows:
+ * 1. Brand logos (Yi, Bharat ONE, CII)
+ * 2. Vertical logos (user-selected, max 6)
+ * 3. Initiative text ("YI Erode Initiative")
+ * 4. Partner label ("Digital Partner – [Logo]")
+ *
+ * All rows share a unified background strip
+ */
+export async function createEnhanced4RowStrip(
+  imageWidth: number,
+  config: Enhanced4RowStripMode,
+  logoData: {
+    brandLogos: LogoBufferData[]
+    verticalLogos: LogoBufferData[]
+    partnerLogo?: LogoBufferData
+  }
+): Promise<Enhanced4RowStripResult> {
+  const { rows, background, rowSpacing, padding, logoBound } = config
+
+  // Determine which rows are active
+  const activeRows: Array<'brand' | 'vertical' | 'initiative' | 'partner'> = []
+
+  if (rows.brand.enabled && logoData.brandLogos.length > 0) {
+    activeRows.push('brand')
+  }
+  if (rows.vertical.enabled && logoData.verticalLogos.length > 0) {
+    activeRows.push('vertical')
+  }
+  if (rows.initiative.enabled && rows.initiative.text.trim()) {
+    activeRows.push('initiative')
+  }
+  if (rows.partner.enabled && rows.partner.labelText.trim()) {
+    activeRows.push('partner')
+  }
+
+  // If no active rows, return empty strip
+  if (activeRows.length === 0) {
+    console.log('[4-Row Strip] No active rows, returning empty strip')
+    const emptyStrip = await sharp({
+      create: {
+        width: imageWidth,
+        height: 1,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer()
+    return { stripBuffer: emptyStrip, stripHeight: 0, stripLeft: 0 }
+  }
+
+  console.log(`[4-Row Strip] Creating strip with ${activeRows.length} active rows: ${activeRows.join(', ')}`)
+
+  // Calculate row heights based on content
+  const rowHeights: Partial<Record<'brand' | 'vertical' | 'initiative' | 'partner', number>> = {}
+
+  if (activeRows.includes('brand')) {
+    const maxLogoHeight = Math.max(
+      ...logoData.brandLogos.map((l) => l.height),
+      ENHANCED_STRIP_ROW_HEIGHTS.brand * 0.6
+    )
+    rowHeights.brand = Math.min(maxLogoHeight + 16, ENHANCED_STRIP_ROW_HEIGHTS.brand)
+  }
+
+  if (activeRows.includes('vertical')) {
+    const maxLogoHeight = Math.max(
+      ...logoData.verticalLogos.map((l) => l.height),
+      ENHANCED_STRIP_ROW_HEIGHTS.vertical * 0.6
+    )
+    rowHeights.vertical = Math.min(maxLogoHeight + 12, ENHANCED_STRIP_ROW_HEIGHTS.vertical)
+  }
+
+  if (activeRows.includes('initiative')) {
+    // Height based on font size with padding
+    rowHeights.initiative = rows.initiative.fontSize * 1.5 + 16
+  }
+
+  if (activeRows.includes('partner')) {
+    // Height based on logo size with padding
+    rowHeights.partner = rows.partner.logoSize + 16
+  }
+
+  // Calculate total strip dimensions
+  const totalRowHeight = Object.values(rowHeights).reduce((sum, h) => sum + (h || 0), 0)
+  const totalSpacing = (activeRows.length - 1) * rowSpacing
+  const stripHeight = Math.ceil(totalRowHeight + totalSpacing + padding.vertical * 2)
+
+  // Calculate strip width (logoBound vs edge-to-edge)
+  let stripLeft = 0
+  let stripWidth = imageWidth
+
+  if (logoBound) {
+    // Use 90% of image width, centered
+    stripWidth = Math.floor(imageWidth * 0.9)
+    stripLeft = Math.floor((imageWidth - stripWidth) / 2)
+  }
+
+  console.log(`[4-Row Strip] Strip dimensions: ${stripWidth}x${stripHeight}px`)
+
+  // Generate unified background strip
+  const backgroundSVG = generateStripShapeSVG(
+    stripWidth,
+    stripHeight,
+    background.shape,
+    background.color,
+    background.opacity
+  )
+  // v14.0: Ensure PNG has alpha channel for transparency
+  let stripBuffer = await sharp(Buffer.from(backgroundSVG))
+    .ensureAlpha()
+    .png({ compressionLevel: 6, adaptiveFiltering: false })
+    .toBuffer()
+
+  // Composite each row
+  const compositeOps: sharp.OverlayOptions[] = []
+  let currentY = padding.vertical
+
+  for (const rowType of activeRows) {
+    const rowHeight = rowHeights[rowType] || 0
+    const contentWidth = stripWidth - padding.horizontal * 2
+
+    try {
+      if (rowType === 'brand') {
+        const rowBuffer = await renderLogoRow(
+          contentWidth,
+          rowHeight,
+          logoData.brandLogos
+        )
+        compositeOps.push({
+          input: rowBuffer,
+          top: currentY,
+          left: padding.horizontal,
+        })
+      } else if (rowType === 'vertical') {
+        const rowBuffer = await renderLogoRow(
+          contentWidth,
+          rowHeight,
+          logoData.verticalLogos
+        )
+        compositeOps.push({
+          input: rowBuffer,
+          top: currentY,
+          left: padding.horizontal,
+        })
+      } else if (rowType === 'initiative') {
+        const textBuffer = await renderInitiativeText(
+          rows.initiative,
+          contentWidth,
+          rowHeight
+        )
+        compositeOps.push({
+          input: textBuffer,
+          top: currentY,
+          left: padding.horizontal,
+        })
+      } else if (rowType === 'partner') {
+        const partnerBuffer = await renderPartnerLabel(
+          rows.partner,
+          contentWidth,
+          rowHeight,
+          logoData.partnerLogo?.buffer
+        )
+        compositeOps.push({
+          input: partnerBuffer,
+          top: currentY,
+          left: padding.horizontal,
+        })
+      }
+    } catch (error) {
+      console.error(`[4-Row Strip] Error rendering ${rowType} row:`, error)
+    }
+
+    currentY += rowHeight + rowSpacing
+  }
+
+  // Apply all composites
+  if (compositeOps.length > 0) {
+    stripBuffer = await sharp(stripBuffer).composite(compositeOps).png().toBuffer()
+  }
+
+  console.log(`[4-Row Strip] Strip created successfully`)
+  return { stripBuffer, stripHeight, stripLeft }
+}
+
+/**
+ * Alignment mode for logo rows
+ * - 'space-evenly': Equal gaps on all sides: |--gap--[logo]--gap--[logo]--gap--|
+ * - 'space-between': Logos pushed to edges: |[logo]------[logo]------[logo]|
+ * - 'center': All logos centered together: |---[logo][logo][logo]---|
+ */
+type LogoRowAlignment = 'space-evenly' | 'space-between' | 'center'
+
+/**
+ * Render a row of logos with proper even distribution
+ * v7.1: FIXED - Resize logos to fit before calculating positions (prevents negative positions)
+ *
+ * @param rowWidth - Width of the row canvas
+ * @param rowHeight - Height of the row canvas
+ * @param logos - Array of logo buffers with dimensions
+ * @param alignment - Alignment mode (default: 'space-evenly')
+ * @param horizontalPadding - Padding from edges (default: 20px)
+ */
+async function renderLogoRow(
+  rowWidth: number,
+  rowHeight: number,
+  logos: LogoBufferData[],
+  alignment: LogoRowAlignment = 'space-evenly',
+  horizontalPadding: number = 10  // v12.0: Reduced from 15 to 10 for more horizontal space
+): Promise<Buffer> {
+  // Create transparent canvas for the row
+  const canvas = await sharp({
+    create: {
+      width: rowWidth,
+      height: rowHeight,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .png()
+    .toBuffer()
+
+  if (logos.length === 0) return canvas
+
+  const availableWidth = rowWidth - (horizontalPadding * 2)
+  // v11.2: Reduced gaps to maximize logo size (was 8:12:15, now 5:8:10)
+  const minGap = logos.length > 4 ? 5 : logos.length > 2 ? 8 : 10
+  // v12.0: Increased from 0.88 to 0.95 for maximum logo visibility
+  const maxLogoHeight = Math.floor(rowHeight * 0.95)
+
+  // v7.1: Calculate max width per logo to ensure all fit with gaps
+  const maxTotalLogoWidth = availableWidth - (minGap * (logos.length + 1))
+  const maxWidthPerLogo = Math.floor(maxTotalLogoWidth / logos.length)
+
+  // v7.1: Resize logos to fit constraints BEFORE calculating positions
+  const resizedLogos: LogoBufferData[] = await Promise.all(
+    logos.map(async (logo) => {
+      const aspectRatio = logo.width / logo.height
+
+      // Calculate new dimensions respecting both height and width constraints
+      let newHeight = Math.min(logo.height, maxLogoHeight)
+      let newWidth = Math.round(newHeight * aspectRatio)
+
+      // If still too wide, scale down based on width constraint
+      if (newWidth > maxWidthPerLogo) {
+        const scaleFactor = maxWidthPerLogo / newWidth
+        newWidth = maxWidthPerLogo
+        newHeight = Math.round(newHeight * scaleFactor)
+      }
+
+      // Skip resize if already small enough
+      if (newWidth >= logo.width && newHeight >= logo.height) {
+        return logo
+      }
+
+      console.log(`[renderLogoRow] Resizing logo from ${logo.width}x${logo.height} to ${newWidth}x${newHeight}`)
+
+      const resizedBuffer = await sharp(logo.buffer)
+        .resize(newWidth, newHeight, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer()
+
+      return { buffer: resizedBuffer, width: newWidth, height: newHeight, logoId: logo.logoId }
+    })
+  )
+
+  // Recalculate total width after resizing
+  const totalLogoWidth = resizedLogos.reduce((sum, l) => sum + l.width, 0)
+
+  // Calculate positions based on alignment mode - NOW GUARANTEED POSITIVE
+  const positions: number[] = []
+
+  switch (alignment) {
+    case 'space-evenly': {
+      // Equal gaps between all elements including edges
+      // |--gap--[logo]--gap--[logo]--gap--[logo]--gap--|
+      const totalGaps = resizedLogos.length + 1
+      const gapSize = Math.max(minGap, (availableWidth - totalLogoWidth) / totalGaps)
+      let currentX = horizontalPadding + gapSize
+
+      for (const logo of resizedLogos) {
+        positions.push(Math.round(currentX))
+        currentX += logo.width + gapSize
+      }
+      break
+    }
+
+    case 'space-between': {
+      // Logos spread edge-to-edge with equal gaps between
+      // |[logo]------[logo]------[logo]|
+      if (resizedLogos.length === 1) {
+        // Single logo - center it
+        positions.push(Math.round((rowWidth - resizedLogos[0].width) / 2))
+      } else {
+        const gapSize = Math.max(minGap, (availableWidth - totalLogoWidth) / (resizedLogos.length - 1))
+        let currentX = horizontalPadding
+
+        for (const logo of resizedLogos) {
+          positions.push(Math.round(currentX))
+          currentX += logo.width + gapSize
+        }
+      }
+      break
+    }
+
+    case 'center': {
+      // All logos centered together with minimal gap between them
+      // |-------[logo][gap][logo][gap][logo]-------|
+      const totalWidth = totalLogoWidth + (minGap * (resizedLogos.length - 1))
+      const startX = Math.max(horizontalPadding, (rowWidth - totalWidth) / 2)
+      let currentX = startX
+
+      for (const logo of resizedLogos) {
+        positions.push(Math.round(currentX))
+        currentX += logo.width + minGap
+      }
+      break
+    }
+
+    default: {
+      // Fallback to simple even spacing
+      const spacing = Math.max(minGap, (availableWidth - totalLogoWidth) / (resizedLogos.length + 1))
+      let currentX = horizontalPadding + spacing
+
+      for (const logo of resizedLogos) {
+        positions.push(Math.round(currentX))
+        currentX += logo.width + spacing
+      }
+    }
+  }
+
+  // Build composite operations with safety clamps
+  const compositeOps: sharp.OverlayOptions[] = resizedLogos.map((logo, index) => ({
+    input: logo.buffer,
+    left: Math.max(0, positions[index]), // Safety clamp to prevent negative
+    top: Math.max(0, Math.floor((rowHeight - logo.height) / 2)),
+  }))
+
+  console.log(`[renderLogoRow] Alignment: ${alignment}, Logos: ${resizedLogos.length}, Positions:`, positions, `(availableWidth: ${availableWidth}, totalLogoWidth: ${totalLogoWidth})`)
+
+  return await sharp(canvas).composite(compositeOps).png().toBuffer()
+}
+
+/**
+ * Apply enhanced 4-row strip to an image
+ *
+ * Composites the strip at the top of the image
+ */
+export async function applyEnhanced4RowStrip(
+  imageBuffer: Buffer,
+  config: Enhanced4RowStripMode,
+  logoData: {
+    brandLogos: LogoBufferData[]
+    verticalLogos: LogoBufferData[]
+    partnerLogo?: LogoBufferData
+  }
+): Promise<Buffer> {
+  if (!config.enabled) {
+    return imageBuffer
+  }
+
+  // Get image dimensions
+  const metadata = await sharp(imageBuffer).metadata()
+  const imageWidth = metadata.width || 1024
+
+  // Create the strip
+  const { stripBuffer, stripHeight, stripLeft } = await createEnhanced4RowStrip(
+    imageWidth,
+    config,
+    logoData
+  )
+
+  if (stripHeight === 0) {
+    return imageBuffer
+  }
+
+  // Composite strip at top of image
+  // v14.0: Explicit blend mode - composite respecting alpha channel for transparency
+  return await sharp(imageBuffer)
+    .composite([
+      {
+        input: stripBuffer,
+        top: 0,
+        left: stripLeft,
+        blend: 'over', // Respects alpha channel - transparent pixels don't obscure poster
+      },
+    ])
+    .png()
+    .toBuffer()
+}
+
+// ============================================================
+// SPLIT LAYOUT FUNCTIONS (Header at Top + Footer at Bottom)
+// ============================================================
+
+/**
+ * Create header strip only (rows 1-3: brand, vertical, initiative)
+ * Used in split layout mode where footer is separate
+ */
+export async function createEnhanced4RowHeaderStrip(
+  imageWidth: number,
+  config: Enhanced4RowStripMode,
+  logoData: {
+    brandLogos: LogoBufferData[]
+    verticalLogos: LogoBufferData[]
+  }
+): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
+  const { rows, background, rowSpacing, padding, logoBound } = config
+
+  // v12.2: Calculate active header rows (1-3 only, no partner row) - Content-based check
+  // Matches safe zone logic in route.ts - renders if content exists, ignores enabled flags
+  const activeRows: Array<'brand' | 'vertical' | 'initiative'> = []
+  if (rows.brand.logoIds.length > 0) activeRows.push('brand')  // Render if logos exist
+  if (rows.vertical.logoIds.length > 0) activeRows.push('vertical')  // Render if logos exist
+  if (rows.initiative.text.trim()) activeRows.push('initiative')  // Render if text exists
+
+  if (activeRows.length === 0) {
+    // Return empty strip
+    return {
+      stripBuffer: await sharp({
+        create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).png().toBuffer(),
+      stripHeight: 0,
+      stripLeft: 0,
+    }
+  }
+
+  // Calculate total height
+  let totalHeight = padding.vertical * 2
+  for (const row of activeRows) {
+    totalHeight += ENHANCED_STRIP_ROW_HEIGHTS[row]
+    if (activeRows.indexOf(row) < activeRows.length - 1) {
+      totalHeight += rowSpacing
+    }
+  }
+
+  // Calculate strip width
+  const stripWidth = logoBound ? Math.min(imageWidth - 40, imageWidth * 0.9) : imageWidth
+  const stripLeft = logoBound ? Math.floor((imageWidth - stripWidth) / 2) : 0
+
+  // Create background strip
+  // v14.1: Use Sharp-compatible object format for background
+  const bgColor = hexToSharpBackground(background.color, background.opacity)
+
+  let stripBuffer = await sharp({
+    create: {
+      width: stripWidth,
+      height: totalHeight,
+      channels: 4,
+      background: bgColor,  // {r, g, b, alpha} object format
+    },
+  }).png().toBuffer()
+
+  // Apply shape mask if not rectangle
+  if (background.shape !== 'rectangle') {
+    const shapeSvg = generateStripShapeSVG(stripWidth, totalHeight, background.shape, background.color, background.opacity)
+    const shapeMask = await sharp(Buffer.from(shapeSvg)).png().toBuffer()
+
+    stripBuffer = await sharp(stripBuffer)
+      .composite([{ input: shapeMask, blend: 'dest-in' }])
+      .png()
+      .toBuffer()
+  }
+
+  // Render and composite each row
+  const compositeOps: sharp.OverlayOptions[] = []
+  let currentY = padding.vertical
+
+  for (const rowType of activeRows) {
+    const rowHeight = ENHANCED_STRIP_ROW_HEIGHTS[rowType]
+
+    if (rowType === 'brand' && logoData.brandLogos.length > 0) {
+      const brandRowBuffer = await renderLogoRow(
+        stripWidth,
+        rowHeight,
+        logoData.brandLogos
+      )
+      compositeOps.push({ input: brandRowBuffer, top: currentY, left: 0 })
+    } else if (rowType === 'vertical' && logoData.verticalLogos.length > 0) {
+      const verticalRowBuffer = await renderLogoRow(
+        stripWidth,
+        rowHeight,
+        logoData.verticalLogos
+      )
+      compositeOps.push({ input: verticalRowBuffer, top: currentY, left: 0 })
+    } else if (rowType === 'initiative') {
+      const initiativeBuffer = await renderInitiativeText(
+        rows.initiative,
+        stripWidth,
+        rowHeight
+      )
+      compositeOps.push({ input: initiativeBuffer, top: currentY, left: 0 })
+    }
+
+    currentY += rowHeight + rowSpacing
+  }
+
+  if (compositeOps.length > 0) {
+    stripBuffer = await sharp(stripBuffer)
+      .composite(compositeOps)
+      .png()
+      .toBuffer()
+  }
+
+  return { stripBuffer, stripHeight: totalHeight, stripLeft }
+}
+
+/**
+ * Create footer strip only (row 4: hashtag, website, digital partner)
+ * Used in split layout mode where footer is at bottom of image
+ */
+export async function createEnhanced4RowFooterStrip(
+  imageWidth: number,
+  config: FooterRowConfig,
+  logoData?: { partnerLogo?: LogoBufferData }
+): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
+  if (!config.enabled) {
+    return {
+      stripBuffer: await sharp({
+        create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).png().toBuffer(),
+      stripHeight: 0,
+      stripLeft: 0,
+    }
+  }
+
+  // Check if any content exists (v8.0: Removed enabled flag checks - render if content exists, like rows 1-2)
+  const hasContent =
+    (config.hashtag.text.trim()) ||
+    (config.website.url.trim() || config.website.socialHandle?.trim()) ||
+    (config.digitalPartner.logoId || config.digitalPartner.labelText.trim())
+
+  console.log('[Footer Debug] Config received:', {
+    hashtag: { text: config.hashtag.text, enabled: config.hashtag.enabled },
+    website: { url: config.website.url, handle: config.website.socialHandle, enabled: config.website.enabled },
+    partner: { labelText: config.digitalPartner.labelText, logoId: config.digitalPartner.logoId, enabled: config.digitalPartner.enabled },
+    hasContent
+  })
+
+  if (!hasContent) {
+    console.log('[Footer Debug] No content - returning empty strip')
+    return {
+      stripBuffer: await sharp({
+        create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).png().toBuffer(),
+      stripHeight: 0,
+      stripLeft: 0,
+    }
+  }
+
+  const { background, height: footerHeight, padding } = config
+  const stripWidth = imageWidth
+  const stripLeft = 0
+
+  // Create background strip
+  // v14.1: Use Sharp-compatible object format for background
+  const bgColor = hexToSharpBackground(background.color, background.opacity)
+
+  let stripBuffer = await sharp({
+    create: {
+      width: stripWidth,
+      height: footerHeight,
+      channels: 4,
+      background: bgColor,  // {r, g, b, alpha} object format
+    },
+  }).png().toBuffer()
+
+  // Apply shape mask if not rectangle
+  if (background.shape !== 'rectangle') {
+    const shapeSvg = generateStripShapeSVG(stripWidth, footerHeight, background.shape, background.color, background.opacity)
+    const shapeMask = await sharp(Buffer.from(shapeSvg)).png().toBuffer()
+
+    stripBuffer = await sharp(stripBuffer)
+      .composite([{ input: shapeMask, blend: 'dest-in' }])
+      .png()
+      .toBuffer()
+  }
+
+  // Render footer content (text + optional partner logo)
+  const footerContentBuffer = await renderFooterBar(
+    config,
+    stripWidth,
+    footerHeight,
+    logoData?.partnerLogo?.buffer
+  )
+
+  // Composite footer content onto background
+  stripBuffer = await sharp(stripBuffer)
+    .composite([{ input: footerContentBuffer, top: 0, left: 0 }])
+    .png()
+    .toBuffer()
+
+  return { stripBuffer, stripHeight: footerHeight, stripLeft }
+}
+
+/**
+ * Apply enhanced 4-row split layout to an image
+ *
+ * - Header strip (rows 1-3) at TOP
+ * - Footer strip (row 4) at BOTTOM
+ */
+export async function applyEnhanced4RowStripSplit(
+  imageBuffer: Buffer,
+  config: Enhanced4RowStripMode,
+  logoData: {
+    brandLogos: LogoBufferData[]
+    verticalLogos: LogoBufferData[]
+    partnerLogo?: LogoBufferData
+  }
+): Promise<Buffer> {
+  if (!config.enabled || config.version !== '4-row-split') {
+    return imageBuffer
+  }
+
+  // Get image dimensions
+  const metadata = await sharp(imageBuffer).metadata()
+  const imageWidth = metadata.width || 1024
+  const imageHeight = metadata.height || 1024
+
+  const compositeOps: sharp.OverlayOptions[] = []
+
+  // Create header strip (rows 1-3)
+  const { stripBuffer: headerBuffer, stripHeight: headerHeight, stripLeft: headerLeft } =
+    await createEnhanced4RowHeaderStrip(imageWidth, config, {
+      brandLogos: logoData.brandLogos,
+      verticalLogos: logoData.verticalLogos,
+    })
+
+  if (headerHeight > 0) {
+    compositeOps.push({
+      input: headerBuffer,
+      top: 0,
+      left: headerLeft,
+    })
+  }
+
+  // Create footer strip (row 4)
+  const { stripBuffer: footerBuffer, stripHeight: footerHeight, stripLeft: footerLeft } =
+    await createEnhanced4RowFooterStrip(imageWidth, config.footer, {
+      partnerLogo: logoData.partnerLogo,
+    })
+
+  if (footerHeight > 0) {
+    compositeOps.push({
+      input: footerBuffer,
+      top: imageHeight - footerHeight,
+      left: footerLeft,
+    })
+  }
+
+  if (compositeOps.length === 0) {
+    return imageBuffer
+  }
+
+  // Composite both strips onto image
+  return await sharp(imageBuffer)
+    .composite(compositeOps)
+    .png()
+    .toBuffer()
 }

@@ -242,20 +242,20 @@ export default function TeamPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <Input
                     value={organization?.invite_code || ''}
                     readOnly
-                    className="font-mono text-lg tracking-widest text-center max-w-[200px]"
+                    className="font-mono text-base sm:text-lg tracking-widest text-center w-full sm:max-w-[200px]"
                   />
-                  <Button variant="outline" size="icon" onClick={copyInviteCode}>
+                  <Button variant="outline" size="icon" onClick={copyInviteCode} className="flex-shrink-0">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              <Button variant="outline" onClick={regenerateInviteCode}>
+              <Button variant="outline" onClick={regenerateInviteCode} className="w-full sm:w-auto">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Regenerate
               </Button>
@@ -286,7 +286,77 @@ export default function TeamPage() {
               ))}
             </div>
           ) : (
-            <Table>
+            <>
+            {/* Mobile Card Layout */}
+            <div className="block md:hidden space-y-3">
+              {members.map((member) => {
+                const initials = member.user_profiles?.full_name
+                  ?.split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .toUpperCase() || '?'
+                const isCurrentUser = member.user_id === user?.id
+
+                return (
+                  <Card key={member.id} className="p-3">
+                    <div className="flex items-start gap-3">
+                      <Avatar>
+                        <AvatarImage src={member.user_profiles?.avatar_url || undefined} />
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">
+                            {member.user_profiles?.full_name || 'Unknown User'}
+                          </p>
+                          {isCurrentUser && (
+                            <Badge variant="outline" className="text-xs">You</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge variant={getRoleBadgeVariant(member.role)} className="text-xs">
+                            {USER_ROLES[member.role as UserRole]?.label || member.role}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(member.joined_at), 'MMM d, yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                      {isReady && isAdmin && !isCurrentUser && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditingMember(member)
+                                setNewRole(member.role as UserRole)
+                              }}
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Change Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => removeMember(member.id, member.user_id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Member</TableHead>
@@ -367,6 +437,7 @@ export default function TeamPage() {
                 })}
               </TableBody>
             </Table>
+            </>
           )}
         </CardContent>
       </Card>

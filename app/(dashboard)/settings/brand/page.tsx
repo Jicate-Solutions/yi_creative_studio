@@ -133,7 +133,7 @@ export default function BrandConfigPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Brand Configuration</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Brand Configuration</h1>
         <p className="text-muted-foreground">
           Customize your brand colors, fonts, and creative layout settings
         </p>
@@ -573,12 +573,12 @@ export default function BrandConfigPage() {
 
           {/* Actions */}
           {isReady && isAdmin && (
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={handleReset}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 justify-between">
+              <Button type="button" variant="outline" onClick={handleReset} className="w-full sm:w-auto">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset to Defaults
               </Button>
-              <Button type="submit" disabled={isSaving}>
+              <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (

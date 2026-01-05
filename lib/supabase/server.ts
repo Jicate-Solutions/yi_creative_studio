@@ -28,9 +28,11 @@ export async function createClient() {
       // Add timeout configuration to prevent indefinite hangs
       global: {
         fetch: (url, options = {}) => {
-          // 15-second timeout for Storage operations (longer than AI API calls)
+          // v7.0: Increased to 45-second timeout for Storage operations
+          // Previous 15s was too aggressive for image uploads (1-2MB)
+          // Image generation (5-10s) + upload latency can exceed 15s
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
+          const timeoutId = setTimeout(() => controller.abort(), 45000);
 
           return fetch(url, {
             ...options,

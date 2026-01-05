@@ -327,6 +327,25 @@ export interface EnhancedBuildOptions {
     leftEdge: number
     rightEdge: number
   }
+
+  // NEW v7.0: Logo Strip Zone Coordinates for 4-Row Enhanced Strip
+  // Tells Gemini AI to reserve space for logo strips (header and footer)
+  // This prevents text/content from overlapping with logo overlay areas
+  logoStripZoneCoordinates?: {
+    // Header strip zone (ROW 1 + ROW 2 + ROW 3)
+    headerHeight: number          // Total pixel height reserved for header strip
+    headerReservePercent: number  // Percentage of canvas height (0-100)
+    // Footer strip zone (ROW 4 - Footer Bar)
+    footerHeight: number          // Pixel height reserved for footer bar
+    footerReservePercent: number  // Percentage of canvas height (0-100)
+    // Active rows for context
+    activeRows: {
+      brand: boolean      // ROW 1 - Brand logos
+      vertical: boolean   // ROW 2 - Program logos
+      initiative: boolean // ROW 3 - Chapter text
+      footer: boolean     // ROW 4 - Footer bar
+    }
+  }
 }
 
 // ============================================================

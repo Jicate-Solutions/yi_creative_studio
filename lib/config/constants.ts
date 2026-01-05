@@ -149,6 +149,7 @@ export const ROUTES = {
   analyticsFeedback: '/settings/analytics/feedback',
   analyticsLearning: '/settings/analytics/learning',
   profile: '/settings/profile',
+  adminCredits: '/settings/admin/credits',
 } as const
 
 // API Routes

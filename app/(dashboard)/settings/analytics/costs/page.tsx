@@ -380,166 +380,168 @@ export default function TokenCostsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]"></TableHead>
-                  <TableHead>Creative</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Vertical</TableHead>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 -ml-3"
-                      onClick={() => toggleSort('totalCostUsd')}
-                    >
-                      Cost
-                      {sortField === 'totalCostUsd' && (
-                        sortDir === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 -ml-3"
-                      onClick={() => toggleSort('created_at')}
-                    >
-                      Date
-                      {sortField === 'created_at' && (
-                        sortDir === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedData.map((creative) => (
-                  <Fragment key={creative.id}>
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => toggleRowExpand(creative.id)}
-                    >
-                      <TableCell>
-                        {creative.thumbnail_url ? (
-                          <div className="relative h-10 w-10 rounded overflow-hidden">
-                            <Image
-                              src={creative.thumbnail_url}
-                              alt={creative.title || 'Creative'}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
-                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                          </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>Creative</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Vertical</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 -ml-3"
+                        onClick={() => toggleSort('totalCostUsd')}
+                      >
+                        Cost
+                        {sortField === 'totalCostUsd' && (
+                          sortDir === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium truncate max-w-[200px]">
-                            {creative.title}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {creative.totalInputTokens.toLocaleString()} in / {creative.totalOutputTokens.toLocaleString()} out
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {getFormatLabel(creative.creative_type)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {creative.vertical ? (
-                          <Badge variant="secondary">{creative.vertical}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 -ml-3"
+                        onClick={() => toggleSort('created_at')}
+                      >
+                        Date
+                        {sortField === 'created_at' && (
+                          sortDir === 'desc' ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn(
-                          'font-semibold',
-                          creative.totalCostUsd === summaryStats.mostExpensiveCost && 'text-red-600',
-                          creative.totalCostUsd === summaryStats.cheapestCost && 'text-green-600'
-                        )}>
-                          {formatCostAsINR(creative.totalCostUsd)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(creative.created_at).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                        >
-                          {expandedRows.has(creative.id) ? (
-                            <ChevronUp className="h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedData.map((creative) => (
+                    <Fragment key={creative.id}>
+                      <TableRow
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleRowExpand(creative.id)}
+                      >
+                        <TableCell>
+                          {creative.thumbnail_url ? (
+                            <div className="relative h-10 w-10 rounded overflow-hidden">
+                              <Image
+                                src={creative.thumbnail_url}
+                                alt={creative.title || 'Creative'}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            </div>
                           )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    {/* Expanded Row - Stage Breakdown */}
-                    {expandedRows.has(creative.id) && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="bg-muted/30 p-0">
-                          <div className="p-4 space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground mb-2">
-                              Cost Breakdown by Stage
-                            </p>
-                            <div className="grid gap-2">
-                              {creative.stages.map((stage) => (
-                                <div
-                                  key={`${creative.id}-${stage.request_type}-${stage.provider}-${stage.model}`}
-                                  className="flex items-center justify-between p-2 bg-background rounded border"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <Badge variant="outline" className="text-xs">
-                                      {getStageLabel(stage.request_type)}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {stage.provider}/{stage.model}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    <span className="text-xs text-muted-foreground">
-                                      {stage.input_tokens.toLocaleString()} in / {stage.output_tokens.toLocaleString()} out
-                                    </span>
-                                    <span className="font-medium">
-                                      {formatCostAsINR(stage.estimated_cost_usd)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex justify-end mt-2">
-                              <Link href={`/gallery?id=${creative.id}`}>
-                                <Button variant="outline" size="sm" className="gap-2">
-                                  <ExternalLink className="h-4 w-4" />
-                                  View in Gallery
-                                </Button>
-                              </Link>
-                            </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate max-w-[200px]">
+                              {creative.title}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {creative.totalInputTokens.toLocaleString()} in / {creative.totalOutputTokens.toLocaleString()} out
+                            </span>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {getFormatLabel(creative.creative_type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {creative.vertical ? (
+                            <Badge variant="secondary">{creative.vertical}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            'font-semibold',
+                            creative.totalCostUsd === summaryStats.mostExpensiveCost && 'text-red-600',
+                            creative.totalCostUsd === summaryStats.cheapestCost && 'text-green-600'
+                          )}>
+                            {formatCostAsINR(creative.totalCostUsd)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(creative.created_at).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            {expandedRows.has(creative.id) ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    )}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
+                      {/* Expanded Row - Stage Breakdown */}
+                      {expandedRows.has(creative.id) && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="bg-muted/30 p-0">
+                            <div className="p-4 space-y-2">
+                              <p className="text-sm font-medium text-muted-foreground mb-2">
+                                Cost Breakdown by Stage
+                              </p>
+                              <div className="grid gap-2">
+                                {creative.stages.map((stage) => (
+                                  <div
+                                    key={`${creative.id}-${stage.request_type}-${stage.provider}-${stage.model}`}
+                                    className="flex items-center justify-between p-2 bg-background rounded border"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline" className="text-xs">
+                                        {getStageLabel(stage.request_type)}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {stage.provider}/{stage.model}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <span className="text-xs text-muted-foreground">
+                                        {stage.input_tokens.toLocaleString()} in / {stage.output_tokens.toLocaleString()} out
+                                      </span>
+                                      <span className="font-medium">
+                                        {formatCostAsINR(stage.estimated_cost_usd)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex justify-end mt-2">
+                                <Link href={`/gallery?id=${creative.id}`}>
+                                  <Button variant="outline" size="sm" className="gap-2">
+                                    <ExternalLink className="h-4 w-4" />
+                                    View in Gallery
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

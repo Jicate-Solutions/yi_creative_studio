@@ -366,7 +366,7 @@ export default function AnalyticsPage() {
       {/* Time Range Filter */}
       <div className="flex justify-end">
         <Select value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <Calendar className="h-4 w-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
@@ -486,60 +486,62 @@ export default function AnalyticsPage() {
                 </TabsContent>
 
                 <TabsContent value="models">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Provider</TableHead>
-                        <TableHead>Model</TableHead>
-                        <TableHead className="text-right">Input/1M</TableHead>
-                        <TableHead className="text-right">Output/1M</TableHead>
-                        <TableHead className="text-right">Cached/1M</TableHead>
-                        <TableHead className="text-right">Image Cost</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
-                        <TableCell>Gemini 2.5 Flash (Image)</TableCell>
-                        <TableCell className="text-right">$0.30</TableCell>
-                        <TableCell className="text-right">$2.50</TableCell>
-                        <TableCell className="text-right text-muted-foreground">$0.03</TableCell>
-                        <TableCell className="text-right font-medium">$0.039</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
-                        <TableCell>Gemini 2.5 Pro</TableCell>
-                        <TableCell className="text-right">$1.25</TableCell>
-                        <TableCell className="text-right">$10.00</TableCell>
-                        <TableCell className="text-right text-muted-foreground">$0.125</TableCell>
-                        <TableCell className="text-right">-</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
-                        <TableCell>Claude Haiku 4.5</TableCell>
-                        <TableCell className="text-right">$1.00</TableCell>
-                        <TableCell className="text-right">$5.00</TableCell>
-                        <TableCell className="text-right text-muted-foreground">$0.10</TableCell>
-                        <TableCell className="text-right">-</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
-                        <TableCell>Claude Sonnet 4.5</TableCell>
-                        <TableCell className="text-right">$3.00</TableCell>
-                        <TableCell className="text-right">$15.00</TableCell>
-                        <TableCell className="text-right text-muted-foreground">$0.30</TableCell>
-                        <TableCell className="text-right">-</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
-                        <TableCell>Claude Opus 4.5</TableCell>
-                        <TableCell className="text-right">$5.00</TableCell>
-                        <TableCell className="text-right">$25.00</TableCell>
-                        <TableCell className="text-right text-muted-foreground">$0.50</TableCell>
-                        <TableCell className="text-right">-</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Provider</TableHead>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="text-right">Input/1M</TableHead>
+                          <TableHead className="text-right">Output/1M</TableHead>
+                          <TableHead className="text-right">Cached/1M</TableHead>
+                          <TableHead className="text-right">Image Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
+                          <TableCell>Gemini 2.5 Flash (Image)</TableCell>
+                          <TableCell className="text-right">$0.30</TableCell>
+                          <TableCell className="text-right">$2.50</TableCell>
+                          <TableCell className="text-right text-muted-foreground">$0.03</TableCell>
+                          <TableCell className="text-right font-medium">$0.039</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell><Badge className="bg-blue-500">Gemini</Badge></TableCell>
+                          <TableCell>Gemini 2.5 Pro</TableCell>
+                          <TableCell className="text-right">$1.25</TableCell>
+                          <TableCell className="text-right">$10.00</TableCell>
+                          <TableCell className="text-right text-muted-foreground">$0.125</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                          <TableCell>Claude Haiku 4.5</TableCell>
+                          <TableCell className="text-right">$1.00</TableCell>
+                          <TableCell className="text-right">$5.00</TableCell>
+                          <TableCell className="text-right text-muted-foreground">$0.10</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                          <TableCell>Claude Sonnet 4.5</TableCell>
+                          <TableCell className="text-right">$3.00</TableCell>
+                          <TableCell className="text-right">$15.00</TableCell>
+                          <TableCell className="text-right text-muted-foreground">$0.30</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell><Badge className="bg-purple-500">Claude</Badge></TableCell>
+                          <TableCell>Claude Opus 4.5</TableCell>
+                          <TableCell className="text-right">$5.00</TableCell>
+                          <TableCell className="text-right">$25.00</TableCell>
+                          <TableCell className="text-right text-muted-foreground">$0.50</TableCell>
+                          <TableCell className="text-right">-</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -790,37 +792,39 @@ export default function AnalyticsPage() {
                   <CardDescription>Detailed token consumption and costs per AI model</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Model</TableHead>
-                        <TableHead className="text-right">Calls</TableHead>
-                        <TableHead className="text-right">Input Tokens</TableHead>
-                        <TableHead className="text-right">Output Tokens</TableHead>
-                        <TableHead className="text-right">Cost (USD)</TableHead>
-                        <TableHead className="text-right">Cost (INR)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries(apiUsage.byModel)
-                        .sort((a, b) => b[1].costUsd - a[1].costUsd)
-                        .map(([model, data]) => (
-                          <TableRow key={model}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${model.includes('gemini') ? 'bg-blue-500' : 'bg-purple-500'}`} />
-                                <span className="font-medium">{getModelDisplayName(model)}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">{data.requestCount}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{data.inputTokens.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{data.outputTokens.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-medium text-green-600">{formatUSD(data.costUsd)}</TableCell>
-                            <TableCell className="text-right text-orange-600">{formatINR(convertToINR(data.costUsd))}</TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="text-right">Calls</TableHead>
+                          <TableHead className="text-right">Input Tokens</TableHead>
+                          <TableHead className="text-right">Output Tokens</TableHead>
+                          <TableHead className="text-right">Cost (USD)</TableHead>
+                          <TableHead className="text-right">Cost (INR)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(apiUsage.byModel)
+                          .sort((a, b) => b[1].costUsd - a[1].costUsd)
+                          .map(([model, data]) => (
+                            <TableRow key={model}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${model.includes('gemini') ? 'bg-blue-500' : 'bg-purple-500'}`} />
+                                  <span className="font-medium">{getModelDisplayName(model)}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{data.requestCount}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">{data.inputTokens.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">{data.outputTokens.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-medium text-green-600">{formatUSD(data.costUsd)}</TableCell>
+                              <TableCell className="text-right text-orange-600">{formatINR(convertToINR(data.costUsd))}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -835,49 +839,51 @@ export default function AnalyticsPage() {
                     <CardDescription>Last 10 API requests with detailed cost breakdown</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Stage</TableHead>
-                          <TableHead>Model</TableHead>
-                          <TableHead className="text-right">Input</TableHead>
-                          <TableHead className="text-right">Output</TableHead>
-                          <TableHead className="text-right">Cost</TableHead>
-                          <TableHead className="text-right">Time</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {apiUsage.recentRecords.map((record) => (
-                          <TableRow key={record.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {getStageIcon(record.requestType)}
-                                <span className="font-medium">{getStageLabel(record.requestType)}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={record.provider === 'gemini' ? 'default' : 'secondary'} className="text-xs">
-                                  {record.provider}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">{getModelDisplayName(record.model)}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">{record.inputTokens.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{record.outputTokens.toLocaleString()}</TableCell>
-                            <TableCell className="text-right">
-                              <div>
-                                <span className="font-medium text-green-600">{formatUSD(record.costUsd)}</span>
-                                <p className="text-xs text-muted-foreground">{formatINR(convertToINR(record.costUsd))}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground">
-                              {format(new Date(record.createdAt), 'MMM d, h:mm a')}
-                            </TableCell>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Stage</TableHead>
+                            <TableHead>Model</TableHead>
+                            <TableHead className="text-right">Input</TableHead>
+                            <TableHead className="text-right">Output</TableHead>
+                            <TableHead className="text-right">Cost</TableHead>
+                            <TableHead className="text-right">Time</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {apiUsage.recentRecords.map((record) => (
+                            <TableRow key={record.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStageIcon(record.requestType)}
+                                  <span className="font-medium">{getStageLabel(record.requestType)}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={record.provider === 'gemini' ? 'default' : 'secondary'} className="text-xs">
+                                    {record.provider}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{getModelDisplayName(record.model)}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm">{record.inputTokens.toLocaleString()}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">{record.outputTokens.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">
+                                <div>
+                                  <span className="font-medium text-green-600">{formatUSD(record.costUsd)}</span>
+                                  <p className="text-xs text-muted-foreground">{formatINR(convertToINR(record.costUsd))}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {format(new Date(record.createdAt), 'MMM d, h:mm a')}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               )}
