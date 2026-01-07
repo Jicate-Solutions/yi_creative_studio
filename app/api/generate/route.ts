@@ -12,6 +12,7 @@ import {
 } from '@/lib/config/ai-pricing'
 import { resolveColorConfig, buildResolvedColorNarrative, isValidHex, type ResolvedColors } from '@/lib/utils/resolve-color-config'
 import { verifyImageColors, formatVerificationLog, type ColorVerificationResult } from '@/lib/utils/color-verification'
+import { calculateInitiativeContrast, type InitiativeContrastInfo } from '@/lib/utils/color-contrast'
 // Lazy load sharp to reduce cold start time (40-60MB native binary)
 // Only loaded when actually needed for template processing
 let sharpInstance: typeof sharp | null = null
@@ -588,7 +589,8 @@ export async function POST(request: NextRequest) {
       // Pass speaker photo enabled flag to prevent speaker data leakage when disabled
       // Note: Using adjustedUserFormData which may have prevention adjustments applied
       const speakerPhotoEnabled = speakerPhoto?.enabled ?? false
-      const compiledData = compileFormData(adjustedUserFormData, formatId, effectiveDesignData, language, speakerPhotoEnabled)
+      // v15.1: Pass enhanced4RowStrip to extract initiative text for AI prompt
+      const compiledData = compileFormData(adjustedUserFormData, formatId, effectiveDesignData, language, speakerPhotoEnabled, enhanced4RowStrip)
       console.log('[Generate] === COMPILED FORM DATA ===')
       console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
 
@@ -1300,15 +1302,43 @@ export async function POST(request: NextRequest) {
 
           // Calculate footer height (ROW 4 - Footer Bar)
           // v12.4: CRITICAL - Increased footer reserve from ~10% to ~12% for better AI compliance
+          // v17.0: CRITICAL - Increased footer cap from 15% to 18% for Zone 1 signature logo visibility
           // Footer bar height (80px default) + 88px buffer for guaranteed AI content clearance
           let footerHeight = 0
           if (activeRows.footer) {
-            const baseFooterHeight = enhanced4RowStrip.footer?.height || 80 // v11.2: Updated default from 62 to 80
+            const baseFooterHeight = enhanced4RowStrip.footer?.height || 180 // v17.1: Updated from 80 to 180 to match DEFAULT_FOOTER_CONFIG
             // v12.4: Increased buffer from 60px to 88px for stronger AI compliance (168px total = ~12% of 1400px canvas)
             // This larger buffer creates a "reinforcement zone" that Gemini AI is more likely to respect
             footerHeight = baseFooterHeight + 88 // = 168px total reserve (~12% for standard 1400px canvas, ~13% for 1344px)
-            // v11.2: Increased cap from 12% to 15% to ensure adequate space for footer
-            footerHeight = Math.min(footerHeight, height * 0.15)
+            // v17.0: Increased cap from 15% to 18% to prevent signature logo clipping in Zone 1
+            footerHeight = Math.min(footerHeight, height * 0.18)
+          }
+
+          // v15.2: Calculate initiative text contrast and AUTO-ADJUST color if needed
+          let initiativeContrastInfo: InitiativeContrastInfo | null = null
+          if (hasInitiativeText(enhanced4RowStrip)) {
+            initiativeContrastInfo = calculateInitiativeContrast(
+              enhanced4RowStrip.rows.initiative.color,
+              resolvedColors.primaryColor  // v15.2: Pass actual primary color (e.g., #0b6d41)
+            )
+            console.log('[Color Contrast] Initiative Text (v15.2 - AUTO-ADJUSTED):', {
+              originalColor: initiativeContrastInfo.color,
+              adjustedColor: initiativeContrastInfo.adjustedColor,
+              wasAdjusted: initiativeContrastInfo.needsAdjustment,
+              primaryBg: resolvedColors.primaryColor,
+              originalRatio: `${initiativeContrastInfo.contrastRatio.toFixed(1)}:1`,
+              meetsWCAG_AA_afterAdjustment: true,  // Always true after adjustment
+              recommendedBg: initiativeContrastInfo.recommendedBgTone,
+            })
+
+            // v15.2: Update the enhanced4RowStrip to use adjusted color for backend overlay
+            if (initiativeContrastInfo.needsAdjustment) {
+              enhanced4RowStrip.rows.initiative.color = initiativeContrastInfo.adjustedColor
+              console.log('[Color Contrast] ✅ Initiative text color auto-adjusted:', {
+                from: initiativeContrastInfo.color,
+                to: initiativeContrastInfo.adjustedColor
+              })
+            }
           }
 
           logoStripZoneCoordinates = {
@@ -1317,6 +1347,7 @@ export async function POST(request: NextRequest) {
             footerHeight: Math.round(footerHeight),
             footerReservePercent: Math.round((footerHeight / height) * 100),
             activeRows,
+            initiativeColorInfo: initiativeContrastInfo || undefined, // v13.0: Pass to AI
           }
 
           // v12.3: Enhanced logging to show header height breakdown
@@ -1727,10 +1758,63 @@ ${typographyProfile.hierarchy}
           if (result) partnerLogo = result
         }
 
+        // v14.0: Fetch signature from landmark_signatures table (NEW) or logos table (legacy)
+        let signatureLogo: { logoId: string; buffer: Buffer; width: number; height: number } | undefined
+        if (isSplitLayout && enhanced4RowStrip.footer?.signature?.enabled) {
+          // First try signatureId (new landmark_signatures table)
+          if (enhanced4RowStrip.footer?.signature?.signatureId) {
+            const signatureId = enhanced4RowStrip.footer.signature.signatureId
+            try {
+              // Fetch signature details from landmark_signatures table
+              const { data: signatureData } = await supabase
+                .from('landmark_signatures')
+                .select('file_url, width, height')
+                .eq('id', signatureId)
+                .eq('organization_id', organizationId)
+                .single()
+
+              if (signatureData?.file_url) {
+                const signatureResponse = await fetch(signatureData.file_url)
+                if (signatureResponse.ok) {
+                  const signatureBuffer = Buffer.from(await signatureResponse.arrayBuffer())
+                  const { default: sharp } = await import('sharp')
+                  const metadata = await sharp(signatureBuffer).metadata()
+                  signatureLogo = {
+                    logoId: signatureId,
+                    buffer: signatureBuffer,
+                    width: metadata.width || signatureData.width || 200,
+                    height: metadata.height || signatureData.height || 100,
+                  }
+                  console.log('[Footer Zone 1] Landmark signature fetched:', {
+                    signatureId,
+                    width: signatureLogo.width,
+                    height: signatureLogo.height,
+                  })
+                }
+              }
+            } catch (error) {
+              console.error('[Footer Zone 1] Error fetching landmark signature:', error)
+            }
+          }
+          // Fallback to logoId (legacy - from organization_logos table)
+          else if (enhanced4RowStrip.footer?.signature?.logoId) {
+            const signatureLogoId = enhanced4RowStrip.footer.signature.logoId
+            const result = await fetchLogoBuffer(signatureLogoId)
+            if (result) signatureLogo = result
+            console.log('[Footer Zone 1] Legacy signature logo fetched:', {
+              logoId: signatureLogoId,
+              hasBuffer: !!result,
+              width: result?.width,
+              height: result?.height,
+            })
+          }
+        }
+
         console.log('[Enhanced 4-Row Strip] Fetched logos:', {
           brandCount: brandLogos.length,
           verticalCount: verticalLogos.length,
           hasPartnerLogo: !!partnerLogo,
+          hasSignatureLogo: !!signatureLogo,  // v9.0: Zone 1 signature
           layoutMode: isSplitLayout ? 'split' : 'unified',
         })
 
@@ -1748,8 +1832,16 @@ ${typographyProfile.hierarchy}
           console.log('[Enhanced 4-Row Strip] Using SPLIT layout (header at top, footer at bottom)')
 
           // v8.0: Debug footer configuration before rendering
+          // v9.0: Added signature zone debug
+          // v14.0: Added signatureId (landmark_signatures table)
           console.log('[Footer Debug - API Route] Footer config being passed to rendering:', {
             footerEnabled: enhanced4RowStrip.footer?.enabled,
+            signature: {  // v9.0/v14.0: Zone 1
+              enabled: enhanced4RowStrip.footer?.signature?.enabled,
+              signatureId: enhanced4RowStrip.footer?.signature?.signatureId, // v14.0: New landmark_signatures
+              logoId: enhanced4RowStrip.footer?.signature?.logoId, // Legacy
+              width: enhanced4RowStrip.footer?.signature?.width,
+            },
             hashtag: {
               text: enhanced4RowStrip.footer?.hashtag?.text,
               enabled: enhanced4RowStrip.footer?.hashtag?.enabled,
@@ -1773,6 +1865,7 @@ ${typographyProfile.hierarchy}
               brandLogos,
               verticalLogos,
               partnerLogo,
+              signatureLogo,  // v9.0: Zone 1 signature illustration
             }
           )
         } else {
@@ -2704,11 +2797,10 @@ async function generateWithGemini(
   const geminiAspectRatio = format?.aspectRatio || '1:1'
 
   // Model capability constraints with their API endpoints
-  // Note: Only gemini-3-pro-image-preview supports generationConfig.imageConfig
-  // Flash models require simple request structure without imageConfig
+  // All models support generationConfig.imageConfig for aspect ratio control
   const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[]; endpoint: string; supportsImageConfig: boolean }> = {
-    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image', supportsImageConfig: false },
-    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation', supportsImageConfig: false },
+    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image', supportsImageConfig: true },
+    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation', supportsImageConfig: true },
     'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'], endpoint: 'gemini-3-pro-image-preview', supportsImageConfig: true },
   }
 
@@ -2781,50 +2873,33 @@ async function generateWithGemini(
   console.log(sanitizedPrompt.substring(0, 800))
   console.log('[Generate] ... (truncated)')
 
-  // Build request body based on model capabilities
-  // Flash models (gemini-2.5-flash-image): Simple request without generationConfig.imageConfig
-  // Pro model (gemini-3-pro-image-preview): Full request with imageConfig for aspect ratio and resolution
+  // Build request body with imageConfig for aspect ratio control
+  // All Gemini image models support aspectRatio, but only Pro supports imageSize
   let requestBody: Record<string, unknown>
 
-  if (GEMINI_MODEL_CAPABILITIES[currentModel]?.supportsImageConfig) {
-    // gemini-3-pro-image-preview: Use full generationConfig with imageConfig
-    console.log('[Generate] Using Pro model with imageConfig - aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
-    requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: sanitizedPrompt }],
-        },
-      ],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        imageConfig: {
-          aspectRatio: geminiAspectRatio,
-          imageSize: geminiImageSize,
-        },
+  console.log('[Generate] Using model with imageConfig - model:', currentModel, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
+
+  // Build imageConfig - Flash models don't support imageSize parameter
+  const imageConfig: { aspectRatio: string; imageSize?: string } = {
+    aspectRatio: geminiAspectRatio,
+  }
+
+  // Only Pro model supports imageSize parameter
+  if (currentModel === 'gemini-3-pro-image-preview') {
+    imageConfig.imageSize = geminiImageSize
+  }
+
+  requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: sanitizedPrompt }],
       },
-    }
-  } else {
-    // gemini-2.5-flash-image: Simple request without imageConfig (model generates images by default)
-    // CRITICAL FIX: Flash model doesn't support imageConfig.aspectRatio, so we embed
-    // aspect ratio instructions directly in the prompt to prevent gaps/distortion
-    console.log('[Generate] Using Flash model with simple request structure (no imageConfig)')
-
-    // Build aspect ratio instruction for Flash model
-    const aspectRatioInstruction = format
-      ? `\n\nCRITICAL ASPECT RATIO REQUIREMENT: Generate this image at EXACTLY ${format.aspectRatio} aspect ratio (${format.width}x${format.height} pixels). The image MUST fill the entire canvas edge-to-edge with NO empty borders, NO letterboxing, NO white gaps, and NO padding. The design content should extend to ALL four edges of the image.`
-      : ''
-
-    console.log('[Generate] Flash model aspect ratio instruction:', format ? `${format.aspectRatio} (${format.width}x${format.height})` : 'none')
-
-    requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: sanitizedPrompt + aspectRatioInstruction }],
-        },
-      ],
-    }
+    ],
+    generationConfig: {
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageConfig: imageConfig,
+    },
   }
 
   // Add system instruction if provided (works for both model types)

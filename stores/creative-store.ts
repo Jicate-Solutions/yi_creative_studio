@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Creative, VerticalPreset, AIModel, OrganizationLogo, TemplateImage } from '@/types/database.types'
+import type { LandmarkSignature } from '@/types/landmark-signatures'
 import type { LogoPosition } from '@/lib/config/constants'
 import { detectLogoType, getSuggestedPosition, isLogoAutoLocked, getAutoLockedPosition, type LogoType } from '@/lib/config/logo-locks'
 import type { FieldSuggestion, SuggestableField } from '@/types/suggestions'
@@ -187,6 +188,7 @@ interface CreativeState {
   verticals: VerticalPreset[]
   models: AIModel[]
   logos: OrganizationLogo[]
+  landmarkSignatures: LandmarkSignature[] // Footer signature images (local landmarks)
 
   // Format selection (Canva-style)
   selectedFormat: CreativeFormat | null
@@ -226,6 +228,7 @@ interface CreativeState {
   setVerticals: (verticals: VerticalPreset[]) => void
   setModels: (models: AIModel[]) => void
   setLogos: (logos: OrganizationLogo[]) => void
+  setLandmarkSignatures: (signatures: LandmarkSignature[]) => void
 
   // Auto-initialize brand logos (Yi, CII, Bharat Rising) in their fixed positions
   initializeDefaultLogoPlacements: (availableLogos: OrganizationLogo[]) => void
@@ -268,6 +271,7 @@ interface CreativeState {
   addVerticalLogo4Row: (logoId: string) => void // max 6 enforcement
   removeVerticalLogo4Row: (logoId: string) => void
   reorderVerticalLogos4Row: (logoIds: string[]) => void
+  setVerticalLogoIds4Row: (logoIds: string[]) => void // Preset application
   setPartnerLogo: (logoId: string | null) => void
   update4RowBackground: (config: Partial<Enhanced4RowStripMode['background']>) => void
   set4RowBrandEnabled: (enabled: boolean) => void
@@ -276,12 +280,20 @@ interface CreativeState {
   // Footer row actions (split layout - row 4 at bottom)
   setFooterEnabled: (enabled: boolean) => void
   updateFooterConfig: (config: Partial<FooterRowConfig>) => void
-  updateFooterHashtag: (hashtag: { enabled?: boolean; text?: string }) => void
+  updateFooterSignature: (signature: Partial<FooterRowConfig['signature']>) => void
+  updateFooterHashtag: (hashtag: { enabled?: boolean; text?: string; color?: string }) => void
   updateFooterWebsite: (website: { enabled?: boolean; url?: string; socialHandle?: string }) => void
+  updateFooterSocialBar: (socialBar: Partial<FooterRowConfig['socialBar']>) => void
   updateFooterDigitalPartner: (partner: Partial<FooterRowConfig['digitalPartner']>) => void
   updateFooterBackground: (background: Partial<FooterRowConfig['background']>) => void
   setFooterLayout: (layout: FooterLayout) => void
   setFooterPartnerLogo: (logoId: string | null) => void
+  setFooterSignatureImage: (imageUrl: string | null) => void
+  setFooterSignatureLogo: (logoId: string | null) => void
+  setFooterSignatureId: (signatureId: string | null) => void // Uses landmark_signatures table
+
+  // Footer Preset actions
+  applyFooterPreset: (preset: { config: FooterRowConfig; name: string }) => void
 
   // AI Logo Position Optimization
   applyOptimizedPlacements: (optimizedPlacements: Array<{
@@ -412,6 +424,7 @@ export const useCreativeStore = create<CreativeState>()(
       verticals: [],
       models: [],
       logos: [],
+      landmarkSignatures: [],
 
       // Format selection state (Canva-style)
       selectedFormat: null,
@@ -438,6 +451,8 @@ export const useCreativeStore = create<CreativeState>()(
       setModels: (models) => set({ models }),
 
       setLogos: (logos) => set({ logos }),
+
+      setLandmarkSignatures: (landmarkSignatures) => set({ landmarkSignatures }),
 
       // Auto-initialize brand logos (Yi, CII, Bharat Rising) in their fixed positions
       // Yi Brand Guidelines 2025: These 3 logos are CONSTANT for every poster
@@ -1024,6 +1039,25 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
+      // v14.0: Apply vertical logo preset (replaces all logos)
+      setVerticalLogoIds4Row: (logoIds) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                vertical: {
+                  ...state.formData.enhanced4RowStrip.rows.vertical,
+                  logoIds: logoIds.slice(0, MAX_VERTICAL_LOGOS), // Enforce max
+                  enabled: logoIds.length > 0, // Auto-enable/disable
+                },
+              },
+            },
+          },
+        })),
+
       setPartnerLogo: (logoId) =>
         set((state) => ({
           formData: {
@@ -1217,6 +1251,114 @@ export const useCreativeStore = create<CreativeState>()(
                   logoId,
                   enabled: !!logoId, // Auto-enable when logo selected
                 },
+              },
+            },
+          },
+        })),
+
+      // v13.0: Signature illustration actions
+      updateFooterSignature: (signature) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                signature: {
+                  ...state.formData.enhanced4RowStrip.footer.signature,
+                  ...signature,
+                },
+              },
+            },
+          },
+        })),
+
+      setFooterSignatureImage: (imageUrl) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                signature: {
+                  ...state.formData.enhanced4RowStrip.footer.signature,
+                  imageUrl,
+                  enabled: !!imageUrl, // Auto-enable when image set
+                },
+              },
+            },
+          },
+        })),
+
+      setFooterSignatureLogo: (logoId) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                signature: {
+                  ...state.formData.enhanced4RowStrip.footer.signature,
+                  logoId,
+                  enabled: !!logoId, // Auto-enable when logo selected
+                },
+              },
+            },
+          },
+        })),
+
+      // v14.0: Landmark signature selection (from landmark_signatures table)
+      setFooterSignatureId: (signatureId) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                signature: {
+                  ...state.formData.enhanced4RowStrip.footer.signature,
+                  signatureId,
+                  // Clear logoId when using signatureId (landmark_signatures table)
+                  logoId: signatureId ? null : state.formData.enhanced4RowStrip.footer.signature?.logoId,
+                  enabled: !!signatureId, // Auto-enable when signature selected
+                },
+              },
+            },
+          },
+        })),
+
+      // v13.0: Social bar actions
+      updateFooterSocialBar: (socialBar) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...state.formData.enhanced4RowStrip.footer,
+                socialBar: {
+                  ...state.formData.enhanced4RowStrip.footer.socialBar,
+                  ...socialBar,
+                },
+              },
+            },
+          },
+        })),
+
+      // Footer Preset - apply a saved footer configuration
+      applyFooterPreset: (preset) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              footer: {
+                ...preset.config,
+                enabled: true, // Ensure footer is enabled when preset is applied
               },
             },
           },

@@ -4,6 +4,7 @@ import { useCreativeStore } from '@/stores/creative-store'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
 import {
   Select,
   SelectContent,
@@ -19,7 +20,16 @@ import {
   ChevronRight,
   X,
   ImageIcon,
+  Paintbrush,
+  Instagram,
+  AtSign,
+  Bookmark,
 } from 'lucide-react'
+import { useState } from 'react'
+import { FooterPresetSelector } from '@/components/create/footer-preset-selector'
+import { SaveFooterPresetDialog } from '@/components/create/save-footer-preset-dialog'
+import { VerticalPresetSelector } from '@/components/create/vertical-preset-selector'
+import { SaveVerticalPresetDialog } from '@/components/create/save-vertical-preset-dialog'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import { detectLogoType, LOGO_TYPE_CONFIGS } from '@/lib/config/logo-locks'
@@ -44,7 +54,17 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
     addVerticalLogo4Row,
     removeVerticalLogo4Row,
     set4RowVerticalEnabled,
+    // v9.0: Zone 1 signature actions
+    updateFooterSignature,
+    setFooterSignatureLogo,
+    updateFooterSocialBar,
+    // Footer Preset actions
+    applyFooterPreset,
   } = useCreativeStore()
+
+  // Preset dialog states
+  const [showSavePresetDialog, setShowSavePresetDialog] = useState(false)
+  const [showSaveVerticalPresetDialog, setShowSaveVerticalPresetDialog] = useState(false)
 
   const enhanced4Row = formData.enhanced4RowStrip
   const footer = enhanced4Row.footer
@@ -169,10 +189,15 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                 <span className="text-[10px] text-slate-400 mr-1.5 font-normal">ROW 2</span>
                 Program Logos
               </span>
-              <Switch
-                checked={enhanced4Row.rows.vertical.enabled}
-                onCheckedChange={set4RowVerticalEnabled}
-              />
+              <div className="flex items-center gap-2">
+                <VerticalPresetSelector
+                  onSaveClick={() => setShowSaveVerticalPresetDialog(true)}
+                />
+                <Switch
+                  checked={enhanced4Row.rows.vertical.enabled}
+                  onCheckedChange={set4RowVerticalEnabled}
+                />
+              </div>
             </div>
             {enhanced4Row.rows.vertical.enabled && (
               <div className="space-y-2">
@@ -285,64 +310,211 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
               </div>
 
               {footer.enabled && (
-                <div className="space-y-2 pt-1">
-                  {/* Hashtag */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                    <Hash className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                    <Input
-                      value={footer.hashtag.text}
-                      onChange={(e) => updateFooterHashtag({ text: e.target.value, enabled: true })}
-                      placeholder="#YIERODE"
-                      className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
-                    />
-                  </div>
-
-                  {/* Website */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                    <Globe className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <Input
-                      value={footer.website.url}
-                      onChange={(e) => updateFooterWebsite({ url: e.target.value, enabled: true })}
-                      placeholder="www.youngindians.net"
-                      className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
-                    />
-                  </div>
-
-                  {/* Digital Partner */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                    <Handshake className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                    <div className="flex-1 flex items-center gap-2">
-                      <span className="text-xs text-slate-500 whitespace-nowrap">Digital Partner</span>
-                      <Select
-                        value={footer.digitalPartner.logoId || ''}
-                        onValueChange={setFooterPartnerLogo}
-                      >
-                        <SelectTrigger className="h-7 text-xs flex-1 border-0">
-                          <SelectValue placeholder="Select logo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {logos.map((logo) => (
-                            <SelectItem key={logo.id} value={logo.id}>
-                              <div className="flex items-center gap-2">
-                                {logo.file_url ? (
-                                  <Image
-                                    src={logo.file_url}
-                                    alt=""
-                                    width={16}
-                                    height={16}
-                                    className="object-contain"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-4 w-4 text-slate-300" />
-                                )}
-                                <span className="text-xs truncate max-w-[100px]">{logo.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <div className="space-y-3 pt-1">
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  {/* FOOTER PRESETS - Save & Load footer configurations */}
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-2.5 border border-orange-200">
+                    <div className="flex items-center gap-2">
+                      <Bookmark className="h-3.5 w-3.5 text-orange-600" />
+                      <span className="text-[10px] font-medium text-orange-800">
+                        Footer Presets
+                      </span>
+                      <span className="text-[9px] text-orange-500">
+                        Save & reuse configurations
+                      </span>
                     </div>
+                    <FooterPresetSelector
+                      onSaveClick={() => setShowSavePresetDialog(true)}
+                    />
+                  </div>
+
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  {/* ZONE 1: Signature Illustration (Left) - NEW v9.0 */}
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  <div className="rounded-lg border border-teal-200 bg-gradient-to-b from-teal-50/50 to-white p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Paintbrush className="h-3.5 w-3.5 text-teal-600" />
+                        <span className="text-[10px] font-medium text-teal-700">Zone 1 - Signature</span>
+                      </div>
+                      <Switch
+                        checked={footer.signature?.enabled ?? false}
+                        onCheckedChange={(enabled) => updateFooterSignature({ enabled })}
+                      />
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">
+                      Watercolor/sketch landmark illustration (left side)
+                    </p>
+
+                    {footer.signature?.enabled && (
+                      <div className="space-y-2">
+                        {/* Signature Logo Selector */}
+                        <Select
+                          value={footer.signature.logoId || 'none'}
+                          onValueChange={(value) => setFooterSignatureLogo(value === 'none' ? null : value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            {footer.signature.logoId ? (
+                              <div className="flex items-center gap-2">
+                                {logos.find(l => l.id === footer.signature.logoId)?.file_url && (
+                                  <Image
+                                    src={logos.find(l => l.id === footer.signature.logoId)!.file_url!}
+                                    alt=""
+                                    width={20}
+                                    height={20}
+                                    className="object-contain"
+                                  />
+                                )}
+                                <span className="truncate">{logos.find(l => l.id === footer.signature.logoId)?.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Select signature image</span>
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {logos.map((logo) => (
+                              <SelectItem key={logo.id} value={logo.id}>
+                                <div className="flex items-center gap-2">
+                                  {logo.file_url && (
+                                    <Image
+                                      src={logo.file_url}
+                                      alt=""
+                                      width={18}
+                                      height={18}
+                                      className="object-contain"
+                                    />
+                                  )}
+                                  <span className="text-xs">{logo.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {/* Width Slider */}
+                        <div className="flex items-center justify-between gap-3">
+                          <Label className="text-[9px] text-muted-foreground">Width</Label>
+                          <div className="flex items-center gap-2 flex-1">
+                            <Slider
+                              value={[footer.signature.width || 35]}
+                              onValueChange={([value]) => updateFooterSignature({ width: value })}
+                              min={20}
+                              max={50}
+                              step={5}
+                              className="flex-1"
+                            />
+                            <span className="text-[9px] w-8 text-right">{footer.signature.width || 35}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  {/* ZONE 2: Center Content (Hashtag + Website + Social) */}
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  <div className="rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50/50 to-white p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-medium text-blue-700">Zone 2 - Center Info</span>
+                    </div>
+
+                    {/* Hashtag */}
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                      <Hash className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <Input
+                        value={footer.hashtag.text}
+                        onChange={(e) => updateFooterHashtag({ text: e.target.value, enabled: true })}
+                        placeholder="#YIERODE"
+                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0 font-bold"
+                      />
+                      <input
+                        type="color"
+                        value={footer.hashtag.color || '#0B6D41'}
+                        onChange={(e) => updateFooterHashtag({ color: e.target.value })}
+                        className="w-5 h-5 rounded border cursor-pointer flex-shrink-0"
+                      />
+                    </div>
+
+                    {/* Website */}
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                      <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <Input
+                        value={footer.website.url}
+                        onChange={(e) => updateFooterWebsite({ url: e.target.value, enabled: true })}
+                        placeholder="www.youngindians.net"
+                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
+                      />
+                    </div>
+
+                    {/* Social Handle */}
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                      <Instagram className="h-4 w-4 text-pink-500 flex-shrink-0" />
+                      <AtSign className="h-3 w-3 text-slate-400 -ml-1" />
+                      <Input
+                        value={footer.website.socialHandle || ''}
+                        onChange={(e) => updateFooterWebsite({ socialHandle: e.target.value })}
+                        placeholder="yi.erode"
+                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  {/* ZONE 3: Digital Partner (Right) */}
+                  {/* ═══════════════════════════════════════════════════════════════ */}
+                  <div className="rounded-lg border border-orange-200 bg-gradient-to-b from-orange-50/50 to-white p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Handshake className="h-3.5 w-3.5 text-orange-500" />
+                      <span className="text-[10px] font-medium text-orange-700">Zone 3 - Digital Partner</span>
+                    </div>
+
+                    {/* Partner Logo Selector */}
+                    <Select
+                      value={footer.digitalPartner.logoId || ''}
+                      onValueChange={setFooterPartnerLogo}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        {footer.digitalPartner.logoId ? (
+                          <div className="flex items-center gap-2">
+                            {logos.find(l => l.id === footer.digitalPartner.logoId)?.file_url && (
+                              <Image
+                                src={logos.find(l => l.id === footer.digitalPartner.logoId)!.file_url!}
+                                alt=""
+                                width={18}
+                                height={18}
+                                className="object-contain"
+                              />
+                            )}
+                            <span className="truncate">{logos.find(l => l.id === footer.digitalPartner.logoId)?.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Select partner logo</span>
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {logos.map((logo) => (
+                          <SelectItem key={logo.id} value={logo.id}>
+                            <div className="flex items-center gap-2">
+                              {logo.file_url ? (
+                                <Image
+                                  src={logo.file_url}
+                                  alt=""
+                                  width={16}
+                                  height={16}
+                                  className="object-contain"
+                                  unoptimized
+                                />
+                              ) : (
+                                <ImageIcon className="h-4 w-4 text-slate-300" />
+                              )}
+                              <span className="text-xs truncate max-w-[100px]">{logo.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Footer Color */}
@@ -365,6 +537,18 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
           </div>
         </div>
       )}
+
+      {/* Footer Preset Save Dialog */}
+      <SaveFooterPresetDialog
+        open={showSavePresetDialog}
+        onOpenChange={setShowSavePresetDialog}
+      />
+
+      {/* Vertical Logo Preset Save Dialog */}
+      <SaveVerticalPresetDialog
+        open={showSaveVerticalPresetDialog}
+        onOpenChange={setShowSaveVerticalPresetDialog}
+      />
     </div>
   )
 }

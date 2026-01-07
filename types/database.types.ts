@@ -287,6 +287,50 @@ export type Database = {
           },
         ]
       }
+      footer_presets: {
+        Row: {
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "footer_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_logos: {
         Row: {
           category: string
@@ -594,6 +638,50 @@ export type Database = {
         }
         Relationships: []
       }
+      vertical_logo_presets: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          logo_ids: string[]
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_ids?: string[]
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_ids?: string[]
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vertical_logo_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vertical_presets: {
         Row: {
           created_at: string
@@ -790,6 +878,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "agent_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landmark_signatures: {
+        Row: {
+          city: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          file_size_bytes: number | null
+          file_url: string
+          height: number | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          region: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_size_bytes?: number | null
+          file_url: string
+          height?: number | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          region?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_size_bytes?: number | null
+          file_url?: string
+          height?: number | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          region?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landmark_signatures_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

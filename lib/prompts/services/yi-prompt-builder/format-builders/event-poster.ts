@@ -19,6 +19,7 @@ import {
   buildLanguageContext,
   buildSpeakerPhotoZoneContext,
   buildLogoStripZoneContext,
+  buildInitiativeColorContext,
   formatSpeakerDetails,
   formatMultipleSpeakers,
 } from '../context-helpers'
@@ -549,6 +550,16 @@ export function buildEventPosterPrompt(
     console.log('[Event Poster] v7.0: Logo strip zone context added for 4-Row Enhanced Strip')
   }
 
+  // NEW v13.0: Build initiative text color contrast context for Row 3
+  // v15.1: Now uses PROSE format (not XML) so Gemini actually respects it
+  const initiativeColorContext = buildInitiativeColorContext(options.logoStripZoneCoordinates)
+  if (initiativeColorContext) {
+    console.log('[Event Poster] v15.1: Initiative color constraint added in PROSE format (not XML)')
+    console.log('[Event Poster] Initiative text color:', options.logoStripZoneCoordinates?.initiativeColorInfo?.color)
+    console.log('[Event Poster] Required bg tone:', options.logoStripZoneCoordinates?.initiativeColorInfo?.recommendedBgTone)
+    console.log('[Event Poster] Positioned BEFORE visual scene to prevent override')
+  }
+
   // v12.4: Extract footer zone info for layout composition section reinforcement
   const hasFooterContent = options.logoStripZoneCoordinates?.activeRows?.footer || false
   const footerReservePercent = options.logoStripZoneCoordinates?.footerReservePercent || 0
@@ -1069,7 +1080,10 @@ ${typographyRules}
 POSTER DESCRIPTION:
 A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for "${eventName}".Target Audience: ${data.targetAudience || eventContext.defaultAudience}.
 
-${options.ultraProContext?.visualScene
+${initiativeColorContext ? `
+${initiativeColorContext}
+
+` : ''}${options.ultraProContext?.visualScene
       ? `VISUAL SCENE (ULTRA-PRO DIRECTION):
 ${options.ultraProContext.visualScene}
 
@@ -1105,18 +1119,21 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
     : `- The top ${textZones.header.end}% should have a clean, simple background for optimal visual flow.`
   }
 
-  🚫 FORBIDDEN ZONE - TOP ${textZones.header.end}% (v12.7):
-  - DO NOT generate any content in the top ${textZones.header.end}% (0-${textZones.header.end}%) zone
-  - NO text of any kind (not even small text)
-  - NO decorative elements or graphics
-  - ONLY clean background (solid color, subtle gradient, or simple texture)
+  🚫 FORBIDDEN ZONE - TOP ${textZones.header.end}% (v16.19: ABSOLUTE CONSTRAINT):
+  - CRITICAL: Logo overlay zone occupies 0-${headerHeight}px from top (${textZones.header.end}% of canvas)
+  - ABSOLUTE RULE: First pixel of headline text MUST BEGIN at Y ≥ ${Math.round(headerHeight * 1.11)}px (${textZones.headline.start}% from top)
+  - DO NOT generate ANY content (text, graphics, decorative elements) in 0-${headerHeight}px zone
+  - This zone WILL BE COVERED by logo overlay - anything placed here WILL NOT BE VISIBLE
+  - ONLY clean background (solid color, subtle gradient, or simple texture) in this zone
 
-  ✅ TEXT PLACEMENT RULES (v12.7):
-  - Main headline: BEGIN at minimum ${textZones.headline.start}% from top (NOT earlier)
-  ${eventDescription ? `- Tagline: BEGIN at minimum ${textZones.tagline.start}% from top` : ''}
-  - Date/Venue: BEGIN at minimum ${textZones.dateVenue.start}% from top
-  ${speakers.length > 0 ? `- Speakers: BEGIN at minimum ${textZones.speakers.start}% from top` : ''}
-  ${customFieldsText.length > 0 ? `- Additional Details: BEGIN at minimum ${textZones.additionalDetails.start}% from top` : ''}
+  ✅ TEXT PLACEMENT RULES (v16.19: HARD PIXEL COORDINATES):
+  - Main headline: BEGIN at Y ≥ ${Math.round(headerHeight * 1.11)}px (${textZones.headline.start}% from top) - NOT earlier
+  - Headline safe zone: ${Math.round(headerHeight * 1.11)}-${Math.round(headerHeight * 1.50)}px (Y-axis)
+  - VERIFY: Headline top edge is positioned BELOW ${Math.round(headerHeight * 1.11)}px
+  ${eventDescription ? `- Tagline: BEGIN at Y ≥ ${Math.round(headerHeight * 1.56)}px (${textZones.tagline.start}% from top)` : ''}
+  - Date/Venue: BEGIN at Y ≥ ${Math.round(headerHeight * 1.83)}px (${textZones.dateVenue.start}% from top)
+  ${speakers.length > 0 ? `- Speakers: BEGIN at Y ≥ ${Math.round(headerHeight * 2.33)}px (${textZones.speakers.start}% from top)` : ''}
+  ${customFieldsText.length > 0 ? `- Additional Details: BEGIN at Y ≥ ${Math.round(headerHeight * 3.00)}px (${textZones.additionalDetails.start}% from top)` : ''}
 
   🎯 VERTICAL LAYOUT SYSTEM (v12.7):
   All text elements MUST respect these minimum Y-coordinates to avoid header overlap.

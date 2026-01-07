@@ -19,7 +19,7 @@ import {
   type FooterRowConfig,
   ENHANCED_STRIP_ROW_HEIGHTS,
 } from '@/lib/config/design-constants'
-import { renderInitiativeText, renderPartnerLabel, renderFooterBar } from './svg-text-renderer'
+import { renderInitiativeText, renderPartnerLabel, renderFooterBar, estimateTextWidth } from './svg-text-renderer'
 
 // Logo position grid (18 positions - 6 columns × 3 rows) - matches lib/config/constants.ts
 export type LogoPosition =
@@ -442,17 +442,17 @@ async function addDropShadowToLogo(
         background: { r: 0, g: 0, b: 0, alpha: 0 }
       }
     })
-    .composite([
-      {
-        input: logoBuffer,
-        top: shadowPadding,
-        left: shadowPadding,
-      }
-    ])
-    // Apply blur to create soft shadow effect
-    .blur(shadowBlur * 0.5)
-    .png()
-    .toBuffer()
+      .composite([
+        {
+          input: logoBuffer,
+          top: shadowPadding,
+          left: shadowPadding,
+        }
+      ])
+      // Apply blur to create soft shadow effect
+      .blur(shadowBlur * 0.5)
+      .png()
+      .toBuffer()
 
     console.log(`[Drop Shadow] Added shadow to logo (${metadata.width}x${metadata.height} → ${canvasWidth}x${canvasHeight})`)
     return result
@@ -565,9 +565,9 @@ async function createLogoStrip(
    * Maps user-specified columns to evenly-spaced virtual columns
    */
   function redistributeColumnsForFullWidth(
-    logos: Array<{ column: number; [key: string]: any }>,
+    logos: Array<{ column: number;[key: string]: any }>,
     totalColumns: number = 6
-  ): Array<{ column: number; virtualColumn: number; [key: string]: any }> {
+  ): Array<{ column: number; virtualColumn: number;[key: string]: any }> {
     // Extract unique columns used
     const usedColumns = Array.from(new Set(logos.map(l => l.column))).sort((a, b) => a - b)
 
@@ -640,10 +640,10 @@ async function createLogoStrip(
   const virtualColumnsStr = `[${redistributedLogos.map(l => l.virtualColumn).join(', ')}]`
   const patternDescription =
     redistributedLogos.length === 1 ? 'Center' :
-    redistributedLogos.length === 2 ? 'Edges' :
-    redistributedLogos.length === 3 ? 'Left, Center-Right, Right' :
-    redistributedLogos.length >= 4 ? 'Evenly Distributed' :
-    'Custom'
+      redistributedLogos.length === 2 ? 'Edges' :
+        redistributedLogos.length === 3 ? 'Left, Center-Right, Right' :
+          redistributedLogos.length >= 4 ? 'Evenly Distributed' :
+            'Custom'
 
   console.log('[Logo Overlay] Distribution Pattern:', `${virtualColumnsStr} - ${patternDescription}`)
 
@@ -1000,9 +1000,9 @@ async function createMultiRowStrip(
  * Maps user-specified columns to evenly-spaced virtual columns
  */
 function redistributeColumnsForFullWidth(
-  logos: Array<{ column: number; [key: string]: any }>,
+  logos: Array<{ column: number;[key: string]: any }>,
   totalColumns: number = 6
-): Array<{ column: number; virtualColumn: number; [key: string]: any }> {
+): Array<{ column: number; virtualColumn: number;[key: string]: any }> {
   // Extract unique columns used
   const usedColumns = Array.from(new Set(logos.map(l => l.column))).sort((a, b) => a - b)
 
@@ -1714,27 +1714,96 @@ export async function createEnhanced4RowStrip(
     const contentWidth = stripWidth - padding.horizontal * 2
 
     try {
-      if (rowType === 'brand') {
+      if (rowType === 'brand' && logoData.brandLogos.length > 0) {
+        // v16.5: ROW 1 - Dynamic width (fit-to-logos), centered, attached to top edge
+        // v17.0: Increased gap from 6px to 12px for better visual spacing between brand logos
+        // Calculate card width based on actual logo dimensions
+        const logoGap = 12
+        const cardPaddingX = 32  // 16px padding each side
+        const maxLogoHeight = Math.floor(rowHeight * 0.96)
+
+        // Estimate total logos width after resize
+        let estimatedTotalLogosWidth = 0
+        for (const logo of logoData.brandLogos) {
+          const aspectRatio = logo.width / logo.height
+          let estimatedHeight = Math.min(logo.height, maxLogoHeight)
+          let estimatedWidth = Math.round(estimatedHeight * aspectRatio)
+          // Cap max width per logo to prevent overly wide logos
+          const maxWidthPerLogo = 150
+          if (estimatedWidth > maxWidthPerLogo) {
+            estimatedWidth = maxWidthPerLogo
+          }
+          estimatedTotalLogosWidth += estimatedWidth
+        }
+
+        const totalGapsWidth = (logoData.brandLogos.length - 1) * logoGap
+        // Card width = logos + gaps + padding, with min 280px
+        const cardWidth = Math.max(280, estimatedTotalLogosWidth + totalGapsWidth + cardPaddingX)
+        // Center the card horizontally on the strip
+        const cardLeft = Math.floor((stripWidth - cardWidth) / 2)
+
+        console.log(`[4-Row Strip] ROW 1 (brand): Dynamic width ${cardWidth}px, centered at left=${cardLeft}`)
+
         const rowBuffer = await renderLogoRow(
-          contentWidth,
+          cardWidth,  // v16.5: Dynamic width (fit-to-logos)
           rowHeight,
-          logoData.brandLogos
+          logoData.brandLogos,
+          'center',   // Center alignment within the card
+          16,         // Horizontal padding
+          {
+            borderRadius: 16,
+            roundTop: false,   // Sharp top (attached to top edge)
+            roundBottom: true, // Rounded bottom (floating look)
+            backgroundColor: { r: 255, g: 255, b: 255, alpha: 1 },  // White background
+            logoGap: logoGap,
+          }
         )
         compositeOps.push({
           input: rowBuffer,
           top: currentY,
-          left: padding.horizontal,
+          left: cardLeft,  // v16.5: Centered position (not padding.horizontal)
         })
-      } else if (rowType === 'vertical') {
+      } else if (rowType === 'vertical' && logoData.verticalLogos.length > 0) {
+        // v16.3: ROW 2 - Dynamic width (fit-to-logos), centered, floating card
+        const logoGap = 2
+        const cardPaddingX = 24  // 12px padding each side
+        const maxLogoHeight = Math.floor(rowHeight * 0.96)
+
+        // Estimate total logos width after resize
+        let estimatedTotalLogosWidth = 0
+        for (const logo of logoData.verticalLogos) {
+          const aspectRatio = logo.width / logo.height
+          let estimatedHeight = Math.min(logo.height, maxLogoHeight)
+          let estimatedWidth = Math.round(estimatedHeight * aspectRatio)
+          const maxWidthPerLogo = 100
+          if (estimatedWidth > maxWidthPerLogo) {
+            estimatedWidth = maxWidthPerLogo
+          }
+          estimatedTotalLogosWidth += estimatedWidth
+        }
+
+        const totalGapsWidth = (logoData.verticalLogos.length - 1) * logoGap
+        const cardWidth = Math.max(200, estimatedTotalLogosWidth + totalGapsWidth + cardPaddingX)
+        const cardLeft = Math.floor((stripWidth - cardWidth) / 2)
+
+        console.log(`[4-Row Strip] ROW 2 (vertical): Dynamic width ${cardWidth}px, centered at left=${cardLeft}`)
+
         const rowBuffer = await renderLogoRow(
-          contentWidth,
+          cardWidth,  // v16.3: Dynamic width (fit-to-logos)
           rowHeight,
-          logoData.verticalLogos
+          logoData.verticalLogos,
+          'center',
+          12,
+          {
+            borderRadius: 8,   // rounded-lg for floating card look
+            backgroundColor: { r: 255, g: 255, b: 255, alpha: 1 },
+            logoGap: logoGap,
+          }
         )
         compositeOps.push({
           input: rowBuffer,
           top: currentY,
-          left: padding.horizontal,
+          left: cardLeft,  // v16.3: Centered position
         })
       } else if (rowType === 'initiative') {
         const textBuffer = await renderInitiativeText(
@@ -1792,22 +1861,39 @@ type LogoRowAlignment = 'space-evenly' | 'space-between' | 'center'
  * @param rowHeight - Height of the row canvas
  * @param logos - Array of logo buffers with dimensions
  * @param alignment - Alignment mode (default: 'space-evenly')
- * @param horizontalPadding - Padding from edges (default: 20px)
+ * @param horizontalPadding - Padding from edges (default: 10px)
+ * @param shapeConfig - Optional border radius configuration (v15.0)
  */
+
+/**
+ * Shape configuration for individual logo rows
+ * v15.0: Support per-row border radius for floating card design
+ */
+export interface LogoRowShapeConfig {
+  borderRadius?: number;  // Border radius in pixels (0 = sharp, 16 = rounded-2xl)
+  roundTop?: boolean;     // Round only top corners (for footer)
+  roundBottom?: boolean;  // Round only bottom corners
+  backgroundColor?: { r: number; g: number; b: number; alpha: number };  // v15.1: Row background color (white for floating cards, transparent for default)
+  logoGap?: number;       // v16.1: Explicit gap between logos in pixels (overrides default calculation)
+}
+
 async function renderLogoRow(
   rowWidth: number,
   rowHeight: number,
   logos: LogoBufferData[],
   alignment: LogoRowAlignment = 'space-evenly',
-  horizontalPadding: number = 10  // v12.0: Reduced from 15 to 10 for more horizontal space
+  horizontalPadding: number = 10,  // v12.0: Reduced from 15 to 10 for more horizontal space
+  shapeConfig?: LogoRowShapeConfig  // v15.0: Per-row border radius
 ): Promise<Buffer> {
-  // Create transparent canvas for the row
+  // v15.1: Create canvas with configurable background (default: transparent, or solid for floating cards)
+  const bgColor = shapeConfig?.backgroundColor || { r: 0, g: 0, b: 0, alpha: 0 }
+
   const canvas = await sharp({
     create: {
       width: rowWidth,
       height: rowHeight,
       channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      background: bgColor,  // Use white for floating cards, transparent for default
     },
   })
     .png()
@@ -1815,14 +1901,62 @@ async function renderLogoRow(
 
   if (logos.length === 0) return canvas
 
-  const availableWidth = rowWidth - (horizontalPadding * 2)
-  // v11.2: Reduced gaps to maximize logo size (was 8:12:15, now 5:8:10)
-  const minGap = logos.length > 4 ? 5 : logos.length > 2 ? 8 : 10
-  // v12.0: Increased from 0.88 to 0.95 for maximum logo visibility
-  const maxLogoHeight = Math.floor(rowHeight * 0.95)
+  // v16.3 FIX: Create rounded background directly with SVG fill (replaces broken mask approach)
+  // The previous dest-in blend mode was causing the white background to not render correctly
+  let processedCanvas = canvas
+  if (shapeConfig?.borderRadius && shapeConfig.borderRadius > 0) {
+    const radius = shapeConfig.borderRadius
 
-  // v7.1: Calculate max width per logo to ensure all fit with gaps
-  const maxTotalLogoWidth = availableWidth - (minGap * (logos.length + 1))
+    // Use the configured background color for the SVG fill
+    const bgR = bgColor.r
+    const bgG = bgColor.g
+    const bgB = bgColor.b
+    const bgA = bgColor.alpha
+
+    // Generate SVG with colored fill (not white mask + blend)
+    let bgSVG: string
+
+    if (shapeConfig.roundTop && !shapeConfig.roundBottom) {
+      // Round top only (footer bar)
+      bgSVG = `
+        <svg width="${rowWidth}" height="${rowHeight}">
+          <path d="M 0,${radius} Q 0,0 ${radius},0 L ${rowWidth - radius},0 Q ${rowWidth},0 ${rowWidth},${radius} L ${rowWidth},${rowHeight} L 0,${rowHeight} Z" fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
+        </svg>
+      `
+    } else if (shapeConfig.roundBottom && !shapeConfig.roundTop) {
+      // Round bottom only (ROW 1 - top attached, bottom floating)
+      bgSVG = `
+        <svg width="${rowWidth}" height="${rowHeight}">
+          <path d="M 0,0 L ${rowWidth},0 L ${rowWidth},${rowHeight - radius} Q ${rowWidth},${rowHeight} ${rowWidth - radius},${rowHeight} L ${radius},${rowHeight} Q 0,${rowHeight} 0,${rowHeight - radius} Z" fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
+        </svg>
+      `
+    } else {
+      // Round all corners (ROW 2 - floating card)
+      bgSVG = `
+        <svg width="${rowWidth}" height="${rowHeight}">
+          <rect x="0" y="0" width="${rowWidth}" height="${rowHeight}" rx="${radius}" ry="${radius}" fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
+        </svg>
+      `
+    }
+
+    // v16.3: Create background directly from SVG (no mask compositing needed)
+    processedCanvas = await sharp(Buffer.from(bgSVG))
+      .png()
+      .toBuffer()
+  }
+
+  const availableWidth = rowWidth - (horizontalPadding * 2)
+  // v16.1: Use explicit logoGap if provided, else fallback to dynamic calculation
+  // v11.2: Reduced gaps to maximize logo size (was 8:12:15, now 5:8:10)
+  const minGap = shapeConfig?.logoGap ?? (logos.length > 4 ? 5 : logos.length > 2 ? 8 : 10)
+  // v15.0: Increased from 0.95 to 0.96 for tighter fit in smaller rows (50px → 48px, 40px → 38px)
+  const maxLogoHeight = Math.floor(rowHeight * 0.96)
+
+  // v16.12 FIX: Calculate max width per logo based on alignment mode
+  // 'space-evenly' needs gaps before, between, and after (logos.length + 1)
+  // 'center' only needs gaps between logos (logos.length - 1)
+  const gapCount = alignment === 'space-evenly' ? (logos.length + 1) : (logos.length - 1)
+  const maxTotalLogoWidth = availableWidth - (minGap * gapCount)
   const maxWidthPerLogo = Math.floor(maxTotalLogoWidth / logos.length)
 
   // v7.1: Resize logos to fit constraints BEFORE calculating positions
@@ -1931,7 +2065,7 @@ async function renderLogoRow(
 
   console.log(`[renderLogoRow] Alignment: ${alignment}, Logos: ${resizedLogos.length}, Positions:`, positions, `(availableWidth: ${availableWidth}, totalLogoWidth: ${totalLogoWidth})`)
 
-  return await sharp(canvas).composite(compositeOps).png().toBuffer()
+  return await sharp(processedCanvas).composite(compositeOps).png().toBuffer()
 }
 
 /**
@@ -2018,8 +2152,8 @@ export async function createEnhanced4RowHeaderStrip(
     }
   }
 
-  // Calculate total height
-  let totalHeight = padding.vertical * 2
+  // v16.4: Calculate total height - ROW 1 attached to top (no top padding)
+  let totalHeight = padding.vertical  // Only bottom padding (ROW 1 attached to top)
   for (const row of activeRows) {
     totalHeight += ENHANCED_STRIP_ROW_HEIGHTS[row]
     if (activeRows.indexOf(row) < activeRows.length - 1) {
@@ -2027,85 +2161,186 @@ export async function createEnhanced4RowHeaderStrip(
     }
   }
 
-  // Calculate strip width
-  const stripWidth = logoBound ? Math.min(imageWidth - 40, imageWidth * 0.9) : imageWidth
+  // Calculate strip width - v15.1: Floating card effect with margins
+  // Reduce width to 75% with max 800px for better floating appearance
+  const maxCardWidth = 800  // Maximum width for floating card
+  const floatingCardWidth = Math.min(imageWidth * 0.75, maxCardWidth)
+  const stripWidth = logoBound ? floatingCardWidth : imageWidth
   const stripLeft = logoBound ? Math.floor((imageWidth - stripWidth) / 2) : 0
 
-  // Create background strip
-  // v14.1: Use Sharp-compatible object format for background
-  const bgColor = hexToSharpBackground(background.color, background.opacity)
+  // v15.1: Per-row card approach - no unified background wrapper
+  // Each row will have its own background and border radius applied by renderLogoRow
 
-  let stripBuffer = await sharp({
-    create: {
-      width: stripWidth,
-      height: totalHeight,
-      channels: 4,
-      background: bgColor,  // {r, g, b, alpha} object format
-    },
-  }).png().toBuffer()
-
-  // Apply shape mask if not rectangle
-  if (background.shape !== 'rectangle') {
-    const shapeSvg = generateStripShapeSVG(stripWidth, totalHeight, background.shape, background.color, background.opacity)
-    const shapeMask = await sharp(Buffer.from(shapeSvg)).png().toBuffer()
-
-    stripBuffer = await sharp(stripBuffer)
-      .composite([{ input: shapeMask, blend: 'dest-in' }])
-      .png()
-      .toBuffer()
-  }
+  // v15.1: White background config for floating card effect
+  const rowBackgroundColor = { r: 255, g: 255, b: 255, alpha: 1 }  // White solid background
 
   // Render and composite each row
   const compositeOps: sharp.OverlayOptions[] = []
-  let currentY = padding.vertical
+  let currentY = 0  // v16.4: Start at Y=0 (ROW 1 attached to top edge of poster)
 
   for (const rowType of activeRows) {
     const rowHeight = ENHANCED_STRIP_ROW_HEIGHTS[rowType]
 
     if (rowType === 'brand' && logoData.brandLogos.length > 0) {
+      // v18.2: ROW 1 - FULL WIDTH with space-evenly alignment
+      // User requested full width edge-to-edge instead of dynamic tight-fit
+      // space-evenly provides equal gaps: |--gap--[logo]--gap--[logo]--gap--|
+
+      console.log(`[ROW 1 Full Width] Logos: ${logoData.brandLogos.length}, Width: ${imageWidth}px (full width, space-evenly)`)
+
       const brandRowBuffer = await renderLogoRow(
-        stripWidth,
+        imageWidth,       // v18.2: Full width (was: cardWidth)
         rowHeight,
-        logoData.brandLogos
+        logoData.brandLogos,
+        'space-evenly',   // v18.2: Even spacing on all sides (was: 'center')
+        20,               // v18.2: Reduced padding since we have full width
+        {
+          borderRadius: 16,  // v16.0: rounded-b-2xl (bottom only)
+          roundTop: false,   // v16.4: TOP ATTACHED - sharp corners (touches top edge)
+          roundBottom: true, // v16.4: BOTTOM FLOATING - rounded corners
+          backgroundColor: rowBackgroundColor,
+          // Note: logoGap not needed with space-evenly - it calculates gaps automatically
+        }
       )
+
+      // v18.2: Position at left: 0 (full width, no centering needed)
       compositeOps.push({ input: brandRowBuffer, top: currentY, left: 0 })
     } else if (rowType === 'vertical' && logoData.verticalLogos.length > 0) {
+      // v16.3: ROW 2 - Dynamic width floating card (fit-to-logos, centered)
+      // Card width should fit the logos inside it, not stretch full edge-to-edge
+      // If 2 logos = smaller card, if 6 logos = wider card
+
+      const logoGap = 2  // v16.1: 2px gap between program logos
+      const cardPaddingX = 24  // 12px padding each side
+
+      // Calculate the actual logo widths after they would be resized
+      // First, estimate the resized logo dimensions
+      const maxLogoHeight = Math.floor(rowHeight * 0.96)
+
+      let estimatedTotalLogosWidth = 0
+      for (const logo of logoData.verticalLogos) {
+        const aspectRatio = logo.width / logo.height
+        let estimatedHeight = Math.min(logo.height, maxLogoHeight)
+        let estimatedWidth = Math.round(estimatedHeight * aspectRatio)
+
+        // Cap width to reasonable maximum per logo (e.g., 100px)
+        const maxWidthPerLogo = 100
+        if (estimatedWidth > maxWidthPerLogo) {
+          estimatedWidth = maxWidthPerLogo
+        }
+
+        estimatedTotalLogosWidth += estimatedWidth
+      }
+
+      // Calculate card width: logos + gaps + padding
+      const totalGapsWidth = (logoData.verticalLogos.length - 1) * logoGap
+      const cardWidth = Math.max(200, estimatedTotalLogosWidth + totalGapsWidth + cardPaddingX)
+
+      // Center the card within stripWidth
+      const cardLeft = Math.floor((stripWidth - cardWidth) / 2)
+
+      console.log(`[ROW 2 Dynamic Width] Logos: ${logoData.verticalLogos.length}, Total width: ${estimatedTotalLogosWidth}px, Card: ${cardWidth}px, Left: ${cardLeft}px`)
+
+      // v16.3: Render at cardWidth (dynamic), not stripWidth (full edge-to-edge)
       const verticalRowBuffer = await renderLogoRow(
-        stripWidth,
+        cardWidth,   // v16.3: Dynamic width based on logo count!
         rowHeight,
-        logoData.verticalLogos
+        logoData.verticalLogos,
+        'center',    // Center logos within the card
+        12,          // v16.3: Adjusted padding for smaller card
+        {
+          borderRadius: 8,   // v16.0: rounded-lg floating card
+          backgroundColor: rowBackgroundColor,
+          logoGap: logoGap,  // v16.1: Explicit 2px gap between program logos
+        }
       )
-      compositeOps.push({ input: verticalRowBuffer, top: currentY, left: 0 })
+
+      // v16.3: Position at cardLeft (centered) instead of 0
+      compositeOps.push({ input: verticalRowBuffer, top: currentY, left: cardLeft })
     } else if (rowType === 'initiative') {
+      // v16.4: ROW 3 - Dynamic width floating card (fit-to-text, centered)
+      // Same pattern as ROW 2 - card width fits the text, not full edge-to-edge
+
+      const cardPaddingX = 32  // 16px padding each side (slightly more than ROW 2 for text breathing room)
+
+      // Estimate text width
+      const fontSize = rows.initiative.fontSize || 18  // Default from InitiativeTextConfig
+      const fontWeight = rows.initiative.fontWeight || 'medium'
+      const estimatedTextWidth = estimateTextWidth(
+        rows.initiative.text,
+        fontSize,
+        fontWeight
+      )
+
+      // Calculate card width: text + padding
+      const cardWidth = Math.max(250, estimatedTextWidth + cardPaddingX)
+
+      // Center the card within stripWidth
+      const cardLeft = Math.floor((stripWidth - cardWidth) / 2)
+
+      console.log(`[ROW 3 Dynamic Width] Text: "${rows.initiative.text.substring(0, 30)}...", Estimated: ${estimatedTextWidth}px, Card: ${cardWidth}px, Left: ${cardLeft}px`)
+
+      // v16.4: Render at cardWidth (dynamic), not stripWidth (full edge-to-edge)
       const initiativeBuffer = await renderInitiativeText(
         rows.initiative,
-        stripWidth,
-        rowHeight
+        cardWidth,   // v16.4: Dynamic width based on text length!
+        rowHeight,
+        {
+          backgroundColor: rowBackgroundColor,  // White solid background
+          borderRadius: 8,  // v16.4: rounded-lg floating card (same as ROW 2)
+        }
       )
-      compositeOps.push({ input: initiativeBuffer, top: currentY, left: 0 })
+
+      // v16.4: Position at cardLeft (centered) instead of 0
+      compositeOps.push({ input: initiativeBuffer, top: currentY, left: cardLeft })
     }
 
     currentY += rowHeight + rowSpacing
   }
 
-  if (compositeOps.length > 0) {
-    stripBuffer = await sharp(stripBuffer)
+  // v15.1: Return transparent strip with individual rows (no unified background)
+  // Each row already has its own white background + border radius
+  let headerStripBuffer: Buffer
+
+  if (compositeOps.length === 0) {
+    // No rows - return empty transparent strip
+    headerStripBuffer = await sharp({
+      create: { width: stripWidth, height: totalHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+    }).png().toBuffer()
+  } else {
+    // Create transparent canvas for composite
+    headerStripBuffer = await sharp({
+      create: {
+        width: imageWidth,  // v16.16: Full edge-to-edge width (was stripWidth)
+        height: totalHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },  // Transparent - no unified background
+      },
+    })
       .composite(compositeOps)
       .png()
       .toBuffer()
   }
 
-  return { stripBuffer, stripHeight: totalHeight, stripLeft }
+  return { stripBuffer: headerStripBuffer, stripHeight: totalHeight, stripLeft }
 }
 
 /**
- * Create footer strip only (row 4: hashtag, website, digital partner)
+ * Create footer strip only (row 4: 3-zone layout)
  * Used in split layout mode where footer is at bottom of image
+ *
+ * v9.0: 3-Zone Layout Support
+ * - Zone 1 (Left): Signature illustration (watercolor/sketch landmark)
+ * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar
+ * - Zone 3 (Right): Digital Partner label + logo
  */
 export async function createEnhanced4RowFooterStrip(
   imageWidth: number,
   config: FooterRowConfig,
-  logoData?: { partnerLogo?: LogoBufferData }
+  logoData?: {
+    partnerLogo?: LogoBufferData
+    signatureLogo?: LogoBufferData  // v9.0: Zone 1 signature illustration
+  }
 ): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
   if (!config.enabled) {
     return {
@@ -2118,12 +2353,15 @@ export async function createEnhanced4RowFooterStrip(
   }
 
   // Check if any content exists (v8.0: Removed enabled flag checks - render if content exists, like rows 1-2)
+  // v9.0: Added signature check for Zone 1
   const hasContent =
-    (config.hashtag.text.trim()) ||
-    (config.website.url.trim() || config.website.socialHandle?.trim()) ||
-    (config.digitalPartner.logoId || config.digitalPartner.labelText.trim())
+    (config.signature?.enabled && config.signature?.logoId) ||  // Zone 1: Signature
+    (config.hashtag.text.trim()) ||                             // Zone 2: Hashtag
+    (config.website.url.trim() || config.website.socialHandle?.trim()) ||  // Zone 2: Website/Social
+    (config.digitalPartner.logoId || config.digitalPartner.labelText.trim())  // Zone 3: Partner
 
   console.log('[Footer Debug] Config received:', {
+    signature: { enabled: config.signature?.enabled, logoId: config.signature?.logoId },
     hashtag: { text: config.hashtag.text, enabled: config.hashtag.enabled },
     website: { url: config.website.url, handle: config.website.socialHandle, enabled: config.website.enabled },
     partner: { labelText: config.digitalPartner.labelText, logoId: config.digitalPartner.logoId, enabled: config.digitalPartner.enabled },
@@ -2142,23 +2380,65 @@ export async function createEnhanced4RowFooterStrip(
   }
 
   const { background, height: footerHeight, padding } = config
-  const stripWidth = imageWidth
-  const stripLeft = 0
 
-  // Create background strip
-  // v14.1: Use Sharp-compatible object format for background
-  const bgColor = hexToSharpBackground(background.color, background.opacity)
+  // v16.5: Calculate dynamic width for footer based on content
+  // Estimate widths of each zone to determine minimum card width
+  const zone1Width = (config.signature?.enabled && logoData?.signatureLogo?.buffer)
+    ? Math.min(logoData.signatureLogo.width || 200, 350)  // v17.1: Increased from 250px to 350px for better signature visibility in 180px footer
+    : 0
+  // v16.6: Calculate Zone 3 width from actual partner logo dimensions + label
+  const zone3Width = (config.digitalPartner.enabled && logoData?.partnerLogo?.buffer)
+    ? Math.max(
+      config.digitalPartner.logoSize || 80,  // User-configured logo size
+      logoData.partnerLogo.width || 100,     // Actual logo width
+      150                                     // Minimum for label + logo + padding
+    ) + 40  // Extra padding for label text above logo
+    : 0
 
+  // Zone 2 width estimate (hashtag + website + social bar)
+  let zone2Width = 0
+  if (config.hashtag.text.trim()) {
+    zone2Width += estimateTextWidth(config.hashtag.text, config.fontSize + 2, config.fontWeight) + 20
+  }
+  if (config.website.url.trim()) {
+    zone2Width += estimateTextWidth(config.website.url, config.fontSize, 'normal') + 10
+  }
+  if (config.website.socialHandle?.trim()) {
+    zone2Width += estimateTextWidth(config.website.socialHandle, 10, 'medium') + 60  // Icons + padding
+  }
+  // Add some overlap buffer since items stack vertically
+  zone2Width = Math.max(zone2Width * 0.6, zone2Width > 0 ? 150 : 0)
+
+  // Calculate card width with padding and gaps
+  const zonePadding = 40  // 20px each side
+  const zoneGaps = 10     // v16.8: 5px gap between each zone (2 gaps × 5px = 10px total)
+  const contentWidth = zone1Width + zone2Width + zone3Width + zonePadding + zoneGaps
+  const minCardWidth = 320
+  const maxCardWidth = imageWidth * 0.95
+
+  // v16.5: Dynamic width (fit-to-content), min 320px, max 95% of image
+  // CRITICAL: Must be integer for Sharp - floating point values cause "Expected valid width" error
+  const stripWidth = Math.floor(Math.min(maxCardWidth, Math.max(minCardWidth, contentWidth)))
+  const stripLeft = Math.floor((imageWidth - stripWidth) / 2)  // Center horizontally
+
+  console.log(`[Footer Strip] v16.5 Dynamic width: ${stripWidth}px (zones: ${zone1Width}+${zone2Width}+${zone3Width}), centered at left=${stripLeft}`)
+
+  // v17.2: Create TRANSPARENT base canvas (no duplicate background)
+  // The actual styled background is added via SVG below (line 2479)
   let stripBuffer = await sharp({
     create: {
       width: stripWidth,
       height: footerHeight,
       channels: 4,
-      background: bgColor,  // {r, g, b, alpha} object format
+      background: { r: 0, g: 0, b: 0, alpha: 0 },  // Transparent - no duplicate
     },
   }).png().toBuffer()
 
-  // Apply shape mask if not rectangle
+  // Get background color for SVG rendering
+  const bgColor = hexToSharpBackground(background.color, background.opacity)
+
+  // v16.5: Skip old shape mask - use direct SVG background with rounded top corners
+  // Apply shape mask if not rectangle (legacy support)
   if (background.shape !== 'rectangle') {
     const shapeSvg = generateStripShapeSVG(stripWidth, footerHeight, background.shape, background.color, background.opacity)
     const shapeMask = await sharp(Buffer.from(shapeSvg)).png().toBuffer()
@@ -2169,12 +2449,33 @@ export async function createEnhanced4RowFooterStrip(
       .toBuffer()
   }
 
-  // Render footer content (text + optional partner logo)
+  // v16.5: Create footer background directly with SVG (same approach as ROW 1/2 fix in v16.3)
+  // Rounded top corners (attached to bottom edge), sharp bottom corners
+  const borderRadius = 16
+  const bgR = bgColor.r
+  const bgG = bgColor.g
+  const bgB = bgColor.b
+  const bgA = bgColor.alpha
+
+  const roundedTopSVG = `
+    <svg width="${stripWidth}" height="${footerHeight}">
+      <path d="M 0,${borderRadius} Q 0,0 ${borderRadius},0 L ${stripWidth - borderRadius},0 Q ${stripWidth},0 ${stripWidth},${borderRadius} L ${stripWidth},${footerHeight} L 0,${footerHeight} Z" fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
+    </svg>
+  `
+
+  // v16.5: Create background directly from SVG (replaces mask approach that caused issues)
+  stripBuffer = await sharp(Buffer.from(roundedTopSVG))
+    .png()
+    .toBuffer()
+
+  // Render footer content (text + optional partner logo + optional signature)
+  // v9.0: Added signatureLogo parameter for Zone 1
   const footerContentBuffer = await renderFooterBar(
     config,
     stripWidth,
     footerHeight,
-    logoData?.partnerLogo?.buffer
+    logoData?.partnerLogo?.buffer,
+    logoData?.signatureLogo?.buffer  // v9.0: Zone 1 signature illustration
   )
 
   // Composite footer content onto background
@@ -2191,6 +2492,8 @@ export async function createEnhanced4RowFooterStrip(
  *
  * - Header strip (rows 1-3) at TOP
  * - Footer strip (row 4) at BOTTOM
+ *
+ * v9.0: Added signatureLogo support for Zone 1 (watercolor/sketch landmark)
  */
 export async function applyEnhanced4RowStripSplit(
   imageBuffer: Buffer,
@@ -2199,6 +2502,7 @@ export async function applyEnhanced4RowStripSplit(
     brandLogos: LogoBufferData[]
     verticalLogos: LogoBufferData[]
     partnerLogo?: LogoBufferData
+    signatureLogo?: LogoBufferData  // v9.0: Zone 1 signature illustration
   }
 ): Promise<Buffer> {
   if (!config.enabled || config.version !== '4-row-split') {
@@ -2227,10 +2531,11 @@ export async function applyEnhanced4RowStripSplit(
     })
   }
 
-  // Create footer strip (row 4)
+  // Create footer strip (row 4) - v9.0: Now includes signature logo for Zone 1
   const { stripBuffer: footerBuffer, stripHeight: footerHeight, stripLeft: footerLeft } =
     await createEnhanced4RowFooterStrip(imageWidth, config.footer, {
       partnerLogo: logoData.partnerLogo,
+      signatureLogo: logoData.signatureLogo,  // v9.0: Zone 1 signature illustration
     })
 
   if (footerHeight > 0) {

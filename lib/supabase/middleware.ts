@@ -14,8 +14,9 @@ export async function updateSession(request: NextRequest) {
 
   // For public routes (non-auth pages), skip auth check entirely for faster response
   // Auth pages still need the check to redirect logged-in users
+  // API routes MUST continue to session refresh (don't early return)
   const isAuthPage = request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup'
-  if (isPublicRoute && !isAuthPage) {
+  if (isPublicRoute && !isAuthPage && !isApiRoute) {
     return NextResponse.next({ request })
   }
 

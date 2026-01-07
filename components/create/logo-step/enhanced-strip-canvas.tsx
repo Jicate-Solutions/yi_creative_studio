@@ -1,20 +1,25 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useCreativeStore } from '@/stores/creative-store'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { Hash, Globe, Handshake } from 'lucide-react'
+import { Instagram, Facebook } from 'lucide-react'
 import { detectLogoType, LOGO_TYPE_CONFIGS } from '@/lib/config/logo-locks'
+import {
+  calculateFooterZoneWidths,
+  getPatternDescription,
+  type FooterZoneConfig,
+} from '@/lib/services/footer-zone-optimizer'
+import type { LandmarkSignature } from '@/types/landmark-signatures'
 
 interface EnhancedStripCanvasProps {
   className?: string
 }
 
 export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
-  const { formData, logos } = useCreativeStore()
+  const { formData, logos, landmarkSignatures } = useCreativeStore()
   const enhanced4Row = formData.enhanced4RowStrip
-
-  if (!enhanced4Row.enabled) return null
 
   const footer = enhanced4Row.footer
 
@@ -46,16 +51,12 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
 
   const hasHeaderContent = brandLogos.length > 0 || enhanced4Row.rows.initiative.text.trim()
   const hasFooterContent = footer.enabled && (
+    footer.signature?.enabled ||
     footer.hashtag.text.trim() ||
     footer.website.url.trim() ||
+    footer.website.socialHandle?.trim() ||
     footer.digitalPartner.logoId
   )
-
-  // Determine if footer background is light (for text color contrast)
-  const isLightBackground = footer.background.color.toUpperCase() === '#FFFFFF' ||
-    footer.background.color.toUpperCase() === '#FFF'
-  const footerTextColor = isLightBackground ? 'text-slate-700' : 'text-white'
-  const footerIconColor = isLightBackground ? 'text-slate-500' : 'text-white/80'
 
   if (!hasHeaderContent && !hasFooterContent) {
     return (
@@ -67,66 +68,132 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
     )
   }
 
+  // Get signature from landmark_signatures table (NEW) or fallback to logo library (legacy)
+  const signatureLogo: { file_url: string | null; name?: string } | null = useMemo(() => {
+    // First try signatureId (new landmark_signatures table)
+    if (footer.signature?.signatureId) {
+      const sig = landmarkSignatures.find(s => s.id === footer.signature.signatureId)
+      if (sig) return { file_url: sig.file_url, name: sig.name }
+    }
+    // Fallback to logoId (legacy - from logos library)
+    if (footer.signature?.logoId) {
+      return logos.find(l => l.id === footer.signature.logoId) || null
+    }
+    return null
+  }, [footer.signature?.signatureId, footer.signature?.logoId, landmarkSignatures, logos])
+
+  // Get partner logo if selected
+  const partnerLogo = footer.digitalPartner.logoId
+    ? logos.find(l => l.id === footer.digitalPartner.logoId)
+    : null
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOOTER ZONE OPTIMIZER - Dynamic space-evenly distribution
+  // Same algorithm as header strip for visual balance
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Determine which zones have content
+  const zone1HasContent = footer.signature?.enabled && signatureLogo?.file_url
+  const zone2HasContent = (
+    (footer.hashtag.enabled && footer.hashtag.text.trim()) ||
+    (footer.website.enabled && footer.website.url.trim()) ||
+    ((footer.socialBar?.enabled ?? true) && footer.website.socialHandle?.trim())
+  )
+  const zone3HasContent = footer.digitalPartner.enabled && partnerLogo?.file_url
+
+  // Count how many center items are enabled (for zone 2 content density)
+  const zone2ContentCount = [
+    footer.hashtag.enabled && footer.hashtag.text.trim(),
+    footer.website.enabled && footer.website.url.trim(),
+    (footer.socialBar?.enabled ?? true) && footer.website.socialHandle?.trim(),
+  ].filter(Boolean).length
+
+  // Calculate optimized zone widths using space-evenly algorithm
+  const zoneWidths = useMemo(() => {
+    const config: FooterZoneConfig = {
+      zone1Enabled: !!zone1HasContent,
+      zone2Enabled: !!zone2HasContent,
+      zone3Enabled: !!zone3HasContent,
+      zone2ContentCount,
+    }
+    return calculateFooterZoneWidths(config, 100) // percentages
+  }, [zone1HasContent, zone2HasContent, zone3HasContent, zone2ContentCount])
+
+  // Debug: Get pattern description for preview badge
+  const patternDesc = useMemo(() => {
+    return getPatternDescription({
+      zone1Enabled: !!zone1HasContent,
+      zone2Enabled: !!zone2HasContent,
+      zone3Enabled: !!zone3HasContent,
+    })
+  }, [zone1HasContent, zone2HasContent, zone3HasContent])
+
+  // Check enabled state AFTER all hooks have executed
+  // This prevents React Hooks order violation
+  if (!enhanced4Row.enabled) return null
+
   return (
-    <div className={cn('space-y-2', className)}>
-      {/* Header Strip Preview */}
-      {hasHeaderContent && (
-        <div className="rounded-xl overflow-hidden border-2 border-blue-200 shadow-md">
-          <div className="px-3 py-1 bg-blue-500 text-white">
-            <span className="text-[9px] font-medium">Header Strip</span>
+    <div className={cn('space-y-1 mt-6', className)}> {/* v16.0: space-y-1 = 4px tight gap */}
+      {/* ROW 1: Brand Logos Card - Dynamic width (fit-to-logos), centered, attached to top */}
+      {/* v16.5: Dynamic width like ROW 2, rounded bottom only (attached look) */}
+      {brandLogos.length > 0 && (
+        <div className="mx-auto w-fit min-w-[280px] max-w-2xl rounded-t-none rounded-b-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 border-t-0 px-8 py-1">
+          <div className="flex items-center justify-center" style={{ gap: '40px' }}>  {/* v16.11: 40px gap as requested */}
+            {brandLogos.map((logo) => (
+              <div key={logo.id} className="h-[120px] flex items-center">
+                {logo.file_url && (
+                  <Image
+                    src={logo.file_url}
+                    alt={logo.name || 'Logo'}
+                    width={150}
+                    height={95}
+                    className="object-contain"
+                    unoptimized
+                  />
+                )}
+              </div>
+            ))}
           </div>
-          <div className="p-3 bg-white space-y-2">
-            {/* Brand Logos Row */}
-            {brandLogos.length > 0 && (
-              <div className="flex items-center justify-center gap-4">
-                {brandLogos.map((logo) => (
-                  <div key={logo.id} className="h-8 flex items-center">
-                    {logo.file_url && (
-                      <Image
-                        src={logo.file_url}
-                        alt={logo.name || 'Logo'}
-                        width={45}
-                        height={28}
-                        className="object-contain"
-                        unoptimized
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+        </div>
+      )}
 
-            {/* Vertical Logos Row (Row 2) - Program Logos */}
-            {enhanced4Row.rows.vertical.enabled && enhanced4Row.rows.vertical.logoIds.length > 0 && (
-              <div className="flex items-center justify-center gap-3 py-1 bg-white/80 border-t border-slate-100">
-                {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
-                  const logo = logos.find(l => l.id === logoId)
-                  return logo?.file_url ? (
-                    <Image
-                      key={logoId}
-                      src={logo.file_url}
-                      alt={logo.name || ''}
-                      width={35}
-                      height={22}
-                      className="object-contain opacity-80"
-                      unoptimized
-                    />
-                  ) : null
-                })}
-              </div>
-            )}
+      {/* ROW 2: Floating Card with Rounded Corners (Program/Vertical Logos) */}
+      {/* v16.2: Height 60px, logo size 90×55px - based on Yi Kanniyakumari reference */}
+      {enhanced4Row.rows.vertical.enabled && enhanced4Row.rows.vertical.logoIds.length > 0 && (
+        <div className="mx-auto w-fit min-w-[280px] max-w-xl rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-6 py-0.5">
+          <div className="flex items-center justify-center py-0" style={{ gap: '2px' }}>
+            {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
+              const logo = logos.find(l => l.id === logoId)
+              return logo?.file_url ? (
+                <div key={logoId} className="h-[60px] flex items-center">
+                  <Image
+                    src={logo.file_url}
+                    alt={logo.name || ''}
+                    width={90}
+                    height={55}
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+              ) : null
+            })}
+          </div>
+        </div>
+      )}
 
-            {/* Initiative Text Row */}
-            {enhanced4Row.rows.initiative.enabled && enhanced4Row.rows.initiative.text.trim() && (
-              <div className="text-center py-1">
-                <span
-                  className="text-sm font-bold tracking-wide"
-                  style={{ color: enhanced4Row.rows.initiative.color }}
-                >
-                  {enhanced4Row.rows.initiative.text}
-                </span>
-              </div>
-            )}
+      {/* ROW 3: Initiative Text (Embedded in Poster) */}
+      {enhanced4Row.rows.initiative.enabled && enhanced4Row.rows.initiative.text.trim() && (
+        <div className="text-center py-1">
+          <div className="inline-block">
+            <span
+              className="text-sm font-bold tracking-wide font-poppins"
+              style={{ color: enhanced4Row.rows.initiative.color }}
+            >
+              {enhanced4Row.rows.initiative.text}
+            </span>
+            <div className="mt-1.5 text-[9px] text-slate-400 italic">
+              Embedded in poster by AI
+            </div>
           </div>
         </div>
       )}
@@ -136,60 +203,191 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
         <span className="text-[10px] text-slate-400">Poster Content</span>
       </div>
 
-      {/* Footer Strip Preview */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* FOOTER STRIP PREVIEW - 3-ZONE LAYOUT with AI-Powered Space-Evenly */}
+      {/* v16.5: Dynamic width (fit-to-content), centered, rounded top (attached bottom) */}
+      {/* Zone 1: Signature (Left) | Zone 2: Info (Center) | Zone 3: Partner (Right) */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
       {hasFooterContent && (
-        <div className="rounded-xl overflow-hidden border-2 border-orange-200 shadow-md">
-          <div className="px-3 py-1 bg-orange-500 text-white">
-            <span className="text-[9px] font-medium">Footer Bar</span>
+        <div className="mx-auto w-fit min-w-[320px] max-w-2xl rounded-t-2xl rounded-b-none overflow-hidden border border-slate-200 border-b-0 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <div className="px-3 py-1 bg-orange-500 text-white flex items-center justify-between">
+            <span className="text-[9px] font-medium">Footer Bar Preview</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[7px] opacity-60 hidden sm:inline">
+                {patternDesc}
+              </span>
+              <span className="text-[8px] opacity-70 bg-orange-600 px-1.5 py-0.5 rounded">
+                {zoneWidths.alignment === 'spread' ? 'Space-Evenly' : 'Centered'}
+              </span>
+            </div>
           </div>
+
+          {/* Footer Container with configurable background */}
+          {/* v16.3: Height 120px - more prominent footer */}
           <div
-            className={cn(
-              "py-3 px-4 flex items-center justify-between gap-4",
-              isLightBackground && "border-t border-slate-200"
-            )}
-            style={{ backgroundColor: footer.background.color }}
+            className="relative flex items-center overflow-hidden h-[120px]"
+            style={{
+              backgroundColor: footer.background.color,
+              borderRadius: footer.background.borderRadius || '0',
+              padding: `1px ${footer.padding.horizontal}px`,
+            }}
           >
-            {/* Hashtag */}
-            {footer.hashtag.text.trim() && (
-              <div className="flex items-center gap-1.5">
-                <Hash className={cn("h-4 w-4", footerIconColor)} />
-                <span className={cn("text-sm font-semibold", footerTextColor)}>
-                  {footer.hashtag.text.replace(/^#/, '')}
-                </span>
-              </div>
-            )}
-
-            {/* Website */}
-            {footer.website.url.trim() && (
-              <div className="flex items-center gap-1.5">
-                <Globe className={cn("h-4 w-4", footerIconColor)} />
-                <span className={cn("text-sm", footerTextColor)}>
-                  {footer.website.url}
-                </span>
-              </div>
-            )}
-
-            {/* Digital Partner */}
-            {footer.digitalPartner.logoId && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <Handshake className={cn("h-4 w-4", footerIconColor)} />
-                  <span className={cn("text-xs", footerTextColor)}>Digital Partner</span>
+            {/* ═══ ZONE 1: Signature Illustration (Left) ═══ */}
+            <div className="flex-1 flex items-end justify-start min-w-0">
+              {zone1HasContent && (
+                <div
+                  className="pointer-events-none shrink-0"
+                  style={{
+                    opacity: footer.signature?.opacity ? footer.signature.opacity / 100 : 1,
+                  }}
+                >
+                  <Image
+                    src={signatureLogo!.file_url!}
+                    alt="Signature"
+                    width={200}
+                    height={100}
+                    className="object-contain object-left-bottom max-h-full"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%'
+                    }}
+                    unoptimized
+                  />
                 </div>
-                {logos.find(l => l.id === footer.digitalPartner.logoId)?.file_url && (
-                  <div className="h-12 w-16 flex items-center justify-center bg-white/95 rounded-lg shadow-sm border border-slate-100">
-                    <Image
-                      src={logos.find(l => l.id === footer.digitalPartner.logoId)!.file_url!}
-                      alt="Partner"
-                      width={56}
-                      height={40}
-                      className="object-contain p-1"
-                      unoptimized
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* ═══ ZONE 2: Center Content (Hashtag + Website + Social Bar) ═══ */}
+            <div className="flex flex-col items-center justify-center gap-0.5 py-0 shrink-0 mx-4">
+              {/* Hashtag - Primary CTA */}
+              {footer.hashtag.enabled && footer.hashtag.text.trim() && (
+                <div
+                  className="font-bold uppercase tracking-wide text-center"
+                  style={{
+                    color: footer.hashtag.color || '#0B6D41',
+                    fontSize: `${footer.fontSize + 2}px`,
+                    fontWeight: footer.fontWeight === 'bold' ? 700 : footer.fontWeight === 'semibold' ? 600 : 500,
+                  }}
+                >
+                  {footer.hashtag.text.startsWith('#') ? footer.hashtag.text : `#${footer.hashtag.text}`}
+                </div>
+              )}
+
+              {/* Website URL */}
+              {footer.website.enabled && footer.website.url.trim() && (
+                <div
+                  className="text-xs text-center"
+                  style={{ color: footer.textColor }}
+                >
+                  {footer.website.url}
+                </div>
+              )}
+
+              {/* Social Media Bar - Dark Pill */}
+              {/* v16.10: Increased sizes for better visibility to match SVG rendering */}
+              {(footer.socialBar?.enabled ?? true) && footer.website.socialHandle?.trim() && (
+                <div
+                  className="flex items-center gap-2 px-3 py-1 mt-0.5"
+                  style={{
+                    backgroundColor: footer.socialBar?.backgroundColor || '#1a1a1a',
+                    borderRadius: `${footer.socialBar?.borderRadius || 20}px`,
+                  }}
+                >
+                  {/* Instagram Icon (Raw SVG for stability) */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={footer.socialBar?.textColor || '#FFFFFF'}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 shrink-0"
+                  >
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                  </svg>
+
+                  {/* Facebook Icon (Raw SVG for stability) */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={footer.socialBar?.textColor || '#FFFFFF'}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 shrink-0"
+                  >
+                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                  </svg>
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: footer.socialBar?.textColor || '#FFFFFF' }}
+                  >
+                    {footer.website.socialHandle.startsWith('@')
+                      ? footer.website.socialHandle
+                      : `@${footer.website.socialHandle}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ═══ ZONE 3: Digital Partner (Right) ═══ */}
+            <div className="flex-1 flex flex-col items-end justify-center min-w-0">
+              {zone3HasContent && (
+                <div
+                  className="flex flex-col items-center justify-center gap-0 text-center shrink-0"
+                  style={{
+                    minWidth: '80px',
+                    maxWidth: '120px',
+                  }}
+                >
+                  {/* "Digital Partner" Label */}
+                  <span
+                    className="text-[7px] uppercase tracking-wider whitespace-nowrap"
+                    style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
+                  >
+                    {footer.digitalPartner.labelText}
+                  </span>
+
+                  {/* Partner Logo */}
+                  {partnerLogo?.file_url && (
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        width: `${Math.min(footer.digitalPartner.logoSize, 50)}px`,
+                        height: `${Math.min(footer.digitalPartner.logoSize, 50) * 0.6}px`,
+                      }}
+                    >
+                      <Image
+                        src={partnerLogo.file_url}
+                        alt={partnerLogo.name || 'Partner'}
+                        width={Math.min(footer.digitalPartner.logoSize, 50)}
+                        height={Math.min(footer.digitalPartner.logoSize, 50) * 0.6}
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+
+                  {/* Agency Name/Link */}
+                  {footer.digitalPartner.agencyName && (
+                    <span
+                      className="text-[6px] truncate max-w-full"
+                      style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
+                    >
+                      {footer.digitalPartner.agencyName}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

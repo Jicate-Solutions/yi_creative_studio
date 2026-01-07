@@ -1780,12 +1780,12 @@ export interface Enhanced4RowStripMode {
 export const DEFAULT_INITIATIVE_CONFIG: InitiativeTextConfig = {
   enabled: false,
   text: 'Yi Erode Initiative',
-  fontFamily: 'poppins', // v11.1: Changed from montserrat to poppins per user request
-  fontSize: 24, // User preference: Keep at 24px
+  fontFamily: 'poppins', // v18.1: Changed back to Poppins per user request (was: montserrat)
+  fontSize: 30, // v16.13: Increased from 24 to 30 (75% of 40px row, +25% size for prominence)
   fontWeight: 'bold',
   fontStyle: 'normal',
   color: '#005B96', // Yi Blue
-  letterSpacing: 1,
+  letterSpacing: 1.5, // v16.13: Increased from 1 to 1.5 for better readability
   textTransform: 'none', // v11.1: Changed from uppercase to none - preserve user input case
   alignment: 'center',
   effects: {
@@ -1811,7 +1811,7 @@ export const DEFAULT_PARTNER_CONFIG: PartnerLabelConfig = {
   color: '#1A1A1A',
   alignment: 'center',
   logoPosition: 'after',
-  logoSize: 60,
+  logoSize: 120,  // v18.1: Increased from 100 to 120px (maximum size) for better visibility
 }
 
 // ============================================================
@@ -1836,22 +1836,43 @@ export type FooterLayout = 'spread' | 'center' | 'left-right'
 export interface FooterRowConfig {
   enabled: boolean
 
-  // Configurable content sections
+  // ZONE 1: Signature/Illustration (Left) - Visual anchor with watercolor/sketch style
+  signature: {
+    enabled: boolean
+    imageUrl: string | null // Transparent PNG/SVG of local landmarks
+    logoId: string | null // Alternative: use a logo from library as signature (legacy)
+    signatureId: string | null // NEW: Reference to landmark_signatures table
+    width: number // % of footer width (default: 35-40%)
+    opacity: number // 0-100
+  }
+
+  // ZONE 2: Center content (Hashtag + Website + Social Bar)
   hashtag: {
     enabled: boolean
     text: string // e.g., "#YIKANNIYAKUMARI"
+    color: string // Brand green default (#0B6D41)
   }
   website: {
     enabled: boolean
     url: string // e.g., "www.youngindians.net"
     socialHandle?: string // e.g., "@ yi.kanniyakumari"
   }
+  socialBar: {
+    enabled: boolean
+    backgroundColor: string // Dark grey/black pill background (#1a1a1a)
+    textColor: string // White text (#FFFFFF)
+    borderRadius: number // Pill shape radius (default: 20px)
+  }
+
+  // ZONE 3: Digital Partner (Right)
   digitalPartner: {
     enabled: boolean
     labelText: string // e.g., "Digital Partner"
+    labelColor: string // Light grey for label (#9CA3AF)
     separator: string // e.g., "–"
     logoId: string | null
-    logoSize: number // 40-80px
+    logoSize: number // 40-120px (v17.1: Updated max from 80px to 120px)
+    agencyName?: string // Optional agency name below logo
   }
 
   // Footer-specific styling
@@ -1862,42 +1883,74 @@ export interface FooterRowConfig {
 
   // Footer background (independent from header)
   background: {
-    color: string // User configurable (orange gradient default)
+    color: string // User configurable (light grey #F9F9F9 or white)
     opacity: number // 0-100
     shape: LogoStripShape
+    borderRadius: string // Top rounded for "tab" look: "40px 40px 0 0"
   }
 
   // Dimensions
-  height: number // Footer bar height (40-60px)
+  height: number // Footer bar height (150-200px) - v17.1: Updated for enhanced footer with social media bar
   padding: {
     horizontal: number
     vertical: number
   }
 }
 
-// Default footer configuration
+// Default footer configuration - 3-zone layout
+// Zone 1 (Left): Signature/Illustration
+// Zone 2 (Center): Hashtag + Website + Social Bar
+// Zone 3 (Right): Digital Partner
 export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
   enabled: false,
-  hashtag: { enabled: true, text: '' },
-  website: { enabled: true, url: '', socialHandle: '' },
+
+  // Zone 1: Signature illustration (left)
+  signature: {
+    enabled: false,
+    imageUrl: null,
+    logoId: null,
+    signatureId: null, // Reference to landmark_signatures table
+    width: 35, // 35% of footer width
+    opacity: 100,
+  },
+
+  // Zone 2: Center content
+  hashtag: {
+    enabled: true,
+    text: '#YIERODE', // Default Yi Erode hashtag
+    color: '#0B6D41', // Yi brand green
+  },
+  website: { enabled: true, url: 'www.youngindians.net', socialHandle: 'yi.erode' },
+  socialBar: {
+    enabled: true,
+    backgroundColor: '#1a1a1a', // Dark grey/black pill
+    textColor: '#FFFFFF',
+    borderRadius: 20, // Pill shape
+  },
+
+  // Zone 3: Digital partner (right)
   digitalPartner: {
     enabled: true,
     labelText: 'Digital Partner',
+    labelColor: '#9CA3AF', // Light grey
     separator: '–',
     logoId: null,
-    logoSize: 70, // v11.2: Increased from 62 to 70 to match ROW 1 brand logos
+    logoSize: 120, // v18.1: Increased from 100 to 120px (maximum size) for better visibility
+    agencyName: '',
   },
+
   layout: 'spread',
-  fontSize: 14,
+  fontSize: 18,  // v16.12: INCREASED from 14px to 18px for better visibility (+29%)
   fontWeight: 'medium',
-  textColor: '#005B96', // Yi primary blue for visibility on white
+  textColor: '#374151', // Dark grey for general text
   background: {
-    color: '#FFFFFF', // White background for clean look
+    color: '#F9F9F9', // Light grey background for card-style
     opacity: 100,
     shape: 'rectangle',
+    borderRadius: '40px 40px 0 0', // Top-rounded "tab" look
   },
-  height: 80, // v11.2: Increased from 62 to 80 to accommodate larger partner logo
-  padding: { horizontal: 20, vertical: 8 },
+  height: 180, // v17.1: Increased from 150 to 180 to match Gemini safe zone + social content clearance
+  padding: { horizontal: 40, vertical: 20 },
 }
 
 // Default enhanced 4-row strip mode
@@ -1916,18 +1969,19 @@ export const DEFAULT_ENHANCED_4ROW_STRIP: Enhanced4RowStripMode = {
     opacity: 100,
     shape: 'rounded',
   },
-  rowSpacing: 8,
+  rowSpacing: 3,  // v16.0: Reduced from 8px to 3px for tight row gap per user requirements
   padding: { horizontal: 20, vertical: 12 },
   logoBound: false,
 }
 
 // Row height configuration for 4-row system
-// v12.0: Increased ROW 1, ROW 2, and ROW 4 heights for ~28-31% larger logos
+// v16.3: INCREASED ROW 1 and FOOTER for more prominence (ROW 2 unchanged per user request)
+// v16.12: INCREASED FOOTER to 130px for better text visibility
 export const ENHANCED_STRIP_ROW_HEIGHTS = {
-  brand: 95, // v12.0: +15px → 95 × 0.95 = 90px logo height (was 80 → 70px)
-  vertical: 85, // v12.0: +15px → 85 × 0.95 = 80px logo height (was 70 → 61px)
+  brand: 120,     // v16.3: INCREASED from 85px to 120px - prominent brand row
+  vertical: 60,   // v16.3: UNCHANGED at 60px per user request
   initiative: 40, // Text row - unchanged
-  partner: 95, // v12.0: +15px → 95 × 0.95 = 90px logo height (match ROW 1)
+  partner: 150,   // v16.14: INCREASED from 130px to 150px - taller footer for social bar visibility
 } as const
 
 // Maximum vertical logos allowed

@@ -19,10 +19,11 @@ const nextConfig: NextConfig = {
         hostname: '**.supabase.co',
       },
     ],
-    // Enable image optimization with reasonable limits
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    formats: ['image/avif', 'image/webp'],
+    // CRITICAL FIX: Disable image optimization to bypass IPv6 private IP blocking
+    // Next.js 16 blocks images resolving to private IPs (including IPv6)
+    // Supabase CDN uses IPv6 addresses that Next.js considers "private"
+    // Setting unoptimized=true bypasses Next.js image optimization and IP checks
+    unoptimized: true,
   },
 
   // Acknowledge Turbopack usage (Next.js 16 default)

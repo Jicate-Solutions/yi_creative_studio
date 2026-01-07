@@ -260,7 +260,8 @@
       "Bash(del /f \"C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\.next\\\\dev\\\\lock\")",
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:www.anthropic.com)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(start /b cmd /c \"cd /d C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio && npm run dev > dev-server.log 2>&1\")"
     ],
     "deny": [],
     "ask": [],

@@ -12,8 +12,10 @@ import type {
   SpeakerPhotoConfig,
   FooterContactContext,
   DesignContextForPrompt,
+  LogoStripZoneCoordinates,
 } from './types'
 import { buildColorReference } from '@/lib/utils/color-names'
+import { hexToRgb, calculateLuminance } from '@/lib/utils/color-contrast'
 
 // ============================================================
 // LOGO AWARENESS CONTEXT
@@ -714,94 +716,90 @@ export function buildFooterContactContext(footerContext?: FooterContactContext):
 // ============================================================
 
 /**
- * Logo strip zone coordinates type
- * Mirrors EnhancedBuildOptions['logoStripZoneCoordinates']
- */
-interface LogoStripZoneCoordinates {
-  headerHeight: number
-  headerReservePercent: number
-  footerHeight: number
-  footerReservePercent: number
-  activeRows: {
-    brand: boolean
-    vertical: boolean
-    initiative: boolean
-    footer: boolean
-  }
-}
-
-/**
  * Build logo strip zone context for 4-Row Enhanced Strip
- * Tells Gemini AI to reserve space for logo strips (header and footer)
- * Similar to buildSpeakerPhotoZoneContext - keeps zones clean for overlay
  *
- * v7.0: New function to pass logo strip layout information to Gemini AI
- * This prevents AI-generated content from overlapping with logo overlay areas
+ * v7.0: Original implementation - Told Gemini AI to reserve space for logo strips
+ * v12.4: Added exact pixel calculations and multi-layer reinforcement
+ * v18.0: DISABLED zone context injection (mirrors v6.8 speaker photo strategy)
+ *
+ * DISABLED APPROACH:
+ * - Previous: Told AI "reserve top X%, reserve bottom Y%"
+ * - Problem: AI estimation mismatched Sharp's actual overlay dimensions
+ * - New: Let AI generate full-canvas backgrounds freely (0-100%)
+ * - ALL logo overlays applied independently by Sharp post-processing
+ *
+ * Same strategy that solved speaker photo overlap in v6.8:
+ * - Speaker photos: DISABLED zone context → Perfect placement
+ * - Header/Footer logos: DISABLED zone context → Same success expected
+ *
+ * ONLY EXCEPTION: Initiative text contrast guidance (WCAG accessibility)
+ * We still provide color contrast recommendations for readability
  */
 export function buildLogoStripZoneContext(
   logoStripZone?: LogoStripZoneCoordinates
 ): string {
   if (!logoStripZone) return ''
 
-  const { headerReservePercent, footerReservePercent, activeRows } = logoStripZone
+  // v18.0: DISABLED header/footer zone instructions
+  // Only keep initiative text contrast guidance if needed
+  const activeRows = logoStripZone.activeRows
 
-  // Only generate context if there's actual content in the strips
-  const hasHeaderContent = activeRows.brand || activeRows.vertical || activeRows.initiative
-  const hasFooterContent = activeRows.footer
+  if (activeRows.initiative && logoStripZone.initiativeColorInfo) {
+    const colorInfo = logoStripZone.initiativeColorInfo
 
-  if (!hasHeaderContent && !hasFooterContent) return ''
-
-  const instructions: string[] = []
-
-  // Header strip zone instruction
-  if (hasHeaderContent && headerReservePercent > 0) {
-    const headerElements: string[] = []
-    if (activeRows.brand) headerElements.push('brand logos')
-    if (activeRows.vertical) headerElements.push('program logos')
-    if (activeRows.initiative) headerElements.push('chapter text')
-
-    instructions.push(
-      `HEADER ZONE (top ${headerReservePercent}% of design): Reserved for ${headerElements.join(', ')} overlay. ` +
-      `Keep this area clean with simple, uncluttered background (solid color, subtle gradient, or minimal pattern). ` +
-      `Do NOT place headlines, important text, or key visuals in this zone.`
-    )
+    // v18.0: ONLY provide contrast guidance, NO zone positioning
+    if (colorInfo.needsAdjustment) {
+      return `IMPORTANT: Ensure ${colorInfo.recommendedBgTone} background for ${colorInfo.contrastRatio.toFixed(1)}:1 contrast with initiative text`
+    }
   }
 
-  // Footer strip zone instruction
-  // v12.4: CRITICAL - Multi-layer reinforcement with exact pixel calculations to permanently fix footer overlap
-  if (hasFooterContent && footerReservePercent > 0) {
-    // v12.4: Calculate exact pixel height from actual canvas height (not assumed 1350px)
-    const canvasHeight = logoStripZone.headerHeight > 0
-      ? Math.round(logoStripZone.headerHeight / (logoStripZone.headerReservePercent / 100))
-      : 1344 // Fallback to standard 9:16 portrait height
-    const exactPixelHeight = Math.round((footerReservePercent / 100) * canvasHeight)
-    const contentEndPoint = 100 - footerReservePercent
+  // v18.0: Return empty string - let Sharp handle ALL logo positioning independently
+  return ''
+}
 
-    instructions.push(
-      `🚫🚫🚫 CRITICAL FOOTER ZONE (bottom ${footerReservePercent}% = ${exactPixelHeight}px of ${canvasHeight}px canvas): ` +
-      `ABSOLUTELY NO TEXT OR CONTENT ALLOWED IN THIS AREA. ` +
-      `This is a POST-GENERATION OVERLAY ZONE - a solid footer bar will be overlaid here AFTER AI generation. ` +
-      `The footer bar contains: hashtag, website URL, and partner logo. ` +
-      `ANY content placed in the bottom ${footerReservePercent}% WILL BE COMPLETELY HIDDEN by the footer bar overlay. ` +
-      `\n\n` +
-      `CONTENT BOUNDARY (CRITICAL): ` +
-      `All text, graphics, and visual elements MUST END by ${contentEndPoint}% from top. ` +
-      `Position your last text element NO LOWER than ${contentEndPoint}% measured from top edge (0% = top). ` +
-      `Leave the bottom ${footerReservePercent}% completely empty - only background color/gradient allowed. ` +
-      `Think of ${contentEndPoint}% as the HARD BOTTOM EDGE of your design canvas.`
-    )
+// ============================================================
+// INITIATIVE COLOR CONTEXT (v13.0)
+// ============================================================
+
+/**
+ * Build initiative text color contrast guidance for AI
+ * Ensures AI generates backgrounds with proper WCAG-compliant contrast
+ *
+ * @param logoStripZone - Logo strip zone coordinates with color info
+ * @returns XML-formatted color contrast guidance or empty string
+ */
+export function buildInitiativeColorContext(
+  logoStripZone?: LogoStripZoneCoordinates
+): string {
+  const colorInfo = logoStripZone?.initiativeColorInfo
+  if (!colorInfo) return ''
+
+  // v15.3: Tell Gemini about BACKGROUND TONE requirement (not the text itself)
+  // This ensures Gemini generates a compatible background in Row 3 area
+  // WITHOUT telling it to render any text (preventing double rendering)
+
+  const bgToneGuidance = colorInfo.adjustedColor
+  const adjustedRgb = hexToRgb(colorInfo.adjustedColor)
+
+  if (!adjustedRgb) return ''
+
+  // Determine if adjusted color is light or dark to recommend opposite background
+  const adjustedLuminance = calculateLuminance(adjustedRgb)
+  const isLightText = adjustedLuminance > 0.5
+
+  if (isLightText) {
+    // Light text needs dark background
+    return `
+ROW 3 BACKGROUND REQUIREMENT (for text overlay compatibility):
+The Row 3 initiative text area requires a DARK background tone (deep blues, navy, charcoal, dark greens) to ensure proper contrast with light-colored text that will be overlaid post-generation. Avoid light backgrounds, whites, creams, or pastels in this specific zone.
+    `.trim()
+  } else {
+    // Dark text needs light background
+    return `
+ROW 3 BACKGROUND REQUIREMENT (for text overlay compatibility):
+The Row 3 initiative text area requires a LIGHT background tone (whites, creams, soft pastels, light grays) to ensure proper contrast with dark-colored text that will be overlaid post-generation. Avoid dark backgrounds, deep colors, or saturated tones in this specific zone.
+    `.trim()
   }
-
-  // Safe content zone instruction
-  if (headerReservePercent > 0 || footerReservePercent > 0) {
-    const safeStart = headerReservePercent || 0
-    const safeEnd = 100 - (footerReservePercent || 0)
-    instructions.push(
-      `SAFE CONTENT ZONE (${safeStart}% to ${safeEnd}% of height): Place all headlines, body text, key visuals, and important design elements within this zone to ensure no overlap with logo strip overlays.`
-    )
-  }
-
-  return `LOGO STRIP LAYOUT ZONES:\n${instructions.join('\n')}`
 }
 
 // ============================================================

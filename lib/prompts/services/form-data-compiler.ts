@@ -44,6 +44,10 @@ export interface CompiledFormData {
   // Additional note (footer content)
   eventNote: string | null
 
+  // NEW v15.1: Enhanced 4-Row Strip initiative text (Row 3)
+  initiativeText: string | null
+  initiativeColor: string | null
+
   // All other custom fields (dynamic)
   customFields: Record<string, string>
 
@@ -109,13 +113,15 @@ const FIELD_ALIASES: Record<string, string[]> = {
  * @param speakerPhotoEnabled - Controls whether speaker photos are overlaid post-generation.
  *   NOTE: Speaker text data (name, designation) is ALWAYS included in prompts when provided.
  *   This flag only affects photo overlay processing, not text rendering.
+ * @param enhanced4RowStrip - Enhanced 4-row strip configuration (v15.1: for initiative text extraction)
  */
 export function compileFormData(
   userFormData: Record<string, unknown> | undefined,
   formatId: CreativeFormatId | undefined,
   designData: DesignData | undefined | null,
   language: string = 'en',
-  speakerPhotoEnabled: boolean = false
+  speakerPhotoEnabled: boolean = false,
+  enhanced4RowStrip?: any // v15.1: Extract initiative text for AI prompt
 ): CompiledFormData {
   const formData = userFormData || {}
 
@@ -177,6 +183,10 @@ export function compileFormData(
     }
   }
 
+  // v15.1: Extract initiative text from Enhanced 4-Row Strip (Row 3)
+  const initiativeText = enhanced4RowStrip?.rows?.initiative?.text?.trim() || null
+  const initiativeColor = enhanced4RowStrip?.rows?.initiative?.color || null
+
   return {
     // Core event details
     eventName: extractedFields.eventName,
@@ -204,6 +214,10 @@ export function compileFormData(
 
     // Additional note (footer content)
     eventNote: extractedFields.eventNote,
+
+    // NEW v15.1: Enhanced 4-Row Strip initiative text (Row 3)
+    initiativeText,
+    initiativeColor,
 
     // Custom fields
     customFields,
@@ -240,6 +254,7 @@ export function summarizeCompiledData(data: CompiledFormData): string {
 
   if (data.eventName) lines.push(`Event: ${data.eventName}`)
   if (data.eventType) lines.push(`Type: ${data.eventType}`)
+  if (data.initiativeText) lines.push(`Initiative Text (Row 3): ${data.initiativeText} (${data.initiativeColor})`)
   if (data.date) lines.push(`Date: ${data.date}`)
   if (data.time && data.endTime) {
     lines.push(`Time: ${formatEventTime(data.time)} - ${formatEventTime(data.endTime)}`)
@@ -337,6 +352,11 @@ export function buildTextBriefFromCompiled(data: CompiledFormData): string {
   if (data.eventNote?.trim()) {
     textValues.push(`"${data.eventNote.trim()}"`)
   }
+
+  // v15.2: REMOVED initiative text from user brief
+  // Why: AI was rendering it in original color (not adjusted color), causing visibility issues
+  // Solution: Backend handles initiative text overlay with auto-adjusted color
+  // The AI no longer sees initiative text in the brief, preventing duplicate rendering
 
   // Build the brief as a simple list of quoted strings
   // This tells the AI "these are the exact texts to render"
