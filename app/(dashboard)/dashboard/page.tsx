@@ -377,61 +377,73 @@ async function DashboardData() {
 
 function DashboardLoading() {
   return (
-    <div className="space-y-6">
-      {/* Journey Progress Skeleton */}
-      <div className="glass-card rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <div>
-              <Skeleton className="h-5 w-48" />
-              <Skeleton className="h-4 w-32 mt-1" />
+    <div className="space-y-8">
+      {/* Bento Grid Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8 auto-rows-[minmax(100px,auto)]">
+
+        {/* ZONE A: HERO (Span 3 Cols) */}
+        <div className="md:col-span-3 lg:col-span-3 h-[320px]">
+          <div className="glass-card rounded-[2.5rem] w-full h-full p-16 flex flex-col justify-center gap-6">
+            <Skeleton className="h-4 w-48 bg-primary/10" />
+            <Skeleton className="h-16 w-3/4" />
+            <Skeleton className="h-14 w-48 rounded-full mt-4" />
+          </div>
+        </div>
+
+        {/* ZONE B: VITALS (Span 1 Col) */}
+        <div className="md:col-span-1 lg:col-span-1 h-[320px]">
+          <div className="glass-card rounded-3xl w-full h-full p-6 flex flex-col items-center justify-center gap-6">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-40 w-40 rounded-full" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
+
+        {/* ZONE C: CREATION HUB (Span 2 Cols) */}
+        <div className="md:col-span-2 lg:col-span-2 min-h-[200px] lg:h-[450px]">
+          <div className="glass-card rounded-3xl w-full h-full p-6">
+            <div className="flex justify-between mb-6">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 h-[85%]">
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
             </div>
           </div>
-          <Skeleton className="h-8 w-24" />
         </div>
-        <Skeleton className="h-3 w-full rounded-full mt-8" />
-        <div className="flex justify-between mt-6">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-32" />
+
+        {/* ZONE D: INSPIRATION SPARK (Span 2 Cols) */}
+        <div className="md:col-span-1 lg:col-span-2 min-h-[200px] lg:h-[450px]">
+          <div className="glass-card rounded-3xl w-full h-full p-6">
+            <div className="flex justify-between mb-6">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 h-[85%]">
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
+              <Skeleton className="rounded-2xl h-full" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Stat Cards Skeleton */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="glass-premium rounded-xl p-5">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <Skeleton className="h-8 w-20 mt-3" />
-            <Skeleton className="h-4 w-24 mt-2" />
-            <Skeleton className="h-3 w-28 mt-1" />
-          </div>
-        ))}
-      </div>
-
-      {/* Quick Actions + Timeline Skeleton */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2 glass-card rounded-xl p-6">
-          <Skeleton className="h-6 w-32 mb-2" />
-          <Skeleton className="h-4 w-48 mb-6" />
-          <div className="grid grid-cols-2 gap-4">
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
-          </div>
+      {/* Gallery Skeleton */}
+      <div className="pt-8">
+        <div className="flex justify-between mb-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-8 w-32" />
         </div>
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <div>
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-4 w-24 mt-1" />
+        <div className="columns-1 sm:columns-2 lg:columns-4 gap-8 space-y-8">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="break-inside-avoid mb-8">
+              <Skeleton className="w-full aspect-[4/5] rounded-3xl" />
             </div>
-          </div>
-          <div className="space-y-2">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </div>

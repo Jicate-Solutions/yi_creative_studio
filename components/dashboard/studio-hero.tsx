@@ -108,7 +108,7 @@ export function StudioHero() {
                             {/* Text */}
                             <div className="space-y-2">
                                 <p className="text-white/70 text-lg font-medium tracking-wide uppercase">{welcomeMessage}</p>
-                                <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white drop-shadow-2xl">
+                                <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-white drop-shadow-2xl">
                                     {SLIDES[current].title}
                                 </h1>
                             </div>

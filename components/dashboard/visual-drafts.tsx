@@ -66,7 +66,7 @@ export function VisualDrafts({
                 </Button>
             </div>
 
-            <div className="columns-1 sm:columns-2 lg:columns-4 gap-6 space-y-6">
+            <div className="columns-1 sm:columns-2 lg:columns-4 gap-8 space-y-8">
                 {creatives.map((creative, i) => (
                     <div key={creative.id} className="break-inside-avoid mb-6">
                         <DraftCard

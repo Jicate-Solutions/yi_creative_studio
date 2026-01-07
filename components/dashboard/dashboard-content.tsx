@@ -83,7 +83,7 @@ export function DashboardContent({ initialData, initialPreferences }: DashboardC
          Tablet: 2 Columns
          Mobile: 1 Column
       */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[minmax(100px,auto)]">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8 auto-rows-[minmax(100px,auto)]">
 
         {/* ZONE A: HERO (Span 3 Cols) */}
         <div className="md:col-span-3 lg:col-span-3 h-[320px]">

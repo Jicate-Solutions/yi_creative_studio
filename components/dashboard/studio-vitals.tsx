@@ -26,10 +26,10 @@ export function StudioVitals({ credits, streak = { days: 7, active: true } }: St
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="h-full bg-card border border-border rounded-[2rem] p-6 relative overflow-hidden group hover:bg-accent/50 transition-colors shadow-sm"
+            className="h-full glass-card rounded-3xl p-6 relative overflow-hidden group"
         >
             {/* Header */}
-            <h3 className="text-foreground font-medium mb-6">Studio Vitals</h3>
+            <h3 className="text-foreground font-semibold mb-6">Studio Vitals</h3>
 
             <div className="flex flex-col items-center gap-8">
                 {/* 1. Credit Ring */}

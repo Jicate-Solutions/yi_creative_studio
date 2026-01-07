@@ -55,10 +55,10 @@ export function QuickCreateHub() {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
 
     return (
-        <div className="h-full bg-card border border-border rounded-[2rem] p-6 relative overflow-hidden group hover:bg-accent/30 transition-colors shadow-sm flex flex-col">
+        <div className="h-full glass-card rounded-3xl p-6 relative overflow-hidden group flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-foreground font-medium">Creation Hub</h3>
+                <h3 className="text-foreground font-semibold">Creation Hub</h3>
                 <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" asChild>
                     <Link href={ROUTES.templates}>
                         Customize

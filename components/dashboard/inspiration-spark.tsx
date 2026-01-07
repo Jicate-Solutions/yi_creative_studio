@@ -44,7 +44,7 @@ const INSPIRATION_STYLES = [
 
 export function InspirationSpark() {
     return (
-        <div className="h-full bg-card border border-border rounded-[2rem] p-6 relative overflow-hidden flex flex-col shadow-sm group hover:border-primary/20 transition-colors">
+        <div className="h-full glass-card rounded-3xl p-6 relative overflow-hidden flex flex-col group">
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -52,7 +52,7 @@ export function InspirationSpark() {
                     <div className="p-2 rounded-xl bg-primary/10 text-primary">
                         <Sparkles className="w-4 h-4" />
                     </div>
-                    <h3 className="text-foreground font-medium">Spark Inspiration</h3>
+                    <h3 className="text-foreground font-semibold">Spark Inspiration</h3>
                 </div>
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary text-xs h-8 gap-1" asChild>
                     <Link href={ROUTES.templates}>

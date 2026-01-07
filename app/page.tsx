@@ -21,7 +21,8 @@ import {
   Clock,
   Layers,
   Download,
-  Lock
+  Lock,
+  Settings
 } from 'lucide-react'
 import { useRef } from 'react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -42,37 +43,43 @@ export default function LandingPage() {
   return (
     <div ref={containerRef} className="min-h-screen bg-yi text-foreground dark:text-white selection:bg-primary selection:text-white overflow-x-hidden">
       <CreativeCursor />
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-yi border-b border-slate-200/30 dark:border-white/5">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl btn-primary flex items-center justify-center">
-                <Sparkles className="h-6 w-6 text-white" />
+      {/* Navigation - Floating Pill */}
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[92%] sm:w-[85%] max-w-6xl z-50 rounded-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-2xl shadow-primary/5 transition-all duration-300 hover:shadow-primary/10">
+        <div className="px-2 sm:px-2">
+          <div className="flex items-center justify-between h-[4.5rem]">
+            {/* Logo Section */}
+            <div className="flex items-center gap-3 pl-2 sm:pl-4">
+              <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
+                <Sparkles className="h-5 w-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-extrabold tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
-                <span className="text-[8px] font-bold text-muted-foreground/60 dark:text-white/40 tracking-[0.3em] uppercase leading-none">Jicate Solutions</span>
+                <span className="text-lg font-extrabold tracking-tighter text-foreground dark:text-white uppercase leading-none">Yi Creative</span>
+                <span className="text-[8px] font-bold text-muted-foreground/60 dark:text-white/40 tracking-[0.3em] uppercase leading-none mt-0.5">Studio</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-6">
-              <div className="hidden lg:flex items-center gap-8 mr-4">
+            {/* Links Section */}
+            <div className="flex items-center gap-1 sm:gap-2 pr-2 sm:pr-3">
+              <div className="hidden lg:flex items-center bg-slate-100/50 dark:bg-white/5 rounded-full px-2 py-1.5 mr-2 border border-slate-200/50 dark:border-white/5">
                 {['Features', 'Pricing', 'Showcase'].map((item) => (
-                  <Link key={item} href={`#${item.toLowerCase()}`} className="text-xs font-bold uppercase tracking-widest text-foreground/60 dark:text-white/60 hover:text-foreground dark:hover:text-white transition-colors">
+                  <Link key={item} href={`#${item.toLowerCase()}`} className="px-5 py-2 rounded-full text-[10px] font-extrabold uppercase tracking-widest text-foreground/70 dark:text-white/70 hover:text-foreground dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-all">
                     {item}
                   </Link>
                 ))}
               </div>
+
               <ThemeToggle />
-              <Link href={ROUTES.login} className="hidden sm:block">
-                <Button variant="ghost" className="text-xs font-bold uppercase tracking-widest text-foreground/80 dark:text-white/80 hover:text-foreground dark:hover:text-white">Login</Button>
-              </Link>
-              <Link href={ROUTES.signup}>
-                <Button className="btn-primary rounded-full px-8 text-xs font-extrabold uppercase tracking-widest">
-                  Join Now
-                </Button>
-              </Link>
+
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-200/50 dark:border-white/10 ml-1">
+                <Link href={ROUTES.login} className="hidden sm:block">
+                  <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-100/50 dark:hover:bg-white/5 h-10 px-5">Login</Button>
+                </Link>
+                <Link href={ROUTES.signup}>
+                  <Button size="sm" className="btn-primary rounded-full px-6 h-10 text-[10px] font-extrabold uppercase tracking-widest shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all">
+                    Join Now
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -85,53 +92,138 @@ export default function LandingPage() {
 
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-12 lg:gap-20">
           {/* Architectural Card Stack (Now on Left for Impact) */}
+          {/* Studio Console: The Professional Workspace (Split Filled Look) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, x: -50 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 w-full max-w-[550px] h-[420px] md:h-[550px] relative mt-16 lg:mt-0 hero-stack-container"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-1 w-full max-w-[650px] relative mt-16 lg:mt-0 group"
           >
-            {/* Perspective Lines Decoration */}
-            <div className="absolute -inset-20 border-l border-t border-slate-200/20 dark:border-white/[0.03] -z-10" />
-            <div className="absolute -bottom-20 -right-20 border-r border-b border-slate-200/20 dark:border-white/[0.03] -z-10" />
+            {/* Ambient Back Glow */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-[2.5rem] blur-2xl opacity-40 dark:opacity-20 transition-opacity duration-500 group-hover:opacity-60" />
 
-            {/* Layer 3: Genesis (Deep Texture) */}
-            <div className="stack-card-base stack-card-3 rounded-[4rem] overflow-hidden bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-50 dark:from-primary/30 dark:via-secondary/20 dark:to-accent/20 border-2 border-slate-300/60 dark:border-primary/20 shadow-[0_25px_70px_-15px_rgba(0,91,150,0.25)] dark:shadow-[0_25px_70px_-15px_rgba(0,91,150,0.4)]">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=800')] bg-cover bg-center opacity-50 dark:opacity-60" />
-              <div className="absolute bottom-12 left-12 text-[8px] font-extrabold uppercase tracking-[1em] text-slate-400/60 dark:text-white/30 [writing-mode:vertical-rl] rotate-180">Genesis_Origin</div>
-            </div>
+            {/* The Console Container (Filled Split UI) */}
+            <div className="relative h-[500px] md:h-[600px] bg-slate-950 rounded-[2rem] border border-slate-800/60 shadow-2xl flex overflow-hidden ring-1 ring-white/10">
 
-            {/* Layer 2: Transcendence (Refracted Prism) */}
-            <div className="stack-card-base stack-card-2 border-2 border-slate-300/70 dark:border-white/20 rounded-[4rem] bg-white/90 dark:bg-white/[0.08] backdrop-blur-3xl overflow-hidden shadow-[0_35px_90px_-20px_rgba(0,91,150,0.3)] dark:shadow-[0_35px_90px_-20px_rgba(0,91,150,0.5)]">
-              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/40 dark:from-primary/40 to-transparent rounded-full blur-[100px]" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full border-2 border-primary/40 dark:border-primary/50 animate-[spin_10s_linear_infinite] shadow-[0_0_30px_rgba(0,91,150,0.4)]" />
-                <div className="absolute w-20 h-20 rounded-full bg-gradient-to-tr from-secondary/40 dark:from-secondary/50 to-transparent blur-xl" />
+              {/* Sidebar (Left Strip) */}
+              <div className="w-20 border-r border-white/5 bg-slate-900/50 flex flex-col items-center py-8 gap-6 z-10 hidden sm:flex">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                {/* Nav Items */}
+                <div className="flex flex-col gap-4 w-full px-4">
+                  {[Layout, ImageIcon, Palette, Layers].map((Icon, i) => (
+                    <div key={i} className={`h-10 w-full rounded-lg flex items-center justify-center transition-all cursor-default ${i === 0 ? 'bg-white/10 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-auto w-full px-4">
+                  <div className="h-10 w-full rounded-lg flex items-center justify-center text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all cursor-default">
+                    <div className="w-6 h-6 rounded-full border border-slate-600 bg-slate-800" />
+                  </div>
+                </div>
               </div>
-              <div className="absolute top-12 left-12 text-[8px] font-extrabold uppercase tracking-[0.5em] text-slate-400/60 dark:text-white/35">Synthesis.Layer_02</div>
-            </div>
 
-            {/* Layer 1: The Soul (High-Concept Result) */}
-            <div className="stack-card-base stack-card-1 rounded-[4rem] overflow-hidden shadow-[0_100px_200px_-50px_rgba(0,119,238,0.4)] border border-slate-200/50 dark:border-white/30 group cursor-none">
-              {/* Main Artistic Concept */}
-              <div className="absolute inset-0 bg-[#0a0118]" />
-              <motion.div
-                animate={{
-                  scale: [1, 1.05, 1],
-                  rotate: [0, 2, -2, 0]
-                }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 bg-[url('/images/yi-hero-creative.png')] bg-cover bg-center"
-              />
+              {/* Main Canvas Area */}
+              <div className="flex-1 relative flex flex-col bg-slate-950/80 backdrop-blur-sm">
 
-              {/* Prismatic Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 via-transparent to-secondary/40 mix-blend-color-dodge opacity-60" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-100/80 dark:from-black/70 via-transparent to-transparent opacity-85 z-10" />
+                {/* Canvas Header */}
+                <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 z-10 bg-slate-950/50">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50" />
+                      <span className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
+                      <span className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50" />
+                    </div>
+                    <div className="h-4 w-[1px] bg-white/10 mx-2" />
+                    <span className="text-xs font-mono text-slate-400">Project: Yi_Marathon_2025</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      Saving...
+                    </div>
+                  </div>
+                </div>
 
-              {/* Metadata Badge */}
-              <div className="absolute bottom-12 right-12 flex items-center gap-3 z-20">
-                <div className="text-[8px] font-extrabold uppercase tracking-[0.5em] text-white/70">AI_GENESIS</div>
-                <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+                {/* Canvas Viewport (The "Work") */}
+                <div className="flex-1 relative p-6 flex items-center justify-center overflow-hidden">
+                  {/* Background Grid */}
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
+
+                  {/* Central Artboard */}
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="relative w-full h-full max-w-sm aspect-[4/5] bg-slate-900 rounded-xl border border-white/10 shadow-2xl overflow-hidden group/artboard"
+                  >
+                    {/* Image Source */}
+                    <div className="absolute inset-0 bg-[url('/images/yi-hero-creative.png')] bg-cover bg-center opacity-80 transition-transform duration-1000 group-hover/artboard:scale-105" />
+
+                    {/* Scanning Beam (Restored Effect) */}
+                    <motion.div
+                      animate={{ top: ["0%", "100%", "0%"] }}
+                      transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+                      className="absolute left-0 right-0 h-[2px] bg-primary z-20 shadow-[0_0_15px_rgba(37,99,235,0.8)]"
+                    >
+                      <div className="absolute bottom-0 w-full h-[80px] bg-gradient-to-t from-primary/10 to-transparent" />
+                    </motion.div>
+
+                    {/* Processing Overlay */}
+                    <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950 to-transparent z-10" />
+
+                    {/* Live Prompt Feedback */}
+                    <div className="absolute bottom-6 left-6 right-6 z-20">
+                      <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-3">
+                        <div className="flex items-start gap-2 text-[10px] sm:text-xs font-mono text-slate-300">
+                          <span className="text-secondary shrink-0">$</span>
+                          <span className="typing-text">
+                            Generate realistic marathon runner, dynamic angle, Yi branding colors...
+                            <span className="animate-pulse text-primary">|</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Floating Tool Panels (Decorations) */}
+                  <motion.div
+                    animate={{ y: [-5, 5, -5] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-10 right-8 w-40 bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-xl z-20 hidden sm:block"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Properties</span>
+                      <Settings className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full w-3/4 bg-primary" />
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full w-1/2 bg-secondary" />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    animate={{ y: [5, -5, 5] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                    className="absolute bottom-20 left-8 w-32 bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-xl z-20 hidden sm:block"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-[10px] font-bold text-white uppercase">AI Active</span>
+                    </div>
+                    <div className="text-[9px] text-slate-500 font-mono">
+                      Processing tokens...
+                      <br />
+                      Config: v4.2
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -198,7 +290,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section: System Status */}
-      <section className="border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20 backdrop-blur-sm relative z-10">
+      <section className="border-y border-white/5 glass-subtle relative z-10">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-200/40 dark:divide-white/5">
             {stats.map((stat, index) => (
@@ -221,7 +313,7 @@ export default function LandingPage() {
       </section>
 
       {/* Chapter Logos Marquee */}
-      <section className="py-12 border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20 overflow-hidden">
+      <section className="py-12 border-y border-white/5 glass-subtle overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-12">
             Trusted by 70+ Yi Chapters Across India
@@ -242,7 +334,7 @@ export default function LandingPage() {
                 'Yi Pune', 'Yi Ahmedabad', 'Yi Kolkata', 'Yi Jaipur', 'Yi Chandigarh',
                 'Yi Lucknow', 'Yi Kochi', 'Yi Indore', 'Yi Nagpur', 'Yi Coimbatore'
               ].map((chapter, i) => (
-                <div key={i} className="flex-shrink-0 px-8 py-4 rounded-2xl bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 backdrop-blur-xl">
+                <div key={i} className="flex-shrink-0 px-8 py-4 rounded-2xl glass-card transition-all hover:scale-105">
                   <span className="text-sm font-bold text-foreground/80 dark:text-white/80 hover:text-foreground dark:hover:text-white transition-colors whitespace-nowrap">
                     {chapter}
                   </span>
@@ -431,7 +523,7 @@ export default function LandingPage() {
                   timeSaved: 120
                 }
               ].map((testimonial, i) => (
-                <div key={i} className="min-w-[400px] max-w-[400px] bg-white/90 dark:bg-black/80 border border-slate-200/50 dark:border-white/5 p-8 rounded-3xl backdrop-blur-xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2">
+                <div key={i} className="min-w-[400px] max-w-[400px] glass-card p-8 rounded-3xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2">
                   <p className="text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed">"{testimonial.quote}"</p>
 
                   <div className="flex items-center gap-4 mb-6">
@@ -541,7 +633,7 @@ export default function LandingPage() {
       </section >
 
       {/* Trust Indicators Bar */}
-      <section className="py-16 border-y border-slate-200/50 dark:border-white/5 bg-slate-50/40 dark:bg-black/20">
+      <section className="py-16 border-y border-white/5 glass-subtle">
         <div className="max-w-7xl mx-auto px-6">
           <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-16">
             ENTERPRISE-GRADE PLATFORM
@@ -571,7 +663,7 @@ export default function LandingPage() {
               }
             ].map((indicator, i) => (
               <div key={i} className="flex flex-col items-center text-center group">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 flex items-center justify-center mb-6 group-hover:bg-white/90 dark:group-hover:bg-white/[0.05] group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300">
+                <div className="w-16 h-16 rounded-2xl glass-card flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300">
                   <indicator.icon className="h-7 w-7 text-primary" />
                 </div>
                 <h4 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
@@ -587,7 +679,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      < footer className="pt-12 pb-12 px-6 sm:px-8 bg-slate-100/60 dark:bg-black/40 border-t border-slate-200/50 dark:border-white/5" >
+      <footer className="pt-12 pb-12 px-6 sm:px-8 glass-subtle border-t border-white/5" >
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-12 mb-20 opacity-60">
             <div className="flex items-center gap-3">
