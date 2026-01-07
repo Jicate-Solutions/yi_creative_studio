@@ -94,6 +94,50 @@
   /* Yi Brand Gradients */
   --gradient-yi-vibrant: linear-gradient(135deg, var(--color-yi-blue) 0%, var(--color-yi-orange) 100%);
   --gradient-yi-glow: radial-gradient(circle at center, rgba(0, 91, 150, 0.15) 0%, transparent 70%);
+
+  /* ========================================
+     TYPOGRAPHY SCALE - Modular scale with 1.25 ratio
+     ======================================== */
+  --text-display: clamp(2.5rem, 6vw, 4rem);      /* Hero headlines */
+  --text-h1: 3rem;                                /* 48px - Page titles */
+  --text-h2: 2.25rem;                             /* 36px - Section headings */
+  --text-h3: 1.5rem;                              /* 24px - Subsection headings */
+  --text-h4: 1.25rem;                             /* 20px - Card titles */
+  --text-body-lg: 1.125rem;                       /* 18px - Large body */
+  --text-body: 1rem;                              /* 16px - Default body */
+  --text-body-sm: 0.875rem;                       /* 14px - Small body */
+  --text-caption: 0.75rem;                        /* 12px - Captions/metadata */
+  --text-tiny: 0.625rem;                          /* 10px - Tiny labels */
+
+  /* Letter Spacing - 6 semantic values */
+  --tracking-tighter: -0.05em;                    /* Large display text */
+  --tracking-tight: -0.025em;                     /* Headings */
+  --tracking-normal: 0;                           /* Body text */
+  --tracking-wide: 0.025em;                       /* Uppercase labels */
+  --tracking-wider: 0.1em;                        /* Small caps/badges */
+  --tracking-widest: 0.15em;                      /* Architectural elements */
+
+  /* Line Heights - 5 levels */
+  --leading-tight: 1.1;                           /* Display text */
+  --leading-snug: 1.25;                           /* Headings */
+  --leading-normal: 1.5;                          /* Body text */
+  --leading-relaxed: 1.75;                        /* Long-form content */
+  --leading-loose: 2;                             /* Forms/inputs */
+
+  /* ========================================
+     SPACING SCALE - 8px grid (11 levels)
+     ======================================== */
+  --space-1: 0.25rem;                             /* 4px */
+  --space-2: 0.5rem;                              /* 8px */
+  --space-3: 0.75rem;                             /* 12px */
+  --space-4: 1rem;                                /* 16px */
+  --space-6: 1.5rem;                              /* 24px */
+  --space-8: 2rem;                                /* 32px */
+  --space-12: 3rem;                               /* 48px */
+  --space-16: 4rem;                               /* 64px */
+  --space-20: 5rem;                               /* 80px */
+  --space-24: 6rem;                               /* 96px */
+  --space-32: 8rem;                               /* 128px */
 }
 
 :root {
@@ -308,6 +352,23 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;  /* Account for fixed nav (80px) */
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   html,
   body {
     @apply overflow-x-hidden;
@@ -315,6 +376,13 @@
 
   body {
     @apply text-foreground antialiased;
+
+    /* Premium font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1;
+
     /* Premium Pastel Gradient Background - Cohesive with sidebar */
     background: linear-gradient(135deg,
         var(--background-gradient-start) 0%,
@@ -323,9 +391,157 @@
     background-attachment: fixed;
     min-height: 100vh;
   }
+
+  /* Optical sizing for Poppins */
+  .font-poppins {
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
 }
 
 @layer utilities {
+  /* ============================================
+     TYPOGRAPHY UTILITIES
+     ============================================ */
+
+  /* Typography Size Classes */
+  .text-display { font-size: var(--text-display); }
+  .text-h1 { font-size: var(--text-h1); }
+  .text-h2 { font-size: var(--text-h2); }
+  .text-h3 { font-size: var(--text-h3); }
+  .text-h4 { font-size: var(--text-h4); }
+  .text-body-lg { font-size: var(--text-body-lg); }
+
+  /* Typography Hierarchy (opacity-based for dark mode compatibility) */
+  .text-body {
+    color: var(--foreground);
+    opacity: 0.9;
+  }
+  .text-body-muted {
+    color: var(--foreground);
+    opacity: 0.7;
+  }
+  .text-caption {
+    color: var(--foreground);
+    opacity: 0.6;
+  }
+  .text-tertiary {
+    color: var(--foreground);
+    opacity: 0.5;
+  }
+
+  /* Letter Spacing */
+  .tracking-tighter { letter-spacing: var(--tracking-tighter); }
+  .tracking-tight { letter-spacing: var(--tracking-tight); }
+  .tracking-wide { letter-spacing: var(--tracking-wide); }
+  .tracking-wider { letter-spacing: var(--tracking-wider); }
+  .tracking-widest { letter-spacing: var(--tracking-widest); }
+
+  /* Line Heights */
+  .leading-tight { line-height: var(--leading-tight); }
+  .leading-snug { line-height: var(--leading-snug); }
+  .leading-normal { line-height: var(--leading-normal); }
+  .leading-relaxed { line-height: var(--leading-relaxed); }
+
+  /* ============================================
+     LAYOUT UTILITIES
+     ============================================ */
+
+  /* Container - Eliminates 20+ repetitions of max-w-7xl mx-auto px-6 */
+  .container-wide {
+    max-width: 80rem;              /* 1280px */
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+  }
+
+  @media (min-width: 640px) {
+    .container-wide {
+      padding-left: var(--space-8);
+      padding-right: var(--space-8);
+    }
+  }
+
+  /* Section Padding - Consistent vertical/horizontal rhythm */
+  .section-padding {
+    padding-top: var(--space-20);      /* 80px */
+    padding-bottom: var(--space-20);
+    padding-left: var(--space-6);      /* 24px */
+    padding-right: var(--space-6);
+  }
+
+  @media (min-width: 640px) {
+    .section-padding {
+      padding-left: var(--space-8);    /* 32px */
+      padding-right: var(--space-8);
+    }
+  }
+
+  /* ============================================
+     INTERACTION UTILITIES (with accessibility)
+     ============================================ */
+
+  /* Button Spring Physics */
+  .btn-spring {
+    transition: transform var(--duration-normal) var(--ease-spring),
+                box-shadow var(--duration-normal) var(--ease-spring);
+  }
+
+  .btn-spring:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn-spring:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .btn-spring:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-spring {
+      transition: none;
+    }
+    .btn-spring:hover {
+      transform: none;
+    }
+  }
+
+  /* Card Hover Animation */
+  .card-hover {
+    transition: transform var(--duration-normal) var(--ease-spring),
+                border-color var(--duration-normal) ease,
+                box-shadow var(--duration-slow) ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 91, 150, 0.3);
+    box-shadow: var(--shadow-lg),
+                0 0 40px rgba(0, 91, 150, 0.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card-hover:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  /* Premium Focus Ring */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(0, 91, 150, 0.15);
+  }
+
+  .focus-ring-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+  }
+
   /* ============================================
      PREMIUM PASTEL BACKGROUNDS
      ============================================ */

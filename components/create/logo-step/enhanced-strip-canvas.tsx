@@ -134,11 +134,11 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
 
   return (
     <div className={cn('space-y-1 mt-6', className)}> {/* v16.0: space-y-1 = 4px tight gap */}
-      {/* ROW 1: Brand Logos Card - Dynamic width (fit-to-logos), centered, attached to top */}
-      {/* v16.5: Dynamic width like ROW 2, rounded bottom only (attached look) */}
+      {/* ROW 1: Brand Logos Card - Full width with space-evenly alignment */}
+      {/* v18.3: Full width with even spacing to match backend Sharp rendering */}
       {brandLogos.length > 0 && (
-        <div className="mx-auto w-fit min-w-[280px] max-w-2xl rounded-t-none rounded-b-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 border-t-0 px-8 py-1">
-          <div className="flex items-center justify-center" style={{ gap: '40px' }}>  {/* v16.11: 40px gap as requested */}
+        <div className="w-full rounded-t-none rounded-b-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 border-t-0 px-4 py-1">
+          <div className="flex items-center justify-evenly">  {/* v18.3: space-evenly alignment to match backend */}
             {brandLogos.map((logo) => (
               <div key={logo.id} className="h-[120px] flex items-center">
                 {logo.file_url && (
@@ -158,19 +158,19 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
       )}
 
       {/* ROW 2: Floating Card with Rounded Corners (Program/Vertical Logos) */}
-      {/* v16.2: Height 60px, logo size 90×55px - based on Yi Kanniyakumari reference */}
+      {/* v18.4: Responsive grid with flex-wrap for many logos */}
       {enhanced4Row.rows.vertical.enabled && enhanced4Row.rows.vertical.logoIds.length > 0 && (
-        <div className="mx-auto w-fit min-w-[280px] max-w-xl rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-6 py-0.5">
-          <div className="flex items-center justify-center py-0" style={{ gap: '2px' }}>
+        <div className="w-full rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-2 py-1">
+          <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
             {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
               const logo = logos.find(l => l.id === logoId)
               return logo?.file_url ? (
-                <div key={logoId} className="h-[60px] flex items-center">
+                <div key={logoId} className="h-[50px] flex items-center shrink-0">
                   <Image
                     src={logo.file_url}
                     alt={logo.name || ''}
-                    width={90}
-                    height={55}
+                    width={75}
+                    height={45}
                     className="object-contain"
                     unoptimized
                   />
@@ -204,12 +204,12 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* FOOTER STRIP PREVIEW - 3-ZONE LAYOUT with AI-Powered Space-Evenly */}
-      {/* v16.5: Dynamic width (fit-to-content), centered, rounded top (attached bottom) */}
+      {/* FOOTER STRIP PREVIEW - 3-ZONE LAYOUT with Space-Evenly */}
+      {/* v18.3: Full width to match backend rendering */}
       {/* Zone 1: Signature (Left) | Zone 2: Info (Center) | Zone 3: Partner (Right) */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {hasFooterContent && (
-        <div className="mx-auto w-fit min-w-[320px] max-w-2xl rounded-t-2xl rounded-b-none overflow-hidden border border-slate-200 border-b-0 shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div className="w-full rounded-t-2xl rounded-b-none overflow-hidden border border-slate-200 border-b-0 shadow-md hover:shadow-lg transition-shadow duration-300">
           <div className="px-3 py-1 bg-orange-500 text-white flex items-center justify-between">
             <span className="text-[9px] font-medium">Footer Bar Preview</span>
             <div className="flex items-center gap-2">
@@ -233,10 +233,11 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             }}
           >
             {/* ═══ ZONE 1: Signature Illustration (Left) ═══ */}
-            <div className="flex-1 flex items-end justify-start min-w-0">
+            {/* v18.4: Fixed width zone for better balance */}
+            <div className="w-[35%] flex items-end justify-start">
               {zone1HasContent && (
                 <div
-                  className="pointer-events-none shrink-0"
+                  className="pointer-events-none"
                   style={{
                     opacity: footer.signature?.opacity ? footer.signature.opacity / 100 : 1,
                   }}
@@ -244,12 +245,11 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   <Image
                     src={signatureLogo!.file_url!}
                     alt="Signature"
-                    width={200}
+                    width={160}
                     height={100}
-                    className="object-contain object-left-bottom max-h-full"
+                    className="object-contain object-left-bottom"
                     style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%'
+                      maxHeight: '110px'
                     }}
                     unoptimized
                   />
@@ -258,7 +258,8 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             </div>
 
             {/* ═══ ZONE 2: Center Content (Hashtag + Website + Social Bar) ═══ */}
-            <div className="flex flex-col items-center justify-center gap-0.5 py-0 shrink-0 mx-4">
+            {/* v18.4: Flex-1 to take remaining space, centered content */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-0.5 py-0">
               {/* Hashtag - Primary CTA */}
               {footer.hashtag.enabled && footer.hashtag.text.trim() && (
                 <div
@@ -339,15 +340,10 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             </div>
 
             {/* ═══ ZONE 3: Digital Partner (Right) ═══ */}
-            <div className="flex-1 flex flex-col items-end justify-center min-w-0">
+            {/* v18.4: Fixed width zone for symmetry with Zone 1 */}
+            <div className="w-[20%] flex flex-col items-end justify-center">
               {zone3HasContent && (
-                <div
-                  className="flex flex-col items-center justify-center gap-0 text-center shrink-0"
-                  style={{
-                    minWidth: '80px',
-                    maxWidth: '120px',
-                  }}
-                >
+                <div className="flex flex-col items-center justify-center gap-0.5 text-center">
                   {/* "Digital Partner" Label */}
                   <span
                     className="text-[7px] uppercase tracking-wider whitespace-nowrap"
@@ -358,18 +354,12 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
 
                   {/* Partner Logo */}
                   {partnerLogo?.file_url && (
-                    <div
-                      className="flex items-center justify-center"
-                      style={{
-                        width: `${Math.min(footer.digitalPartner.logoSize, 50)}px`,
-                        height: `${Math.min(footer.digitalPartner.logoSize, 50) * 0.6}px`,
-                      }}
-                    >
+                    <div className="flex items-center justify-center">
                       <Image
                         src={partnerLogo.file_url}
                         alt={partnerLogo.name || 'Partner'}
-                        width={Math.min(footer.digitalPartner.logoSize, 50)}
-                        height={Math.min(footer.digitalPartner.logoSize, 50) * 0.6}
+                        width={60}
+                        height={40}
                         className="object-contain"
                         unoptimized
                       />
