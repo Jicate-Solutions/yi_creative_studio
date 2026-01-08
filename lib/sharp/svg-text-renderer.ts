@@ -16,6 +16,13 @@ import {
 } from '@/lib/services/footer-zone-optimizer'
 import { EMBEDDED_FONTS, FontFamily } from '@/lib/config/embedded-fonts'
 
+// CRITICAL DEBUG: Verify embedded fonts are loaded at module initialization
+console.log('[SVG Text Renderer] Module loaded - EMBEDDED_FONTS available:', typeof EMBEDDED_FONTS !== 'undefined')
+console.log('[SVG Text Renderer] Module loaded - Font families:', Object.keys(EMBEDDED_FONTS || {}))
+if (EMBEDDED_FONTS.poppins) {
+  console.log('[SVG Text Renderer] Module loaded - Poppins regular length:', EMBEDDED_FONTS.poppins.regular?.length || 0)
+}
+
 // Font weight to numeric mapping
 const FONT_WEIGHTS: Record<string, number> = {
   normal: 400,
@@ -95,19 +102,35 @@ function getXPosition(
  * No file system access needed - works in serverless environments
  */
 function generateFontFaceCSS(fontFamily: string): string {
+  // CRITICAL DEBUG: Check if EMBEDDED_FONTS is defined
+  console.log('[SVG Text Renderer] === FONT DEBUG START ===')
+  console.log('[SVG Text Renderer] EMBEDDED_FONTS defined:', typeof EMBEDDED_FONTS !== 'undefined')
+  console.log('[SVG Text Renderer] EMBEDDED_FONTS keys:', Object.keys(EMBEDDED_FONTS || {}))
+  console.log('[SVG Text Renderer] Requested font family:', fontFamily)
+
   // Normalize font family name to lowercase for lookup
   const family = fontFamily.toLowerCase() as FontFamily
+  console.log('[SVG Text Renderer] Normalized family:', family)
 
   // Validate font family exists in embedded fonts
   if (!EMBEDDED_FONTS[family]) {
-    console.warn(`[SVG Text Renderer] Unknown font family: ${fontFamily}, using Poppins fallback`)
+    console.error(`[SVG Text Renderer] ❌ Unknown font family: ${fontFamily}, using Poppins fallback`)
+    console.log('[SVG Text Renderer] Available fonts:', Object.keys(EMBEDDED_FONTS))
     return generateFontFaceCSS('Poppins') // Fallback to Poppins
   }
 
   const fonts = EMBEDDED_FONTS[family]
+  console.log('[SVG Text Renderer] Font data found:', {
+    hasRegular: !!fonts.regular,
+    hasRegularData: fonts.regular?.startsWith('data:font/woff2'),
+    regularLength: fonts.regular?.length || 0,
+    hasBold: !!fonts.bold,
+    hasBoldData: fonts.bold?.startsWith('data:font/woff2'),
+    boldLength: fonts.bold?.length || 0,
+  })
 
   // Generate @font-face CSS with embedded base64 data URIs
-  return `
+  const css = `
     @font-face {
       font-family: "${fontFamily}";
       font-weight: 400;
@@ -119,6 +142,11 @@ function generateFontFaceCSS(fontFamily: string): string {
       src: url('${fonts.bold}') format('woff2');
     }
   `
+
+  console.log('[SVG Text Renderer] ✅ Generated @font-face CSS:', css.substring(0, 200) + '...')
+  console.log('[SVG Text Renderer] === FONT DEBUG END ===')
+
+  return css
 }
 
 /**
