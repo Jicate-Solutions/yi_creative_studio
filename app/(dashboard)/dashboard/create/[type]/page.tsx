@@ -11,11 +11,13 @@ import { Loader2 } from 'lucide-react'
  *
  * The app uses a step-based wizard at /create, not URL-based routing.
  * This page redirects users to the correct create page.
+ *
+ * Note: In Next.js 15+, params are async by default
  */
 export default function CreateTypeRedirectPage({
   params,
 }: {
-  params: { type: string }
+  params: Promise<{ type: string }>
 }) {
   const router = useRouter()
 
