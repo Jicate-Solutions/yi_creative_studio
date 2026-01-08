@@ -15,9 +15,7 @@ import {
   calculateSpaceEvenlyPositions,
 } from '@/lib/services/footer-zone-optimizer'
 import { EMBEDDED_FONTS, FontFamily } from '@/lib/config/embedded-fonts'
-
-// Don't import resvg-renderer at module level to avoid Turbopack bundling issues
-// We'll dynamically load it at runtime in the rendering functions
+import { isResvgAvailable, renderSvgWithResvg } from './resvg-renderer'
 
 // CRITICAL DEBUG: Verify embedded fonts are loaded at module initialization
 console.log('[SVG Text Renderer] Module loaded - EMBEDDED_FONTS available:', typeof EMBEDDED_FONTS !== 'undefined')
@@ -390,21 +388,14 @@ export async function renderInitiativeText(
   const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight)
 
   try {
-    // Dynamically load Resvg renderer at runtime to avoid Turbopack build-time bundling
-    // Using eval + require to completely bypass static analysis
+    // Use Resvg for font-aware rendering (webpack build with serverExternalPackages)
     let buffer: Buffer
-    try {
-      // @ts-ignore - Runtime dynamic require
-      const resvgRenderer = eval('require')('./resvg-renderer')
-      if (resvgRenderer.isResvgAvailable()) {
-        console.log('[SVG Text Renderer] Using Resvg for initiative text')
-        buffer = await resvgRenderer.renderSvgWithResvg(svg, containerWidth, rowHeight)
-      } else {
-        console.log('[SVG Text Renderer] Fallback to Sharp for initiative text (fonts not available)')
-        buffer = await sharp(Buffer.from(svg)).png().toBuffer()
-      }
-    } catch (resvgError) {
-      console.log('[SVG Text Renderer] Resvg not available, using Sharp:', resvgError)
+
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for initiative text')
+      buffer = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for initiative text (fonts not available)')
       buffer = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 
@@ -484,20 +475,14 @@ export async function renderPartnerLabel(
   )
 
   try {
-    // Dynamically load Resvg renderer at runtime - using eval to bypass static analysis
+    // Use Resvg for font-aware rendering (webpack build with serverExternalPackages)
     let result: Buffer
-    try {
-      // @ts-ignore - Runtime dynamic require
-      const resvgRenderer = eval('require')('./resvg-renderer')
-      if (resvgRenderer.isResvgAvailable()) {
-        console.log('[SVG Text Renderer] Using Resvg for partner label')
-        result = await resvgRenderer.renderSvgWithResvg(svg, containerWidth, rowHeight)
-      } else {
-        console.log('[SVG Text Renderer] Fallback to Sharp for partner label (fonts not available)')
-        result = await sharp(Buffer.from(svg)).png().toBuffer()
-      }
-    } catch (resvgError) {
-      console.log('[SVG Text Renderer] Resvg not available, using Sharp:', resvgError)
+
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for partner label')
+      result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for partner label (fonts not available)')
       result = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 
@@ -1058,20 +1043,14 @@ export async function renderFooterBar(
   )
 
   try {
-    // 4. Create base rendering from SVG - dynamically load Resvg at runtime using eval
+    // 4. Create base rendering from SVG using Resvg (webpack build with serverExternalPackages)
     let result: Buffer
-    try {
-      // @ts-ignore - Runtime dynamic require
-      const resvgRenderer = eval('require')('./resvg-renderer')
-      if (resvgRenderer.isResvgAvailable()) {
-        console.log('[SVG Text Renderer] Using Resvg for footer bar')
-        result = await resvgRenderer.renderSvgWithResvg(svg, containerWidth, rowHeight)
-      } else {
-        console.log('[SVG Text Renderer] Fallback to Sharp for footer bar (fonts not available)')
-        result = await sharp(Buffer.from(svg)).png().toBuffer()
-      }
-    } catch (resvgError) {
-      console.log('[SVG Text Renderer] Resvg not available, using Sharp:', resvgError)
+
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for footer bar')
+      result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for footer bar (fonts not available)')
       result = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 

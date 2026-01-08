@@ -146,10 +146,8 @@ export async function renderSvgWithResvg(
       svgLength: svg.length,
     })
 
-    // Use require() instead of import() to bypass Turbopack static analysis
-    // This works because API routes run in Node.js environment, not browser
-    const resvgModule = require('@resvg/resvg-js')
-    const Resvg = resvgModule.Resvg
+    // Use require() for native module (handled by serverExternalPackages)
+    const { Resvg } = require('@resvg/resvg-js')
 
     // Initialize Resvg with font files
     const resvg = new Resvg(svg, {

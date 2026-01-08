@@ -26,8 +26,11 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
 
-  // Acknowledge Turbopack usage (Next.js 16 default)
-  turbopack: {},
+  // CRITICAL FIX: Externalize native modules for webpack builds
+  // Turbopack cannot bundle native binaries like @resvg/resvg-js
+  // serverExternalPackages tells Next.js to use native Node.js require()
+  // See: https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages
+  serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
 };
 
 export default nextConfig;
