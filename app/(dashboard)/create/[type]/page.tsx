@@ -23,26 +23,31 @@ const CREATIVE_TYPE_MAP: Record<string, string> = {
  * - /create/banner
  *
  * Redirects to the main /create page which uses a step-based wizard.
+ *
+ * Note: In Next.js 15+, params are async by default
  */
 export default function CreateTypePage({
   params,
 }: {
-  params: { type: string }
+  params: Promise<{ type: string }>
 }) {
   const router = useRouter()
   const { updateFormData } = useCreativeStore()
 
   useEffect(() => {
-    const creativeType = CREATIVE_TYPE_MAP[params.type.toLowerCase()]
+    // Handle async params in Next.js 15+
+    params.then((resolvedParams) => {
+      const creativeType = CREATIVE_TYPE_MAP[resolvedParams.type.toLowerCase()]
 
-    if (creativeType) {
-      // Store the creative type preference and redirect
-      updateFormData({ creativeType })
-    }
+      if (creativeType) {
+        // Store the creative type preference and redirect
+        updateFormData({ creativeType })
+      }
 
-    // Redirect to the main create page
-    router.replace('/create')
-  }, [params.type, router, updateFormData])
+      // Redirect to the main create page
+      router.replace('/create')
+    })
+  }, [params, router, updateFormData])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
