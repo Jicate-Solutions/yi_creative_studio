@@ -338,14 +338,11 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   </span>
                 </div>
               )}
-            </div>
 
-            {/* ═══ ZONE 3: Digital Partner (Right) ═══ */}
-            {/* v18.4: Fixed width zone for symmetry with Zone 1 */}
-            <div className="w-[20%] flex flex-col items-end justify-center">
-              {zone3HasContent && (
-                <div className="flex flex-col items-center justify-center gap-0.5 text-center">
-                  {/* "Supported By" Label (v19.0: Updated from "Digital Partner") */}
+              {/* "Supported By" Label + Partner Logo (v19.0: Moved from Zone 3 to Zone 2) */}
+              {footer.digitalPartner.enabled && partnerLogo?.file_url && (
+                <div className="flex flex-col items-center justify-center gap-0.5 text-center mt-1">
+                  {/* "Supported By" Label */}
                   <span
                     className="text-[7px] uppercase tracking-wider whitespace-nowrap"
                     style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
@@ -354,18 +351,16 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   </span>
 
                   {/* Partner Logo */}
-                  {partnerLogo?.file_url && (
-                    <div className="flex items-center justify-center">
-                      <Image
-                        src={partnerLogo.file_url}
-                        alt={partnerLogo.name || 'Partner'}
-                        width={60}
-                        height={40}
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center">
+                    <Image
+                      src={partnerLogo.file_url}
+                      alt={partnerLogo.name || 'Partner'}
+                      width={60}
+                      height={40}
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
 
                   {/* Agency Name/Link */}
                   {footer.digitalPartner.agencyName && (
@@ -379,6 +374,9 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                 </div>
               )}
             </div>
+
+            {/* ═══ ZONE 3: Reserved (Empty in preview, used in backend generation) ═══ */}
+            {/* v19.0: "Supported By" moved to Zone 2 - Zone 3 empty in preview to match backend layout */}
           </div>
         </div>
       )}

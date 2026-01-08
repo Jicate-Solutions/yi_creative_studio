@@ -10,12 +10,11 @@
  */
 
 import sharp from 'sharp'
-import * as fs from 'fs'
-import * as path from 'path'
 import type { InitiativeTextConfig, PartnerLabelConfig, FooterRowConfig } from '@/lib/config/design-constants'
 import {
   calculateSpaceEvenlyPositions,
 } from '@/lib/services/footer-zone-optimizer'
+import { EMBEDDED_FONTS, FontFamily } from '@/lib/config/embedded-fonts'
 
 // Font weight to numeric mapping
 const FONT_WEIGHTS: Record<string, number> = {
@@ -87,73 +86,39 @@ function getXPosition(
 }
 
 /**
- * Load font file and convert to Base64 for embedding in SVG
- * Use caching to avoid repeated file reads
- */
-const fontCache: Record<string, string> = {}
-
-function loadFontBase64(fontFamily: string, weight: string): string {
-  const cacheKey = `${fontFamily}-${weight}`
-  if (fontCache[cacheKey]) return fontCache[cacheKey]
-
-  try {
-    const fontDir = path.join(process.cwd(), 'public', 'fonts')
-    let filename = ''
-
-    // Map family/weight to filenames
-    if (fontFamily === 'Montserrat') {
-      filename = weight === 'bold' || weight === '700' ? 'Montserrat-Bold.woff2' : 'Montserrat-Regular.woff2'
-    } else if (fontFamily === 'Poppins') {
-      filename = weight === 'bold' || weight === '700' ? 'Poppins-Bold.woff2' : 'Poppins-Regular.woff2'
-    } else if (fontFamily === 'Inter') {
-      filename = weight === 'bold' || weight === '700' ? 'Inter-Bold.woff2' : 'Inter-Regular.woff2'
-    } else {
-      // Default to Montserrat Regular
-      filename = 'Montserrat-Regular.woff2'
-    }
-
-    const filePath = path.join(fontDir, filename)
-    if (fs.existsSync(filePath)) {
-      const fontBuffer = fs.readFileSync(filePath)
-      const base64 = fontBuffer.toString('base64')
-      fontCache[cacheKey] = base64
-      return base64
-    }
-  } catch (error) {
-    console.error(`[SVG Text Renderer] Failed to load font ${fontFamily} ${weight}:`, error)
-  }
-
-  return ''
-}
-
-/**
- * Generate CSS @font-face definitions for embedding
+ * Generate CSS @font-face definitions using embedded font constants
+ *
+ * v19.1: Replaced runtime file loading with build-time embedded fonts
+ * Fixes Vercel deployment issue where fonts rendered as boxes (□)
+ *
+ * Fonts are pre-encoded as base64 constants in lib/config/embedded-fonts.ts
+ * No file system access needed - works in serverless environments
  */
 function generateFontFaceCSS(fontFamily: string): string {
-  const regularB64 = loadFontBase64(fontFamily, 'normal')
-  const boldB64 = loadFontBase64(fontFamily, 'bold')
+  // Normalize font family name to lowercase for lookup
+  const family = fontFamily.toLowerCase() as FontFamily
 
-  // Only generate CSS for loaded fonts
-  let css = ''
-  if (regularB64) {
-    css += `
-      @font-face {
-        font-family: "${fontFamily}";
-        font-weight: 400;
-        src: url("data:font/woff2;base64,${regularB64}") format("woff2");
-      }
-    `
+  // Validate font family exists in embedded fonts
+  if (!EMBEDDED_FONTS[family]) {
+    console.warn(`[SVG Text Renderer] Unknown font family: ${fontFamily}, using Poppins fallback`)
+    return generateFontFaceCSS('Poppins') // Fallback to Poppins
   }
-  if (boldB64) {
-    css += `
-      @font-face {
-        font-family: "${fontFamily}";
-        font-weight: 700;
-        src: url("data:font/woff2;base64,${boldB64}") format("woff2");
-      }
-    `
-  }
-  return css
+
+  const fonts = EMBEDDED_FONTS[family]
+
+  // Generate @font-face CSS with embedded base64 data URIs
+  return `
+    @font-face {
+      font-family: "${fontFamily}";
+      font-weight: 400;
+      src: url('${fonts.regular}') format('woff2');
+    }
+    @font-face {
+      font-family: "${fontFamily}";
+      font-weight: 700;
+      src: url('${fonts.bold}') format('woff2');
+    }
+  `
 }
 
 /**

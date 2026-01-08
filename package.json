@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "encode-fonts": "node scripts/encode-fonts.js",
+    "prebuild": "npm run encode-fonts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

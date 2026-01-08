@@ -142,6 +142,23 @@ const ProgressiveLoadingUI = dynamic(
   { ssr: false }
 )
 
+/**
+ * Maps schema field IDs to API field names for suggestion system
+ * @param schemaFieldId - The field ID from the dynamic schema (e.g., 'eventDescription')
+ * @param apiToSchemaMap - Mapping from API field names to possible schema IDs
+ * @returns The API field name (e.g., 'description') or the original ID if no mapping found
+ */
+function mapSchemaFieldToApiField(
+  schemaFieldId: string,
+  apiToSchemaMap: Record<string, string[]>
+): string {
+  const apiField = Object.entries(apiToSchemaMap).find(([_, schemaIds]) =>
+    schemaIds.includes(schemaFieldId)
+  )?.[0]
+
+  return apiField || schemaFieldId
+}
+
 // Loading skeleton for dynamically imported components
 function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'template' | 'mode' | 'design' | 'upload' }) {
   const skeletonClasses = "animate-pulse bg-muted/60 rounded-xl transition-colors"
@@ -1348,8 +1365,22 @@ export default function CreatePage() {
                       suggestionsError={suggestionsError}
                       onFormChange={(fieldId, value) => updateFormData({ [fieldId]: value })}
                       onRequestSuggestions={handleRequestSuggestions}
-                      onAcceptSuggestion={(fieldId) => acceptSuggestion(fieldId as SuggestableField)}
-                      onDismissSuggestion={(fieldId) => dismissSuggestion(fieldId as SuggestableField)}
+                      onAcceptSuggestion={(fieldId) => {
+                        // Map schema field ID → API field name
+                        const apiField = mapSchemaFieldToApiField(fieldId, API_TO_SCHEMA_MAP)
+                        const suggestion = getSuggestion(apiField as SuggestableField)
+                        if (suggestion?.value) {
+                          // Update form field directly with schema field ID
+                          updateFormData({ [fieldId]: suggestion.value })
+                          // Clear suggestion using API field name
+                          dismissSuggestion(apiField as SuggestableField)
+                        }
+                      }}
+                      onDismissSuggestion={(fieldId) => {
+                        // Map schema field ID → API field name
+                        const apiField = mapSchemaFieldToApiField(fieldId, API_TO_SCHEMA_MAP)
+                        dismissSuggestion(apiField as SuggestableField)
+                      }}
                       onAcceptAllSuggestions={() => {
                         // Custom handler that maps API field IDs to schema field IDs before accepting
                         const schemaFieldIds = dynamicSchema.schema?.fields?.map(f => f.id) || []

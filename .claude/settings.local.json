@@ -262,7 +262,8 @@
       "WebFetch(domain:www.anthropic.com)",
       "Bash(awk:*)",
       "Bash(start /b cmd /c \"cd /d C:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio && npm run dev > dev-server.log 2>&1\")",
-      "Bash(bash -c '\"\"/c/Program Files/nodejs/node\"\" \"\"$\\(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1\\)dist/index.js\"\"')"
+      "Bash(bash -c '\"\"/c/Program Files/nodejs/node\"\" \"\"$\\(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1\\)dist/index.js\"\"')",
+      "Bash(wait:*)"
     ],
     "deny": [],
     "ask": [],
