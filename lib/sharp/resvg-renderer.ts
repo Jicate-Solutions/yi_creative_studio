@@ -13,11 +13,15 @@
  * References:
  * - https://github.com/lovell/sharp/issues/2499 (Sharp font issue)
  * - https://github.com/thx/resvg-js (Resvg JS bindings)
+ *
+ * NOTE: Resvg is dynamically imported to avoid Turbopack bundling issues with native binaries
  */
 
-import { Resvg } from '@resvg/resvg-js'
 import fs from 'fs'
 import path from 'path'
+
+// Dynamic import type for Resvg
+type ResvgModule = typeof import('@resvg/resvg-js')
 
 interface FontPaths {
   [family: string]: {
@@ -141,6 +145,11 @@ export async function renderSvgWithResvg(
       fontsAvailable: fontFiles.length,
       svgLength: svg.length,
     })
+
+    // Use require() instead of import() to bypass Turbopack static analysis
+    // This works because API routes run in Node.js environment, not browser
+    const resvgModule = require('@resvg/resvg-js')
+    const Resvg = resvgModule.Resvg
 
     // Initialize Resvg with font files
     const resvg = new Resvg(svg, {
