@@ -15,6 +15,7 @@ import {
   calculateSpaceEvenlyPositions,
 } from '@/lib/services/footer-zone-optimizer'
 import { EMBEDDED_FONTS, FontFamily } from '@/lib/config/embedded-fonts'
+import { renderSvgWithResvg, isResvgAvailable } from './resvg-renderer'
 
 // CRITICAL DEBUG: Verify embedded fonts are loaded at module initialization
 console.log('[SVG Text Renderer] Module loaded - EMBEDDED_FONTS available:', typeof EMBEDDED_FONTS !== 'undefined')
@@ -387,7 +388,15 @@ export async function renderInitiativeText(
   const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight)
 
   try {
-    let buffer = await sharp(Buffer.from(svg)).png().toBuffer()
+    // Use Resvg for font-aware rendering if available (Vercel serverless fix)
+    let buffer: Buffer
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for initiative text')
+      buffer = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for initiative text')
+      buffer = await sharp(Buffer.from(svg)).png().toBuffer()
+    }
 
     // v16.4: Add background with border radius if requested (floating card effect)
     if (options?.backgroundColor && options?.borderRadius) {
@@ -465,8 +474,15 @@ export async function renderPartnerLabel(
   )
 
   try {
-    // Create base with text
-    let result = await sharp(Buffer.from(svg)).png().toBuffer()
+    // Use Resvg for font-aware rendering if available (Vercel serverless fix)
+    let result: Buffer
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for partner label')
+      result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for partner label')
+      result = await sharp(Buffer.from(svg)).png().toBuffer()
+    }
 
     // Composite logo if provided
     if (logoBuffer && config.logoId) {
@@ -1025,8 +1041,15 @@ export async function renderFooterBar(
   )
 
   try {
-    // 4. Create base rendering from SVG
-    let result = await sharp(Buffer.from(svg)).png().toBuffer()
+    // 4. Create base rendering from SVG using Resvg (font-aware for Vercel serverless)
+    let result: Buffer
+    if (isResvgAvailable()) {
+      console.log('[SVG Text Renderer] Using Resvg for footer bar')
+      result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
+    } else {
+      console.log('[SVG Text Renderer] Fallback to Sharp for footer bar')
+      result = await sharp(Buffer.from(svg)).png().toBuffer()
+    }
 
     const composites: sharp.OverlayOptions[] = []
 

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# font extraction (generated at build time)
+.fonts/
+lib/config/font-paths.json
