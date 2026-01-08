@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCreativeStore } from '@/stores/creative-store'
 import { Loader2 } from 'lucide-react'
@@ -34,26 +34,26 @@ export default function CreateTypePage({
   const router = useRouter()
   const { updateFormData } = useCreativeStore()
 
+  // Unwrap the async params using React's use() hook
+  const resolvedParams = use(params)
+
   useEffect(() => {
-    // Handle async params in Next.js 15+
-    params.then((resolvedParams) => {
-      const creativeType = CREATIVE_TYPE_MAP[resolvedParams.type.toLowerCase()]
+    const creativeType = CREATIVE_TYPE_MAP[resolvedParams.type.toLowerCase()]
 
-      if (creativeType) {
-        // Store the creative type preference and redirect
-        updateFormData({ creativeType })
-      }
+    if (creativeType) {
+      // Store the creative type preference and redirect
+      updateFormData({ creativeType })
+    }
 
-      // Redirect to the main create page
-      router.replace('/create')
-    })
-  }, [params, router, updateFormData])
+    // Redirect to the main create page
+    router.replace('/create')
+  }, [resolvedParams.type, router, updateFormData])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
       <p className="text-muted-foreground">
-        Redirecting to create {params.type.replace('_', ' ')}...
+        Redirecting to create {resolvedParams.type.replace('_', ' ')}...
       </p>
     </div>
   )
