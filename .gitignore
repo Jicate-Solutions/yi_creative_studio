@@ -40,6 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# font extraction (generated at build time)
-.fonts/
-lib/config/font-paths.json
+# font extraction - NOW COMMITTED for Vercel runtime availability
+# .fonts/
+# lib/config/font-paths.json
