@@ -2,7 +2,7 @@
  * AI Prompt Templates for Form Field Suggestions
  * Used with Claude to generate contextual event form suggestions
  *
- * NOTE: AI suggestions are limited to TEXT CONTENT fields only (description, etc.)
+ * NOTE: AI suggestions are limited to TEXT CONTENT fields only (description, eventTagline, etc.)
  * Factual fields (date, time, venue, speaker) are excluded as users provide these.
  */
 
@@ -24,6 +24,12 @@ GUIDELINES FOR DESCRIPTION:
 - Keep under 150 characters
 - Focus on the event's purpose and impact
 - Highlight community benefit and Yi mission alignment
+
+GUIDELINES FOR EVENT TAGLINE:
+- Catchy, memorable subtitle (max 150 characters)
+- Complements the event title
+- Concise and impactful
+- Professional tone aligned with Yi brand
 
 RESPONSE FORMAT:
 You MUST respond with valid JSON only. No markdown, no explanation outside JSON.
@@ -78,6 +84,7 @@ ${filledFields}`
   // Build example JSON based on targetFields only
   const fieldExamples: Record<string, string> = {
     description: '"description": { "value": "Join us for an evening of professional networking and collaboration.", "confidence": 0.85, "reasoning": "Professional tone aligned with Yi values" }',
+    eventTagline: '"eventTagline": { "value": "Building Tomorrow\'s Leaders", "confidence": 0.90, "reasoning": "Catchy subtitle that complements event purpose" }',
   }
 
   const exampleFields = targetFields
@@ -98,7 +105,7 @@ Respond with JSON in this exact format:
 
 Rules:
 - confidence: 0.0-1.0 (higher = more confident in the suggestion)
-- Keep description under 150 characters
+- Keep description and eventTagline under 150 characters each
 - Professional, inspiring tone aligned with Yi values
 - Focus on the event's purpose and community impact`
 

@@ -208,6 +208,7 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                   <SelectContent>
                     {logos
                       .filter(l => !enhanced4Row.rows.vertical.logoIds.includes(l.id))
+                      .filter(l => l.id !== footer.digitalPartner.logoId) // v19.0: Exclude Digital Partner logo
                       .map((logo) => (
                         <SelectItem key={logo.id} value={logo.id}>
                           <div className="flex items-center gap-2">

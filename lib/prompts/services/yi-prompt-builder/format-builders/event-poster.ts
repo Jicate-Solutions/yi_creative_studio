@@ -567,12 +567,25 @@ export function buildEventPosterPrompt(
   const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
 
   // v12.5: Extract header boundary for Additional Details positioning
-  const headerStartPercent = options.logoStripMode?.enabled && options.verticalId ? 20 : 15
+  // v19.0: CRITICAL FIX - Make headerStartPercent dynamic to prevent headline overlap with Row 2 card
+  // Previously: hardcoded to 20% (with Row 2) or 15% (without Row 2)
+  // Issue: When Row 2 + clearance buffer exists, headerReservePercent can be 21-25%, causing headline to overlap
+  // Solution: Use actual headerReservePercent + 2% buffer as minimum start position
+  const baseHeaderStart = options.logoStripMode?.enabled && options.verticalId ? 20 : 15
+  const headerStartPercent = Math.max(baseHeaderStart, headerReservePercent + 2)
+
+  console.log('[Event Poster] v19.0: Header safe zone calculation:', {
+    headerReservePercent: `${headerReservePercent}%`,
+    baseHeaderStart: `${baseHeaderStart}%`,
+    finalHeaderStartPercent: `${headerStartPercent}%`,
+    hasRow2: options.logoStripMode?.enabled && options.verticalId,
+    buffer: `${headerStartPercent - headerReservePercent}%`,
+  })
 
   // v12.6: Complete text positioning system - explicit Y-coordinates for ALL elements
   const textZones = {
     header: { start: 0, end: headerReservePercent },
-    headline: { start: headerStartPercent, end: headerStartPercent + 7 }, // 20-27% or 15-22%
+    headline: { start: headerStartPercent, end: headerStartPercent + 7 }, // Dynamic based on header reserve
     tagline: { start: headerStartPercent + 8, end: headerStartPercent + 12 }, // 28-32% or 23-27%
     dateVenue: { start: headerStartPercent + 13, end: headerStartPercent + 20 }, // 33-40% or 28-35%
     speakers: { start: headerStartPercent + 22, end: headerStartPercent + 32 }, // 42-52% or 37-47%

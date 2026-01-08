@@ -159,18 +159,19 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
 
       {/* ROW 2: Floating Card with Rounded Corners (Program/Vertical Logos) */}
       {/* v18.4: Responsive grid with flex-wrap for many logos */}
+      {/* v19.0: Increased logo size from 50px to 75px height for better visibility */}
       {enhanced4Row.rows.vertical.enabled && enhanced4Row.rows.vertical.logoIds.length > 0 && (
         <div className="w-full rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-2 py-1">
           <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
             {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
               const logo = logos.find(l => l.id === logoId)
               return logo?.file_url ? (
-                <div key={logoId} className="h-[50px] flex items-center shrink-0">
+                <div key={logoId} className="h-[75px] flex items-center shrink-0">
                   <Image
                     src={logo.file_url}
                     alt={logo.name || ''}
-                    width={75}
-                    height={45}
+                    width={112}
+                    height={72}
                     className="object-contain"
                     unoptimized
                   />
@@ -344,7 +345,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             <div className="w-[20%] flex flex-col items-end justify-center">
               {zone3HasContent && (
                 <div className="flex flex-col items-center justify-center gap-0.5 text-center">
-                  {/* "Digital Partner" Label */}
+                  {/* "Supported By" Label (v19.0: Updated from "Digital Partner") */}
                   <span
                     className="text-[7px] uppercase tracking-wider whitespace-nowrap"
                     style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}

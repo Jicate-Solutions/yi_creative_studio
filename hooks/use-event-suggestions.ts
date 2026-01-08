@@ -132,6 +132,8 @@ export function useEventSuggestions({
             if (fd.speaker && typeof fd.speaker === 'string') existingFields.speaker = fd.speaker
             if (fd.description && typeof fd.description === 'string')
               existingFields.description = fd.description
+            if (fd.eventTagline && typeof fd.eventTagline === 'string')
+              existingFields.eventTagline = fd.eventTagline
 
             const request: SuggestFieldsRequest = {
               title: title.trim(),
@@ -140,7 +142,7 @@ export function useEventSuggestions({
               organizationType,
               existingFields:
                 Object.keys(existingFields).length > 0 ? existingFields : undefined,
-              // Only request text content fields (description) - NOT date/time/venue/speaker
+              // Only request text content fields (description, eventTagline) - NOT date/time/venue/speaker
               targetFields: AI_SUGGESTABLE_FIELDS,
             }
 

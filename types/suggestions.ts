@@ -20,6 +20,7 @@ export interface SuggestFieldsRequest {
     venue?: string
     speaker?: string
     description?: string
+    eventTagline?: string
   }
   targetFields?: SuggestableField[]
 }
@@ -32,6 +33,7 @@ export interface SuggestFieldsResponse {
     venue?: FieldSuggestion
     speaker?: FieldSuggestion
     description?: FieldSuggestion
+    eventTagline?: FieldSuggestion
   }
   metadata: {
     model: string
@@ -49,14 +51,14 @@ export interface SuggestFieldsError {
 export type SuggestFieldsResult = SuggestFieldsResponse | SuggestFieldsError
 
 // Original fields that AI can potentially suggest
-export type SuggestableField = 'date' | 'time' | 'venue' | 'speaker' | 'description'
+export type SuggestableField = 'date' | 'time' | 'venue' | 'speaker' | 'description' | 'eventTagline'
 
 /**
  * Field categories for AI suggestion control
  * TEXT_CONTENT_FIELDS: AI-generated creative text (descriptions, captions, headlines)
  * FACTUAL_FIELDS: User-specific data that AI should NOT generate (dates, names, venues)
  */
-export const TEXT_CONTENT_FIELDS: SuggestableField[] = ['description'] as const
+export const TEXT_CONTENT_FIELDS: SuggestableField[] = ['description', 'eventTagline'] as const
 
 export const FACTUAL_FIELDS: SuggestableField[] = ['date', 'time', 'venue', 'speaker'] as const
 
@@ -95,4 +97,5 @@ export const FIELD_LABELS: Record<SuggestableField, string> = {
   venue: 'Venue',
   speaker: 'Speaker/Guest',
   description: 'Additional Details',
+  eventTagline: 'Tagline / Subtitle',
 }

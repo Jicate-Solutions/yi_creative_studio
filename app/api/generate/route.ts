@@ -1297,6 +1297,12 @@ export async function POST(request: NextRequest) {
           // Add vertical padding (12px top + 12px bottom = 24px total)
           headerHeight += 24
 
+          // v19.0: Add clearance buffer for Row 2 visual bounds (card styling, padding, shadow)
+          // Row 2 has a white card with rounded corners that extends beyond the base 85px height
+          if (activeRows.vertical) {
+            headerHeight += 60  // Extra clearance for Row 2 white card visual bounds
+          }
+
           // Cap header at 25% of canvas height
           headerHeight = Math.min(headerHeight, height * 0.25)
 

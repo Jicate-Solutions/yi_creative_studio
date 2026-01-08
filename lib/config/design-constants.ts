@@ -1784,7 +1784,7 @@ export const DEFAULT_INITIATIVE_CONFIG: InitiativeTextConfig = {
   fontSize: 30, // v16.13: Increased from 24 to 30 (75% of 40px row, +25% size for prominence)
   fontWeight: 'bold',
   fontStyle: 'normal',
-  color: '#005B96', // Yi Blue
+  color: '#000000', // Black (v19.0: Changed from #FF6B35 per user request)
   letterSpacing: 1.5, // v16.13: Increased from 1 to 1.5 for better readability
   textTransform: 'none', // v11.1: Changed from uppercase to none - preserve user input case
   alignment: 'center',
@@ -1931,7 +1931,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
   // Zone 3: Digital partner (right)
   digitalPartner: {
     enabled: true,
-    labelText: 'Digital Partner',
+    labelText: 'Supported By', // v19.0: Changed from "Digital Partner" to "Supported By"
     labelColor: '#9CA3AF', // Light grey
     separator: '–',
     logoId: null,
@@ -1977,9 +1977,10 @@ export const DEFAULT_ENHANCED_4ROW_STRIP: Enhanced4RowStripMode = {
 // Row height configuration for 4-row system
 // v16.3: INCREASED ROW 1 and FOOTER for more prominence (ROW 2 unchanged per user request)
 // v16.12: INCREASED FOOTER to 130px for better text visibility
+// v19.0: INCREASED ROW 2 from 60px to 90px for better vertical logo visibility
 export const ENHANCED_STRIP_ROW_HEIGHTS = {
   brand: 120,     // v16.3: INCREASED from 85px to 120px - prominent brand row
-  vertical: 60,   // v16.3: UNCHANGED at 60px per user request
+  vertical: 90,   // v19.0: INCREASED from 60px to 90px for 75px logo visibility (50% increase)
   initiative: 40, // Text row - unchanged
   partner: 150,   // v16.14: INCREASED from 130px to 150px - taller footer for social bar visibility
 } as const

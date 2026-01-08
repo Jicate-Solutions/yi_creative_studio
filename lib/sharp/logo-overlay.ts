@@ -1770,12 +1770,13 @@ export async function createEnhanced4RowStrip(
         const maxLogoHeight = Math.floor(rowHeight * 0.96)
 
         // Estimate total logos width after resize
+        // v19.0: Increased max width from 100px to 150px to accommodate larger Row 2 logos
         let estimatedTotalLogosWidth = 0
         for (const logo of logoData.verticalLogos) {
           const aspectRatio = logo.width / logo.height
           let estimatedHeight = Math.min(logo.height, maxLogoHeight)
           let estimatedWidth = Math.round(estimatedHeight * aspectRatio)
-          const maxWidthPerLogo = 100
+          const maxWidthPerLogo = 150  // v19.0: Increased from 100 to 150px to accommodate larger Row 2 logos
           if (estimatedWidth > maxWidthPerLogo) {
             estimatedWidth = maxWidthPerLogo
           }

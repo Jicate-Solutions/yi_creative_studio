@@ -383,13 +383,13 @@ export function FooterSettings({ className }: FooterSettingsProps) {
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {/* ZONE 3: Digital Partner (Right) */}
+          {/* ZONE 3: Supported By (Right) - v19.0: Updated from "Digital Partner" */}
           {/* ═══════════════════════════════════════════════════════════════ */}
           <div className="rounded-lg border border-orange-200 bg-gradient-to-b from-orange-50/50 to-white p-3 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Handshake className="h-3.5 w-3.5 text-orange-500" />
-                <Label className="text-xs font-medium">Digital Partner</Label>
+                <Label className="text-xs font-medium">Supported By</Label>
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">Zone 3</span>
               </div>
               <Switch
@@ -410,7 +410,7 @@ export function FooterSettings({ className }: FooterSettingsProps) {
                       onChange={(e) =>
                         updateFooterDigitalPartner({ labelText: e.target.value })
                       }
-                      placeholder="Digital Partner"
+                      placeholder="Supported By"
                       className="h-8 text-xs"
                     />
                   </div>

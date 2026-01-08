@@ -10,12 +10,11 @@
  */
 
 import sharp from 'sharp'
+import * as fs from 'fs'
+import * as path from 'path'
 import type { InitiativeTextConfig, PartnerLabelConfig, FooterRowConfig } from '@/lib/config/design-constants'
 import {
-  calculateFooterZoneWidths,
-  calculateFooterZonePositions,
   calculateSpaceEvenlyPositions,
-  type FooterZoneConfig,
 } from '@/lib/services/footer-zone-optimizer'
 
 // Font weight to numeric mapping
@@ -85,6 +84,76 @@ function getXPosition(
     default:
       return width / 2
   }
+}
+
+/**
+ * Load font file and convert to Base64 for embedding in SVG
+ * Use caching to avoid repeated file reads
+ */
+const fontCache: Record<string, string> = {}
+
+function loadFontBase64(fontFamily: string, weight: string): string {
+  const cacheKey = `${fontFamily}-${weight}`
+  if (fontCache[cacheKey]) return fontCache[cacheKey]
+
+  try {
+    const fontDir = path.join(process.cwd(), 'public', 'fonts')
+    let filename = ''
+
+    // Map family/weight to filenames
+    if (fontFamily === 'Montserrat') {
+      filename = weight === 'bold' || weight === '700' ? 'Montserrat-Bold.woff2' : 'Montserrat-Regular.woff2'
+    } else if (fontFamily === 'Poppins') {
+      filename = weight === 'bold' || weight === '700' ? 'Poppins-Bold.woff2' : 'Poppins-Regular.woff2'
+    } else if (fontFamily === 'Inter') {
+      filename = weight === 'bold' || weight === '700' ? 'Inter-Bold.woff2' : 'Inter-Regular.woff2'
+    } else {
+      // Default to Montserrat Regular
+      filename = 'Montserrat-Regular.woff2'
+    }
+
+    const filePath = path.join(fontDir, filename)
+    if (fs.existsSync(filePath)) {
+      const fontBuffer = fs.readFileSync(filePath)
+      const base64 = fontBuffer.toString('base64')
+      fontCache[cacheKey] = base64
+      return base64
+    }
+  } catch (error) {
+    console.error(`[SVG Text Renderer] Failed to load font ${fontFamily} ${weight}:`, error)
+  }
+
+  return ''
+}
+
+/**
+ * Generate CSS @font-face definitions for embedding
+ */
+function generateFontFaceCSS(fontFamily: string): string {
+  const regularB64 = loadFontBase64(fontFamily, 'normal')
+  const boldB64 = loadFontBase64(fontFamily, 'bold')
+
+  // Only generate CSS for loaded fonts
+  let css = ''
+  if (regularB64) {
+    css += `
+      @font-face {
+        font-family: "${fontFamily}";
+        font-weight: 400;
+        src: url("data:font/woff2;base64,${regularB64}") format("woff2");
+      }
+    `
+  }
+  if (boldB64) {
+    css += `
+      @font-face {
+        font-family: "${fontFamily}";
+        font-weight: 700;
+        src: url("data:font/woff2;base64,${boldB64}") format("woff2");
+      }
+    `
+  }
+  return css
 }
 
 /**
@@ -174,6 +243,9 @@ export function generateInitiativeTextSVG(
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
 
+  // Embed fonts
+  const fontCss = generateFontFaceCSS(fontFamily)
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg
   width="${containerWidth}"
@@ -181,6 +253,7 @@ export function generateInitiativeTextSVG(
   xmlns="http://www.w3.org/2000/svg"
 >
   <defs>
+    <style>${fontCss}</style>
     ${filterDef}
     ${gradientDef}
   </defs>
@@ -188,7 +261,7 @@ export function generateInitiativeTextSVG(
     x="${x}"
     y="${y}"
     text-anchor="${textAnchor}"
-    font-family="${fontFamily}, Poppins, Montserrat, Inter, sans-serif"
+    font-family="${fontFamily}, sans-serif"
     font-size="${fontSize}"
     font-weight="${fontWeightToNumber(fontWeight)}"
     font-style="${fontStyle}"
@@ -274,17 +347,23 @@ export function generatePartnerLabelSVG(
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
 
+  // Embed font (Montserrat is default for branding)
+  const fontCss = generateFontFaceCSS('Montserrat')
+
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg
   width="${containerWidth}"
   height="${rowHeight}"
   xmlns="http://www.w3.org/2000/svg"
 >
+  <defs>
+    <style>${fontCss}</style>
+  </defs>
   <text
     x="${textX}"
     y="${textY}"
     text-anchor="start"
-    font-family="Montserrat, Poppins, Inter, sans-serif"
+    font-family="Montserrat, sans-serif"
     font-size="${fontSize}"
     font-weight="${fontWeightToNumber(fontWeight)}"
     fill="${color}"
@@ -480,16 +559,11 @@ interface FooterSection {
  *
  * 3-Zone Layout (v9.0):
  * - Zone 1 (Left): Signature illustration (rendered via logo-overlay, not SVG)
- * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar
- * - Zone 3 (Right): Digital Partner label + logo
+ * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar + Supported By (NEW)
+ * - Zone 3 (Right): REMOVED (Previous Partner Zone)
  *
  * Uses footer-zone-optimizer for intelligent zone width distribution
  * Same algorithm as header strip for visual balance
- *
- * Legacy layout options (for backward compatibility):
- * - spread: Elements distributed across width
- * - center: All elements centered together
- * - left-right: Hashtag/website left, partner right
  *
  * Returns SVG string and positions for logo compositing
  */
@@ -513,7 +587,6 @@ export function generateFooterBarSVG(
     digitalPartner,
     signature,
     socialBar,
-    layout,
     fontSize,
     fontWeight,
     textColor,
@@ -527,22 +600,17 @@ export function generateFooterBarSVG(
   // ═══════════════════════════════════════════════════════════════════════════
 
   const zone1HasContent = !!(signature?.enabled && signature?.logoId)
+  // Zone 2 contains previous center content AND partner/supported-by content
   const zone2HasContent = !!(
     (hashtag.enabled !== false && hashtag.text.trim()) ||
     (website.enabled !== false && website.url.trim()) ||
-    ((socialBar?.enabled ?? true) && website.socialHandle?.trim())
+    ((socialBar?.enabled ?? true) && website.socialHandle?.trim()) ||
+    (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText.trim()))
   )
-  const zone3HasContent = !!(digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText.trim()))
-
-  // Count Zone 2 content items for density-based width adjustment
-  const zone2ContentCount = [
-    hashtag.enabled !== false && hashtag.text.trim(),
-    website.enabled !== false && website.url.trim(),
-    (socialBar?.enabled ?? true) && website.socialHandle?.trim(),
-  ].filter(Boolean).length
+  const zone3HasContent = !!(digitalPartner.enabled && digitalPartner.logoId)
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // v16.11: ACTUAL CONTENT WIDTH CALCULATION (replaces percentage-based patterns)
+  // v16.11: ACTUAL CONTENT WIDTH CALCULATION
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Calculate Zone 1 actual width (signature logo)
@@ -551,7 +619,7 @@ export function generateFooterBarSVG(
     zone1ActualWidth = signatureWidth + 20  // Logo width + small padding
   }
 
-  // Calculate Zone 2 actual width (hashtag + website + social pill)
+  // Calculate Zone 2 actual width (hashtag + website + social pill + partner)
   let zone2ActualWidth = 0
   if (zone2HasContent) {
     let maxWidth = 0
@@ -574,28 +642,32 @@ export function generateFooterBarSVG(
       const socialText = website.socialHandle.startsWith('@')
         ? website.socialHandle
         : `@${website.socialHandle}`
-      const pillWidth = estimateTextWidth(socialText, fontSize, fontWeight) + 78  // v18.1: Increased from 60 to 78 (icons + padding + right extension)
+      const pillWidth = estimateTextWidth(socialText, fontSize, fontWeight) + 78
       maxWidth = Math.max(maxWidth, pillWidth)
+    }
+
+    // "Supported By" label width (now in Zone 2, logo is in Zone 3)
+    if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
+      const labelText = "Supported By"
+      const labelWidth = estimateTextWidth(labelText, fontSize - 2, '600')
+      maxWidth = Math.max(maxWidth, labelWidth)
     }
 
     zone2ActualWidth = maxWidth + 40  // Content + breathing room
   }
 
-  // Calculate Zone 3 actual width (partner label + logo)
+  // Zone 3 actual width (partner logo - matches signature size)
   let zone3ActualWidth = 0
-  if (zone3HasContent) {
-    const labelWidth = digitalPartner.labelText.trim()
-      ? estimateTextWidth(digitalPartner.labelText, fontSize - 4, fontWeight)
-      : 0
-    const logoWidth = actualLogoWidth || digitalPartner.logoSize || 80
-    zone3ActualWidth = labelWidth + logoWidth + 40  // Label + logo + padding
+  if (zone3HasContent && digitalPartner.logoId) {
+    // Use signature width as estimate since both logos are now same height
+    zone3ActualWidth = signatureWidth > 0 ? signatureWidth + 20 : 120 // Match Zone 1 width
   }
 
   // v16.11: Use actual content widths for positioning
   const zones = [
     { width: zone1ActualWidth, enabled: zone1HasContent },
     { width: zone2ActualWidth, enabled: zone2HasContent },
-    { width: zone3ActualWidth, enabled: zone3HasContent },
+    { width: zone3ActualWidth, enabled: zone3HasContent }, // Zone 3 now enabled for partner logo
   ]
 
   const positionsArray = calculateSpaceEvenlyPositions(zones, containerWidth, padding.horizontal)
@@ -622,133 +694,68 @@ export function generateFooterBarSVG(
     zonePositions.zone2 = positionsArray[posIndex]
     posIndex++
   }
+  // v19.0: ADD ZONE 3 MAPPING (was missing - caused partner logo to overlap with signature)
   if (zone3HasContent && positionsArray[posIndex]) {
     zonePositions.zone3 = positionsArray[posIndex]
+    posIndex++
   }
 
-  // Legacy zone widths for compatibility (now using actual widths)
-  const zoneConfig: FooterZoneConfig = {
-    zone1Enabled: !!zone1HasContent,
-    zone2Enabled: !!zone2HasContent,
-    zone3Enabled: !!zone3HasContent,
-    zone2ContentCount,
-  }
-  const zoneWidths = calculateFooterZoneWidths(zoneConfig, containerWidth)
-
-  // Calculate zone center X positions using actual widths
+  // Calculate zone center X positions
   const zone1CenterX = zonePositions.zone1
     ? zonePositions.zone1.x + zonePositions.zone1.width / 2
     : padding.horizontal
   const zone2CenterX = zonePositions.zone2
     ? zonePositions.zone2.x + zonePositions.zone2.width / 2
     : containerWidth / 2
-  const zone3CenterX = zonePositions.zone3
-    ? zonePositions.zone3.x + zonePositions.zone3.width / 2
-    : containerWidth - padding.horizontal
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LEGACY SECTION SUPPORT: For backward compatibility
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  const sections: FooterSection[] = []
-  const gap = zoneWidths.gapSize || 20
-
-  // Map Zone 2 content to sections
-  if (zone2HasContent) {
-    // Add hashtag section
-    if (hashtag.enabled !== false && hashtag.text.trim()) {
-      const text = hashtag.text.startsWith('#') ? hashtag.text : `#${hashtag.text}`
-      sections.push({
-        type: 'hashtag',
-        text,
-        width: estimateTextWidth(text, fontSize + 2, fontWeight), // Hashtag is slightly larger
-        x: zone2CenterX,
-      })
-    }
-
-    // Add website section
-    if ((website.enabled !== false && website.url.trim()) || website.socialHandle?.trim()) {
-      const websiteText = website.url.trim()
-      const socialText = website.socialHandle?.trim() || ''
-      sections.push({
-        type: 'website',
-        text: websiteText,
-        socialHandle: socialText,
-        width: estimateTextWidth(websiteText || socialText, fontSize, fontWeight),
-        x: zone2CenterX,
-      })
-    }
-  }
-
-  // Map Zone 3 content to sections
-  if (zone3HasContent && digitalPartner.labelText.trim()) {
-    const partnerText = `${digitalPartner.labelText} ${digitalPartner.separator || ''}`
-    const logoWidth = actualLogoWidth || digitalPartner.logoSize
-    sections.push({
-      type: 'partner',
-      text: partnerText,
-      width: estimateTextWidth(partnerText, fontSize - 2, fontWeight) + (digitalPartner.logoId ? logoWidth + 10 : 0),
-      x: zone3CenterX,
-    })
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CALCULATE LOGO POSITIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Zone 1: Signature logo position
-  // v17.2: Vertical optical centering for signature logo
   let signatureLogoX = padding.horizontal
-  let signatureLogoY = rowHeight - (signature?.logoId ? rowHeight * 0.8 : 0) // Bottom aligned (fallback)
+  let signatureLogoY = 0
 
   if (zonePositions.zone1) {
     signatureLogoX = zonePositions.zone1.x
-    // v17.2: Center signature vertically within footer height
-    // Signature height is 95% of row height (see line 1041)
     const signatureActualHeight = rowHeight * 0.95
     signatureLogoY = (rowHeight - signatureActualHeight) / 2
   }
 
-  // Zone 3: Partner logo position
+  // v19.0: Zone 3: Partner logo position (RIGHT side of footer)
   let partnerLogoX = 0
   let partnerLogoY = 0
-  let partnerLabelY = 0  // v17.2: Store label Y position for vertical centering
-  const partnerSection = sections.find(s => s.type === 'partner')
 
-  if (zone3HasContent && digitalPartner.enabled && digitalPartner.logoId) {
-    const logoWidth = actualLogoWidth || digitalPartner.logoSize
-    const textWidth = estimateTextWidth(
-      `${digitalPartner.labelText} ${digitalPartner.separator || ''}`,
-      fontSize - 2,
-      fontWeight
-    )
-
-    if (zonePositions.zone3) {
-      // v17.2: Vertical optical centering for Zone 3
-      // Calculate total Zone 3 content height
-      const labelFontSize = fontSize  // v18.1: Increased to match base font size (18px) for better visibility (was: fontSize-2)
-      const labelHeight = labelFontSize  // v18.1: Removed +4 padding to minimize gap with logo below (was: labelFontSize + 4)
-      const logoHeight = digitalPartner.logoSize || 100
-      const agencyHeight = digitalPartner.agencyName ? (labelFontSize - 2) + 4 : 0
-      const zone3TotalHeight = labelHeight + logoHeight + agencyHeight + 2 + (digitalPartner.agencyName ? 2 : 0)  // v18.1: Add gap sizes (2px label-to-logo, 2px logo-to-agency)
-
-      // Center Zone 3 content group vertically
-      const zone3StartY = (rowHeight - zone3TotalHeight) / 2
-
-      // Position elements within centered group
-      partnerLogoX = zone3CenterX + textWidth / 2 + 5
-      // Label at top of centered group
-      partnerLabelY = zone3StartY
-      // Logo positioned below label with 2px gap (v18.1: Reduced from 5px to fix excessive spacing)
-      partnerLogoY = zone3StartY + labelHeight + 2
-    } else {
-      // Fallback to legacy calculation
-      partnerLogoX = partnerSection
-        ? partnerSection.x + textWidth / 2 + gap / 4
-        : containerWidth - padding.horizontal - logoWidth
-      partnerLogoY = (rowHeight - digitalPartner.logoSize) / 2
-    }
+  if (zonePositions.zone3 && digitalPartner.enabled && digitalPartner.logoId) {
+    // Center logo in Zone 3 horizontally
+    partnerLogoX = zonePositions.zone3.x + (zonePositions.zone3.width - actualLogoWidth) / 2
+    const partnerLogoHeight = rowHeight * 0.95
+    partnerLogoY = (rowHeight - partnerLogoHeight) / 2
   }
+
+  // Calculate vertical stack in Zone 2
+  // Stack: Hashtag -> Website -> Social Pill -> "Supported By" -> Logo
+  // This is a lot of content for one column, so we'll center it all.
+
+  // Calculate heights
+  const hHashtag = (hashtag.enabled !== false && hashtag.text.trim()) ? (fontSize + 6 + 6) : 0
+  const hWebsite = (website.enabled !== false && website.url.trim()) ? (fontSize + 5) : 0
+  const hSocial = ((socialBar?.enabled ?? true) && website.socialHandle?.trim()) ? ((fontSize + 2) + 22) : 0
+
+  const labelFontSize = fontSize // 18px
+  // "Supported By" text
+  const hPartnerLabel = (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) ? (labelFontSize + 2) : 0
+  // Partner Logo
+  const hPartnerLogo = (digitalPartner.enabled && digitalPartner.logoId) ? (digitalPartner.logoSize || 80) : 0
+
+  // Zone 2 total height: "Supported By" label at top, then hashtag/website/social
+  const totalStackHeight = hPartnerLabel + hHashtag + hWebsite + hSocial
+  // Add gap between "Supported By" label and other content if both exist
+  const sectionGap = hPartnerLabel && (hHashtag || hWebsite || hSocial) ? 15 : 0
+
+  const finalHeight = totalStackHeight + sectionGap
+
+  let currentY = (rowHeight - finalHeight) / 2
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GENERATE SVG ELEMENTS
@@ -763,361 +770,331 @@ export function generateFooterBarSVG(
       .replace(/'/g, '&apos;')
 
   const svgElements: string[] = []
-  const textY = rowHeight / 2 + fontSize * 0.35
 
-  // Zone 2: Render center content (hashtag, website, social bar)
-  // v17.2: Vertical optical centering for Zone 2
-  // Calculate total Zone 2 content height first, then center it vertically
+  // Embed fonts
+  const fontCss = generateFontFaceCSS('Montserrat') + generateFontFaceCSS('Poppins')
+
+  // Render Zone 2 Content
   if (zone2HasContent && zonePositions.zone2) {
     const zone2X = zone2CenterX
+    let yCursor = currentY
 
-    // Calculate total Zone 2 content height (v17.2)
-    const hashtagFontSize = fontSize + 6  // 24px
-    let zone2TotalHeight = 0
-    if (hashtag.enabled !== false && hashtag.text.trim()) {
-      zone2TotalHeight += hashtagFontSize + 6  // Text height + gap
-    }
-    if (website.enabled !== false && website.url.trim()) {
-      zone2TotalHeight += fontSize + 5  // 18px + gap
-    }
-    if ((socialBar?.enabled ?? true) && website.socialHandle?.trim()) {
-      const pillHeight = (fontSize + 2) + 22  // v17.2: 20 + 22 = 42px
-      zone2TotalHeight += pillHeight
-    }
-    // Remove last gap from total
-    if (zone2TotalHeight > 6) zone2TotalHeight -= 6
+    // 1. "Supported By" Label (TOP of Zone 2)
+    if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
+      svgElements.push(`<text
+        x="${zone2X}"
+        y="${yCursor + labelFontSize}"
+        text-anchor="middle"
+        font-family="Montserrat, sans-serif"
+        font-size="${labelFontSize}"
+        font-weight="600"
+        fill="#666666"
+      >${escapeXml("Supported By")}</text>`)
 
-    // Center Zone 2 content vertically (v17.2)
-    const zone2VerticalMargin = (rowHeight - zone2TotalHeight) / 2
-    let currentY = zone2VerticalMargin
+      yCursor += hPartnerLabel
+      if (hHashtag || hWebsite || hSocial) {
+        yCursor += sectionGap // Add gap if there's other content below
+      }
+    }
 
-    // Hashtag (primary - large, bold, colored)
+    // 2. Hashtag
     if (hashtag.enabled !== false && hashtag.text.trim()) {
       const hashtagText = hashtag.text.startsWith('#') ? hashtag.text : `#${hashtag.text}`
-      const hashtagFontSize = fontSize + 6  // v16.12: Increased from +4 to +6 (18+6=24px)
+      const hashtagFontSize = fontSize + 6
       svgElements.push(`<text
         x="${zone2X}"
-        y="${currentY + hashtagFontSize}"
+        y="${yCursor + hashtagFontSize}"
         text-anchor="middle"
-        font-family="Montserrat, Poppins, Inter, sans-serif"
+        font-family="Montserrat, sans-serif"
         font-size="${hashtagFontSize}"
         font-weight="700"
-        fill="${hashtag.color || '#0B6D41'}"
-        text-transform="uppercase"
-        letter-spacing="1"
+        fill="#005B96"
       >${escapeXml(hashtagText)}</text>`)
-      currentY += hashtagFontSize + 6  // v16.10: Reduced from 8 to 6
+      yCursor += hHashtag
     }
 
-    // Website URL (secondary)
+    // 3. Website
     if (website.enabled !== false && website.url.trim()) {
       svgElements.push(`<text
         x="${zone2X}"
-        y="${currentY + fontSize}"
+        y="${yCursor + fontSize}"
         text-anchor="middle"
-        font-family="Montserrat, Poppins, Inter, sans-serif"
+        font-family="Poppins, sans-serif"
         font-size="${fontSize}"
-        font-weight="${fontWeightNum}"
-        fill="${textColor}"
+        font-weight="bold"
+        fill="#333333"
       >${escapeXml(website.url)}</text>`)
-      currentY += fontSize + 5  // v16.10: Reduced from 6 to 5
+      yCursor += hWebsite
     }
 
-    // Social Media Bar (dark pill with social handle)
-    // v16.10: Increased sizes for better visibility
+    // 4. Social Pill
     if ((socialBar?.enabled ?? true) && website.socialHandle?.trim()) {
       const socialText = website.socialHandle.startsWith('@')
         ? website.socialHandle
         : `@${website.socialHandle}`
-      const socialFontSize = fontSize + 2  // v17.2: Increased from 18px to 20px for better readability
-      const pillWidth = estimateTextWidth(socialText, socialFontSize, fontWeight) + 78 // v18.1: Increased from 65 to 78 to prevent text cutoff on right edge
-      const pillHeight = socialFontSize + 22  // v17.2: Increased from +20 to +22 (20+22=42px total)
-      const pillX = zone2X - pillWidth / 2
-      const pillY = currentY
+      const pillFontSize = fontSize + 2
+      const textWidth = estimateTextWidth(socialText, pillFontSize, fontWeight)
 
-      // Dark pill background
+      // Get dynamic colors from config (match frontend)
+      const pillBgColor = socialBar?.backgroundColor || '#1a1a1a'
+      const iconColor = socialBar?.textColor || '#FFFFFF'
+      const textColor = socialBar?.textColor || '#FFFFFF'
+
+      const iconSize = 24
+      const iconGap = 12
+      const sidePadding = 20
+      const pillWidth = sidePadding * 2 + iconSize * 2 + iconGap + textWidth
+      const pillHeight = 42 // Fixed height
+      const pillX = zone2X - pillWidth / 2
+      const pillY = yCursor
+
+      // Draw pill background (use dynamic color from config)
       svgElements.push(`<rect
         x="${pillX}"
         y="${pillY}"
         width="${pillWidth}"
         height="${pillHeight}"
-        rx="${(socialBar?.borderRadius || 20)}"
-        fill="${socialBar?.backgroundColor || '#1a1a1a'}"
+        rx="${pillHeight / 2}"
+        ry="${pillHeight / 2}"
+        fill="${pillBgColor}"
       />`)
 
-      // v16.18: ULTRA-OPTIMIZED dynamic icon positioning
-      // Calculate professional layout with proper spacing
-      const iconRadius = 10  // Icon circle radius (20px diameter)
-      const iconPadding = 12  // Left padding from pill edge
-      const iconGap = 12  // Gap between icon centers
-      const textGap = 15  // Gap from icon 2 edge to text
+      // Icon positioning - centered vertically in pill
+      const iconY = pillY + (pillHeight - iconSize) / 2
+      const instagramX = pillX + sidePadding
+      const facebookX = instagramX + iconSize + iconGap
 
-      // Icon 1 position: left padding + radius (center of first icon)
-      const icon1X = pillX + iconPadding + iconRadius
-
-      // Icon 2 position: icon 1 center + gap + radius
-      const icon2X = icon1X + (iconRadius * 2) + iconGap
-
-      // Text position: icon 2 right edge + gap + half remaining space
-      const textStartX = icon2X + iconRadius + textGap
-      const remainingSpace = (pillX + pillWidth) - textStartX
-      const textX = textStartX + (remainingSpace / 2)
-
-      // Vertical center for all elements
-      const centerY = pillY + pillHeight / 2
-
-      // v17.1: DEBUG - Log icon positions to diagnose visibility issues
-      console.log(`[Footer SVG] Social icons debug:`, {
-        zone2CenterX,
-        pillX,
-        pillWidth,
-        icon1X,
-        icon2X,
-        centerY,
-        containerWidth,
-        rowHeight,
-        'icon1_visible': icon1X >= 0 && icon1X <= containerWidth,
-        'icon2_visible': icon2X >= 0 && icon2X <= containerWidth,
-        'centerY_visible': centerY >= 0 && centerY <= rowHeight,
-      })
-
-      // Social icons with dynamic positioning
-      // Social icons with dynamic positioning (Instagram & Facebook)
-      // v17.1: Replaced placeholder circles with actual SVG paths
-      const strokeColor = socialBar?.textColor || '#FFFFFF'
-      const strokeWidth = 1.5
-
-      // Instagram Icon (at icon1X)
-      // v17.2: Increased from 16px to 18px for better visibility
-      const iconSize = 18
-      const icon1Left = icon1X - (iconSize / 2)
-      const iconTop = centerY - (iconSize / 2)
-
+      // Instagram Icon - Stroke-based (matches frontend)
       svgElements.push(`
-        <g transform="translate(${icon1Left}, ${iconTop})">
-          <rect width="16" height="16" fill="none"/>
-          <rect width="14" height="14" x="1" y="1" rx="4" ry="4" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-          <circle cx="8" cy="8" r="3" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-          <circle cx="12.5" cy="3.5" r="1" fill="${strokeColor}"/>
-        </g>
+        <!-- Instagram Icon -->
+        <rect
+          x="${instagramX + 2}"
+          y="${iconY + 2}"
+          width="20"
+          height="20"
+          rx="5"
+          ry="5"
+          fill="none"
+          stroke="${iconColor}"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <circle
+          cx="${instagramX + 12}"
+          cy="${iconY + 12}"
+          r="4"
+          fill="none"
+          stroke="${iconColor}"
+          stroke-width="1.5"
+        />
+        <circle
+          cx="${instagramX + 17.5}"
+          cy="${iconY + 6.5}"
+          r="0.5"
+          fill="${iconColor}"
+        />
       `)
 
-      // Facebook Icon (at icon2X)
-      const icon2Left = icon2X - (iconSize / 2)
-
+      // Facebook Icon - Stroke-based (matches frontend)
       svgElements.push(`
-        <g transform="translate(${icon2Left}, ${iconTop})">
-           <rect width="16" height="16" fill="none"/>
-           <path d="M12 1H10C8.67392 1 7.40215 1.52678 6.46447 2.46447C5.52678 3.40215 5 4.67392 5 6V9H3V13H5V21H9V13H12L13 9H9V6C9 5.73478 9.10536 5.48043 9.29289 5.29289C9.48043 5.10536 9.73478 5 10 5H12V1Z" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>
-        </g>
+        <!-- Facebook Icon -->
+        <path
+          d="M${facebookX + 18} ${iconY + 2} h-3 a5 5 0 0 0 -5 5 v3 H${facebookX + 7} v4 h3 v8 h4 v-8 h3 l1 -4 h-4 V${iconY + 7} a1 1 0 0 1 1 -1 h3 z"
+          fill="none"
+          stroke="${iconColor}"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       `)
 
-      // Social handle text - centered in remaining space after icons
+      // Text (use dynamic color from config)
       svgElements.push(`<text
-        x="${textX}"
-        y="${centerY + socialFontSize * 0.35}"
-        text-anchor="middle"
-        font-family="Montserrat, Poppins, Inter, sans-serif"
-        font-size="${socialFontSize}"
+        x="${pillX + sidePadding + iconSize * 2 + iconGap}"
+        y="${pillY + pillHeight / 2 + 5}"
+        text-anchor="start"
+        font-family="Poppins, sans-serif"
+        font-size="${pillFontSize}"
         font-weight="500"
-        fill="${socialBar?.textColor || '#FFFFFF'}"
+        fill="${textColor}"
       >${escapeXml(socialText)}</text>`)
-    }
-  }
 
-  // Zone 3: Render partner label (logo composited separately)
-  if (zone3HasContent && zonePositions.zone3 && digitalPartner.labelText.trim()) {
-    const labelFontSize = fontSize  // v18.1: Synced with layout calculation (line 729) for 18px consistency (was: fontSize-2)
-    // v17.2: Use calculated centered Y position instead of fixed percentage
-    const labelY = partnerLabelY || (rowHeight * 0.3)  // Fallback to old position if not set
-
-    svgElements.push(`<text
-      x="${zone3CenterX}"
-      y="${labelY}"
-      text-anchor="middle"
-      font-family="Montserrat, Poppins, Inter, sans-serif"
-      font-size="${labelFontSize}"
-      font-weight="500"
-      fill="${digitalPartner.labelColor || '#9CA3AF'}"
-      text-transform="uppercase"
-      letter-spacing="1.5"
-    >${escapeXml(digitalPartner.labelText)}</text>`)
-
-    // Agency name below logo (if provided)
-    // v17.2: Position agency name below the centered logo
-    if (digitalPartner.agencyName) {
-      const agencyY = partnerLogoY + (digitalPartner.logoSize || 100) + 2  // v18.1: Reduced from 5px to 2px for tighter spacing
-      svgElements.push(`<text
-        x="${zone3CenterX}"
-        y="${agencyY}"
-        text-anchor="middle"
-        font-family="Montserrat, Poppins, Inter, sans-serif"
-        font-size="${labelFontSize - 2}"
-        font-weight="400"
-        fill="${digitalPartner.labelColor || '#9CA3AF'}"
-      >${escapeXml(digitalPartner.agencyName)}</text>`)
+      yCursor += hSocial
     }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FINAL SVG OUTPUT
+  // ZONE 3: Partner Logo (Right Container)
   // ═══════════════════════════════════════════════════════════════════════════
+  if (zone3HasContent && zonePositions.zone3) {
+    const zone3X = zonePositions.zone3.x + zonePositions.zone3.width / 2
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+    // Partner logo will be composited later in renderFooterBar()
+    // Just calculate position here
+    if (digitalPartner.enabled && digitalPartner.logoId) {
+      const partnerLogoHeight = rowHeight * 0.95 // Match signature logo height
+      // Note: actual width will be calculated by Sharp based on aspect ratio
+      // For centering, we'll use an estimate based on signatureWidth
+      const estimatedWidth = signatureWidth > 0 ? signatureWidth : 100
+      partnerLogoX = zone3X - estimatedWidth / 2
+      partnerLogoY = (rowHeight - partnerLogoHeight) / 2
+    }
+  }
+
+  const svgString = `<?xml version="1.0" encoding="UTF-8"?>
 <svg
   width="${containerWidth}"
   height="${rowHeight}"
-  viewBox="0 0 ${containerWidth} ${rowHeight}"
   xmlns="http://www.w3.org/2000/svg"
 >
-    ${svgElements.join('\n    ')}
+  <defs>
+    <style>${fontCss}</style>
+  </defs>
+  ${svgElements.join('\n')}
 </svg>`
 
   return {
-    svg,
+    svg: svgString,
     partnerLogoX: Math.floor(partnerLogoX),
     partnerLogoY: Math.floor(partnerLogoY),
     signatureLogoX: Math.floor(signatureLogoX),
     signatureLogoY: Math.floor(signatureLogoY),
     zonePositions: {
-      zone1X: zone1CenterX,
-      zone2X: zone2CenterX,
-      zone3X: zone3CenterX,
-    },
+      zone1X: zonePositions.zone1?.x || 0,
+      zone2X: zonePositions.zone2?.x || 0,
+      zone3X: 0
+    }
   }
 }
 
 /**
  * Render footer bar to image buffer using Sharp
  *
- * v9.0: 3-Zone Layout Support
- * - Zone 1: signatureLogoBuffer (bottom-left illustration)
- * - Zone 2: Text content (hashtag, website, social bar) - rendered via SVG
- * - Zone 3: partnerLogoBuffer (digital partner logo)
- *
- * Composites logos at positions calculated by footer-zone-optimizer
+ * Composites:
+ * 1. Base SVG (Hashtag, Website, Social Pill, Text)
+ * 2. Signature Logo (Zone 1)
+ * 3. Partner Logo (Zone 2 - Centered)
  */
 export async function renderFooterBar(
   config: FooterRowConfig,
   containerWidth: number,
   rowHeight: number,
   partnerLogoBuffer?: Buffer,
-  signatureLogoBuffer?: Buffer  // NEW: Zone 1 signature/illustration
+  signatureLogoBuffer?: Buffer
 ): Promise<Buffer> {
-  let actualLogoWidth = config.digitalPartner.logoSize
-  let actualSignatureWidth = 0
-
-  // Get actual partner logo dimensions if provided
-  if (partnerLogoBuffer) {
+  // 1. Prepare Partner Logo dimensions
+  let actualPartnerLogoWidth = config.digitalPartner.logoSize || 80
+  if (config.digitalPartner.enabled && config.digitalPartner.logoId && partnerLogoBuffer) {
     try {
       const metadata = await sharp(partnerLogoBuffer).metadata()
       if (metadata.width && metadata.height) {
-        actualLogoWidth = Math.floor(
-          (metadata.width / metadata.height) * config.digitalPartner.logoSize
+        actualPartnerLogoWidth = Math.floor(
+          (metadata.width / metadata.height) * (config.digitalPartner.logoSize || 80)
         )
       }
-    } catch (error) {
-      console.error('[SVG Text Renderer] Error getting partner logo metadata:', error)
+    } catch (e) {
+      console.warn('Failed to get partner logo metadata', e)
     }
   }
 
-  // Get actual signature logo dimensions if provided
-  if (signatureLogoBuffer && config.signature?.enabled) {
+  // 2. Prepare Signature Logo dimensions
+  let actualSignatureWidth = 0
+  if (config.signature?.enabled && config.signature.logoId && signatureLogoBuffer) {
     try {
       const metadata = await sharp(signatureLogoBuffer).metadata()
       if (metadata.width && metadata.height) {
-        // Calculate width based on footer height and signature width percentage
-        const maxHeight = rowHeight * 0.95  // v17.1: Increased from 0.85 to 0.95
+        // Constrain by height (e.g., 90% of row height)
+        const maxHeight = rowHeight * 0.9
         actualSignatureWidth = Math.floor(
           (metadata.width / metadata.height) * maxHeight
         )
       }
-    } catch (error) {
-      console.error('[SVG Text Renderer] Error getting signature logo metadata:', error)
+    } catch (e) {
+      console.warn('Failed to get signature logo metadata', e)
     }
   }
 
+  // 3. Generate SVG and Positions
   const {
     svg,
     partnerLogoX,
     partnerLogoY,
     signatureLogoX,
     signatureLogoY,
-    zonePositions,
+    zonePositions
   } = generateFooterBarSVG(
     config,
     containerWidth,
     rowHeight,
-    actualLogoWidth,
+    actualPartnerLogoWidth,
     actualSignatureWidth
   )
 
   try {
-    // Create base with text elements
+    // 4. Create base rendering from SVG
     let result = await sharp(Buffer.from(svg)).png().toBuffer()
 
-    const composites: Array<{ input: Buffer; left: number; top: number }> = []
+    const composites: sharp.OverlayOptions[] = []
 
-    // Zone 1: Composite signature/illustration logo (bottom-left)
-    if (signatureLogoBuffer && config.signature?.enabled && config.signature?.logoId) {
-      const signatureHeight = Math.floor(rowHeight * 0.95)  // v17.1: Increased from 0.85 to 0.95 to maximize signature visibility in 180px footer
-      const signatureWidth = Math.floor(
-        (config.signature.width / 100) * containerWidth  // v17.1: Removed 0.8 constraint to allow full zone width
-      )
-
-      const resizedSignature = await sharp(signatureLogoBuffer)
-        .resize(signatureWidth, signatureHeight, {
+    // 5. Composite Signature Logo (Zone 1)
+    if (
+      config.signature?.enabled &&
+      config.signature.logoId &&
+      signatureLogoBuffer &&
+      actualSignatureWidth > 0
+    ) {
+      const resizedSig = await sharp(signatureLogoBuffer)
+        .resize({
+          width: actualSignatureWidth,
+          height: Math.floor(rowHeight * 0.95), // Max height constraint
           fit: 'contain',
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-          position: 'left bottom',
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .png()
         .toBuffer()
 
       composites.push({
-        input: resizedSignature,
+        input: resizedSig,
         left: signatureLogoX,
-        top: Math.floor(rowHeight - signatureHeight),
+        top: signatureLogoY,
       })
     }
 
-    // Zone 3: Composite partner logo (right side, below label)
-    if (partnerLogoBuffer && config.digitalPartner.enabled && config.digitalPartner.logoId) {
-      const partnerLogoHeight = Math.floor(rowHeight * 0.96)  // v17.4: Match ROW 1 sizing (96% of footer height) for prominence
-      const resizedLogo = await sharp(partnerLogoBuffer)
-        .resize(actualLogoWidth, partnerLogoHeight, {
-          fit: 'contain',              // v17.5: Scale to fit without cropping (reverted from 'cover' - matches ROW 1 behavior)
-          kernel: 'lanczos3',          // v16.17: Upgrade from cubic to match ROW 1 quality
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
+    // 6. Composite Partner Logo (Zone 3)
+    if (
+      config.digitalPartner.enabled &&
+      config.digitalPartner.logoId &&
+      partnerLogoBuffer &&
+      actualPartnerLogoWidth > 0
+    ) {
+      const partnerLogoHeight = rowHeight * 0.95 // Match signature logo height
+      const resizedPartner = await sharp(partnerLogoBuffer)
+        .resize({
+          height: partnerLogoHeight, // Use same height as signature logo
+          fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .png()
         .toBuffer()
 
-      // Center partner logo within zone 3
-      const adjustedX = Math.floor(zonePositions.zone3X - actualLogoWidth / 2)
-      // v17.4: Vertically center enlarged logo (96% height) within footer bounds
-      const adjustedY = Math.floor((rowHeight - partnerLogoHeight) / 2)
-
       composites.push({
-        input: resizedLogo,
-        left: adjustedX,
-        top: adjustedY,
+        input: resizedPartner,
+        left: partnerLogoX,
+        top: partnerLogoY,
       })
     }
 
-    // Apply all composites
+    // Apply composites if any
     if (composites.length > 0) {
-      result = await sharp(result)
-        .composite(composites)
-        .png()
-        .toBuffer()
+      result = await sharp(result).composite(composites).png().toBuffer()
     }
 
     return result
   } catch (error) {
     console.error('[SVG Text Renderer] Error rendering footer bar:', error)
     // Return transparent fallback
-    return await sharp({
+    const fallback = await sharp({
       create: {
         width: containerWidth,
         height: rowHeight,
@@ -1127,5 +1104,7 @@ export async function renderFooterBar(
     })
       .png()
       .toBuffer()
+
+    return fallback
   }
 }

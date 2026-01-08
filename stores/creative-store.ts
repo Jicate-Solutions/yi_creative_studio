@@ -981,6 +981,11 @@ export const useCreativeStore = create<CreativeState>()(
           if (currentLogos.includes(logoId)) {
             return state
           }
+
+          // v19.0: Remove from footer partner if it exists there (prevents duplicate assignment)
+          const currentPartnerLogoId = state.formData.enhanced4RowStrip.footer.digitalPartner.logoId
+          const shouldClearPartner = currentPartnerLogoId === logoId
+
           return {
             formData: {
               ...state.formData,
@@ -993,6 +998,16 @@ export const useCreativeStore = create<CreativeState>()(
                     logoIds: [...currentLogos, logoId],
                     enabled: true, // Auto-enable when logo added
                   },
+                },
+                footer: {
+                  ...state.formData.enhanced4RowStrip.footer,
+                  ...(shouldClearPartner && {
+                    digitalPartner: {
+                      ...state.formData.enhanced4RowStrip.footer.digitalPartner,
+                      logoId: null,
+                      enabled: false,
+                    },
+                  }),
                 },
               },
             },
@@ -1238,23 +1253,38 @@ export const useCreativeStore = create<CreativeState>()(
         })),
 
       // v7.0: Auto-enable digitalPartner when logo is selected
+      // v19.0: Remove from vertical logos if it exists there (prevents duplicate assignment)
       setFooterPartnerLogo: (logoId) =>
-        set((state) => ({
-          formData: {
-            ...state.formData,
-            enhanced4RowStrip: {
-              ...state.formData.enhanced4RowStrip,
-              footer: {
-                ...state.formData.enhanced4RowStrip.footer,
-                digitalPartner: {
-                  ...state.formData.enhanced4RowStrip.footer.digitalPartner,
-                  logoId,
-                  enabled: !!logoId, // Auto-enable when logo selected
+        set((state) => {
+          const currentVerticalLogos = state.formData.enhanced4RowStrip.rows.vertical.logoIds
+          const cleanedVerticalLogos = logoId
+            ? currentVerticalLogos.filter(id => id !== logoId)
+            : currentVerticalLogos
+
+          return {
+            formData: {
+              ...state.formData,
+              enhanced4RowStrip: {
+                ...state.formData.enhanced4RowStrip,
+                rows: {
+                  ...state.formData.enhanced4RowStrip.rows,
+                  vertical: {
+                    ...state.formData.enhanced4RowStrip.rows.vertical,
+                    logoIds: cleanedVerticalLogos,
+                  },
+                },
+                footer: {
+                  ...state.formData.enhanced4RowStrip.footer,
+                  digitalPartner: {
+                    ...state.formData.enhanced4RowStrip.footer.digitalPartner,
+                    logoId,
+                    enabled: !!logoId, // Auto-enable when logo selected
+                  },
                 },
               },
             },
-          },
-        })),
+          }
+        }),
 
       // v13.0: Signature illustration actions
       updateFooterSignature: (signature) =>
