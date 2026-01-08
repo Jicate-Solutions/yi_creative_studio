@@ -31,6 +31,16 @@ const nextConfig: NextConfig = {
   // serverExternalPackages tells Next.js to use native Node.js require()
   // See: https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages
   serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
+
+  // CRITICAL FIX: Ensure font files are included in Vercel deployment
+  // Next.js 16 with webpack must explicitly trace and include static assets
+  // The .fonts/ directory contains physical font files needed by Resvg at runtime
+  // Without this, Vercel's build output won't include the .fonts/ directory
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/generate': ['.fonts/**/*', 'lib/config/font-paths.json'],
+    },
+  },
 };
 
 export default nextConfig;
