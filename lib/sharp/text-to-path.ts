@@ -20,19 +20,21 @@ import fs from 'fs'
 // Cache loaded fonts to avoid repeated file reads
 const fontCache = new Map<string, opentype.Font>()
 
-// Font file mapping (matches lib/config/font-paths.json)
+// Font file mapping - MUST USE TTF FORMAT
+// opentype.js does NOT support WOFF2 (only TTF, OTF, WOFF v1)
+// Error if WOFF2: "Unsupported OpenType signature wOF2"
 const FONT_FILES: Record<string, Record<string, string>> = {
   poppins: {
-    regular: 'poppins-regular.woff2',
-    bold: 'poppins-bold.woff2',
+    regular: 'poppins-regular.ttf',  // TTF format for opentype.js
+    bold: 'poppins-bold.ttf',
   },
   montserrat: {
-    regular: 'montserrat-regular.woff2',
-    bold: 'montserrat-bold.woff2',
+    regular: 'montserrat-regular.ttf',
+    bold: 'montserrat-bold.ttf',
   },
   inter: {
-    regular: 'inter-regular.woff2',
-    bold: 'inter-bold.woff2',
+    regular: 'inter-regular.ttf',
+    bold: 'inter-bold.ttf',
   },
 }
 
@@ -254,13 +256,20 @@ function escapeXml(str: string): string {
 }
 
 /**
- * Check if text-to-path is available (fonts exist)
+ * Check if text-to-path is available (TTF fonts exist)
+ * Note: opentype.js requires TTF format, not WOFF2
  */
 export function isTextToPathAvailable(): boolean {
   try {
-    const testPath = path.join(process.cwd(), '.fonts', 'poppins-regular.woff2')
-    return fs.existsSync(testPath)
-  } catch {
+    // Check for TTF files (required by opentype.js)
+    const testPath = path.join(process.cwd(), '.fonts', 'poppins-regular.ttf')
+    const exists = fs.existsSync(testPath)
+    if (!exists) {
+      console.log('[text-to-path] TTF fonts not found at:', testPath)
+    }
+    return exists
+  } catch (error) {
+    console.error('[text-to-path] Error checking font availability:', error)
     return false
   }
 }
