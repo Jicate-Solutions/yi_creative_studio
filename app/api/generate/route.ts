@@ -2934,14 +2934,18 @@ async function generateWithGemini(
 
   console.log('[Generate] Using model with imageConfig - model:', currentModel, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
-  // Build imageConfig - Flash models don't support imageSize parameter
+  // Build imageConfig - Testing if Flash models accept imageSize parameter (Tier 1 experimental fix)
   const imageConfig: { aspectRatio: string; imageSize?: string } = {
     aspectRatio: geminiAspectRatio,
   }
 
-  // Only Pro model supports imageSize parameter
-  if (currentModel === 'gemini-3-pro-image-preview') {
+  // TIER 1 FIX: Add imageSize to ALL models (including Flash) - testing if Flash respects it
+  // Pro model officially supports imageSize, testing if Flash also respects it despite being undocumented
+  if (currentModel === 'gemini-3-pro-image-preview' ||
+      currentModel === 'gemini-2.5-flash-image' ||
+      currentModel === 'gemini-2.0-flash-preview-image-generation') {
     imageConfig.imageSize = geminiImageSize
+    console.log(`[TIER 1 TEST] Adding imageSize="${geminiImageSize}" to ${currentModel}`)
   }
 
   requestBody = {
@@ -3021,6 +3025,16 @@ async function generateWithGemini(
   // Convert base64 to data URL
   const imageData = imagePart.inlineData.data
   const mimeType = imagePart.inlineData.mimeType || 'image/png'
+
+  // DIMENSION LOGGING - Detect Flash model dimension drift
+  try {
+    const sharp = await getSharp()
+    const imageBuffer = Buffer.from(imageData, 'base64')
+    const metadata = await sharp(imageBuffer).metadata()
+    console.log(`[DIMENSION CHECK] ${currentModel} returned: ${metadata.width}x${metadata.height} for ${geminiAspectRatio} @ ${geminiImageSize}`)
+  } catch (error) {
+    console.warn('[DIMENSION CHECK] Failed to read image metadata:', error)
+  }
 
   // For production, upload to Supabase Storage instead
   return `data:${mimeType};base64,${imageData}`

@@ -1537,29 +1537,35 @@ export async function resizeImageToExactDimensions(
 
   if (mode === 'fill') {
     // Stretch to exact dimensions - best for AI-resized images where AI handled composition
+    // TIER 2 FIX: Use mitchell kernel for better edge preservation during resize
     resizedBuffer = await sharp(imageBuffer)
       .resize(targetWidth, targetHeight, {
         fit: 'fill', // Stretch/distort to exact dimensions
+        kernel: 'mitchell', // Better edge quality than default lanczos3
       })
-      .png()
+      .png({ compressionLevel: 9 }) // Maximum quality PNG
       .toBuffer()
   } else if (mode === 'contain') {
     // Fit inside with background - preserves all content
+    // TIER 2 FIX: Use mitchell kernel for better edge preservation
     resizedBuffer = await sharp(imageBuffer)
       .resize(targetWidth, targetHeight, {
         fit: 'contain',
         background: { r: 255, g: 255, b: 255, alpha: 1 }, // White background for letterboxing
+        kernel: 'mitchell', // Better edge quality
       })
-      .png()
+      .png({ compressionLevel: 9 }) // Maximum quality PNG
       .toBuffer()
   } else {
     // 'cover' mode - crop to fill (original behavior)
+    // TIER 2 FIX: Use mitchell kernel for better edge preservation
     resizedBuffer = await sharp(imageBuffer)
       .resize(targetWidth, targetHeight, {
         fit: 'cover',
         position: 'center',
+        kernel: 'mitchell', // Better edge quality
       })
-      .png()
+      .png({ compressionLevel: 9 }) // Maximum quality PNG
       .toBuffer()
   }
 
