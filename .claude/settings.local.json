@@ -266,7 +266,9 @@
       "Bash(wait:*)",
       "Bash(del \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\app\\\\\\(marketing\\)\\\\page.tsx\")",
       "Bash(del /F \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\.next\\\\dev\\\\lock\")",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(claude --version)",
+      "Bash(claude update:*)"
     ],
     "deny": [],
     "ask": [],
