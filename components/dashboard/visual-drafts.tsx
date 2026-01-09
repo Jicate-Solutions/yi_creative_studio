@@ -252,7 +252,10 @@ function AssetCard({
                             )}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-foreground transition-colors">
+                                    <button
+                                        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-foreground transition-colors"
+                                        suppressHydrationWarning
+                                    >
                                         <MoreHorizontal className="w-3.5 h-3.5" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -283,7 +286,12 @@ function AssetCard({
                     )}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground"
+                                suppressHydrationWarning
+                            >
                                 <MoreHorizontal className="w-4 h-4" />
                             </Button>
                         </DropdownMenuTrigger>
