@@ -33,13 +33,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
 
   // CRITICAL FIX: Ensure font files are included in Vercel deployment
-  // Next.js 16 with webpack must explicitly trace and include static assets
+  // Next.js 16 moved outputFileTracingIncludes out of experimental
   // The .fonts/ directory contains physical font files needed by Resvg at runtime
   // Without this, Vercel's build output won't include the .fonts/ directory
-  experimental: {
-    outputFileTracingIncludes: {
-      '/api/generate': ['.fonts/**/*', 'lib/config/font-paths.json'],
-    },
+  outputFileTracingIncludes: {
+    '/api/generate': ['.fonts/**/*', 'lib/config/font-paths.json'],
   },
 };
 
