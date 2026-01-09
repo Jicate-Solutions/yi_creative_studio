@@ -16,6 +16,7 @@ import {
 } from '@/lib/services/footer-zone-optimizer'
 import { EMBEDDED_FONTS, FontFamily } from '@/lib/config/embedded-fonts'
 import { isResvgAvailable, renderSvgWithResvg } from './resvg-renderer'
+import { textToPath, getTextWidth as getTextWidthFromPath, isTextToPathAvailable } from './text-to-path'
 
 // CRITICAL DEBUG: Verify embedded fonts are loaded at module initialization
 console.log('[SVG Text Renderer] Module loaded - EMBEDDED_FONTS available:', typeof EMBEDDED_FONTS !== 'undefined')
@@ -189,6 +190,10 @@ function generateFontFaceCSS(fontFamily: string): string {
 /**
  * Generate SVG for initiative text with full styling support
  *
+ * v17.0: PERMANENT FIX - Uses text-to-path conversion via opentype.js
+ * This eliminates font rendering issues on Vercel Lambda by converting
+ * text to SVG paths BEFORE rendering.
+ *
  * Features:
  * - Font family, size, weight, style
  * - Text transform (uppercase, lowercase, capitalize)
@@ -200,7 +205,7 @@ export function generateInitiativeTextSVG(
   config: InitiativeTextConfig,
   containerWidth: number,
   rowHeight: number,
-  options?: { skipEmbeddedFonts?: boolean }  // v16.5: Skip fonts when using Resvg
+  options?: { skipEmbeddedFonts?: boolean; useTextToPath?: boolean }
 ): string {
   const {
     text,
@@ -245,7 +250,7 @@ export function generateInitiativeTextSVG(
   // Build gradient definition
   let gradientId = ''
   let gradientDef = ''
-  let fillAttr = `fill="${color}"`
+  let fillColor = color
 
   if (effects.gradient) {
     gradientId = 'initiative-gradient'
@@ -263,8 +268,54 @@ export function generateInitiativeTextSVG(
         <stop offset="100%" stop-color="${effects.gradientColors[1]}" />
       </linearGradient>
     `
-    fillAttr = `fill="url(#${gradientId})"`
+    fillColor = `url(#${gradientId})`
   }
+
+  // v17.0: PERMANENT FIX - Use text-to-path if available
+  // This converts text to SVG paths using opentype.js, eliminating font rendering issues
+  const useTextToPath = options?.useTextToPath !== false && isTextToPathAvailable()
+
+  if (useTextToPath) {
+    console.log('[SVG Text Renderer] Using text-to-path for initiative text (font-independent)')
+
+    // Determine font weight for opentype.js
+    const fontWeightValue = fontWeightToNumber(fontWeight)
+    const opentypeWeight: 'regular' | 'bold' = fontWeightValue >= 600 ? 'bold' : 'regular'
+
+    // Generate path using text-to-path
+    const pathElement = textToPath(displayText, {
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      fontWeight: opentypeWeight,
+      x: x,
+      y: y,
+      fill: fillColor,
+      letterSpacing: letterSpacing,
+      textAnchor: textAnchor as 'start' | 'middle' | 'end',
+    })
+
+    // Wrap path in group if filter is needed
+    const textContent = filterId
+      ? `<g filter="url(#${filterId})">${pathElement}</g>`
+      : pathElement
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  width="${containerWidth}"
+  height="${rowHeight}"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    ${filterDef}
+    ${gradientDef}
+  </defs>
+  ${textContent}
+</svg>`
+  }
+
+  // FALLBACK: Use traditional <text> element with embedded fonts
+  // This path is only used if text-to-path is not available
+  console.log('[SVG Text Renderer] Fallback: Using <text> element (text-to-path not available)')
 
   // Escape special characters for XML
   const escapedText = displayText
@@ -274,11 +325,12 @@ export function generateInitiativeTextSVG(
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
 
-  // v16.5: Embed fonts ONLY if not using Resvg (physical font files)
-  // Resvg loads fonts from fontFiles parameter, embedded fonts cause conflicts
+  // Embed fonts ONLY if not using Resvg (physical font files)
   const fontCss = options?.skipEmbeddedFonts
     ? ''
     : generateFontFaceCSS(fontFamily)
+
+  const fillAttr = effects.gradient ? `fill="url(#${gradientId})"` : `fill="${color}"`
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg
@@ -414,6 +466,11 @@ export function generatePartnerLabelSVG(
 /**
  * Render initiative text to image buffer using Sharp
  *
+ * v17.0: PERMANENT FIX - Uses text-to-path conversion
+ * Text is converted to SVG paths via opentype.js BEFORE rendering.
+ * Paths don't need font rendering - they're just coordinates!
+ * This works reliably on both local and Vercel Lambda.
+ *
  * v16.4: Added optional background support for floating card effect
  */
 export async function renderInitiativeText(
@@ -425,49 +482,83 @@ export async function renderInitiativeText(
     borderRadius?: number
   }
 ): Promise<Buffer> {
-  // v16.8: Removed useResvg check - we bypass Resvg for simple SVGs (see below)
-  // v16.7: ALWAYS embed fonts in SVG for reliable rendering
-  // fontDirs/fontFiles approach failed - Resvg renders blank text for simple SVGs
-  // Embedded base64 fonts work reliably in both local and Vercel environments
   try {
-    // v16.11: PERMANENT FIX - Use Resvg with fontDirs (NOT Sharp with embedded fonts)
-    // ROOT CAUSE: Sharp's librsvg depends on Fontconfig which is MISSING on Vercel Lambda
-    // Even embedded fonts fail because librsvg needs Fontconfig to resolve font families
-    // SOLUTION: Use Resvg with physical fonts in .fonts/ directory (no Fontconfig needed)
-    console.log('[SVG Text Renderer] Using Resvg with fontDirs for initiative text (Fontconfig-free)')
+    // v17.0: PERMANENT FIX - Use text-to-path
+    // Text is converted to SVG paths - no font rendering needed!
+    // Sharp renders the paths (just shapes/coordinates) without any font issues
+    const usePathRendering = isTextToPathAvailable()
 
-    // Generate SVG WITHOUT embedded fonts (Resvg uses fontDirs instead)
+    if (usePathRendering) {
+      console.log('[SVG Text Renderer] v17.0 - Using text-to-path for initiative text')
+
+      // Generate SVG with path elements (no text elements, no fonts needed)
+      const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
+        useTextToPath: true,  // v17.0: Convert text to paths
+      })
+
+      // Render SVG using Sharp - paths render correctly everywhere
+      let buffer = await sharp(Buffer.from(svg)).png().toBuffer()
+
+      console.log('[SVG Text Renderer] ✅ Initiative text (path) render:', buffer.byteLength, 'bytes')
+
+      // v16.4: Add background with border radius if requested (floating card effect)
+      if (options?.backgroundColor && options?.borderRadius) {
+        const bgSvg = `<?xml version="1.0" encoding="UTF-8"?>
+          <svg width="${containerWidth}" height="${rowHeight}">
+            <rect
+              width="${containerWidth}"
+              height="${rowHeight}"
+              rx="${options.borderRadius}"
+              ry="${options.borderRadius}"
+              fill="rgb(${options.backgroundColor.r}, ${options.backgroundColor.g}, ${options.backgroundColor.b})"
+              fill-opacity="${options.backgroundColor.alpha}"
+            />
+          </svg>
+        `
+        const bgBuffer = await sharp(Buffer.from(bgSvg)).png().toBuffer()
+
+        // Composite text on top of background
+        buffer = await sharp(bgBuffer)
+          .composite([{ input: buffer, top: 0, left: 0 }])
+          .png()
+          .toBuffer()
+      }
+
+      return buffer
+    }
+
+    // FALLBACK: Try Resvg if text-to-path is not available
+    console.log('[SVG Text Renderer] Fallback: text-to-path not available, trying Resvg')
+
     const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
-      skipEmbeddedFonts: true  // v16.11: Skip embedded fonts - Resvg uses fontDirs
+      skipEmbeddedFonts: true,
+      useTextToPath: false,
     })
 
     let buffer: Buffer
 
-    // Check if Resvg is available (fonts extracted)
     if (isResvgAvailable()) {
-      console.log('[SVG Text Renderer] ✅ Resvg available - using fontDirs rendering')
       buffer = await renderSvgWithResvg(svg, containerWidth, rowHeight)
 
-      // Validation: Check if Resvg produced a valid buffer
       if (buffer.byteLength < 500) {
-        console.warn('[SVG Text Renderer] ⚠️ Resvg buffer too small, trying Sharp fallback')
-        // Fall back to Sharp with embedded fonts (may work locally)
+        console.warn('[SVG Text Renderer] ⚠️ Resvg buffer too small, trying Sharp')
         const svgWithFonts = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
-          skipEmbeddedFonts: false
+          skipEmbeddedFonts: false,
+          useTextToPath: false,
         })
         buffer = await sharp(Buffer.from(svgWithFonts)).png().toBuffer()
       }
     } else {
-      console.warn('[SVG Text Renderer] ⚠️ Resvg not available, using Sharp with embedded fonts')
       const svgWithFonts = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
-        skipEmbeddedFonts: false
+        skipEmbeddedFonts: false,
+        useTextToPath: false,
       })
       buffer = await sharp(Buffer.from(svgWithFonts)).png().toBuffer()
     }
 
     console.log('[SVG Text Renderer] ✅ Initiative text render:', buffer.byteLength, 'bytes')
 
-    // v16.4: Add background with border radius if requested (floating card effect)
+    // v16.4: Add background with border radius if requested
     if (options?.backgroundColor && options?.borderRadius) {
       const bgSvg = `<?xml version="1.0" encoding="UTF-8"?>
         <svg width="${containerWidth}" height="${rowHeight}">
@@ -482,8 +573,6 @@ export async function renderInitiativeText(
         </svg>
       `
       const bgBuffer = await sharp(Buffer.from(bgSvg)).png().toBuffer()
-
-      // Composite text on top of background
       buffer = await sharp(bgBuffer)
         .composite([{ input: buffer, top: 0, left: 0 }])
         .png()
@@ -636,10 +725,13 @@ interface FooterSection {
 /**
  * Generate SVG for footer bar with 3-zone layout using AI-powered space-evenly distribution
  *
+ * v17.0: PERMANENT FIX - Uses text-to-path conversion via opentype.js
+ * Text is converted to SVG paths BEFORE rendering, eliminating font issues.
+ *
  * 3-Zone Layout (v9.0):
  * - Zone 1 (Left): Signature illustration (rendered via logo-overlay, not SVG)
  * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar + Supported By (NEW)
- * - Zone 3 (Right): REMOVED (Previous Partner Zone)
+ * - Zone 3 (Right): Partner Logo
  *
  * Uses footer-zone-optimizer for intelligent zone width distribution
  * Same algorithm as header strip for visual balance
@@ -652,7 +744,7 @@ export function generateFooterBarSVG(
   rowHeight: number,
   actualLogoWidth: number = 0,
   signatureWidth: number = 0,  // Width of Zone 1 signature (from logo-overlay)
-  options?: { skipEmbeddedFonts?: boolean }  // v16.5: Skip fonts when using Resvg
+  options?: { skipEmbeddedFonts?: boolean; useTextToPath?: boolean }  // v17.0: Add useTextToPath option
 ): {
   svg: string
   partnerLogoX: number
@@ -851,11 +943,18 @@ export function generateFooterBarSVG(
 
   const svgElements: string[] = []
 
-  // v16.5: Embed fonts ONLY if not using Resvg (physical font files)
-  // Resvg loads fonts from fontFiles parameter, embedded base64 fonts cause conflicts
-  const fontCss = options?.skipEmbeddedFonts
+  // v17.0: Determine if we should use text-to-path
+  const usePathRendering = options?.useTextToPath !== false && isTextToPathAvailable()
+
+  // v16.5: Embed fonts ONLY if not using text-to-path or Resvg
+  // Text-to-path generates <path> elements - no fonts needed!
+  const fontCss = usePathRendering || options?.skipEmbeddedFonts
     ? ''
     : generateFontFaceCSS('Montserrat') + generateFontFaceCSS('Poppins')
+
+  if (usePathRendering) {
+    console.log('[SVG Text Renderer] v17.0 - Using text-to-path for footer bar (font-independent)')
+  }
 
   // Render Zone 2 Content
   if (zone2HasContent && zonePositions.zone2) {
@@ -864,15 +963,27 @@ export function generateFooterBarSVG(
 
     // 1. "Supported By" Label (TOP of Zone 2)
     if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
-      svgElements.push(`<text
-        x="${zone2X}"
-        y="${yCursor + labelFontSize}"
-        text-anchor="middle"
-        font-family="Montserrat, sans-serif"
-        font-size="${labelFontSize}"
-        font-weight="600"
-        fill="#666666"
-      >${escapeXml("Supported By")}</text>`)
+      if (usePathRendering) {
+        svgElements.push(textToPath("Supported By", {
+          fontFamily: 'Montserrat',
+          fontSize: labelFontSize,
+          fontWeight: 'bold',
+          x: zone2X,
+          y: yCursor + labelFontSize,
+          fill: '#666666',
+          textAnchor: 'middle',
+        }))
+      } else {
+        svgElements.push(`<text
+          x="${zone2X}"
+          y="${yCursor + labelFontSize}"
+          text-anchor="middle"
+          font-family="Montserrat, sans-serif"
+          font-size="${labelFontSize}"
+          font-weight="600"
+          fill="#666666"
+        >${escapeXml("Supported By")}</text>`)
+      }
 
       yCursor += hPartnerLabel
       if (hHashtag || hWebsite || hSocial) {
@@ -884,29 +995,54 @@ export function generateFooterBarSVG(
     if (hashtag.enabled !== false && hashtag.text.trim()) {
       const hashtagText = hashtag.text.startsWith('#') ? hashtag.text : `#${hashtag.text}`
       const hashtagFontSize = fontSize + 6
-      svgElements.push(`<text
-        x="${zone2X}"
-        y="${yCursor + hashtagFontSize}"
-        text-anchor="middle"
-        font-family="Montserrat, sans-serif"
-        font-size="${hashtagFontSize}"
-        font-weight="700"
-        fill="#005B96"
-      >${escapeXml(hashtagText)}</text>`)
+
+      if (usePathRendering) {
+        svgElements.push(textToPath(hashtagText, {
+          fontFamily: 'Montserrat',
+          fontSize: hashtagFontSize,
+          fontWeight: 'bold',
+          x: zone2X,
+          y: yCursor + hashtagFontSize,
+          fill: '#005B96',
+          textAnchor: 'middle',
+        }))
+      } else {
+        svgElements.push(`<text
+          x="${zone2X}"
+          y="${yCursor + hashtagFontSize}"
+          text-anchor="middle"
+          font-family="Montserrat, sans-serif"
+          font-size="${hashtagFontSize}"
+          font-weight="700"
+          fill="#005B96"
+        >${escapeXml(hashtagText)}</text>`)
+      }
       yCursor += hHashtag
     }
 
     // 3. Website
     if (website.enabled !== false && website.url.trim()) {
-      svgElements.push(`<text
-        x="${zone2X}"
-        y="${yCursor + fontSize}"
-        text-anchor="middle"
-        font-family="Poppins, sans-serif"
-        font-size="${fontSize}"
-        font-weight="bold"
-        fill="#333333"
-      >${escapeXml(website.url)}</text>`)
+      if (usePathRendering) {
+        svgElements.push(textToPath(website.url, {
+          fontFamily: 'Poppins',
+          fontSize: fontSize,
+          fontWeight: 'bold',
+          x: zone2X,
+          y: yCursor + fontSize,
+          fill: '#333333',
+          textAnchor: 'middle',
+        }))
+      } else {
+        svgElements.push(`<text
+          x="${zone2X}"
+          y="${yCursor + fontSize}"
+          text-anchor="middle"
+          font-family="Poppins, sans-serif"
+          font-size="${fontSize}"
+          font-weight="bold"
+          fill="#333333"
+        >${escapeXml(website.url)}</text>`)
+      }
       yCursor += hWebsite
     }
 
@@ -993,15 +1129,27 @@ export function generateFooterBarSVG(
       `)
 
       // Text (use dynamic color from config)
-      svgElements.push(`<text
-        x="${pillX + sidePadding + iconSize * 2 + iconGap}"
-        y="${pillY + pillHeight / 2 + 5}"
-        text-anchor="start"
-        font-family="Poppins, sans-serif"
-        font-size="${pillFontSize}"
-        font-weight="500"
-        fill="${textColor}"
-      >${escapeXml(socialText)}</text>`)
+      if (usePathRendering) {
+        svgElements.push(textToPath(socialText, {
+          fontFamily: 'Poppins',
+          fontSize: pillFontSize,
+          fontWeight: 'regular',  // 500 weight maps to regular
+          x: pillX + sidePadding + iconSize * 2 + iconGap,
+          y: pillY + pillHeight / 2 + 5,
+          fill: textColor,
+          textAnchor: 'start',
+        }))
+      } else {
+        svgElements.push(`<text
+          x="${pillX + sidePadding + iconSize * 2 + iconGap}"
+          y="${pillY + pillHeight / 2 + 5}"
+          text-anchor="start"
+          font-family="Poppins, sans-serif"
+          font-size="${pillFontSize}"
+          font-weight="500"
+          fill="${textColor}"
+        >${escapeXml(socialText)}</text>`)
+      }
 
       yCursor += hSocial
     }
@@ -1054,10 +1202,14 @@ export function generateFooterBarSVG(
 /**
  * Render footer bar to image buffer using Sharp
  *
+ * v17.0: PERMANENT FIX - Uses text-to-path conversion
+ * Text is converted to SVG paths via opentype.js BEFORE rendering.
+ * Paths don't need font rendering - they're just coordinates!
+ *
  * Composites:
- * 1. Base SVG (Hashtag, Website, Social Pill, Text)
+ * 1. Base SVG (Hashtag, Website, Social Pill - all as paths)
  * 2. Signature Logo (Zone 1)
- * 3. Partner Logo (Zone 2 - Centered)
+ * 3. Partner Logo (Zone 3)
  */
 export async function renderFooterBar(
   config: FooterRowConfig,
@@ -1098,59 +1250,131 @@ export async function renderFooterBar(
     }
   }
 
-  // v16.9: Removed useResvg check - we bypass Resvg for footer bar (see below)
-
-  // 3. Generate SVG and Positions
-  const {
-    svg,
-    partnerLogoX,
-    partnerLogoY,
-    signatureLogoX,
-    signatureLogoY,
-    zonePositions
-  } = generateFooterBarSVG(
-    config,
-    containerWidth,
-    rowHeight,
-    actualPartnerLogoWidth,
-    actualSignatureWidth,
-    { skipEmbeddedFonts: false }  // v16.7: Always embed fonts for reliability
-  )
+  // v17.0: PERMANENT FIX - Use text-to-path
+  const usePathRendering = isTextToPathAvailable()
 
   try {
-    // v16.11: PERMANENT FIX - Use Resvg with fontDirs (NOT Sharp with embedded fonts)
-    // ROOT CAUSE: Sharp's librsvg depends on Fontconfig which is MISSING on Vercel Lambda
-    // Footer bar is complex SVG (multiple elements) so Resvg handles it well
-    // SOLUTION: Use Resvg with physical fonts in .fonts/ directory (no Fontconfig needed)
-    console.log('[SVG Text Renderer] Using Resvg with fontDirs for footer bar (Fontconfig-free)')
-
     let result: Buffer
 
-    // Check if Resvg is available (fonts extracted)
-    if (isResvgAvailable()) {
-      console.log('[SVG Text Renderer] ✅ Resvg available for footer - using fontDirs rendering')
+    if (usePathRendering) {
+      // v17.0: Use text-to-path - text converted to SVG paths
+      console.log('[SVG Text Renderer] v17.0 - Using text-to-path for footer bar')
 
-      // Regenerate SVG WITHOUT embedded fonts (Resvg uses fontDirs instead)
+      // Generate SVG with path elements (no text elements, no fonts needed)
+      const {
+        svg,
+        partnerLogoX,
+        partnerLogoY,
+        signatureLogoX,
+        signatureLogoY,
+      } = generateFooterBarSVG(
+        config,
+        containerWidth,
+        rowHeight,
+        actualPartnerLogoWidth,
+        actualSignatureWidth,
+        { useTextToPath: true }  // v17.0: Convert text to paths
+      )
+
+      // Render SVG using Sharp - paths render correctly everywhere
+      result = await sharp(Buffer.from(svg)).png().toBuffer()
+
+      console.log('[SVG Text Renderer] ✅ Footer (path) render:', result.byteLength, 'bytes')
+
+      // Continue with logo compositing using calculated positions
+      const composites: sharp.OverlayOptions[] = []
+
+      // Composite Signature Logo (Zone 1)
+      if (
+        config.signature?.enabled &&
+        config.signature.logoId &&
+        signatureLogoBuffer &&
+        actualSignatureWidth > 0
+      ) {
+        const resizedSig = await sharp(signatureLogoBuffer)
+          .resize({
+            width: actualSignatureWidth,
+            height: Math.floor(rowHeight * 0.95),
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 }
+          })
+          .png()
+          .toBuffer()
+
+        composites.push({
+          input: resizedSig,
+          left: signatureLogoX,
+          top: signatureLogoY,
+        })
+      }
+
+      // Composite Partner Logo (Zone 3)
+      if (
+        config.digitalPartner.enabled &&
+        config.digitalPartner.logoId &&
+        partnerLogoBuffer &&
+        actualPartnerLogoWidth > 0
+      ) {
+        const partnerLogoHeight = rowHeight * 0.95
+        const resizedPartner = await sharp(partnerLogoBuffer)
+          .resize({
+            height: partnerLogoHeight,
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 }
+          })
+          .png()
+          .toBuffer()
+
+        composites.push({
+          input: resizedPartner,
+          left: partnerLogoX,
+          top: partnerLogoY,
+        })
+      }
+
+      // Apply composites if any
+      if (composites.length > 0) {
+        result = await sharp(result).composite(composites).png().toBuffer()
+      }
+
+      return result
+    }
+
+    // FALLBACK: Try Resvg if text-to-path is not available
+    console.log('[SVG Text Renderer] Fallback: text-to-path not available, trying Resvg/Sharp')
+
+    const {
+      svg,
+      partnerLogoX,
+      partnerLogoY,
+      signatureLogoX,
+      signatureLogoY,
+    } = generateFooterBarSVG(
+      config,
+      containerWidth,
+      rowHeight,
+      actualPartnerLogoWidth,
+      actualSignatureWidth,
+      { skipEmbeddedFonts: false, useTextToPath: false }
+    )
+
+    if (isResvgAvailable()) {
       const { svg: svgNoFonts } = generateFooterBarSVG(
         config,
         containerWidth,
         rowHeight,
         actualPartnerLogoWidth,
         actualSignatureWidth,
-        { skipEmbeddedFonts: true }  // v16.11: Skip embedded fonts - Resvg uses fontDirs
+        { skipEmbeddedFonts: true, useTextToPath: false }
       )
 
       result = await renderSvgWithResvg(svgNoFonts, containerWidth, rowHeight)
 
-      // Validation: Check if Resvg produced a valid buffer
       if (result.byteLength < 1000) {
-        console.warn('[SVG Text Renderer] ⚠️ Resvg footer buffer too small:', result.byteLength, 'bytes')
-        console.warn('[SVG Text Renderer] Trying Sharp fallback with embedded fonts...')
-        // Fall back to Sharp with embedded fonts (may work locally)
+        console.warn('[SVG Text Renderer] ⚠️ Resvg footer buffer too small, using Sharp')
         result = await sharp(Buffer.from(svg)).png().toBuffer()
       }
     } else {
-      console.warn('[SVG Text Renderer] ⚠️ Resvg not available for footer, using Sharp with embedded fonts')
       result = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 
