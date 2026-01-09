@@ -2941,18 +2941,19 @@ async function generateWithGemini(
 
   console.log('[Generate] Using model with imageConfig - model:', currentModel, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
-  // Build imageConfig - Testing if Flash models accept imageSize parameter (Tier 1 experimental fix)
+  // Build imageConfig - Flash models don't support imageSize parameter (confirmed via API 400 error)
   const imageConfig: { aspectRatio: string; imageSize?: string } = {
     aspectRatio: geminiAspectRatio,
   }
 
-  // TIER 1 FIX: Add imageSize to ALL models (including Flash) - testing if Flash respects it
-  // Pro model officially supports imageSize, testing if Flash also respects it despite being undocumented
-  if (currentModel === 'gemini-3-pro-image-preview' ||
-      currentModel === 'gemini-2.5-flash-image' ||
-      currentModel === 'gemini-2.0-flash-preview-image-generation') {
+  // Only Pro model supports imageSize parameter
+  // CONFIRMED: Flash models (gemini-2.5-flash-image, gemini-2.0-flash-preview-image-generation)
+  // reject imageSize with 400 Bad Request error
+  if (currentModel === 'gemini-3-pro-image-preview') {
     imageConfig.imageSize = geminiImageSize
-    console.log(`[TIER 1 TEST] Adding imageSize="${geminiImageSize}" to ${currentModel}`)
+    console.log(`[IMAGE SIZE] Adding imageSize="${geminiImageSize}" to Pro model`)
+  } else {
+    console.log(`[IMAGE SIZE] Flash model will use aspectRatio only (imageSize not supported)`)
   }
 
   requestBody = {
