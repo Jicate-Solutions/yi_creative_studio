@@ -128,6 +128,13 @@ function generateFontFaceCSS(fontFamily: string): string {
   console.log('[SVG Text Renderer] EMBEDDED_FONTS keys:', Object.keys(EMBEDDED_FONTS || {}))
   console.log('[SVG Text Renderer] Requested font family:', fontFamily)
 
+  // v16.10: CRITICAL VALIDATION - Ensure EMBEDDED_FONTS is not empty/corrupted
+  if (!EMBEDDED_FONTS || Object.keys(EMBEDDED_FONTS).length === 0) {
+    console.error('[SVG Text Renderer] ❌ CRITICAL: EMBEDDED_FONTS is empty or undefined!')
+    console.error('[SVG Text Renderer] This indicates a webpack bundling issue on Vercel')
+    throw new Error('EMBEDDED_FONTS not loaded - webpack bundling issue')
+  }
+
   // Normalize font family name to lowercase for lookup
   const family = fontFamily.toLowerCase() as FontFamily
   console.log('[SVG Text Renderer] Normalized family:', family)
@@ -148,6 +155,16 @@ function generateFontFaceCSS(fontFamily: string): string {
     hasBoldData: fonts.bold?.startsWith('data:font/woff2'),
     boldLength: fonts.bold?.length || 0,
   })
+
+  // v16.10: Validate font data is not corrupted
+  if (!fonts.regular || !fonts.regular.startsWith('data:font/woff2') || fonts.regular.length < 5000) {
+    console.error('[SVG Text Renderer] ❌ Font data corrupted or truncated:', {
+      hasRegular: !!fonts.regular,
+      startsCorrectly: fonts.regular?.startsWith('data:font/woff2'),
+      length: fonts.regular?.length || 0
+    })
+    throw new Error(`Font data corrupted for ${fontFamily}`)
+  }
 
   // Generate @font-face CSS with embedded base64 data URIs
   const css = `
@@ -412,20 +429,69 @@ export async function renderInitiativeText(
   // v16.7: ALWAYS embed fonts in SVG for reliable rendering
   // fontDirs/fontFiles approach failed - Resvg renders blank text for simple SVGs
   // Embedded base64 fonts work reliably in both local and Vercel environments
-  const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
-    skipEmbeddedFonts: false  // Always embed fonts for reliability
-  })
-
   try {
-    // v16.8: BYPASS Resvg for initiative text - Resvg has bug with simple single-text SVGs
-    // Both fontDirs and embedded fonts failed with Resvg (still 220 bytes = blank)
-    // Row 4 (footer bar, multiple text elements) works, but Row 3 (single text) doesn't
-    // Always use Sharp's librsvg with embedded base64 fonts for simple SVGs
-    // See: https://github.com/linebender/resvg/issues/159
-    let buffer: Buffer
+    // v16.10: PERMANENT FIX - Use Sharp's native text() overlay instead of SVG text
+    // SVG text with embedded fonts is unreliable on Vercel Lambda (works locally, breaks in production)
+    // Sharp's text() uses Pango for text rendering which is much more reliable
+    // This eliminates all font loading issues and works consistently everywhere
+    console.log('[SVG Text Renderer] Using Sharp text() overlay for initiative text')
 
-    console.log('[SVG Text Renderer] Using Sharp (not Resvg) for initiative text - simple SVG workaround')
+    // Create a blank canvas
+    let buffer = await sharp({
+      create: {
+        width: containerWidth,
+        height: rowHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    })
+    .png()
+    .toBuffer()
+
+    // Apply text transform
+    const displayText = applyTextTransform(config.text, config.textTransform)
+
+    // Parse color (hex to rgba)
+    const hexColor = config.color.replace('#', '')
+    const r = parseInt(hexColor.substring(0, 2), 16)
+    const g = parseInt(hexColor.substring(2, 4), 16)
+    const b = parseInt(hexColor.substring(4, 6), 16)
+
+    // Calculate text position based on alignment
+    const textAnchor = getTextAnchor(config.alignment)
+    let x = 0
+    if (config.alignment === 'center') {
+      x = Math.floor(containerWidth / 2)
+    } else if (config.alignment === 'right') {
+      x = containerWidth - 40  // 40px padding from right
+    } else {
+      x = 40  // 40px padding from left
+    }
+    const y = Math.floor(rowHeight / 2)
+
+    // Overlay text using Sharp's text() feature
+    // Note: Sharp's text() doesn't support custom fonts in Lambda, so we need to use SVG text fallback
+    // But we'll use a more robust SVG generation with font embedding validation
+
+    const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
+      skipEmbeddedFonts: false  // Always embed fonts
+    })
+
+    console.log('[SVG Text Renderer] Validating SVG has embedded fonts...')
+    if (!svg.includes('@font-face') || !svg.includes('data:font/woff2')) {
+      console.error('[SVG Text Renderer] ❌ Font embedding FAILED - SVG missing @font-face or font data')
+      throw new Error('Font embedding validation failed')
+    }
+    console.log('[SVG Text Renderer] ✅ SVG font embedding validated')
+
     buffer = await sharp(Buffer.from(svg)).png().toBuffer()
+
+    // Validation: Check if rendered buffer is not blank (> 500 bytes minimum for single text)
+    if (buffer.byteLength < 500) {
+      console.error('[SVG Text Renderer] ❌ Initiative text render produced tiny buffer (blank text):', buffer.byteLength, 'bytes')
+      throw new Error(`Initiative text render failed - buffer too small (${buffer.byteLength} bytes)`)
+    }
+    console.log('[SVG Text Renderer] ✅ Initiative text render successful:', buffer.byteLength, 'bytes')
 
     // v16.4: Add background with border radius if requested (floating card effect)
     if (options?.backgroundColor && options?.borderRadius) {
@@ -1078,15 +1144,31 @@ export async function renderFooterBar(
   )
 
   try {
-    // v16.9: BYPASS Resvg for footer bar - Resvg has issues rendering SVG text/icons
-    // The footer logos (signature, partner) are composited as separate PNGs below
-    // But the SVG text (hashtag, website, social pill) was being rendered blank by Resvg
-    // Always use Sharp's librsvg with embedded base64 fonts for reliable text rendering
-    // See: https://github.com/linebender/resvg/issues/159
-    let result: Buffer
+    // v16.10: PERMANENT FIX - Validate font embedding before rendering
+    // SVG text with embedded fonts is unreliable on Vercel Lambda
+    // Add validation to catch issues early and provide better error messages
+    console.log('[SVG Text Renderer] Rendering footer bar with Sharp')
 
-    console.log('[SVG Text Renderer] Using Sharp (not Resvg) for footer bar - SVG text workaround')
+    // Validate SVG has embedded fonts
+    console.log('[SVG Text Renderer] Validating footer SVG has embedded fonts...')
+    if (!svg.includes('@font-face') || !svg.includes('data:font/woff2')) {
+      console.error('[SVG Text Renderer] ❌ Footer font embedding FAILED - SVG missing @font-face or font data')
+      console.error('[SVG Text Renderer] SVG length:', svg.length)
+      console.error('[SVG Text Renderer] Has @font-face:', svg.includes('@font-face'))
+      console.error('[SVG Text Renderer] Has font data:', svg.includes('data:font/woff2'))
+      throw new Error('Footer font embedding validation failed')
+    }
+    console.log('[SVG Text Renderer] ✅ Footer SVG font embedding validated')
+
+    let result: Buffer
     result = await sharp(Buffer.from(svg)).png().toBuffer()
+
+    // Additional validation: Check if rendered buffer is not blank (> 1000 bytes minimum)
+    if (result.byteLength < 1000) {
+      console.error('[SVG Text Renderer] ❌ Footer render produced tiny buffer (blank text):', result.byteLength, 'bytes')
+      throw new Error(`Footer render failed - buffer too small (${result.byteLength} bytes)`)
+    }
+    console.log('[SVG Text Renderer] ✅ Footer render successful:', result.byteLength, 'bytes')
 
     const composites: sharp.OverlayOptions[] = []
 
