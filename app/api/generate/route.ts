@@ -336,13 +336,20 @@ export async function POST(request: NextRequest) {
       console.log(`[Generate API] Credits consumed: ${GENERATION_COST}. New balance: ${balance.balance - GENERATION_COST}`)
     } catch (creditError) {
       console.error('[Generate API] Credit check/consumption failed:', creditError)
-      return NextResponse.json(
-        {
-          error: 'Credit system error',
-          details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
-        },
-        { status: 500 }
-      )
+      // TEMPORARY DEV BYPASS: Allow generation to continue if credit check fails (for testing Flash model fixes)
+      // TODO: Remove this bypass once organization_credits table migration is applied
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      if (isDevelopment) {
+        console.warn('[Generate API] ⚠️ BYPASSING credit check in development mode - migration pending')
+      } else {
+        return NextResponse.json(
+          {
+            error: 'Credit system error',
+            details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // NEW v3.2: Fetch organization brand_config to get font preference
