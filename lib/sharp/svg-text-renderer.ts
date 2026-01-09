@@ -408,26 +408,24 @@ export async function renderInitiativeText(
     borderRadius?: number
   }
 ): Promise<Buffer> {
-  // v16.5: Check if Resvg is available BEFORE generating SVG
-  const useResvg = isResvgAvailable()
-
-  // v16.5: Skip embedded fonts if using Resvg (physical font files)
-  // Resvg loads fonts from fontFiles parameter, embedded base64 fonts cause conflicts
+  // v16.8: Removed useResvg check - we bypass Resvg for simple SVGs (see below)
+  // v16.7: ALWAYS embed fonts in SVG for reliable rendering
+  // fontDirs/fontFiles approach failed - Resvg renders blank text for simple SVGs
+  // Embedded base64 fonts work reliably in both local and Vercel environments
   const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
-    skipEmbeddedFonts: useResvg
+    skipEmbeddedFonts: false  // Always embed fonts for reliability
   })
 
   try {
-    // Use Resvg for font-aware rendering (webpack build with serverExternalPackages)
+    // v16.8: BYPASS Resvg for initiative text - Resvg has bug with simple single-text SVGs
+    // Both fontDirs and embedded fonts failed with Resvg (still 220 bytes = blank)
+    // Row 4 (footer bar, multiple text elements) works, but Row 3 (single text) doesn't
+    // Always use Sharp's librsvg with embedded base64 fonts for simple SVGs
+    // See: https://github.com/linebender/resvg/issues/159
     let buffer: Buffer
 
-    if (useResvg) {
-      console.log('[SVG Text Renderer] Using Resvg for initiative text (physical fonts)')
-      buffer = await renderSvgWithResvg(svg, containerWidth, rowHeight)
-    } else {
-      console.log('[SVG Text Renderer] Fallback to Sharp for initiative text (embedded fonts)')
-      buffer = await sharp(Buffer.from(svg)).png().toBuffer()
-    }
+    console.log('[SVG Text Renderer] Using Sharp (not Resvg) for initiative text - simple SVG workaround')
+    buffer = await sharp(Buffer.from(svg)).png().toBuffer()
 
     // v16.4: Add background with border radius if requested (floating card effect)
     if (options?.backgroundColor && options?.borderRadius) {
@@ -1060,11 +1058,9 @@ export async function renderFooterBar(
     }
   }
 
-  // v16.5: Check if Resvg is available BEFORE generating SVG
-  const useResvg = isResvgAvailable()
+  // v16.9: Removed useResvg check - we bypass Resvg for footer bar (see below)
 
   // 3. Generate SVG and Positions
-  // v16.5: Skip embedded fonts if using Resvg (physical font files)
   const {
     svg,
     partnerLogoX,
@@ -1078,20 +1074,19 @@ export async function renderFooterBar(
     rowHeight,
     actualPartnerLogoWidth,
     actualSignatureWidth,
-    { skipEmbeddedFonts: useResvg }  // v16.5: Don't embed fonts if Resvg will load them
+    { skipEmbeddedFonts: false }  // v16.7: Always embed fonts for reliability
   )
 
   try {
-    // 4. Create base rendering from SVG using Resvg (webpack build with serverExternalPackages)
+    // v16.9: BYPASS Resvg for footer bar - Resvg has issues rendering SVG text/icons
+    // The footer logos (signature, partner) are composited as separate PNGs below
+    // But the SVG text (hashtag, website, social pill) was being rendered blank by Resvg
+    // Always use Sharp's librsvg with embedded base64 fonts for reliable text rendering
+    // See: https://github.com/linebender/resvg/issues/159
     let result: Buffer
 
-    if (useResvg) {
-      console.log('[SVG Text Renderer] Using Resvg for footer bar (physical fonts)')
-      result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
-    } else {
-      console.log('[SVG Text Renderer] Fallback to Sharp for footer bar (embedded fonts)')
-      result = await sharp(Buffer.from(svg)).png().toBuffer()
-    }
+    console.log('[SVG Text Renderer] Using Sharp (not Resvg) for footer bar - SVG text workaround')
+    result = await sharp(Buffer.from(svg)).png().toBuffer()
 
     const composites: sharp.OverlayOptions[] = []
 

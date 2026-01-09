@@ -721,40 +721,56 @@ export function buildFooterContactContext(footerContext?: FooterContactContext):
  * v7.0: Original implementation - Told Gemini AI to reserve space for logo strips
  * v12.4: Added exact pixel calculations and multi-layer reinforcement
  * v18.0: DISABLED zone context injection (mirrors v6.8 speaker photo strategy)
+ * v20.0: RE-ENABLED header zone context (header logos have FIXED positions unlike speaker photos)
  *
- * DISABLED APPROACH:
- * - Previous: Told AI "reserve top X%, reserve bottom Y%"
- * - Problem: AI estimation mismatched Sharp's actual overlay dimensions
- * - New: Let AI generate full-canvas backgrounds freely (0-100%)
- * - ALL logo overlays applied independently by Sharp post-processing
+ * KEY INSIGHT (v20.0):
+ * - Speaker photos: Use intelligent positioning that ADAPTS to AI content → can be disabled
+ * - Header logos: Have FIXED positions (top-left, top-center, top-right) → AI must AVOID the zone
  *
- * Same strategy that solved speaker photo overlap in v6.8:
- * - Speaker photos: DISABLED zone context → Perfect placement
- * - Header/Footer logos: DISABLED zone context → Same success expected
- *
- * ONLY EXCEPTION: Initiative text contrast guidance (WCAG accessibility)
- * We still provide color contrast recommendations for readability
+ * The v18.0 decision was incorrect - header logos CANNOT use the same strategy as speaker photos
+ * because they cannot move to find safe spots. AI must reserve space for them upfront.
  */
 export function buildLogoStripZoneContext(
   logoStripZone?: LogoStripZoneCoordinates
 ): string {
   if (!logoStripZone) return ''
 
-  // v18.0: DISABLED header/footer zone instructions
-  // Only keep initiative text contrast guidance if needed
-  const activeRows = logoStripZone.activeRows
+  const { headerHeight, headerReservePercent, footerHeight, footerReservePercent, activeRows } = logoStripZone
+  const parts: string[] = []
 
+  // v20.0: RE-ENABLED header zone context (unlike speaker photos, header logos have FIXED positions)
+  // Speaker photos use intelligent positioning (v6.8) - they can adapt to AI content
+  // Header logos CANNOT move - AI must reserve space for them
+
+  if (headerReservePercent > 0) {
+    parts.push(`
+🚫 HEADER LOGO ZONE (ABSOLUTE CONSTRAINT):
+- The top ${headerReservePercent}% (0-${headerHeight}px from top) is RESERVED for logo overlay
+- DO NOT generate important text, headlines, or focal elements in this zone
+- ONLY clean background (solid color, gradient, subtle texture) is allowed
+- Any content in this zone WILL BE COVERED by logos and become invisible
+- This is NOT a suggestion - it's a hard constraint for post-processing compatibility
+`)
+  }
+
+  if (footerReservePercent > 0 && activeRows.footer) {
+    parts.push(`
+🚫 FOOTER LOGO ZONE (ABSOLUTE CONSTRAINT):
+- The bottom ${footerReservePercent}% (${100 - footerReservePercent}%-100% from top) is RESERVED for footer overlay
+- DO NOT generate text, CTAs, or important elements in this zone
+- ONLY clean background allowed - footer bar will be composited here
+`)
+  }
+
+  // Keep initiative text contrast guidance
   if (activeRows.initiative && logoStripZone.initiativeColorInfo) {
     const colorInfo = logoStripZone.initiativeColorInfo
-
-    // v18.0: ONLY provide contrast guidance, NO zone positioning
     if (colorInfo.needsAdjustment) {
-      return `IMPORTANT: Ensure ${colorInfo.recommendedBgTone} background for ${colorInfo.contrastRatio.toFixed(1)}:1 contrast with initiative text`
+      parts.push(`IMPORTANT: Ensure ${colorInfo.recommendedBgTone} background for ${colorInfo.contrastRatio.toFixed(1)}:1 contrast with initiative text`)
     }
   }
 
-  // v18.0: Return empty string - let Sharp handle ALL logo positioning independently
-  return ''
+  return parts.join('\n')
 }
 
 // ============================================================

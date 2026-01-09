@@ -149,16 +149,29 @@ export async function renderSvgWithResvg(
     // Use require() for native module (handled by serverExternalPackages)
     const { Resvg } = require('@resvg/resvg-js')
 
-    // Initialize Resvg with font files
-    // CRITICAL: Font family names must match WOFF2 metadata (Title Case)
-    // If SVG uses lowercase "poppins", it falls back to sansSerifFamily
+    // v16.6 FIX: Use fontDirs instead of fontFiles
+    // fontDirs lets Resvg discover ALL fonts in the directory and extract family names from WOFF2 metadata
+    // fontFiles was causing font matching issues - Resvg couldn't match SVG font-family to loaded fonts
+    // See: https://github.com/linebender/resvg/issues/159
+    const fontDir = path.join(process.cwd(), '.fonts')
+
+    // DEBUG: Log font matching diagnostics
+    console.log('[Resvg] DEBUG - Font configuration:', {
+      fontDir,
+      fontDirExists: fs.existsSync(fontDir),
+      svgFontFamilies: svg.match(/font-family="([^"]+)"/g) || ['none found'],
+      defaultFontFamily: 'Poppins',
+      sansSerifFamily: 'Poppins',
+    })
+
     const resvg = new Resvg(svg, {
       fitTo: {
         mode: 'width',
         value: width,
       },
       font: {
-        fontFiles, // Physical font file paths
+        // v16.6: Switch to fontDirs for reliable font discovery
+        fontDirs: [fontDir], // Directory containing all fonts
         loadSystemFonts: false, // Don't rely on system fonts (serverless)
         defaultFontFamily: 'Poppins', // Fallback if font not found
         sansSerifFamily: 'Poppins', // Fallback for "sans-serif" generic family
