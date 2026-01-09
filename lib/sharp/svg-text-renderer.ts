@@ -163,7 +163,8 @@ function generateFontFaceCSS(fontFamily: string): string {
 export function generateInitiativeTextSVG(
   config: InitiativeTextConfig,
   containerWidth: number,
-  rowHeight: number
+  rowHeight: number,
+  options?: { skipEmbeddedFonts?: boolean }  // v16.5: Skip fonts when using Resvg
 ): string {
   const {
     text,
@@ -237,8 +238,11 @@ export function generateInitiativeTextSVG(
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
 
-  // Embed fonts
-  const fontCss = generateFontFaceCSS(fontFamily)
+  // v16.5: Embed fonts ONLY if not using Resvg (physical font files)
+  // Resvg loads fonts from fontFiles parameter, embedded fonts cause conflicts
+  const fontCss = options?.skipEmbeddedFonts
+    ? ''
+    : generateFontFaceCSS(fontFamily)
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg
@@ -385,17 +389,24 @@ export async function renderInitiativeText(
     borderRadius?: number
   }
 ): Promise<Buffer> {
-  const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight)
+  // v16.5: Check if Resvg is available BEFORE generating SVG
+  const useResvg = isResvgAvailable()
+
+  // v16.5: Skip embedded fonts if using Resvg (physical font files)
+  // Resvg loads fonts from fontFiles parameter, embedded base64 fonts cause conflicts
+  const svg = generateInitiativeTextSVG(config, containerWidth, rowHeight, {
+    skipEmbeddedFonts: useResvg
+  })
 
   try {
     // Use Resvg for font-aware rendering (webpack build with serverExternalPackages)
     let buffer: Buffer
 
-    if (isResvgAvailable()) {
-      console.log('[SVG Text Renderer] Using Resvg for initiative text')
+    if (useResvg) {
+      console.log('[SVG Text Renderer] Using Resvg for initiative text (physical fonts)')
       buffer = await renderSvgWithResvg(svg, containerWidth, rowHeight)
     } else {
-      console.log('[SVG Text Renderer] Fallback to Sharp for initiative text (fonts not available)')
+      console.log('[SVG Text Renderer] Fallback to Sharp for initiative text (embedded fonts)')
       buffer = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 
@@ -583,7 +594,8 @@ export function generateFooterBarSVG(
   containerWidth: number,
   rowHeight: number,
   actualLogoWidth: number = 0,
-  signatureWidth: number = 0  // Width of Zone 1 signature (from logo-overlay)
+  signatureWidth: number = 0,  // Width of Zone 1 signature (from logo-overlay)
+  options?: { skipEmbeddedFonts?: boolean }  // v16.5: Skip fonts when using Resvg
 ): {
   svg: string
   partnerLogoX: number
@@ -782,8 +794,11 @@ export function generateFooterBarSVG(
 
   const svgElements: string[] = []
 
-  // Embed fonts
-  const fontCss = generateFontFaceCSS('Montserrat') + generateFontFaceCSS('Poppins')
+  // v16.5: Embed fonts ONLY if not using Resvg (physical font files)
+  // Resvg loads fonts from fontFiles parameter, embedded base64 fonts cause conflicts
+  const fontCss = options?.skipEmbeddedFonts
+    ? ''
+    : generateFontFaceCSS('Montserrat') + generateFontFaceCSS('Poppins')
 
   // Render Zone 2 Content
   if (zone2HasContent && zonePositions.zone2) {
@@ -1026,7 +1041,11 @@ export async function renderFooterBar(
     }
   }
 
+  // v16.5: Check if Resvg is available BEFORE generating SVG
+  const useResvg = isResvgAvailable()
+
   // 3. Generate SVG and Positions
+  // v16.5: Skip embedded fonts if using Resvg (physical font files)
   const {
     svg,
     partnerLogoX,
@@ -1039,18 +1058,19 @@ export async function renderFooterBar(
     containerWidth,
     rowHeight,
     actualPartnerLogoWidth,
-    actualSignatureWidth
+    actualSignatureWidth,
+    { skipEmbeddedFonts: useResvg }  // v16.5: Don't embed fonts if Resvg will load them
   )
 
   try {
     // 4. Create base rendering from SVG using Resvg (webpack build with serverExternalPackages)
     let result: Buffer
 
-    if (isResvgAvailable()) {
-      console.log('[SVG Text Renderer] Using Resvg for footer bar')
+    if (useResvg) {
+      console.log('[SVG Text Renderer] Using Resvg for footer bar (physical fonts)')
       result = await renderSvgWithResvg(svg, containerWidth, rowHeight)
     } else {
-      console.log('[SVG Text Renderer] Fallback to Sharp for footer bar (fonts not available)')
+      console.log('[SVG Text Renderer] Fallback to Sharp for footer bar (embedded fonts)')
       result = await sharp(Buffer.from(svg)).png().toBuffer()
     }
 
