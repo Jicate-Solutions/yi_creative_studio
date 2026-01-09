@@ -233,6 +233,26 @@ export function MultiSpeakerInput({
                 getSummary={getSpeakerSummary}
               />
             ))}
+
+            {/* Add Another Speaker Button - Always visible when speakers exist */}
+            {speakers.length < 4 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddSpeaker}
+                className="w-full gap-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add Another Speaker {speakers.length > 0 && `(${speakers.length}/4)`}
+              </Button>
+            ) : (
+              <div className="text-center p-3 bg-muted/50 rounded-lg border border-dashed">
+                <p className="text-xs text-muted-foreground">
+                  Maximum 4 speakers reached
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
