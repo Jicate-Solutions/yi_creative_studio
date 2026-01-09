@@ -965,7 +965,7 @@ export function generateFooterBarSVG(
     if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
       if (usePathRendering) {
         svgElements.push(textToPath("Supported By", {
-          fontFamily: 'Montserrat',
+          fontFamily: 'Poppins',  // v17.1: Use Poppins (Montserrat TTF fails on Vercel)
           fontSize: labelFontSize,
           fontWeight: 'bold',
           x: zone2X,
@@ -998,7 +998,7 @@ export function generateFooterBarSVG(
 
       if (usePathRendering) {
         svgElements.push(textToPath(hashtagText, {
-          fontFamily: 'Montserrat',
+          fontFamily: 'Poppins',  // v17.1: Use Poppins (Montserrat TTF fails on Vercel)
           fontSize: hashtagFontSize,
           fontWeight: 'bold',
           x: zone2X,
