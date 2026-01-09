@@ -150,6 +150,8 @@ export async function renderSvgWithResvg(
     const { Resvg } = require('@resvg/resvg-js')
 
     // Initialize Resvg with font files
+    // CRITICAL: Font family names must match WOFF2 metadata (Title Case)
+    // If SVG uses lowercase "poppins", it falls back to sansSerifFamily
     const resvg = new Resvg(svg, {
       fitTo: {
         mode: 'width',
@@ -159,6 +161,7 @@ export async function renderSvgWithResvg(
         fontFiles, // Physical font file paths
         loadSystemFonts: false, // Don't rely on system fonts (serverless)
         defaultFontFamily: 'Poppins', // Fallback if font not found
+        sansSerifFamily: 'Poppins', // Fallback for "sans-serif" generic family
       },
     })
 

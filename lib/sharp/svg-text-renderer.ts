@@ -32,6 +32,25 @@ const FONT_WEIGHTS: Record<string, number> = {
   bold: 700,
 }
 
+// Font family name mapping for Resvg compatibility
+// Resvg reads font family names from WOFF2 metadata (Title Case)
+// but config uses lowercase names ('poppins', 'montserrat', 'inter')
+// This causes case-sensitive font matching to FAIL → blank text
+const FONT_FAMILY_MAP: Record<string, string> = {
+  'poppins': 'Poppins',
+  'montserrat': 'Montserrat',
+  'inter': 'Inter',
+}
+
+/**
+ * Convert font family to Title Case for Resvg compatibility
+ * WOFF2 files contain "Poppins" but config uses "poppins" (lowercase)
+ * Resvg font matching is CASE-SENSITIVE
+ */
+function toTitleCaseFontFamily(family: string): string {
+  return FONT_FAMILY_MAP[family.toLowerCase()] || family
+}
+
 /**
  * Convert font weight string to numeric value
  */
@@ -259,7 +278,7 @@ export function generateInitiativeTextSVG(
     x="${x}"
     y="${y}"
     text-anchor="${textAnchor}"
-    font-family="${fontFamily}, sans-serif"
+    font-family="${toTitleCaseFontFamily(fontFamily)}, sans-serif"
     font-size="${fontSize}"
     font-weight="${fontWeightToNumber(fontWeight)}"
     font-style="${fontStyle}"
