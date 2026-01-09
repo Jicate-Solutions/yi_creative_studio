@@ -296,6 +296,55 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Credit consumption: Check balance and deduct credits BEFORE generation
+    try {
+      const { consumeCredits, getCreditBalance } = await import('@/lib/services/credit-service')
+
+      // Check current balance
+      const balance = await getCreditBalance(organizationId)
+      const GENERATION_COST = 10 // Credits per generation
+
+      if (balance.balance < GENERATION_COST) {
+        return NextResponse.json(
+          {
+            error: 'Insufficient credits',
+            details: `You need ${GENERATION_COST} credits to generate. Current balance: ${balance.balance}`,
+            required: GENERATION_COST,
+            available: balance.balance,
+          },
+          { status: 402 } // Payment Required
+        )
+      }
+
+      // Deduct credits (will be logged in credit_transactions)
+      // Note: If generation fails later, credits should be refunded
+      await consumeCredits({
+        organization_id: organizationId,
+        amount: GENERATION_COST,
+        reason: 'AI creative generation',
+        reference_type: 'creative_generation',
+        reference_id: randomUUID(), // Temporary ID, will be updated with actual creative ID after save
+        metadata: {
+          format: formatId || 'unknown',
+          model: model || 'gemini-2.5-flash-image',
+          provider: provider || 'google',
+          user_id: user.id,
+          creation_mode: creationMode || 'scratch',
+        },
+      })
+
+      console.log(`[Generate API] Credits consumed: ${GENERATION_COST}. New balance: ${balance.balance - GENERATION_COST}`)
+    } catch (creditError) {
+      console.error('[Generate API] Credit check/consumption failed:', creditError)
+      return NextResponse.json(
+        {
+          error: 'Credit system error',
+          details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
+        },
+        { status: 500 }
+      )
+    }
+
     // NEW v3.2: Fetch organization brand_config to get font preference
     // This implements the hybrid approach: font family from org settings, AI controls sizing
     const { data: orgData } = await supabase
