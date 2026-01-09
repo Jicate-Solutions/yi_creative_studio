@@ -18,6 +18,7 @@ import {
   buildLayoutZoneContext,
   buildLanguageContext,
   buildSpeakerPhotoZoneContext,
+  buildSpeakerPhotoCompositionGuidance, // v7.0: Natural language safe zones
   buildLogoStripZoneContext,
   buildInitiativeColorContext,
   formatSpeakerDetails,
@@ -600,15 +601,15 @@ export function buildEventPosterPrompt(
   // Build speaker zone context from options.speakerPhotoConfig (v3.1)
   // This uses the config passed from API route, which preserves the zone even when user has own photo
 
-  // v6.8: DISABLED speaker photo zone context injection
-  // Reason: Any mention of "zone", "area", or shapes causes Gemini to draw visual indicators
-  // New strategy: Let speaker photo overlay handle positioning WITHOUT Gemini awareness
-  // The overlay works perfectly - we just need Gemini to NOT draw placeholders
-  const speakerZoneContext = '' // buildSpeakerPhotoZoneContext(options.speakerPhotoConfig)
+  // v7.0: RE-ENABLED speaker photo safe zones using natural language approach
+  // New strategy: Use composition philosophy language instead of spatial prohibitions
+  // Avoids trigger words: "zone", "area", "circle", "forbidden", "do not draw"
+  // Guides Gemini to keep corners simple using positive design guidance
+  const speakerZoneContext = buildSpeakerPhotoCompositionGuidance(options.speakerPhotoConfig)
   const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
 
-  if (hasSpeakerPhoto) {
-    console.log('[Event Poster] v6.8: Speaker photo zone context DISABLED to prevent Gemini from drawing circular placeholders')
+  if (hasSpeakerPhoto && speakerZoneContext) {
+    console.log('[Event Poster] v7.0: Speaker photo composition guidance ENABLED using natural language approach')
   }
 
 

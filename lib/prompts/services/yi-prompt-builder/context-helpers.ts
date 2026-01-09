@@ -606,6 +606,11 @@ const SPEAKER_SHAPE_GUIDANCE: Record<string, string> = {
  * The placeholder frame issue was caused by instructions telling AI to create visible frames
  *
  * v3.5: Multi-speaker support - handles both single and multiple speaker photos
+ *
+ * v3.7: Avoid "ZONE", "overlay", "composited" language that Gemini renders literally
+ *
+ * ⚠️ DEPRECATED in v7.0 - This function still triggers Gemini placeholders
+ * Use buildSpeakerPhotoCompositionGuidance() instead for natural language approach
  */
 export function buildSpeakerPhotoZoneContext(
   config?: SpeakerPhotoConfig
@@ -630,6 +635,52 @@ export function buildSpeakerPhotoZoneContext(
 
   // v3.7: Single speaker - avoid trigger words
   return `BACKGROUND AREA: The ${SPEAKER_POSITION_DESCRIPTIONS[position] || position} area (${SPEAKER_SIZE_DIMENSIONS[size] || size}, ${SPEAKER_SHAPE_GUIDANCE[shape] || shape}) needs a clean background. Keep this area clean with a simple background (solid color, subtle gradient, or matching design). Do not draw faces, people, human figures, shapes, frames, or text - just clean background.`
+}
+
+/**
+ * v7.0: Natural Language Speaker Photo Composition Guidance
+ * NEW APPROACH: Guide composition using design principles instead of spatial prohibitions
+ *
+ * KEY INSIGHT: Any mention of "zone", "area", "circle", "forbidden", "do not draw" causes
+ * Gemini to visualize those concepts as actual elements in the image.
+ *
+ * SOLUTION: Frame safe zones as positive composition guidance:
+ * - Focus attention on center/upper areas (pulls Gemini's focus away from corners)
+ * - Suggest simplicity in periphery (natural way to say "keep it clean")
+ * - Use artistic language ("breathing room", "visual flow") not technical constraints
+ *
+ * This prevents Gemini from drawing placeholder circles/frames while still achieving
+ * the goal: keeping corners simple for speaker photo overlays.
+ */
+export function buildSpeakerPhotoCompositionGuidance(
+  config?: SpeakerPhotoConfig
+): string {
+  // Only provide guidance when user has uploaded a photo
+  if (!config?.enabled || !config.hasUserPhoto) return ''
+
+  const position = config.position || 'left'
+  const speakerCount = config.speakerCount || 1
+  const isSingleSpeaker = config.isSingleSpeaker !== false
+
+  // Position-specific composition guidance (positive framing)
+  const compositionGuidance: Record<string, string> = {
+    left: 'Concentrate the main visual elements (decorative items, imagery, patterns) toward the center and right side. The left edge benefits from simplicity - use flowing gradients or subtle color transitions that create breathing room.',
+    right: 'Focus the primary visual elements (decorative items, imagery, patterns) toward the center and left side. The right edge works best with gentle gradients or understated backgrounds that provide visual balance.',
+    'bottom-left': 'Position the most intricate visual elements (decorative items, imagery, patterns) in the upper and right portions. The lower-left corner embraces minimalism - let it flow with simple color transitions or soft gradients that complement the overall composition.',
+    'bottom-right': 'Center the detailed visual elements (decorative items, imagery, patterns) in the upper and left areas. The lower-right corner should maintain visual simplicity - use gentle color flows or subtle backgrounds that support the design without competing for attention.',
+    center: 'Build visual interest around the edges and upper portions of the design. The center region benefits from an uncluttered aesthetic - let it breathe with elegant simplicity, using smooth color transitions that draw the eye naturally.',
+  }
+
+  // Multiple speakers: more general guidance
+  if (!isSingleSpeaker && speakerCount > 1) {
+    if (position === 'left' || position === 'right') {
+      return `COMPOSITION PHILOSOPHY: Direct the viewer's attention toward the center of the design where your primary message lives. The ${position} edge should complement this focus with understated elegance - think flowing gradients, gentle color transitions, and visual breathing room rather than dense patterns or intricate details. This balanced approach creates professional sophistication.`
+    }
+    return `COMPOSITION PHILOSOPHY: Emphasize visual richness in the central region while allowing the peripheral areas to remain elegantly simple. Use smooth color transitions and subtle gradients at the edges to frame the core message without visual competition. This creates natural flow and professional polish.`
+  }
+
+  // Single speaker: specific guidance based on position
+  return `COMPOSITION PHILOSOPHY: ${compositionGuidance[position] || compositionGuidance['left']} This asymmetric approach creates dynamic visual interest while maintaining professional balance.`
 }
 
 // ============================================================
