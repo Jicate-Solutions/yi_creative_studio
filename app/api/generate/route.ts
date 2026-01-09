@@ -1320,27 +1320,27 @@ export async function POST(request: NextRequest) {
             footerHeight = Math.min(footerHeight, height * 0.18)
           }
 
-          // v15.2: Calculate initiative text contrast and AUTO-ADJUST color if needed
+          // v16.4 FIX: Calculate initiative text contrast against WHITE card background
+          // Initiative text is rendered on white floating card (v16.4), NOT poster background
+          // Previous logic used primaryColor causing light gray text on white = invisible
           let initiativeContrastInfo: InitiativeContrastInfo | null = null
           if (hasInitiativeText(enhanced4RowStrip)) {
+            const WHITE_CARD_BG = '#FFFFFF'  // v16.4: Actual background color
             initiativeContrastInfo = calculateInitiativeContrast(
               enhanced4RowStrip.rows.initiative.color,
-              resolvedColors.primaryColor  // v15.2: Pass actual primary color (e.g., #0b6d41)
+              WHITE_CARD_BG  // v16.4: White floating card, not primary color
             )
-            console.log('[Color Contrast] Initiative Text (v15.2 - AUTO-ADJUSTED):', {
-              originalColor: initiativeContrastInfo.color,
-              adjustedColor: initiativeContrastInfo.adjustedColor,
-              wasAdjusted: initiativeContrastInfo.needsAdjustment,
-              primaryBg: resolvedColors.primaryColor,
-              originalRatio: `${initiativeContrastInfo.contrastRatio.toFixed(1)}:1`,
-              meetsWCAG_AA_afterAdjustment: true,  // Always true after adjustment
-              recommendedBg: initiativeContrastInfo.recommendedBgTone,
+            console.log('[Color Contrast] Initiative Text (v16.4 - WHITE CARD BG):', {
+              textColor: enhanced4RowStrip.rows.initiative.color,
+              cardBackground: WHITE_CARD_BG,
+              contrastRatio: `${initiativeContrastInfo.contrastRatio.toFixed(1)}:1`,
+              meetsWCAG_AA: initiativeContrastInfo.contrastRatio >= 4.5,
             })
 
-            // v15.2: Update the enhanced4RowStrip to use adjusted color for backend overlay
+            // v16.4: Only adjust if contrast is poor against WHITE (most colors work fine on white)
             if (initiativeContrastInfo.needsAdjustment) {
               enhanced4RowStrip.rows.initiative.color = initiativeContrastInfo.adjustedColor
-              console.log('[Color Contrast] ✅ Initiative text color auto-adjusted:', {
+              console.log('[Color Contrast] ✅ Initiative text adjusted for white background:', {
                 from: initiativeContrastInfo.color,
                 to: initiativeContrastInfo.adjustedColor
               })
