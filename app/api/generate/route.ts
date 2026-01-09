@@ -2848,7 +2848,8 @@ async function generateWithGemini(
   systemPrompt?: string,
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
   resolution?: string,
-  modelId?: string  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
+  modelId?: string,  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
+  retryCount: number = 0  // Retry counter for dimension drift auto-upgrade (Tier 3)
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -3034,14 +3035,66 @@ async function generateWithGemini(
   const imageData = imagePart.inlineData.data
   const mimeType = imagePart.inlineData.mimeType || 'image/png'
 
-  // DIMENSION LOGGING - Detect Flash model dimension drift
+  // TIER 3: DIMENSION VALIDATION + AUTO-RETRY WITH PRO MODEL
+  // Detect Flash model dimension drift and auto-upgrade to Pro for quality
   try {
     const sharp = await getSharp()
     const imageBuffer = Buffer.from(imageData, 'base64')
     const metadata = await sharp(imageBuffer).metadata()
-    console.log(`[DIMENSION CHECK] ${currentModel} returned: ${metadata.width}x${metadata.height} for ${geminiAspectRatio} @ ${geminiImageSize}`)
+    const actualWidth = metadata.width || 0
+    const actualHeight = metadata.height || 0
+
+    console.log(`[DIMENSION CHECK] ${currentModel} returned: ${actualWidth}x${actualHeight} for ${geminiAspectRatio} @ ${geminiImageSize}`)
+
+    // Get expected dimensions from format-specific DIMENSION_QUALITY mapping
+    const expectedDims = DIMENSION_QUALITY[geminiAspectRatio]?.[geminiImageSize]
+    const expectedWidth = expectedDims?.width || 1024
+    const expectedHeight = expectedDims?.height || 1024
+
+    // Calculate drift percentage (width and height separately)
+    const widthDrift = Math.abs(actualWidth - expectedWidth) / expectedWidth
+    const heightDrift = Math.abs(actualHeight - expectedHeight) / expectedHeight
+    const maxDrift = Math.max(widthDrift, heightDrift)
+
+    console.log(`[TIER 3] Dimension drift analysis:`)
+    console.log(`[TIER 3]   Expected: ${expectedWidth}x${expectedHeight}`)
+    console.log(`[TIER 3]   Actual: ${actualWidth}x${actualHeight}`)
+    console.log(`[TIER 3]   Width drift: ${(widthDrift * 100).toFixed(2)}%`)
+    console.log(`[TIER 3]   Height drift: ${(heightDrift * 100).toFixed(2)}%`)
+    console.log(`[TIER 3]   Max drift: ${(maxDrift * 100).toFixed(2)}%`)
+
+    // TIER 3 AUTO-RETRY LOGIC
+    // If drift exceeds 5% threshold AND this is a Flash model AND we haven't retried yet
+    // Then auto-upgrade to Pro model for perfect quality
+    const DRIFT_THRESHOLD = 0.05  // 5% - anything above this triggers Pro upgrade
+    const isFlashModel = currentModel !== 'gemini-3-pro-image-preview'
+    const shouldRetry = maxDrift > DRIFT_THRESHOLD && isFlashModel && retryCount < 1
+
+    if (shouldRetry) {
+      console.warn(`[TIER 3] ⚠️ DIMENSION DRIFT TOO HIGH: ${(maxDrift * 100).toFixed(2)}% > ${(DRIFT_THRESHOLD * 100)}% threshold`)
+      console.warn(`[TIER 3] 🔄 AUTO-UPGRADING to Pro model for quality (retry ${retryCount + 1}/1)`)
+      console.warn(`[TIER 3] 💰 Cost impact: $0.039 → $0.1344 per image (3.4x increase justified by quality)`)
+
+      // Recursive retry with Pro model (retryCount+1 prevents infinite loops)
+      return await generateWithGemini(
+        prompt,
+        designData,
+        systemPrompt,
+        format,
+        resolution,
+        'gemini-3-pro-image-preview',  // Force Pro model
+        retryCount + 1  // Increment retry counter (max 1 retry)
+      )
+    } else if (maxDrift > DRIFT_THRESHOLD) {
+      // Drift is high but we've already retried or this is Pro model
+      console.warn(`[TIER 3] ⚠️ High drift ${(maxDrift * 100).toFixed(2)}% but not retrying (retryCount=${retryCount}, model=${currentModel})`)
+    } else {
+      // Drift is acceptable
+      console.log(`[TIER 3] ✅ Drift ${(maxDrift * 100).toFixed(2)}% is acceptable (threshold: ${(DRIFT_THRESHOLD * 100)}%)`)
+    }
   } catch (error) {
-    console.warn('[DIMENSION CHECK] Failed to read image metadata:', error)
+    console.warn('[TIER 3] Failed to validate dimensions:', error)
+    // Continue with generation even if validation fails
   }
 
   // For production, upload to Supabase Storage instead
