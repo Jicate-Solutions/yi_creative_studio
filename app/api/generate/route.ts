@@ -3046,10 +3046,13 @@ async function generateWithGemini(
 
     console.log(`[DIMENSION CHECK] ${currentModel} returned: ${actualWidth}x${actualHeight} for ${geminiAspectRatio} @ ${geminiImageSize}`)
 
-    // Get expected dimensions from format-specific DIMENSION_QUALITY mapping
-    const expectedDims = DIMENSION_QUALITY[geminiAspectRatio]?.[geminiImageSize]
-    const expectedWidth = expectedDims?.width || 1024
-    const expectedHeight = expectedDims?.height || 1024
+    // CRITICAL FIX: Use format-specific dimensions (e.g., event_poster 1080x1440)
+    // NOT generic DIMENSION_QUALITY (which has 3:4 = 896x1200)
+    // Format dimensions are what Sharp resizes to, so drift check must match those
+    const expectedWidth = format?.width || 1024
+    const expectedHeight = format?.height || 1024
+
+    console.log(`[TIER 3] Format-specific dimensions: ${format?.label} = ${expectedWidth}x${expectedHeight} (ignoring generic DIMENSION_QUALITY)`)
 
     // Calculate drift percentage (width and height separately)
     const widthDrift = Math.abs(actualWidth - expectedWidth) / expectedWidth
