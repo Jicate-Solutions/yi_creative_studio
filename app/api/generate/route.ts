@@ -1501,22 +1501,13 @@ export async function POST(request: NextRequest) {
         // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
         // The "no placeholder" instruction is added in format builders instead
 
-        // v20.0: Filter speakers to only include those WITH photos for prompt
-        // This prevents Gemini from rendering zones for speakers without photos
-        const filteredFormData = { ...userFormData }
-        if (filteredFormData.speakers && Array.isArray(filteredFormData.speakers)) {
-          const originalCount = filteredFormData.speakers.length
-          filteredFormData.speakers = filteredFormData.speakers.filter((speaker: any) =>
-            speaker.photoUrl && speaker.photoUrl.trim() !== ''
-          )
-          const filteredCount = filteredFormData.speakers.length
-          if (filteredCount < originalCount) {
-            console.log(`[Generate] Filtered speakers for prompt: ${filteredCount} WITH photos (${originalCount} total)`)
-          }
-        }
+        // v20.2: DO NOT filter speakers from formData
+        // Keep ALL speakers for text rendering (names, designations)
+        // Photo overlay zones are controlled separately via multiSpeakerLayout or speakerPhotoZoneCoordinates
+        // The overlay function will filter to only speakers WITH photos using getSpeakersWithPhotos()
 
         // Build XML-structured prompt using YiPromptBuilder
-        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, filteredFormData || {}, {
+        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, {
           ...buildOptions,
           // v6.5: Pass calculated speaker photo coordinates to prompt builder
           speakerPhotoZoneCoordinates,
@@ -1715,21 +1706,12 @@ ${typographyProfile.hierarchy}
           formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
         }
 
-        // v20.0: Filter speakers to only include those WITH photos for prompt (template mode)
-        const templateFilteredFormData = { ...userFormData }
-        if (templateFilteredFormData.speakers && Array.isArray(templateFilteredFormData.speakers)) {
-          const originalCount = templateFilteredFormData.speakers.length
-          templateFilteredFormData.speakers = templateFilteredFormData.speakers.filter((speaker: any) =>
-            speaker.photoUrl && speaker.photoUrl.trim() !== ''
-          )
-          const filteredCount = templateFilteredFormData.speakers.length
-          if (filteredCount < originalCount) {
-            console.log(`[Template Mode] Filtered speakers for prompt: ${filteredCount} WITH photos (${originalCount} total)`)
-          }
-        }
+        // v20.2: DO NOT filter speakers from formData (template mode)
+        // Keep ALL speakers for text rendering - photo zones controlled separately
+        // The overlay function filters to only speakers WITH photos
 
-        // Build v3.0 prompt for template adaptation (v4.3: using filtered userFormData)
-        templatePrompt = YiPromptBuilder.buildPrompt(formatId, templateFilteredFormData || {}, templateBuildOptions)
+        // Build v3.0 prompt for template adaptation (v4.3: using raw userFormData)
+        templatePrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, templateBuildOptions)
         console.log('[Template Mode] v3.0 Prompt Preview:', templatePrompt.substring(0, 500))
       }
 
@@ -2731,13 +2713,22 @@ function buildDesignPromptWithFormat(
     enhancedPrompt += `- Date/Venue: ${multiSpeakerLayout.textZoneAdjustments.dateVenue.start}-${multiSpeakerLayout.textZoneAdjustments.dateVenue.end}%\n`
     enhancedPrompt += `- Speaker Details: ${multiSpeakerLayout.textZoneAdjustments.speakers.start}-${multiSpeakerLayout.textZoneAdjustments.speakers.end}%\n`
     enhancedPrompt += `- Additional Details: ${multiSpeakerLayout.textZoneAdjustments.additionalDetails.start}-${multiSpeakerLayout.textZoneAdjustments.additionalDetails.end}%\n\n`
+
+    // v20.3: Clarify text rendering for ALL speakers vs photo overlay for SOME
+    if (speakerCount > speakerCountWithPhotos) {
+      enhancedPrompt += `SPEAKER TEXT RENDERING: Render text details (name, designation) for ALL ${speakerCount} speakers listed in the content.\n`
+      enhancedPrompt += `- Only ${speakerCountWithPhotos} speaker(s) will have photo overlays - the rest are text-only\n`
+      enhancedPrompt += `- Position all speaker text details in the Speaker Details zone (${multiSpeakerLayout.textZoneAdjustments.speakers.start}-${multiSpeakerLayout.textZoneAdjustments.speakers.end}%)\n`
+      enhancedPrompt += `- Use consistent typography and spacing for all speakers\n\n`
+    }
+
     enhancedPrompt += `SPEAKER PHOTOS OVERLAY ZONES: ${multiSpeakerLayout.positions.length} circular speaker photos will be overlaid at calculated positions.\n`
     enhancedPrompt += `- These zones MUST have CLEAN, SIMPLE backgrounds (solid colors, subtle gradients, or soft blur)\n`
     enhancedPrompt += `- Do NOT place decorative elements, patterns, textures, or complex visuals in these circular zones\n`
     enhancedPrompt += `- Use light, neutral background colors in photo zones for professional integration\n`
     enhancedPrompt += `- Decorative elements should be placed AROUND the photo zones, not underneath them\n\n`
 
-    console.log('[Multi-Speaker] Injected composition guidance into prompt')
+    console.log(`[Multi-Speaker] Injected composition guidance: ${speakerCountWithPhotos} photo overlays, ${speakerCount} total speakers`)
   }
   // Fallback: Always reserve footer zone even without multi-speaker layout
   else if (speakerCountWithPhotos > 0) {
@@ -2750,6 +2741,14 @@ function buildDesignPromptWithFormat(
     enhancedPrompt += `- This ensures clean footer overlay without text collision\n\n`
 
     if (speakerCountWithPhotos === 1) {
+      // v20.3: Clarify text rendering for ALL speakers vs photo overlay for SOME
+      if (speakerCount > speakerCountWithPhotos) {
+        enhancedPrompt += `SPEAKER TEXT RENDERING: Render text details (name, designation) for ALL ${speakerCount} speakers listed in the content.\n`
+        enhancedPrompt += `- Only ${speakerCountWithPhotos} speaker(s) will have a photo overlay - the rest are text-only\n`
+        enhancedPrompt += `- Position all speaker text details in the 55-75% vertical zone\n`
+        enhancedPrompt += `- Use consistent typography and spacing for all speakers\n\n`
+      }
+
       // Use exact coordinates if available, otherwise use typical range
       if (speakerPhotoZoneCoordinates && dimensions) {
         const photoTopPercent = Math.round((speakerPhotoZoneCoordinates.topEdge / dimensions.height) * 100)
@@ -2760,17 +2759,15 @@ function buildDesignPromptWithFormat(
         enhancedPrompt += `- This circular zone MUST have a CLEAN, SIMPLE background (solid color, subtle gradient, or soft blur)\n`
         enhancedPrompt += `- Do NOT place decorative elements, patterns, textures, or complex visuals in this circular area\n`
         enhancedPrompt += `- Use a light, neutral background color in the photo zone for professional photo integration\n`
-        enhancedPrompt += `- Position speaker details (name, designation) ABOVE ${photoTopPercent}% to avoid overlap with photo\n`
-        enhancedPrompt += `- Recommended speaker details zone: 55-${photoTopPercent - 2}%\n`
         enhancedPrompt += `- Decorative elements should be placed AROUND the photo zone, not underneath it\n\n`
 
         console.log(`[Text Zones] Injected exact speaker photo coordinates: ${photoCenterPercent}% center (${photoTopPercent}-${photoBottomPercent}%)`)
+        console.log(`[Text Zones] Speaker text guidance: Render ALL ${speakerCount} speakers, overlay photo for ${speakerCountWithPhotos}`)
       } else {
         enhancedPrompt += `SPEAKER PHOTO OVERLAY ZONE: 1 circular speaker photo will be overlaid (typically 60-75% vertical position).\n`
         enhancedPrompt += `- This circular zone MUST have a CLEAN, SIMPLE background (solid color, subtle gradient, or soft blur)\n`
         enhancedPrompt += `- Do NOT place decorative elements, patterns, or textures in the anticipated photo area\n`
-        enhancedPrompt += `- Use a light, neutral background in the photo zone for professional integration\n`
-        enhancedPrompt += `- Position speaker details text ABOVE the photo location to avoid overlap\n\n`
+        enhancedPrompt += `- Use a light, neutral background in the photo zone for professional integration\n\n`
       }
     }
 
