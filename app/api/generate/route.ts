@@ -26,7 +26,7 @@ async function getSharp(): Promise<typeof sharp> {
 import { processImageWithLogos, resizeImageToExactDimensions, applyEnhanced4RowStrip, applyEnhanced4RowStripSplit, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto, processImageWithMultiSpeakerLayout, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
-import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
+import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, getSpeakersWithPhotos } from '@/lib/utils/speaker-migration'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
 import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
 import {
@@ -809,13 +809,18 @@ export async function POST(request: NextRequest) {
       // ========================================================
       let multiSpeakerLayout: MultiSpeakerLayout | null = null
 
-      if (speakerPhotoConfig?.speakers && speakerPhotoConfig.speakers.length > 1) {
-        const speakerCount = speakerPhotoConfig.speakers.length
-        console.log(`[Multi-Speaker] Calculating intelligent layout for ${speakerCount} speakers`)
+      if (speakerPhotoConfig) {
+        // CRITICAL: Count only speakers WITH photos, not total speakers
+        // Example: 3 speakers total, but only 1 has photo → count = 1
+        const speakerCountWithPhotos = getSpeakerCountWithPhotos(speakerPhotoConfig)
+        const totalSpeakers = speakerPhotoConfig.speakers?.length || 0
+
+        if (speakerCountWithPhotos > 1) {
+          console.log(`[Multi-Speaker] Calculating intelligent layout for ${speakerCountWithPhotos} speakers WITH photos (${totalSpeakers} total speakers)`)
 
         try {
           multiSpeakerLayout = calculateIntelligentLayout({
-            speakerCount,
+            speakerCount: speakerCountWithPhotos,  // Use count WITH photos only
             formatId: (formatId as string) || 'event_poster',
             canvasWidth: designDimensions?.width || 1080,
             canvasHeight: designDimensions?.height || 1440,
@@ -851,6 +856,10 @@ export async function POST(request: NextRequest) {
           console.error('[Multi-Speaker] Layout calculation error:', error)
           multiSpeakerLayout = null
           // Continue with existing flow
+        }
+        } else if (totalSpeakers > speakerCountWithPhotos) {
+          // Some speakers don't have photos - log for debugging
+          console.log(`[Multi-Speaker] Skipping AI layout: Only ${speakerCountWithPhotos} of ${totalSpeakers} speakers have photos`)
         }
       }
 
@@ -2027,25 +2036,31 @@ ${typographyProfile.hierarchy}
       // Normalize speaker config (handles migration from legacy to new format)
       const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)
       const speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
+      const speakerCountWithPhotos = getSpeakerCountWithPhotos(normalizedSpeakerPhoto)
 
-      console.log(`[Generate API] Applying speaker photo overlays (${speakerCount} speaker${speakerCount > 1 ? 's' : ''})`)
+      console.log(`[Generate API] Applying speaker photo overlays (${speakerCountWithPhotos} WITH photos, ${speakerCount} total)`)
+
+      // Validation: Warn if some speakers don't have photos
+      if (speakerCount > speakerCountWithPhotos) {
+        console.warn(`[Generate API] ⚠️ Photo mismatch: ${speakerCount} speakers defined, but only ${speakerCountWithPhotos} have photos`)
+      }
 
       try {
-        // Use AI-driven layout positioning for multi-speaker (2+)
-        if (multiSpeakerLayout && multiSpeakerLayout.isValid && speakerCount > 1) {
+        // Use AI-driven layout positioning for multi-speaker WITH photos (2+)
+        if (multiSpeakerLayout && multiSpeakerLayout.isValid && speakerCountWithPhotos > 1) {
           console.log('[Generate API] Using AI-driven multi-speaker layout')
           imageUrl = await processImageWithMultiSpeakerLayout(
             imageUrl,
             normalizedSpeakerPhoto,
             multiSpeakerLayout
           )
-          console.log(`[Generate API] Successfully overlaid ${speakerCount} speakers with intelligent layout`)
+          console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speakers with intelligent layout`)
         }
         // Fallback to existing flow for single speaker or invalid layout
         else {
           console.log('[Generate API] Using standard speaker overlay flow')
           imageUrl = await processImageWithSpeakerPhoto(imageUrl, normalizedSpeakerPhoto)
-          console.log(`[Generate API] Successfully overlaid ${speakerCount} speaker photo${speakerCount > 1 ? 's' : ''}`)
+          console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speaker photo${speakerCountWithPhotos > 1 ? 's' : ''}`)
         }
       } catch (error) {
         console.error('[Generate API] Speaker photo overlay failed:', error)

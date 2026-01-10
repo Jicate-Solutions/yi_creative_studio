@@ -57,3 +57,46 @@ export function getSpeakerCount(config: SpeakerPhotoCustomization): number {
 export function isMultiSpeakerMode(config: SpeakerPhotoCustomization): boolean {
   return getSpeakerCount(config) > 1
 }
+
+/**
+ * Get count of speakers WITH photos (not total speakers)
+ * Critical for layout calculation - only speakers with photoUrl should get positions
+ *
+ * Example:
+ * - 3 speakers total, but only 1 has photo → returns 1 (not 3)
+ * - This prevents layout from creating positions for non-existent photos
+ */
+export function getSpeakerCountWithPhotos(config: SpeakerPhotoCustomization): number {
+  if (config.speakers && config.speakers.length > 0) {
+    // Count only speakers with actual photo URLs
+    return config.speakers.filter(speaker =>
+      speaker.photoUrl && speaker.photoUrl.trim() !== ''
+    ).length
+  }
+  if (config.photoUrl) {
+    return 1  // Legacy single speaker
+  }
+  return 0
+}
+
+/**
+ * Filter speakers to only those WITH photos
+ * Returns array of speakers that have photoUrl defined
+ */
+export function getSpeakersWithPhotos(config: SpeakerPhotoCustomization) {
+  if (config.speakers && config.speakers.length > 0) {
+    return config.speakers.filter(speaker =>
+      speaker.photoUrl && speaker.photoUrl.trim() !== ''
+    )
+  }
+  if (config.photoUrl) {
+    // Legacy format
+    return [{
+      id: crypto.randomUUID(),
+      name: '',
+      designation: '',
+      photoUrl: config.photoUrl,
+    }]
+  }
+  return []
+}

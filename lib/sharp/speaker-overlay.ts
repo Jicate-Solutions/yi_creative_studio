@@ -1458,17 +1458,26 @@ export async function processImageWithMultiSpeakerLayout(
 
   console.log('[Multi-Speaker Layout] Canvas:', `${imageWidth}×${imageHeight}px`)
 
+  // CRITICAL: Filter to only speakers WITH photos before mapping to positions
+  // Example: [speaker1WithPhoto, speaker2NoPhoto, speaker3WithPhoto]
+  // → Filter to: [speaker1WithPhoto, speaker3WithPhoto]
+  // → Map to: position[0] → speaker1, position[1] → speaker3
+  const speakersWithPhotos = normalized.speakers.filter(
+    speaker => speaker.photoUrl && speaker.photoUrl.trim() !== ''
+  )
+
+  console.log(`[Multi-Speaker Layout] Mapping ${layout.positions.length} positions to ${speakersWithPhotos.length} speakers with photos`)
+
+  if (speakersWithPhotos.length !== layout.positions.length) {
+    console.warn(`[Multi-Speaker Layout] ⚠️ Mismatch: ${layout.positions.length} positions but ${speakersWithPhotos.length} speakers with photos`)
+  }
+
   // Apply each speaker photo using layout-calculated positions
   let resultBuffer = imageBuffer
 
-  for (let i = 0; i < layout.positions.length && i < normalized.speakers.length; i++) {
+  for (let i = 0; i < layout.positions.length && i < speakersWithPhotos.length; i++) {
     const position = layout.positions[i]
-    const speaker = normalized.speakers[i]
-
-    if (!speaker.photoUrl) {
-      console.warn(`[Multi-Speaker Layout] Speaker ${i + 1} missing photo URL, skipping`)
-      continue
-    }
+    const speaker = speakersWithPhotos[i]  // Guaranteed to have photoUrl
 
     // Use AI-calculated size for this speaker (hierarchy-aware)
     const photoSize = position.size
