@@ -1333,23 +1333,10 @@ export async function processImageWithSpeakerPhoto(
     return imageDataUrl
   }
 
-  // v6.9: Updated to match design spec (25-40% of poster width)
-  // For 1080px width: small=26%, medium=30%, large=35%
-  // MUST match app/api/generate/route.ts:1124 for coordinate sync
-  // This provides proper visual prominence for speaker photos
-  const photoSizeMap = { small: 280, medium: 320, large: 380 }
-  const mappedSize =
-    normalized.size <= 280 ? photoSizeMap.small :
-    normalized.size <= 320 ? photoSizeMap.medium :
-    photoSizeMap.large
-
-  console.log(`[Speaker Overlay] v6.9: Size synchronization applied`)
-  console.log(`  - Original size: ${normalized.size}px`)
-  console.log(`  - Mapped size: ${mappedSize}px (${normalized.size <= 280 ? 'small' : normalized.size <= 320 ? 'medium' : 'large'})`)
-  console.log(`  - This matches Gemini prompt zone calculation for coordinate alignment`)
-
-  // Override size with mapped value
-  normalized.size = mappedSize
+  // v20.1: Use size directly from config (already in pixels)
+  // Size mapping happens in API route during coordinate calculation
+  // Trust the size value from the config - no redundant mapping needed
+  console.log(`[Speaker Overlay] v20.1: Using speaker photo size: ${normalized.size}px (from config)`)
 
   // Extract base64 data from data URL
   let imageBuffer: Buffer

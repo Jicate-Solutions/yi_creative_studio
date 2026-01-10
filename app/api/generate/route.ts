@@ -2067,6 +2067,22 @@ ${typographyProfile.hierarchy}
     if (userHasSpeakerPhoto && speakerPhoto) {
       // Normalize speaker config (handles migration from legacy to new format)
       const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)
+
+      // v20.1: CRITICAL - Sync overlay size with coordinate calculation
+      // The coordinate calculation maps string sizes ("large") to pixels (380px)
+      // We must extract and use the same pixel size for overlay
+      if (speakerPhotoZoneCoordinates) {
+        // Calculate the photo size from the zone dimensions (reverse engineering)
+        // Zone width = photoSize + (borderWidth * 2) + (shadowPadding * 2)
+        const borderWidth = normalizedSpeakerPhoto.border?.width || 0
+        const shadowPadding = normalizedSpeakerPhoto.shadow ? 18 : 0
+        const calculatedPhotoSize = speakerPhotoZoneCoordinates.width - (borderWidth * 2) - (shadowPadding * 2)
+
+        // Override the size to match coordinate calculation
+        normalizedSpeakerPhoto.size = calculatedPhotoSize
+        console.log(`[Generate API] v20.1: Synced overlay size with coordinates: ${calculatedPhotoSize}px (zone: ${speakerPhotoZoneCoordinates.width}px, border: ${borderWidth}px, shadow: ${shadowPadding}px)`)
+      }
+
       speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
       speakerCountWithPhotos = getSpeakerCountWithPhotos(normalizedSpeakerPhoto)
 
