@@ -1532,10 +1532,26 @@ export async function resizeImageToExactDimensions(
 
   console.log(`Resizing image from ${currentWidth}x${currentHeight} to ${targetWidth}x${targetHeight} (mode: ${mode})`)
 
+  // v20.5: ASPECT RATIO DISTORTION PREVENTION
+  // If aspect ratios don't match AND fill mode requested, check if we should use contain instead
+  // This prevents stretched/squeezed images when Gemini returns wrong dimensions
+  const currentAspectRatio = currentWidth / currentHeight
+  const targetAspectRatio = targetWidth / targetHeight
+  const aspectRatioDrift = Math.abs(currentAspectRatio - targetAspectRatio) / targetAspectRatio
+
+  let effectiveMode = mode
+  if (mode === 'fill' && aspectRatioDrift > 0.03) {  // 3% threshold
+    console.warn(`[Resize v20.5] ⚠️ Aspect ratio mismatch: ${(aspectRatioDrift * 100).toFixed(2)}% drift`)
+    console.warn(`[Resize v20.5]   Source: ${currentWidth}x${currentHeight} (AR: ${currentAspectRatio.toFixed(3)})`)
+    console.warn(`[Resize v20.5]   Target: ${targetWidth}x${targetHeight} (AR: ${targetAspectRatio.toFixed(3)})`)
+    console.warn(`[Resize v20.5]   Using 'contain' mode to prevent distortion (was: 'fill')`)
+    effectiveMode = 'contain'  // Override to prevent distortion
+  }
+
   // Resize based on mode
   let resizedBuffer: Buffer
 
-  if (mode === 'fill') {
+  if (effectiveMode === 'fill') {
     // Stretch to exact dimensions - best for AI-resized images where AI handled composition
     // TIER 2 FIX: Use mitchell kernel for better edge preservation during resize
     resizedBuffer = await sharp(imageBuffer)
@@ -1545,7 +1561,7 @@ export async function resizeImageToExactDimensions(
       })
       .png({ compressionLevel: 9 }) // Maximum quality PNG
       .toBuffer()
-  } else if (mode === 'contain') {
+  } else if (effectiveMode === 'contain') {
     // Fit inside with background - preserves all content
     // TIER 2 FIX: Use mitchell kernel for better edge preservation
     resizedBuffer = await sharp(imageBuffer)

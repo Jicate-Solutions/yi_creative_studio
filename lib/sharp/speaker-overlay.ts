@@ -1042,6 +1042,14 @@ export async function overlayMultipleSpeakerPhotos(config: {
   // v6.14 INTELLIGENT POSITIONING: Analyze image to find safe overlay zones
   let positions: Array<{ x: number; y: number }>
 
+  // v20.4 DEBUG: Log the state of preCalculatedCoordinates check
+  console.log('[Speaker Overlay v20.4] Positioning decision:', {
+    hasPreCalculatedCoords: !!preCalculatedCoordinates,
+    speakersLength: speakers.length,
+    willUsePreCalculated: !!(preCalculatedCoordinates && speakers.length === 1),
+    coords: preCalculatedCoordinates ? `(${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})` : 'N/A',
+  })
+
   // v20.4: BYPASS AI POSITIONING when pre-calculated coordinates are provided
   // This ensures the user's selected position (left/right/center) and size (small/medium/large) are respected
   if (preCalculatedCoordinates && speakers.length === 1) {
@@ -1391,6 +1399,13 @@ export async function processImageWithSpeakerPhoto(
       position: normalized.position,
       verticalPosition: normalized.verticalPosition,
     })
+    // v20.4 DEBUG: Check if preCalculatedCoordinates is being passed
+    console.log('[Speaker Overlay v20.4] preCalculatedCoordinates received:', preCalculatedCoordinates ? {
+      x: preCalculatedCoordinates.x,
+      y: preCalculatedCoordinates.y,
+      width: preCalculatedCoordinates.width,
+      height: preCalculatedCoordinates.height,
+    } : 'UNDEFINED - will use AI positioning')
 
     resultBuffer = await overlayMultipleSpeakerPhotos({
       baseImageBuffer: imageBuffer,
