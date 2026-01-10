@@ -2688,6 +2688,22 @@ function buildDesignPromptWithFormat(
 
     console.log('[Multi-Speaker] Injected composition guidance into prompt')
   }
+  // Fallback: Always reserve footer zone even without multi-speaker layout
+  else if (speakerCountWithPhotos > 0) {
+    // Single speaker or speakers without AI layout - still need footer zone protection
+    enhancedPrompt = `\n\nCRITICAL LAYOUT CONSTRAINT:\n`
+    enhancedPrompt += `FOOTER ZONE (85-100% from top): MUST remain clear for footer overlay.\n`
+    enhancedPrompt += `- Do NOT place speaker details, names, designations, or any text elements in this zone\n`
+    enhancedPrompt += `- Speaker details (name, designation) should be positioned in the 60-80% zone\n`
+    enhancedPrompt += `- Event details (date, time, venue) should be in the 35-55% zone\n`
+    enhancedPrompt += `- This ensures clean footer overlay without text collision\n\n`
+
+    if (speakerCountWithPhotos === 1) {
+      enhancedPrompt += `SPEAKER PHOTO: 1 circular speaker photo will be overlaid. Position speaker details text ABOVE the anticipated photo location (typically 60-75% vertical position) to avoid overlap.\n\n`
+    }
+
+    console.log(`[Text Zones] Injected footer zone constraint for ${speakerCountWithPhotos} speaker(s) without AI layout`)
+  }
 
   if (isGeminiPrompt(promptOutput)) {
     return {
