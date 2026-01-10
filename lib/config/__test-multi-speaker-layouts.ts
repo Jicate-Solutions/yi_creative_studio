@@ -107,13 +107,40 @@ console.log(`Is Valid: ${fiveSpeakers.isValid ? '✅' : '❌'}`)
 console.log(`Errors: ${fiveSpeakers.validationErrors.join(', ')}`)
 console.log(`Recommended: ${fiveSpeakers.recommendedAspectRatio}`)
 
-// Test different photo sizes
-console.log('\n--- Test: Photo Size Variations (2 speakers, portrait) ---')
+// Test different photo sizes (Manual Mode)
+console.log('\n--- Test: Photo Size Variations - MANUAL MODE (2 speakers, portrait) ---')
 const sizes: Array<'small' | 'medium' | 'large'> = ['small', 'medium', 'large']
 sizes.forEach(size => {
-  const layout = calculateMultiSpeakerLayout(2, '4:5', 1080, 1440, size)
+  const layout = calculateMultiSpeakerLayout(2, '4:5', 1080, 1440, size, { useIntelligentSizing: false })
   const photoSize = layout.positions[0]?.size || 0
   console.log(`  ${size.toUpperCase()}: ${photoSize}px (${(photoSize / 1080 * 100).toFixed(1)}% of width)`)
+})
+
+// Test AI-driven intelligent sizing
+console.log('\n--- Test: AI-DRIVEN INTELLIGENT SIZING (2 speakers, portrait) ---')
+const aiLayout = calculateMultiSpeakerLayout(2, '4:5', 1080, 1440, 'medium', { useIntelligentSizing: true })
+aiLayout.positions.forEach((pos, i) => {
+  console.log(`  Speaker ${i + 1}: ${pos.size}px (${(pos.size / 1080 * 100).toFixed(1)}% of width)`)
+})
+
+// Test AI sizing with different sophistication levels
+console.log('\n--- Test: AI Sizing with Sophistication Levels (3 speakers, square) ---')
+const sophisticationLevels: Array<'minimalist' | 'balanced' | 'rich'> = ['minimalist', 'balanced', 'rich']
+sophisticationLevels.forEach(soph => {
+  const layout = calculateMultiSpeakerLayout(3, '1:1', 1080, 1080, 'medium', {
+    useIntelligentSizing: true,
+    sophistication: soph
+  })
+  const avgSize = layout.positions.reduce((sum, pos) => sum + pos.size, 0) / layout.positions.length
+  console.log(`  ${soph.toUpperCase()}: Avg ${avgSize.toFixed(0)}px (${(avgSize / 1080 * 100).toFixed(1)}% of width)`)
+})
+
+// Test speaker hierarchy (featured speaker)
+console.log('\n--- Test: Speaker Hierarchy - Featured Speaker (4 speakers, landscape) ---')
+const hierarchyLayout = calculateMultiSpeakerLayout(4, '16:9', 1920, 1080, 'medium', { useIntelligentSizing: true })
+hierarchyLayout.positions.forEach((pos, i) => {
+  const isFeatured = i === 0 ? ' (FEATURED +20%)' : ''
+  console.log(`  Speaker ${i + 1}: ${pos.size}px (${(pos.size / 1920 * 100).toFixed(1)}% of width)${isFeatured}`)
 })
 
 console.log('\n' + '='.repeat(80))

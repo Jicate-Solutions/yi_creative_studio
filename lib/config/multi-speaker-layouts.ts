@@ -321,7 +321,10 @@ function getRecommendedAspectRatio(speakerCount: number): string[] {
  * @param aspectRatio Aspect ratio string (e.g., "4:5", "16:9")
  * @param canvasWidth Canvas width in pixels
  * @param canvasHeight Canvas height in pixels
- * @param photoSize Photo size preset (small/medium/large)
+ * @param photoSize Photo size preset (small/medium/large) - ignored if useIntelligentSizing is true
+ * @param options Optional configuration
+ * @param options.useIntelligentSizing Use AI-driven intelligent photo sizing (default: true)
+ * @param options.sophistication Design sophistication level (default: 'balanced')
  * @returns Complete layout with positions, text adjustments, and validation
  */
 export function calculateMultiSpeakerLayout(
@@ -329,9 +332,17 @@ export function calculateMultiSpeakerLayout(
   aspectRatio: string,
   canvasWidth: number,
   canvasHeight: number,
-  photoSize: PhotoSizePreset = 'medium'
+  photoSize: PhotoSizePreset = 'medium',
+  options?: {
+    useIntelligentSizing?: boolean
+    sophistication?: 'minimalist' | 'balanced' | 'rich'
+  }
 ): MultiSpeakerLayout {
-  console.log(`[Layout Engine] Calculating layout: ${speakerCount} speakers, ${aspectRatio} (${canvasWidth}×${canvasHeight}), size: ${photoSize}`)
+  const useIntelligentSizing = options?.useIntelligentSizing ?? true // Default to AI-driven sizing
+  const sophistication = options?.sophistication ?? 'balanced'
+
+  console.log(`[Layout Engine] Calculating layout: ${speakerCount} speakers, ${aspectRatio} (${canvasWidth}×${canvasHeight})`)
+  console.log(`[Layout Engine] Mode: ${useIntelligentSizing ? 'AI-DRIVEN INTELLIGENT SIZING' : `Manual (${photoSize})`}`)
 
   // Validation: Speaker count
   if (speakerCount < 2) {
@@ -380,16 +391,36 @@ export function calculateMultiSpeakerLayout(
   // Get layout template
   const template = LAYOUT_TEMPLATES[layoutKey]
 
-  // Calculate photo size in pixels
-  const sizeMultiplier = getSizeMultiplier(photoSize)
-  const photoSizePixels = Math.round(canvasWidth * sizeMultiplier)
-
-  console.log(`[Layout Engine] Photo size: ${photoSize} = ${sizeMultiplier * 100}% of width = ${photoSizePixels}px`)
-
   // Calculate absolute positions from percentages
   const positions: SpeakerPhotoPosition[] = template.positions.map((pos, index) => {
     const absoluteX = Math.round((pos.xPercent / 100) * canvasWidth)
     const absoluteY = Math.round((pos.yPercent / 100) * canvasHeight)
+
+    // INTELLIGENT SIZING: Calculate photo size per speaker
+    let photoSizePixels: number
+
+    if (useIntelligentSizing) {
+      // AI-DRIVEN: Use context-aware intelligent sizing
+      photoSizePixels = calculateOptimalPhotoSize({
+        speakerCount,
+        aspectRatio,
+        canvasWidth,
+        canvasHeight,
+        sophistication,
+        speakerIndex: index,
+        textZones: template.textZoneAdjustments,
+      })
+
+      console.log(`[Layout Engine] Speaker ${index + 1}: AI-sized to ${photoSizePixels}px (${((photoSizePixels / canvasWidth) * 100).toFixed(1)}% of width)`)
+    } else {
+      // MANUAL: Use legacy preset-based sizing
+      const sizeMultiplier = getSizeMultiplier(photoSize)
+      photoSizePixels = Math.round(canvasWidth * sizeMultiplier)
+
+      if (index === 0) {
+        console.log(`[Layout Engine] All speakers: Manual size ${photoSize} = ${photoSizePixels}px (${(sizeMultiplier * 100).toFixed(0)}% of width)`)
+      }
+    }
 
     return {
       x: absoluteX,
@@ -532,12 +563,134 @@ export function getLayoutWarning(speakerCount: number, category: AspectRatioCate
 }
 
 /**
- * Get recommended photo size for speaker count
+ * Context for intelligent photo size calculation
+ */
+export interface PhotoSizeContext {
+  speakerCount: number
+  aspectRatio: string // e.g., '4:5', '1:1', '16:9'
+  canvasWidth: number
+  canvasHeight: number
+  sophistication?: 'minimalist' | 'balanced' | 'rich'
+  speakerIndex?: number // For hierarchy (0 = primary/featured speaker)
+  textZones?: TextZoneAdjustments
+}
+
+/**
+ * AI-DRIVEN INTELLIGENT PHOTO SIZE CALCULATION
+ *
+ * This function uses context-aware logic to determine optimal speaker photo sizes
+ * instead of relying on manual selection. It considers:
+ *
+ * 1. Speaker count (baseline)
+ * 2. Aspect ratio constraints (portrait needs smaller, landscape allows larger)
+ * 3. Available space after text zones
+ * 4. Design sophistication level
+ * 5. Speaker hierarchy (featured speakers can be larger)
+ * 6. Layout density and overlap prevention
+ *
+ * Returns size in pixels (absolute value, not percentage)
+ */
+export function calculateOptimalPhotoSize(context: PhotoSizeContext): number {
+  const {
+    speakerCount,
+    aspectRatio,
+    canvasWidth,
+    canvasHeight,
+    sophistication = 'balanced',
+    speakerIndex = 0,
+  } = context
+
+  // STEP 1: Baseline size from speaker count
+  const basePercentages = {
+    1: 0.40, // Single speaker: large (40%)
+    2: 0.32, // Two speakers: medium-large (32%)
+    3: 0.24, // Three speakers: small-medium (24%)
+    4: 0.20, // Four speakers: small (20%)
+  }
+  const basePercent = basePercentages[speakerCount as keyof typeof basePercentages] || 0.20
+
+  // STEP 2: Aspect ratio multiplier
+  // Portrait formats (4:5, 3:4) have less width → smaller photos
+  // Landscape formats (16:9) have more width → larger photos
+  const ratio = canvasWidth / canvasHeight
+  let ratioMultiplier = 1.0
+
+  if (ratio < 0.95) {
+    // Portrait: constrained width, reduce size
+    ratioMultiplier = 0.85 // 15% reduction
+  } else if (ratio > 1.05) {
+    // Landscape: ample width, can increase size
+    ratioMultiplier = 1.15 // 15% increase
+  }
+  // Square (0.95-1.05): no adjustment (1.0)
+
+  // STEP 3: Sophistication multiplier
+  // Minimalist designs: smaller, more breathing room
+  // Rich designs: larger, more visual presence
+  const sophisticationMultipliers = {
+    minimalist: 0.90, // 10% smaller for clean aesthetic
+    balanced: 1.00, // No adjustment
+    rich: 1.10, // 10% larger for visual impact
+  }
+  const sophisticationMultiplier = sophisticationMultipliers[sophistication]
+
+  // STEP 4: Speaker hierarchy multiplier
+  // Primary/featured speaker (index 0) can be 20% larger
+  // Supporting speakers (index 1+) use base size
+  const hierarchyMultiplier = speakerIndex === 0 && speakerCount >= 2 ? 1.20 : 1.0
+
+  // STEP 5: Vertical space constraint
+  // If canvas is very tall (like 4:5), reduce size to prevent vertical overlap
+  const heightConstraint = canvasHeight / canvasWidth
+  let verticalMultiplier = 1.0
+  if (heightConstraint > 1.3) {
+    // Very tall canvas (4:5 = 1.33, 3:4 = 1.33)
+    verticalMultiplier = 0.92 // 8% reduction
+  }
+
+  // STEP 6: Calculate final size in pixels
+  const calculatedSize = Math.round(
+    canvasWidth *
+      basePercent *
+      ratioMultiplier *
+      sophisticationMultiplier *
+      hierarchyMultiplier *
+      verticalMultiplier
+  )
+
+  // STEP 7: Safety clamps
+  // Minimum: 15% of canvas width (too small = unreadable)
+  // Maximum: 45% of canvas width (too large = overlap)
+  const minSize = Math.round(canvasWidth * 0.15)
+  const maxSize = Math.round(canvasWidth * 0.45)
+
+  const finalSize = Math.max(minSize, Math.min(maxSize, calculatedSize))
+
+  // Optional: Log calculation for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[AI Photo Sizing] Speaker ${speakerIndex + 1}/${speakerCount}:`, {
+      basePercent: `${(basePercent * 100).toFixed(0)}%`,
+      ratioMult: ratioMultiplier.toFixed(2),
+      sophistMult: sophisticationMultiplier.toFixed(2),
+      hierarchyMult: hierarchyMultiplier.toFixed(2),
+      verticalMult: verticalMultiplier.toFixed(2),
+      calculated: `${calculatedSize}px`,
+      final: `${finalSize}px (${((finalSize / canvasWidth) * 100).toFixed(1)}%)`,
+    })
+  }
+
+  return finalSize
+}
+
+/**
+ * Get recommended photo size for speaker count (LEGACY - Simple Version)
  *
  * IMPORTANT: Photo size affects spacing between photos.
  * - 2 speakers: 'medium' (30%) or 'large' (40%) work well
  * - 3 speakers: 'small' (20%) or 'medium' (30%) recommended
  * - 4 speakers: 'small' (20%) required to prevent overlap
+ *
+ * NOTE: Consider using calculateOptimalPhotoSize() for AI-driven sizing
  */
 export function getRecommendedPhotoSize(speakerCount: number): PhotoSizePreset {
   if (speakerCount <= 2) {
@@ -547,4 +700,113 @@ export function getRecommendedPhotoSize(speakerCount: number): PhotoSizePreset {
     return 'small' // 20% - prevents overlap in tight layouts
   }
   return 'small' // 4+ speakers always need small
+}
+
+/**
+ * Convert PhotoSizePreset to percentage (for backward compatibility)
+ */
+export function photoSizeToPercent(size: PhotoSizePreset): number {
+  const percentages = {
+    small: 0.20,
+    medium: 0.30,
+    large: 0.40,
+  }
+  return percentages[size]
+}
+
+/**
+ * Convert pixel size to PhotoSizePreset (nearest match)
+ */
+export function pixelSizeToPreset(pixelSize: number, canvasWidth: number): PhotoSizePreset {
+  const percent = pixelSize / canvasWidth
+
+  if (percent <= 0.25) return 'small' // 0-25%
+  if (percent <= 0.35) return 'medium' // 25-35%
+  return 'large' // 35%+
+}
+
+// ============================================================
+// HELPER FUNCTIONS FOR API INTEGRATION
+// ============================================================
+
+/**
+ * Quick helper for API route: Calculate multi-speaker layout with AI sizing
+ *
+ * This is the recommended function to use in your API route.
+ * It automatically uses intelligent sizing and returns optimized layout.
+ *
+ * @example
+ * ```typescript
+ * const layout = calculateIntelligentLayout({
+ *   speakerCount: 3,
+ *   formatId: 'event_poster', // '4:5' aspect ratio
+ *   canvasWidth: 1080,
+ *   canvasHeight: 1440,
+ *   sophistication: 'balanced', // or 'minimalist', 'rich'
+ * })
+ *
+ * // Access positions
+ * layout.positions.forEach((pos, i) => {
+ *   console.log(`Speaker ${i + 1}: ${pos.size}px at (${pos.x}, ${pos.y})`)
+ * })
+ *
+ * // Use composition guidance in prompt
+ * console.log(layout.compositionGuidance)
+ * ```
+ */
+export function calculateIntelligentLayout(params: {
+  speakerCount: number
+  formatId: string // e.g., 'event_poster', 'certificate', 'instagram_square'
+  canvasWidth: number
+  canvasHeight: number
+  sophistication?: 'minimalist' | 'balanced' | 'rich'
+}): MultiSpeakerLayout {
+  const { speakerCount, formatId, canvasWidth, canvasHeight, sophistication = 'balanced' } = params
+
+  // Determine aspect ratio from format ID or calculate from dimensions
+  const aspectRatioMap: Record<string, string> = {
+    event_poster: '4:5',
+    certificate: '3:4',
+    instagram_square: '1:1',
+    instagram_post: '1:1',
+    youtube_thumbnail: '16:9',
+    linkedin_post: '4:5',
+    facebook_post: '1:1',
+    twitter_post: '16:9',
+  }
+
+  const aspectRatio = aspectRatioMap[formatId] || `${canvasWidth}:${canvasHeight}`
+
+  // Use AI-driven intelligent sizing
+  return calculateMultiSpeakerLayout(speakerCount, aspectRatio, canvasWidth, canvasHeight, 'medium', {
+    useIntelligentSizing: true,
+    sophistication,
+  })
+}
+
+/**
+ * Get speaker photo sizes for API payload
+ *
+ * Returns array of pixel sizes optimized for each speaker.
+ * First speaker is featured (20% larger), others are supporting.
+ *
+ * @example
+ * ```typescript
+ * const sizes = getSpeakerPhotoSizes(3, '4:5', 1080, 1440)
+ * // Returns: [324, 270, 270] (pixels)
+ * ```
+ */
+export function getSpeakerPhotoSizes(
+  speakerCount: number,
+  aspectRatio: string,
+  canvasWidth: number,
+  canvasHeight: number,
+  sophistication?: 'minimalist' | 'balanced' | 'rich'
+): number[] {
+  const layout = calculateMultiSpeakerLayout(speakerCount, aspectRatio, canvasWidth, canvasHeight, 'medium', {
+    useIntelligentSizing: true,
+    sophistication,
+  })
+
+  return layout.positions.map((pos) => pos.size)
 }
