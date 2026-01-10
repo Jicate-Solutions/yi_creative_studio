@@ -1376,14 +1376,27 @@ export async function processImageWithSpeakerPhoto(
 
   // Multi-speaker mode
   if (normalized.speakers && normalized.speakers.length > 0) {
+    // CRITICAL: Filter to only speakers WITH photos
+    // Some speakers may not have photos uploaded yet
+    const speakersWithPhotos = normalized.speakers.filter(
+      speaker => speaker.photoUrl && speaker.photoUrl.trim() !== ''
+    )
+
+    if (speakersWithPhotos.length === 0) {
+      console.log('[Speaker Overlay] No speakers with photos to overlay')
+      return imageDataUrl
+    }
+
     console.log('[Speaker Overlay] Using multi-speaker overlay')
+    console.log(`[Speaker Overlay] Overlaying ${speakersWithPhotos.length} of ${normalized.speakers.length} speakers (filtered to only those with photos)`)
     console.log('[Speaker Overlay] Position settings:', {
       position: normalized.position,
       verticalPosition: normalized.verticalPosition,
     })
+
     resultBuffer = await overlayMultipleSpeakerPhotos({
       baseImageBuffer: imageBuffer,
-      speakers: normalized.speakers,
+      speakers: speakersWithPhotos,  // Pass only speakers WITH photos
       sharedSettings: {
         shape: normalized.shape,
         size: normalized.size,
