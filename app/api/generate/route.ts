@@ -197,10 +197,11 @@ async function uploadImageToStorage(
 import { getFormatEnhancement } from '@/lib/config/format-enhancements'
 
 export async function POST(request: NextRequest) {
-  // Declare speaker variables at function scope to prevent Turbopack scope issues
+  // Declare speaker/layout variables at function scope to prevent Turbopack scope issues
   let speakerCount = 0
   let speakerCountWithPhotos = 0
   let multiSpeakerLayout: MultiSpeakerLayout | null = null
+  let speakerPhotoZoneCoordinates: ReturnType<typeof calculateSpeakerPhotoCoordinates> | undefined
 
   try {
     const supabase = await createClient()
@@ -1321,7 +1322,7 @@ export async function POST(request: NextRequest) {
         // This enables coordination between Gemini generation and Sharp overlay
         // v6.5.1: Added selectedFormat null check to prevent crash
         // v6.5.2: Added explicit width/height checks to prevent undefined property access
-        let speakerPhotoZoneCoordinates: ReturnType<typeof calculateSpeakerPhotoCoordinates> | undefined
+        // v20.2: speakerPhotoZoneCoordinates now declared at function scope (line 204)
         if (buildOptions.speakerPhotoConfig && originalSpeakerPhotoConfig && selectedFormat?.width && selectedFormat?.height) {
           // v6.9: Updated to match design spec (25-40% of poster width)
           // For 1080px width: small=26%, medium=30%, large=35%
