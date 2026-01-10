@@ -2700,7 +2700,21 @@ function buildDesignPromptWithFormat(
     enhancedPrompt += `- This ensures clean footer overlay without text collision\n\n`
 
     if (speakerCountWithPhotos === 1) {
-      enhancedPrompt += `SPEAKER PHOTO: 1 circular speaker photo will be overlaid. Position speaker details text ABOVE the anticipated photo location (typically 60-75% vertical position) to avoid overlap.\n\n`
+      // Use exact coordinates if available, otherwise use typical range
+      if (speakerPhotoZoneCoordinates && dimensions) {
+        const photoTopPercent = Math.round((speakerPhotoZoneCoordinates.topEdge / dimensions.height) * 100)
+        const photoBottomPercent = Math.round((speakerPhotoZoneCoordinates.bottomEdge / dimensions.height) * 100)
+        const photoCenterPercent = Math.round(((speakerPhotoZoneCoordinates.y + speakerPhotoZoneCoordinates.height / 2) / dimensions.height) * 100)
+
+        enhancedPrompt += `SPEAKER PHOTO ZONE: 1 circular speaker photo will be overlaid at ${photoCenterPercent}% vertical position (from ${photoTopPercent}% to ${photoBottomPercent}%).\n`
+        enhancedPrompt += `- Position speaker details (name, designation) ABOVE ${photoTopPercent}% to avoid overlap with photo\n`
+        enhancedPrompt += `- Recommended speaker details zone: 55-${photoTopPercent - 2}%\n`
+        enhancedPrompt += `- Ensure clean spacing between speaker name text and photo circle\n\n`
+
+        console.log(`[Text Zones] Injected exact speaker photo coordinates: ${photoCenterPercent}% center (${photoTopPercent}-${photoBottomPercent}%)`)
+      } else {
+        enhancedPrompt += `SPEAKER PHOTO: 1 circular speaker photo will be overlaid. Position speaker details text ABOVE the anticipated photo location (typically 60-75% vertical position) to avoid overlap.\n\n`
+      }
     }
 
     console.log(`[Text Zones] Injected footer zone constraint for ${speakerCountWithPhotos} speaker(s) without AI layout`)
