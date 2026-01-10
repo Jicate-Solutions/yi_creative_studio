@@ -2730,7 +2730,11 @@ function buildDesignPromptWithFormat(
     enhancedPrompt += `- Date/Venue: ${multiSpeakerLayout.textZoneAdjustments.dateVenue.start}-${multiSpeakerLayout.textZoneAdjustments.dateVenue.end}%\n`
     enhancedPrompt += `- Speaker Details: ${multiSpeakerLayout.textZoneAdjustments.speakers.start}-${multiSpeakerLayout.textZoneAdjustments.speakers.end}%\n`
     enhancedPrompt += `- Additional Details: ${multiSpeakerLayout.textZoneAdjustments.additionalDetails.start}-${multiSpeakerLayout.textZoneAdjustments.additionalDetails.end}%\n\n`
-    enhancedPrompt += `SPEAKER PHOTOS: ${multiSpeakerLayout.positions.length} circular speaker photos will be overlaid at calculated positions. Ensure decorative elements and background visuals avoid these zones to prevent overlap.\n\n`
+    enhancedPrompt += `SPEAKER PHOTOS OVERLAY ZONES: ${multiSpeakerLayout.positions.length} circular speaker photos will be overlaid at calculated positions.\n`
+    enhancedPrompt += `- These zones MUST have CLEAN, SIMPLE backgrounds (solid colors, subtle gradients, or soft blur)\n`
+    enhancedPrompt += `- Do NOT place decorative elements, patterns, textures, or complex visuals in these circular zones\n`
+    enhancedPrompt += `- Use light, neutral background colors in photo zones for professional integration\n`
+    enhancedPrompt += `- Decorative elements should be placed AROUND the photo zones, not underneath them\n\n`
 
     console.log('[Multi-Speaker] Injected composition guidance into prompt')
   }
@@ -2751,14 +2755,21 @@ function buildDesignPromptWithFormat(
         const photoBottomPercent = Math.round((speakerPhotoZoneCoordinates.bottomEdge / dimensions.height) * 100)
         const photoCenterPercent = Math.round(((speakerPhotoZoneCoordinates.y + speakerPhotoZoneCoordinates.height / 2) / dimensions.height) * 100)
 
-        enhancedPrompt += `SPEAKER PHOTO ZONE: 1 circular speaker photo will be overlaid at ${photoCenterPercent}% vertical position (from ${photoTopPercent}% to ${photoBottomPercent}%).\n`
+        enhancedPrompt += `SPEAKER PHOTO OVERLAY ZONE: 1 circular speaker photo will be overlaid at ${photoCenterPercent}% vertical position (from ${photoTopPercent}% to ${photoBottomPercent}%).\n`
+        enhancedPrompt += `- This circular zone MUST have a CLEAN, SIMPLE background (solid color, subtle gradient, or soft blur)\n`
+        enhancedPrompt += `- Do NOT place decorative elements, patterns, textures, or complex visuals in this circular area\n`
+        enhancedPrompt += `- Use a light, neutral background color in the photo zone for professional photo integration\n`
         enhancedPrompt += `- Position speaker details (name, designation) ABOVE ${photoTopPercent}% to avoid overlap with photo\n`
         enhancedPrompt += `- Recommended speaker details zone: 55-${photoTopPercent - 2}%\n`
-        enhancedPrompt += `- Ensure clean spacing between speaker name text and photo circle\n\n`
+        enhancedPrompt += `- Decorative elements should be placed AROUND the photo zone, not underneath it\n\n`
 
         console.log(`[Text Zones] Injected exact speaker photo coordinates: ${photoCenterPercent}% center (${photoTopPercent}-${photoBottomPercent}%)`)
       } else {
-        enhancedPrompt += `SPEAKER PHOTO: 1 circular speaker photo will be overlaid. Position speaker details text ABOVE the anticipated photo location (typically 60-75% vertical position) to avoid overlap.\n\n`
+        enhancedPrompt += `SPEAKER PHOTO OVERLAY ZONE: 1 circular speaker photo will be overlaid (typically 60-75% vertical position).\n`
+        enhancedPrompt += `- This circular zone MUST have a CLEAN, SIMPLE background (solid color, subtle gradient, or soft blur)\n`
+        enhancedPrompt += `- Do NOT place decorative elements, patterns, or textures in the anticipated photo area\n`
+        enhancedPrompt += `- Use a light, neutral background in the photo zone for professional integration\n`
+        enhancedPrompt += `- Position speaker details text ABOVE the photo location to avoid overlap\n\n`
       }
     }
 
