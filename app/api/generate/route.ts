@@ -808,12 +808,14 @@ export async function POST(request: NextRequest) {
       // for 2+ speakers with hierarchy, footer zone validation
       // ========================================================
       let multiSpeakerLayout: MultiSpeakerLayout | null = null
+      let speakerCountWithPhotos = 0  // Hoisted to top level for accessibility
+      let totalSpeakers = 0             // Hoisted for logging consistency
 
       if (speakerPhotoConfig) {
         // CRITICAL: Count only speakers WITH photos, not total speakers
         // Example: 3 speakers total, but only 1 has photo → count = 1
-        const speakerCountWithPhotos = getSpeakerCountWithPhotos(speakerPhotoConfig)
-        const totalSpeakers = speakerPhotoConfig.speakers?.length || 0
+        speakerCountWithPhotos = getSpeakerCountWithPhotos(speakerPhotoConfig)
+        totalSpeakers = speakerPhotoConfig.speakers?.length || 0
 
         if (speakerCountWithPhotos > 1) {
           console.log(`[Multi-Speaker] Calculating intelligent layout for ${speakerCountWithPhotos} speakers WITH photos (${totalSpeakers} total speakers)`)
