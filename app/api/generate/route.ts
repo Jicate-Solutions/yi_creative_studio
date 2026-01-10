@@ -197,9 +197,10 @@ async function uploadImageToStorage(
 import { getFormatEnhancement } from '@/lib/config/format-enhancements'
 
 export async function POST(request: NextRequest) {
-  // Declare speaker count variables at function scope to prevent Turbopack scope issues
+  // Declare speaker variables at function scope to prevent Turbopack scope issues
   let speakerCount = 0
   let speakerCountWithPhotos = 0
+  let multiSpeakerLayout: MultiSpeakerLayout | null = null
 
   try {
     const supabase = await createClient()
@@ -811,8 +812,7 @@ export async function POST(request: NextRequest) {
       // MULTI-SPEAKER AI LAYOUT: Calculate intelligent positioning
       // for 2+ speakers with hierarchy, footer zone validation
       // ========================================================
-      let multiSpeakerLayout: MultiSpeakerLayout | null = null
-      let totalSpeakers = 0             // Hoisted for logging consistency
+      let totalSpeakers = 0             // Local variable for speaker tracking
 
       if (speakerPhotoConfig) {
         // CRITICAL: Count only speakers WITH photos, not total speakers
@@ -1500,8 +1500,22 @@ export async function POST(request: NextRequest) {
         // v4.3: Removed form data sanitization - speaker TEXT should flow through for rendering
         // The "no placeholder" instruction is added in format builders instead
 
+        // v20.0: Filter speakers to only include those WITH photos for prompt
+        // This prevents Gemini from rendering zones for speakers without photos
+        const filteredFormData = { ...userFormData }
+        if (filteredFormData.speakers && Array.isArray(filteredFormData.speakers)) {
+          const originalCount = filteredFormData.speakers.length
+          filteredFormData.speakers = filteredFormData.speakers.filter((speaker: any) =>
+            speaker.photoUrl && speaker.photoUrl.trim() !== ''
+          )
+          const filteredCount = filteredFormData.speakers.length
+          if (filteredCount < originalCount) {
+            console.log(`[Generate] Filtered speakers for prompt: ${filteredCount} WITH photos (${originalCount} total)`)
+          }
+        }
+
         // Build XML-structured prompt using YiPromptBuilder
-        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, {
+        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, filteredFormData || {}, {
           ...buildOptions,
           // v6.5: Pass calculated speaker photo coordinates to prompt builder
           speakerPhotoZoneCoordinates,
@@ -1700,8 +1714,21 @@ ${typographyProfile.hierarchy}
           formatSize: (userFormData?.size as string) || (userFormData?.bannerSize as string) || undefined,
         }
 
-        // Build v3.0 prompt for template adaptation (v4.3: using raw userFormData)
-        templatePrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, templateBuildOptions)
+        // v20.0: Filter speakers to only include those WITH photos for prompt (template mode)
+        const templateFilteredFormData = { ...userFormData }
+        if (templateFilteredFormData.speakers && Array.isArray(templateFilteredFormData.speakers)) {
+          const originalCount = templateFilteredFormData.speakers.length
+          templateFilteredFormData.speakers = templateFilteredFormData.speakers.filter((speaker: any) =>
+            speaker.photoUrl && speaker.photoUrl.trim() !== ''
+          )
+          const filteredCount = templateFilteredFormData.speakers.length
+          if (filteredCount < originalCount) {
+            console.log(`[Template Mode] Filtered speakers for prompt: ${filteredCount} WITH photos (${originalCount} total)`)
+          }
+        }
+
+        // Build v3.0 prompt for template adaptation (v4.3: using filtered userFormData)
+        templatePrompt = YiPromptBuilder.buildPrompt(formatId, templateFilteredFormData || {}, templateBuildOptions)
         console.log('[Template Mode] v3.0 Prompt Preview:', templatePrompt.substring(0, 500))
       }
 
