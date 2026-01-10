@@ -1009,6 +1009,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
   layoutMode: LayoutMode
   layoutStrategy?: LayoutStrategy
   spacing?: number
+  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number }  // v20.4: Skip AI positioning when provided
 }): Promise<Buffer> {
   const {
     baseImageBuffer,
@@ -1017,6 +1018,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
     layoutMode,
     layoutStrategy,
     spacing = 20,
+    preCalculatedCoordinates,  // v20.4: Pre-calculated coordinates to skip AI positioning
   } = config
 
   if (!speakers || speakers.length === 0) {
@@ -1040,7 +1042,15 @@ export async function overlayMultipleSpeakerPhotos(config: {
   // v6.14 INTELLIGENT POSITIONING: Analyze image to find safe overlay zones
   let positions: Array<{ x: number; y: number }>
 
-  if (speakers.length === 1) {
+  // v20.4: BYPASS AI POSITIONING when pre-calculated coordinates are provided
+  // This ensures the user's selected position (left/right/center) and size (small/medium/large) are respected
+  if (preCalculatedCoordinates && speakers.length === 1) {
+    console.log('[Speaker Overlay v20.4] ✅ Using PRE-CALCULATED coordinates (skipping AI positioning)')
+    console.log(`[Speaker Overlay v20.4] User's position: (${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})`)
+    console.log(`[Speaker Overlay v20.4] User's size: ${preCalculatedCoordinates.width}px (total with effects)`)
+    positions = [{ x: preCalculatedCoordinates.x, y: preCalculatedCoordinates.y }]
+  }
+  else if (speakers.length === 1) {
     // v6.15: STEP 1 - Detect speaker text position using Gemini Vision
     const shouldAddShadow = sharedSettings.shadow !== false
     const shadowPadding = shouldAddShadow ? 18 : 0
@@ -1324,7 +1334,8 @@ export async function overlaySpeakerPhotoOnImage(config: SpeakerOverlayConfig): 
  */
 export async function processImageWithSpeakerPhoto(
   imageDataUrl: string,
-  speakerPhoto: SpeakerPhotoCustomization
+  speakerPhoto: SpeakerPhotoCustomization,
+  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number }
 ): Promise<string> {
   // Normalize config (handles migration from legacy to new format)
   const normalized = normalizeSpeakerConfig(speakerPhoto)
@@ -1395,6 +1406,7 @@ export async function processImageWithSpeakerPhoto(
       layoutMode: normalized.layoutMode || 'auto',
       layoutStrategy: normalized.layoutStrategy,
       spacing: normalized.spacing || 20,
+      preCalculatedCoordinates,  // v20.4: Pass pre-calculated coordinates to skip AI positioning
     })
   }
   // Legacy single speaker mode (backward compatibility)

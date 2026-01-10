@@ -2090,7 +2090,12 @@ ${typographyProfile.hierarchy}
         // Fallback to existing flow for single speaker or invalid layout
         else {
           console.log('[Generate API] Using standard speaker overlay flow')
-          imageUrl = await processImageWithSpeakerPhoto(imageUrl, normalizedSpeakerPhoto)
+          // v20.4: Pass pre-calculated coordinates to skip AI positioning and respect user's selections
+          imageUrl = await processImageWithSpeakerPhoto(
+            imageUrl,
+            normalizedSpeakerPhoto,
+            speakerPhotoZoneCoordinates  // When defined, overlay uses user's exact position/size instead of AI override
+          )
           console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speaker photo${speakerCountWithPhotos > 1 ? 's' : ''}`)
         }
       } catch (error) {
