@@ -66,7 +66,9 @@ function calculateYPosition(
   verticalPosition: PhotoVerticalPosition | undefined,
   imageHeight: number,
   photoSize: number,  // CRITICAL: Must include shadow padding
-  padding: number
+  padding: number,
+  headerHeight: number = 0,  // v20.7: Header zone height to prevent overlap with logo bar
+  footerHeight: number = 0   // v20.7: Footer zone height to prevent overlap with footer bar
 ): number {
   // Percentages define where photo CENTER should be
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
@@ -80,11 +82,26 @@ function calculateYPosition(
   const percentage = positionPercentages[verticalPosition || 'lower'] || 0.65
   const baseY = Math.floor(imageHeight * percentage)
 
-  // Ensure photo stays within bounds with padding
-  const maxY = imageHeight - photoSize - padding
-  const minY = padding
+  // v20.7: CRITICAL - minY must account for header zone to prevent overlap with logo bar
+  // Previously only used padding (40px), causing overlap when header is 300+ px
+  const minY = Math.max(padding, headerHeight + padding)
 
-  return Math.max(minY, Math.min(baseY - Math.floor(photoSize / 2), maxY))
+  // v20.7: CRITICAL - maxY must account for footer zone to prevent overlap with footer bar
+  const maxY = imageHeight - photoSize - Math.max(padding, footerHeight + padding)
+
+  // v20.7: Log if position was adjusted due to zone constraints
+  const calculatedY = baseY - Math.floor(photoSize / 2)
+  const finalY = Math.max(minY, Math.min(calculatedY, maxY))
+
+  if (finalY !== calculatedY) {
+    console.log(`[Speaker Y-Position v20.7] Position adjusted for zone safety:`)
+    console.log(`  - Requested: ${verticalPosition || 'lower'} (${Math.round(percentage * 100)}%) → ${calculatedY}px`)
+    console.log(`  - Header zone: ${headerHeight}px, Footer zone: ${footerHeight}px`)
+    console.log(`  - Safe range: ${minY}px - ${maxY}px`)
+    console.log(`  - Final Y: ${finalY}px (${finalY > calculatedY ? 'pushed down' : 'pushed up'})`)
+  }
+
+  return finalY
 }
 
 /**
@@ -103,7 +120,11 @@ export function calculateSpeakerPhotoCoordinates(
     borderWidth?: number
     shadow?: boolean  // NEW: Shadow toggle (defaults to true for backward compatibility)
   },
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  zoneConstraints?: {  // v20.7: Zone constraints to prevent overlap with logo bars
+    headerHeight?: number  // Height of header logo zone (pixels)
+    footerHeight?: number  // Height of footer logo zone (pixels)
+  }
 ): {
   x: number
   y: number
@@ -113,6 +134,7 @@ export function calculateSpeakerPhotoCoordinates(
   bottomEdge: number
   leftEdge: number
   rightEdge: number
+  photoSize: number  // v20.6: Original photo size (base size, without border/shadow)
 } {
   const padding = 40
   const borderWidth = config.borderWidth || 0
@@ -123,8 +145,12 @@ export function calculateSpeakerPhotoCoordinates(
   const shadowPadding = shouldAddShadow ? 18 : 0
   const totalPhotoSize = config.size + borderWidth * 2 + shadowPadding * 2
 
+  // v20.7: Extract zone constraints
+  const headerHeight = zoneConstraints?.headerHeight || 0
+  const footerHeight = zoneConstraints?.footerHeight || 0
+
   const x = calculateXPosition(config.position, dimensions.width, totalPhotoSize, padding)
-  const y = calculateYPosition(config.verticalPosition, dimensions.height, totalPhotoSize, padding)
+  const y = calculateYPosition(config.verticalPosition, dimensions.height, totalPhotoSize, padding, headerHeight, footerHeight)
 
   // v6.7 DEBUG: Log coordinate calculation for System 1 (Gemini prompts)
   console.log('[Coord System 1] calculateSpeakerPhotoCoordinates():')
@@ -132,8 +158,10 @@ export function calculateSpeakerPhotoCoordinates(
   console.log(`  - Shadow: shouldAdd=${shouldAddShadow}, padding=${shadowPadding}px`)
   console.log(`  - Total size: ${totalPhotoSize}px (size + border*2 + shadow*2)`)
   console.log(`  - Image dimensions: ${dimensions.width}x${dimensions.height}`)
+  console.log(`  - v20.7: Zone constraints: header=${headerHeight}px, footer=${footerHeight}px`)
   console.log(`  - Calculated X: ${x}, Y: ${y}`)
   console.log(`  - Base calculation: (${dimensions.width} - ${totalPhotoSize}) / 2 = ${(dimensions.width - totalPhotoSize) / 2}`)
+  console.log(`  - v20.6: Returning photoSize=${config.size}px (original, for direct use)`)
 
   return {
     x,
@@ -144,6 +172,7 @@ export function calculateSpeakerPhotoCoordinates(
     bottomEdge: y + totalPhotoSize,
     leftEdge: x,
     rightEdge: x + totalPhotoSize,
+    photoSize: config.size,  // v20.6: Return original size for direct use (no reverse-calculation needed)
   }
 }
 
@@ -1009,7 +1038,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
   layoutMode: LayoutMode
   layoutStrategy?: LayoutStrategy
   spacing?: number
-  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number }  // v20.4: Skip AI positioning when provided
+  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number; photoSize?: number }  // v20.6: Skip AI positioning and use exact size when provided
 }): Promise<Buffer> {
   const {
     baseImageBuffer,
@@ -1042,21 +1071,30 @@ export async function overlayMultipleSpeakerPhotos(config: {
   // v6.14 INTELLIGENT POSITIONING: Analyze image to find safe overlay zones
   let positions: Array<{ x: number; y: number }>
 
-  // v20.4 DEBUG: Log the state of preCalculatedCoordinates check
-  console.log('[Speaker Overlay v20.4] Positioning decision:', {
+  // v20.6 DEBUG: Log the state of preCalculatedCoordinates check
+  console.log('[Speaker Overlay v20.6] Positioning decision:', {
     hasPreCalculatedCoords: !!preCalculatedCoordinates,
     speakersLength: speakers.length,
     willUsePreCalculated: !!(preCalculatedCoordinates && speakers.length === 1),
     coords: preCalculatedCoordinates ? `(${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})` : 'N/A',
+    photoSize: preCalculatedCoordinates?.photoSize ?? 'N/A',  // v20.6: Log original photo size
+    currentSharedSize: sharedSettings.size,  // v20.6: Log current sharedSettings.size for comparison
   })
 
-  // v20.4: BYPASS AI POSITIONING when pre-calculated coordinates are provided
+  // v20.6: BYPASS AI POSITIONING when pre-calculated coordinates are provided
   // This ensures the user's selected position (left/right/center) and size (small/medium/large) are respected
+  // CRITICAL: Also lock the sharedSettings.size to prevent AI from modifying it later
   if (preCalculatedCoordinates && speakers.length === 1) {
-    console.log('[Speaker Overlay v20.4] ✅ Using PRE-CALCULATED coordinates (skipping AI positioning)')
-    console.log(`[Speaker Overlay v20.4] User's position: (${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})`)
-    console.log(`[Speaker Overlay v20.4] User's size: ${preCalculatedCoordinates.width}px (total with effects)`)
+    console.log('[Speaker Overlay v20.6] ✅ Using PRE-CALCULATED coordinates (skipping AI positioning)')
+    console.log(`[Speaker Overlay v20.6] User's position: (${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})`)
+    console.log(`[Speaker Overlay v20.6] User's size: ${preCalculatedCoordinates.width}px (total with effects)`)
     positions = [{ x: preCalculatedCoordinates.x, y: preCalculatedCoordinates.y }]
+
+    // v20.6: CRITICAL - Lock the photo size to user's selection (prevents AI override)
+    if (preCalculatedCoordinates.photoSize) {
+      console.log(`[Speaker Overlay v20.6] 🔒 Locking photoSize to user's selection: ${preCalculatedCoordinates.photoSize}px`)
+      sharedSettings.size = preCalculatedCoordinates.photoSize
+    }
   }
   else if (speakers.length === 1) {
     // v6.15: STEP 1 - Detect speaker text position using Gemini Vision
@@ -1343,7 +1381,7 @@ export async function overlaySpeakerPhotoOnImage(config: SpeakerOverlayConfig): 
 export async function processImageWithSpeakerPhoto(
   imageDataUrl: string,
   speakerPhoto: SpeakerPhotoCustomization,
-  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number }
+  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number; photoSize?: number }  // v20.6: Skip AI positioning and use exact size
 ): Promise<string> {
   // Normalize config (handles migration from legacy to new format)
   const normalized = normalizeSpeakerConfig(speakerPhoto)
@@ -1399,12 +1437,13 @@ export async function processImageWithSpeakerPhoto(
       position: normalized.position,
       verticalPosition: normalized.verticalPosition,
     })
-    // v20.4 DEBUG: Check if preCalculatedCoordinates is being passed
-    console.log('[Speaker Overlay v20.4] preCalculatedCoordinates received:', preCalculatedCoordinates ? {
+    // v20.6 DEBUG: Check if preCalculatedCoordinates is being passed
+    console.log('[Speaker Overlay v20.6] preCalculatedCoordinates received:', preCalculatedCoordinates ? {
       x: preCalculatedCoordinates.x,
       y: preCalculatedCoordinates.y,
       width: preCalculatedCoordinates.width,
       height: preCalculatedCoordinates.height,
+      photoSize: preCalculatedCoordinates.photoSize,  // v20.6: Log original photo size
     } : 'UNDEFINED - will use AI positioning')
 
     resultBuffer = await overlayMultipleSpeakerPhotos({

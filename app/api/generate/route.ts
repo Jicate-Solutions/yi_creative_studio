@@ -1318,6 +1318,45 @@ export async function POST(request: NextRequest) {
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(sanitizeForLogging(buildOptions), null, 2))
 
+        // v20.7: CRITICAL - Calculate logo zone heights BEFORE speaker coordinates
+        // This prevents speaker photo from overlapping with header/footer logo bars
+        // Previously, speaker coordinates were calculated first without knowing logo zone sizes
+        let preCalculatedHeaderHeight = 0
+        let preCalculatedFooterHeight = 0
+
+        if (enhanced4RowStrip?.enabled && selectedFormat?.height) {
+          const { height } = selectedFormat
+          // Quick calculation of active rows (same logic as full calculation below)
+          const activeRowsQuick = {
+            brand: hasBrandLogos(enhanced4RowStrip),
+            vertical: hasVerticalLogos(enhanced4RowStrip),
+            initiative: hasInitiativeText(enhanced4RowStrip),
+            footer: hasFooterContent(enhanced4RowStrip.footer),
+          }
+          const activeHeaderRowCount = [activeRowsQuick.brand, activeRowsQuick.vertical, activeRowsQuick.initiative].filter(Boolean).length
+
+          // Calculate header height
+          if (activeRowsQuick.brand) preCalculatedHeaderHeight += ENHANCED_STRIP_ROW_HEIGHTS.brand
+          if (activeRowsQuick.vertical) preCalculatedHeaderHeight += ENHANCED_STRIP_ROW_HEIGHTS.vertical
+          if (activeRowsQuick.initiative) preCalculatedHeaderHeight += ENHANCED_STRIP_ROW_HEIGHTS.initiative
+          if (activeHeaderRowCount > 1) preCalculatedHeaderHeight += (activeHeaderRowCount - 1) * 8
+          preCalculatedHeaderHeight += 24 // vertical padding
+          if (activeRowsQuick.vertical) preCalculatedHeaderHeight += 60 // Row 2 card clearance
+          preCalculatedHeaderHeight = Math.min(preCalculatedHeaderHeight, height * 0.25)
+
+          // Calculate footer height
+          if (activeRowsQuick.footer) {
+            const baseFooterHeight = enhanced4RowStrip.footer?.height || 180
+            preCalculatedFooterHeight = baseFooterHeight + 88
+            preCalculatedFooterHeight = Math.min(preCalculatedFooterHeight, height * 0.18)
+          }
+
+          console.log('[Generate v20.7] Pre-calculated zone heights for speaker safety:', {
+            headerHeight: Math.round(preCalculatedHeaderHeight),
+            footerHeight: Math.round(preCalculatedFooterHeight),
+          })
+        }
+
         // v6.5: Pre-calculate speaker photo coordinates for Gemini prompt injection
         // This enables coordination between Gemini generation and Sharp overlay
         // v6.5.1: Added selectedFormat null check to prevent crash
@@ -1328,9 +1367,33 @@ export async function POST(request: NextRequest) {
           // For 1080px width: small=26%, medium=30%, large=35%
           // This provides proper visual prominence for speaker photos
           const photoSizeMap = { small: 280, medium: 320, large: 380 }
-          const photoSize = (buildOptions.speakerPhotoConfig.size && photoSizeMap[buildOptions.speakerPhotoConfig.size as keyof typeof photoSizeMap]) || 100
+          let photoSize = (buildOptions.speakerPhotoConfig.size && photoSizeMap[buildOptions.speakerPhotoConfig.size as keyof typeof photoSizeMap]) || 100
           const borderWidth = originalSpeakerPhotoConfig.border?.width || 0
 
+          // v20.8: CRITICAL FIX - Scale photo size based on TOTAL speakers, not just count with photos
+          // Scenario: 3 speakers (details) but only 1 photo uploaded
+          // Problem: Without scaling, photo is 380px ('large') which overlaps with 3-speaker text zone
+          // Solution: Scale photo to fit multi-speaker layout even if only 1 photo
+          const totalSpeakersCount = originalSpeakerPhotoConfig.speakers?.length || 1
+          const speakersWithPhotosCount = originalSpeakerPhotoConfig.speakers?.filter(s => s.photoUrl)?.length || (originalSpeakerPhotoConfig.photoUrl ? 1 : 0)
+
+          if (totalSpeakersCount > 1 && speakersWithPhotosCount === 1) {
+            // Use multi-speaker sizing to prevent overlap with speaker text zone
+            // Multi-speaker sizes are smaller: 2 speakers ~324px, 3 speakers ~270px, 4 speakers ~240px
+            const multiSpeakerSizeMap: Record<number, number> = {
+              2: 300,  // 2 speakers → ~300px each
+              3: 260,  // 3 speakers → ~260px each
+              4: 220,  // 4 speakers → ~220px each
+            }
+            const scaledSize = multiSpeakerSizeMap[totalSpeakersCount] || multiSpeakerSizeMap[4]
+            console.log(`[Generate v20.8] ⚠️ Photo size scaled for ${totalSpeakersCount}-speaker layout:`)
+            console.log(`  - Original size: ${photoSize}px (user selected '${buildOptions.speakerPhotoConfig.size}')`)
+            console.log(`  - Scaled size: ${scaledSize}px (to fit ${totalSpeakersCount} speaker text zones)`)
+            console.log(`  - Reason: ${totalSpeakersCount} speakers with details, but only ${speakersWithPhotosCount} photo`)
+            photoSize = scaledSize
+          }
+
+          // v20.7: Pass zone constraints to prevent overlap with logo bars
           speakerPhotoZoneCoordinates = calculateSpeakerPhotoCoordinates(
             {
               position: buildOptions.speakerPhotoConfig.position || 'left',
@@ -1342,6 +1405,10 @@ export async function POST(request: NextRequest) {
             {
               width: selectedFormat.width,
               height: selectedFormat.height,
+            },
+            {  // v20.7: Zone constraints to prevent overlap
+              headerHeight: preCalculatedHeaderHeight,
+              footerHeight: preCalculatedFooterHeight,
             }
           )
 
@@ -2051,19 +2118,13 @@ ${typographyProfile.hierarchy}
       // Normalize speaker config (handles migration from legacy to new format)
       const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)
 
-      // v20.1: CRITICAL - Sync overlay size with coordinate calculation
-      // The coordinate calculation maps string sizes ("large") to pixels (380px)
-      // We must extract and use the same pixel size for overlay
-      if (speakerPhotoZoneCoordinates) {
-        // Calculate the photo size from the zone dimensions (reverse engineering)
-        // Zone width = photoSize + (borderWidth * 2) + (shadowPadding * 2)
-        const borderWidth = normalizedSpeakerPhoto.border?.width || 0
-        const shadowPadding = normalizedSpeakerPhoto.shadow ? 18 : 0
-        const calculatedPhotoSize = speakerPhotoZoneCoordinates.width - (borderWidth * 2) - (shadowPadding * 2)
-
-        // Override the size to match coordinate calculation
-        normalizedSpeakerPhoto.size = calculatedPhotoSize
-        console.log(`[Generate API] v20.1: Synced overlay size with coordinates: ${calculatedPhotoSize}px (zone: ${speakerPhotoZoneCoordinates.width}px, border: ${borderWidth}px, shadow: ${shadowPadding}px)`)
+      // v20.6: CRITICAL FIX - Use original photoSize directly (no reverse-calculation)
+      // Previously, size was reverse-calculated from zone width, causing precision loss
+      // Now, calculateSpeakerPhotoCoordinates() returns the original photoSize directly
+      if (speakerPhotoZoneCoordinates && speakerPhotoZoneCoordinates.photoSize) {
+        // Use the exact size that was used in coordinate calculation
+        normalizedSpeakerPhoto.size = speakerPhotoZoneCoordinates.photoSize
+        console.log(`[Generate API] v20.6: Using ORIGINAL photoSize directly: ${speakerPhotoZoneCoordinates.photoSize}px (no reverse-calculation)`)
       }
 
       speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
@@ -2746,23 +2807,31 @@ function buildDesignPromptWithFormat(
     enhancedPrompt += `- This ensures clean footer overlay without text collision\n\n`
 
     if (speakerCountWithPhotos === 1) {
-      // v20.3: Clarify text rendering for ALL speakers vs photo overlay for SOME
-      if (speakerCount > speakerCountWithPhotos) {
-        enhancedPrompt += `SPEAKER TEXT RENDERING: Render text details (name, designation) for ALL ${speakerCount} speakers listed in the content.\n`
-        enhancedPrompt += `- Only ${speakerCountWithPhotos} speaker(s) will have a photo overlay - the rest are text-only\n`
-        enhancedPrompt += `- Position all speaker text details in the 55-75% vertical zone\n`
-        enhancedPrompt += `- Use consistent typography and spacing for all speakers\n\n`
-      }
-
       // Use exact coordinates if available, otherwise use typical range
       if (speakerPhotoZoneCoordinates && dimensions) {
         const photoTopPercent = Math.round((speakerPhotoZoneCoordinates.topEdge / dimensions.height) * 100)
         const photoBottomPercent = Math.round((speakerPhotoZoneCoordinates.bottomEdge / dimensions.height) * 100)
         const photoCenterPercent = Math.round(((speakerPhotoZoneCoordinates.y + speakerPhotoZoneCoordinates.height / 2) / dimensions.height) * 100)
 
+        // v20.8: CRITICAL - Position speaker text ABOVE photo zone to prevent overlap
+        // Calculate dynamic text zone that ends before photo starts
+        const speakerTextZoneStart = Math.max(35, photoTopPercent - 25) // At least 25% above photo top
+        const speakerTextZoneEnd = Math.max(45, photoTopPercent - 5)    // End 5% above photo top
+
+        // v20.3: Clarify text rendering for ALL speakers vs photo overlay for SOME
+        if (speakerCount > speakerCountWithPhotos) {
+          enhancedPrompt += `SPEAKER TEXT RENDERING: Render text details (name, designation) for ALL ${speakerCount} speakers listed in the content.\n`
+          enhancedPrompt += `- Only ${speakerCountWithPhotos} speaker(s) will have a photo overlay - the rest are text-only\n`
+          enhancedPrompt += `- CRITICAL: Position speaker text ABOVE photo zone (${speakerTextZoneStart}-${speakerTextZoneEnd}% vertical)\n`
+          enhancedPrompt += `- DO NOT place speaker text in the photo zone (${photoTopPercent}-${photoBottomPercent}%)\n`
+          enhancedPrompt += `- Use consistent typography and spacing for all speakers\n\n`
+          console.log(`[Text Zones v20.8] Dynamic speaker text zone: ${speakerTextZoneStart}-${speakerTextZoneEnd}% (above photo at ${photoTopPercent}-${photoBottomPercent}%)`)
+        }
+
         enhancedPrompt += `SPEAKER PHOTO OVERLAY ZONE: 1 circular speaker photo will be overlaid at ${photoCenterPercent}% vertical position (from ${photoTopPercent}% to ${photoBottomPercent}%).\n`
         enhancedPrompt += `- This circular zone MUST have a CLEAN, SIMPLE background (solid color, subtle gradient, or soft blur)\n`
         enhancedPrompt += `- Do NOT place decorative elements, patterns, textures, or complex visuals in this circular area\n`
+        enhancedPrompt += `- Do NOT place speaker text/names in this zone - position them ABOVE the photo\n`
         enhancedPrompt += `- Use a light, neutral background color in the photo zone for professional photo integration\n`
         enhancedPrompt += `- Decorative elements should be placed AROUND the photo zone, not underneath it\n\n`
 
