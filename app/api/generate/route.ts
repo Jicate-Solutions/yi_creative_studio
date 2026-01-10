@@ -197,6 +197,10 @@ async function uploadImageToStorage(
 import { getFormatEnhancement } from '@/lib/config/format-enhancements'
 
 export async function POST(request: NextRequest) {
+  // Declare speaker count variables at function scope to prevent Turbopack scope issues
+  let speakerCount = 0
+  let speakerCountWithPhotos = 0
+
   try {
     const supabase = await createClient()
 
@@ -808,9 +812,7 @@ export async function POST(request: NextRequest) {
       // for 2+ speakers with hierarchy, footer zone validation
       // ========================================================
       let multiSpeakerLayout: MultiSpeakerLayout | null = null
-      let speakerCountWithPhotos = 0  // Hoisted to top level for accessibility
       let totalSpeakers = 0             // Hoisted for logging consistency
-      let speakerCount = 0              // Hoisted for consistent scoping
 
       if (speakerPhotoConfig) {
         // CRITICAL: Count only speakers WITH photos, not total speakers
