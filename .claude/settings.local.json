@@ -268,7 +268,16 @@
       "Bash(del /F \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\.next\\\\dev\\\\lock\")",
       "Bash(rm:*)",
       "Bash(claude --version)",
-      "Bash(claude update:*)"
+      "Bash(claude update:*)",
+      "Bash($timestamp = Get-Date -Format \"yyyyMMdd_HHmmss\")",
+      "Bash($backupDir = \".backups/flash-fix-$timestamp\")",
+      "Bash(New-Item -ItemType Directory -Path $backupDir -Force)",
+      "Bash(Out-Null)",
+      "Bash(Copy-Item \"app/api/generate/route.ts\" \"$backupDir/generate-route.ts.backup\")",
+      "Bash(Copy-Item \"lib/sharp/logo-overlay.ts\" \"$backupDir/logo-overlay.ts.backup\")",
+      "Bash(Write-Host \"✅ Backups created at: $backupDir\")",
+      "Bash(Get-ChildItem $backupDir)",
+      "Bash(Format-Table Name, Length -AutoSize)"
     ],
     "deny": [],
     "ask": [],

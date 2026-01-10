@@ -66,6 +66,7 @@ export type OrganizationType = keyof typeof ORGANIZATION_TYPES
 
 // User Roles
 export const USER_ROLES = {
+  super_admin: { label: 'Super Admin', permissions: ['platform'] },
   admin: { label: 'Admin', permissions: ['read', 'write', 'delete', 'manage'] },
   editor: { label: 'Editor', permissions: ['read', 'write'] },
   viewer: { label: 'Viewer', permissions: ['read'] },

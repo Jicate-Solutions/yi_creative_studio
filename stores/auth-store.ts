@@ -14,6 +14,9 @@ interface AuthState {
   serverHydrated: boolean // Flag to prevent double data fetching
   _hasHydrated: boolean // Flag to track Zustand store rehydration from localStorage
 
+  // Super Admin state (platform-level)
+  isSuperAdmin: boolean
+
   // Organization state
   currentOrganization: Organization | null
   membership: OrganizationMember | null
@@ -36,6 +39,11 @@ interface AuthState {
   getUserRole: () => UserRole | null
   canEdit: () => boolean
   canManage: () => boolean
+
+  // Super Admin helpers
+  checkSuperAdmin: () => boolean
+  canAccessPlatformDashboard: () => boolean
+  canImpersonateUsers: () => boolean
 }
 
 const initialState = {
@@ -46,6 +54,7 @@ const initialState = {
   isAuthenticated: false,
   serverHydrated: false,
   _hasHydrated: false,
+  isSuperAdmin: false,
   currentOrganization: null,
   membership: null,
   organizations: [],
@@ -59,6 +68,7 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({
         user,
         isAuthenticated: !!user,
+        isSuperAdmin: (user as any)?.is_super_admin === true, // Update Super Admin flag
       }),
 
       setSession: (session) => set({ session }),
@@ -101,11 +111,25 @@ export const useAuthStore = create<AuthState>()(
         const role = get().getUserRole()
         return role === 'admin'
       },
+
+      // Super Admin helpers
+      checkSuperAdmin: () => {
+        return get().isSuperAdmin
+      },
+
+      canAccessPlatformDashboard: () => {
+        return get().isSuperAdmin
+      },
+
+      canImpersonateUsers: () => {
+        return get().isSuperAdmin
+      },
     }),
     {
       name: 'yi-auth-store',
       partialize: (state) => ({
         currentOrganization: state.currentOrganization,
+        isSuperAdmin: state.isSuperAdmin, // Persist Super Admin flag
       }),
       onRehydrateStorage: () => () => {
         // Mark store as hydrated after localStorage data is restored

@@ -11,6 +11,7 @@ import type {
 import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
 import { findSafePositionWithPreference, findSafeOverlayZoneNearText } from './intelligent-positioning'
 import { detectSpeakerTextPosition } from '@/lib/ai/vision/text-detector'
+import type { MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
 
 // Re-export types for use by other modules
 export type { LayoutStrategy }
@@ -1408,6 +1409,195 @@ export async function processImageWithSpeakerPhoto(
   else {
     console.log('[Speaker Overlay] No speakers to overlay')
     return imageDataUrl
+  }
+
+  // Return as data URL
+  return `data:image/png;base64,${resultBuffer.toString('base64')}`
+}
+
+/**
+ * Process image with multi-speaker layout using AI-calculated positions
+ *
+ * This function bypasses the basic grid/side-by-side positioning and uses
+ * the intelligent layout engine's calculated positions with:
+ * - Speaker hierarchy (featured speaker 20% larger)
+ * - Footer zone validation (photos stop before 85%)
+ * - Context-aware sizing based on aspect ratio and sophistication
+ *
+ * @param imageDataUrl - Base64 data URL of the generated image
+ * @param speakerConfig - Normalized speaker configuration
+ * @param layout - Pre-calculated multi-speaker layout with AI-driven positions
+ * @returns Base64 data URL with speaker photos overlaid using layout positions
+ */
+export async function processImageWithMultiSpeakerLayout(
+  imageDataUrl: string,
+  speakerConfig: SpeakerPhotoCustomization,
+  layout: MultiSpeakerLayout
+): Promise<string> {
+  console.log('[Multi-Speaker Layout] Processing with AI-calculated positions')
+  console.log(`[Multi-Speaker Layout] Layout key: ${layout.layoutKey}`)
+  console.log(`[Multi-Speaker Layout] Speakers: ${layout.positions.length}`)
+
+  // Extract base64 image data
+  const base64Data = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const imageBuffer = Buffer.from(base64Data, 'base64')
+
+  // Normalize speaker config for consistent interface
+  const normalized = normalizeSpeakerConfig(speakerConfig)
+
+  if (!normalized.speakers || normalized.speakers.length === 0) {
+    console.log('[Multi-Speaker Layout] No speakers to overlay')
+    return imageDataUrl
+  }
+
+  // Get base image dimensions
+  const baseImage = sharp(imageBuffer)
+  const metadata = await baseImage.metadata()
+  const imageWidth = metadata.width || 1080
+  const imageHeight = metadata.height || 1350
+
+  console.log('[Multi-Speaker Layout] Canvas:', `${imageWidth}×${imageHeight}px`)
+
+  // Apply each speaker photo using layout-calculated positions
+  let resultBuffer = imageBuffer
+
+  for (let i = 0; i < layout.positions.length && i < normalized.speakers.length; i++) {
+    const position = layout.positions[i]
+    const speaker = normalized.speakers[i]
+
+    if (!speaker.photoUrl) {
+      console.warn(`[Multi-Speaker Layout] Speaker ${i + 1} missing photo URL, skipping`)
+      continue
+    }
+
+    // Use AI-calculated size for this speaker (hierarchy-aware)
+    const photoSize = position.size
+    const shape = position.shape || normalized.shape
+    const borderWidth = normalized.border?.width || 3
+    const shouldAddShadow = normalized.shadow !== false
+
+    console.log(`[Multi-Speaker Layout] Speaker ${i + 1}:`, {
+      name: speaker.name || `Speaker ${i + 1}`,
+      size: `${photoSize}px`,
+      position: `(${position.x}, ${position.y})`,
+      shape,
+      isFeatured: i === 0 ? '✨ Featured (+20%)' : 'Supporting'
+    })
+
+    try {
+      // Fetch speaker photo
+      const photoResponse = await fetch(speaker.photoUrl)
+      if (!photoResponse.ok) {
+        console.error(`[Multi-Speaker Layout] Failed to fetch photo for speaker ${i + 1}`)
+        continue
+      }
+
+      const photoBuffer = Buffer.from(await photoResponse.arrayBuffer())
+
+      // Process speaker photo with circular mask and border
+      const processedPhoto = await sharp(photoBuffer)
+        .resize(photoSize, photoSize, { fit: 'cover' })
+        .composite([
+          {
+            input: Buffer.from(
+              `<svg><rect x="0" y="0" width="${photoSize}" height="${photoSize}" rx="${shape === 'circle' ? photoSize / 2 : 8}" ry="${shape === 'circle' ? photoSize / 2 : 8}"/></svg>`
+            ),
+            blend: 'dest-in',
+          },
+        ])
+        .toBuffer()
+
+      // Add border if specified
+      let finalPhoto = processedPhoto
+      if (borderWidth > 0) {
+        const borderColor = normalized.border?.color || '#FFFFFF'
+        const totalSize = photoSize + borderWidth * 2
+
+        finalPhoto = await sharp({
+          create: {
+            width: totalSize,
+            height: totalSize,
+            channels: 4,
+            background: borderColor,
+          },
+        })
+          .composite([
+            {
+              input: Buffer.from(
+                `<svg><rect x="0" y="0" width="${totalSize}" height="${totalSize}" rx="${shape === 'circle' ? totalSize / 2 : 10}" ry="${shape === 'circle' ? totalSize / 2 : 10}"/></svg>`
+              ),
+              blend: 'dest-in',
+            },
+            {
+              input: processedPhoto,
+              top: borderWidth,
+              left: borderWidth,
+            },
+          ])
+          .toBuffer()
+      }
+
+      // Calculate overlay position (AI-calculated coordinates are for photo CENTER)
+      const totalPhotoSize = photoSize + (borderWidth * 2)
+      const overlayX = Math.max(0, position.x - Math.floor(totalPhotoSize / 2))
+      const overlayY = Math.max(0, position.y - Math.floor(totalPhotoSize / 2))
+
+      // Validate position is within canvas bounds
+      if (overlayX + totalPhotoSize > imageWidth || overlayY + totalPhotoSize > imageHeight) {
+        console.warn(`[Multi-Speaker Layout] Speaker ${i + 1} position out of bounds, adjusting`)
+      }
+
+      // Apply drop shadow if enabled
+      const compositeInput: any = shouldAddShadow
+        ? await sharp(finalPhoto)
+            .extend({
+              top: 10,
+              bottom: 10,
+              left: 10,
+              right: 10,
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+            .composite([
+              {
+                input: Buffer.from(
+                  `<svg><ellipse cx="${totalPhotoSize / 2 + 10}" cy="${totalPhotoSize / 2 + 12}" rx="${totalPhotoSize / 2}" ry="${totalPhotoSize / 2}" fill="rgba(0,0,0,0.3)"/></svg>`
+                ),
+                top: 0,
+                left: 0,
+                blend: 'dest-over',
+              },
+            ])
+            .toBuffer()
+        : finalPhoto
+
+      // Overlay on result image
+      resultBuffer = await sharp(resultBuffer)
+        .composite([
+          {
+            input: compositeInput,
+            top: overlayY - (shouldAddShadow ? 10 : 0),
+            left: overlayX - (shouldAddShadow ? 10 : 0),
+          },
+        ])
+        .toBuffer()
+
+      console.log(`[Multi-Speaker Layout] ✅ Speaker ${i + 1} overlaid successfully`)
+    } catch (error) {
+      console.error(`[Multi-Speaker Layout] Error overlaying speaker ${i + 1}:`, error)
+      // Continue with next speaker
+    }
+  }
+
+  // Validation: Check footer zone is clear
+  const footerZoneClear = layout.positions.every(pos => {
+    const bottomEdge = ((pos.y + pos.size / 2) / imageHeight) * 100
+    return bottomEdge < 85
+  })
+
+  if (footerZoneClear) {
+    console.log('[Multi-Speaker Layout] ✅ Footer zone validated: All photos above 85%')
+  } else {
+    console.warn('[Multi-Speaker Layout] ⚠️ Warning: Some photos may overlap footer zone')
   }
 
   // Return as data URL

@@ -27,7 +27,7 @@ interface RoleProviderProps {
 }
 
 export function RoleProvider({ children }: RoleProviderProps) {
-  const { membership, isAuthenticated, isLoading: authLoading } = useAuthStore()
+  const { membership, isAuthenticated, isLoading: authLoading, isSuperAdmin: isSuperAdminFlag } = useAuthStore()
 
   const [activeRoleId, setActiveRoleId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false) // Start false, auth handles loading
@@ -41,10 +41,19 @@ export function RoleProvider({ children }: RoleProviderProps) {
   // Get all available roles
   const availableRoles = useMemo(() => getAllRoles(), [])
 
-  // Determine if user can switch roles (only admins)
+  // Super Admin state
+  const isSuperAdmin = useMemo(() => {
+    return isSuperAdminFlag
+  }, [isSuperAdminFlag])
+
+  const canAccessPlatform = useMemo(() => {
+    return isSuperAdmin
+  }, [isSuperAdmin])
+
+  // Determine if user can switch roles (admins and Super Admins)
   const canSwitchRoles = useMemo(() => {
-    return actualRole?.name === 'admin'
-  }, [actualRole])
+    return actualRole?.name === 'admin' || isSuperAdmin
+  }, [actualRole, isSuperAdmin])
 
   // Get active role (simulated or actual)
   const activeRole = useMemo(() => {
@@ -136,6 +145,9 @@ export function RoleProvider({ children }: RoleProviderProps) {
     hasPermission,
     canSwitchRoles,
     getPermissions,
+    // Super Admin context
+    isSuperAdmin,
+    canAccessPlatform,
   }
 
   return (

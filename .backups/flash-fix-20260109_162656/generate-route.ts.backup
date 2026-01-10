@@ -25,9 +25,8 @@ async function getSharp(): Promise<typeof sharp> {
 }
 import { processImageWithLogos, resizeImageToExactDimensions, applyEnhanced4RowStrip, applyEnhanced4RowStripSplit, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
-import { processImageWithSpeakerPhoto, processImageWithMultiSpeakerLayout, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
+import { processImageWithSpeakerPhoto, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
 import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-migration'
-import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
 import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
@@ -337,20 +336,13 @@ export async function POST(request: NextRequest) {
       console.log(`[Generate API] Credits consumed: ${GENERATION_COST}. New balance: ${balance.balance - GENERATION_COST}`)
     } catch (creditError) {
       console.error('[Generate API] Credit check/consumption failed:', creditError)
-      // TEMPORARY DEV BYPASS: Allow generation to continue if credit check fails (for testing Flash model fixes)
-      // TODO: Remove this bypass once organization_credits table migration is applied
-      const isDevelopment = process.env.NODE_ENV === 'development'
-      if (isDevelopment) {
-        console.warn('[Generate API] ⚠️ BYPASSING credit check in development mode - migration pending')
-      } else {
-        return NextResponse.json(
-          {
-            error: 'Credit system error',
-            details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
-          },
-          { status: 500 }
-        )
-      }
+      return NextResponse.json(
+        {
+          error: 'Credit system error',
+          details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
+        },
+        { status: 500 }
+      )
     }
 
     // NEW v3.2: Fetch organization brand_config to get font preference
@@ -802,57 +794,6 @@ export async function POST(request: NextRequest) {
       // Extract visual layout context from customization
       const speakerPhotoConfig = effectiveDesignData?.customization?.speakerPhoto
       const layoutConfig = effectiveDesignData?.customization?.layout
-
-      // ========================================================
-      // MULTI-SPEAKER AI LAYOUT: Calculate intelligent positioning
-      // for 2+ speakers with hierarchy, footer zone validation
-      // ========================================================
-      let multiSpeakerLayout: MultiSpeakerLayout | null = null
-
-      if (speakerPhotoConfig?.speakers && speakerPhotoConfig.speakers.length > 1) {
-        const speakerCount = speakerPhotoConfig.speakers.length
-        console.log(`[Multi-Speaker] Calculating intelligent layout for ${speakerCount} speakers`)
-
-        try {
-          multiSpeakerLayout = calculateIntelligentLayout({
-            speakerCount,
-            formatId: (formatId as string) || 'event_poster',
-            canvasWidth: designDimensions?.width || 1080,
-            canvasHeight: designDimensions?.height || 1440,
-            sophistication: effectiveDesignData?.sophistication as 'minimalist' | 'balanced' | 'rich' | undefined || 'balanced'
-          })
-
-          // Validate layout
-          if (!multiSpeakerLayout.isValid) {
-            console.error('[Multi-Speaker] Layout validation failed:', multiSpeakerLayout.validationErrors)
-            // Continue with basic layout (fallback to existing flow)
-            multiSpeakerLayout = null
-          } else {
-            console.log('[Multi-Speaker] Layout calculated successfully:', {
-              layoutKey: multiSpeakerLayout.layoutKey,
-              positions: multiSpeakerLayout.positions.length,
-              sizes: multiSpeakerLayout.positions.map(p => `${p.size}px`),
-              footerZoneClear: multiSpeakerLayout.positions.every(p => {
-                const bottomEdge = ((p.y + p.size / 2) / (designDimensions?.height || 1440)) * 100
-                return bottomEdge < 85 // Footer zone starts at 85%
-              })
-            })
-
-            // Log any warnings
-            if (multiSpeakerLayout.validationErrors.length > 0) {
-              multiSpeakerLayout.validationErrors.forEach(err => {
-                if (err.startsWith('⚠️')) {
-                  console.warn('[Multi-Speaker]', err)
-                }
-              })
-            }
-          }
-        } catch (error) {
-          console.error('[Multi-Speaker] Layout calculation error:', error)
-          multiSpeakerLayout = null
-          // Continue with existing flow
-        }
-      }
 
       // Get format info for format-aware design intelligence
       const formatTemplate = formatId ? getTemplateForFormat(formatId) : null
@@ -2031,22 +1972,8 @@ ${typographyProfile.hierarchy}
       console.log(`[Generate API] Applying speaker photo overlays (${speakerCount} speaker${speakerCount > 1 ? 's' : ''})`)
 
       try {
-        // Use AI-driven layout positioning for multi-speaker (2+)
-        if (multiSpeakerLayout && multiSpeakerLayout.isValid && speakerCount > 1) {
-          console.log('[Generate API] Using AI-driven multi-speaker layout')
-          imageUrl = await processImageWithMultiSpeakerLayout(
-            imageUrl,
-            normalizedSpeakerPhoto,
-            multiSpeakerLayout
-          )
-          console.log(`[Generate API] Successfully overlaid ${speakerCount} speakers with intelligent layout`)
-        }
-        // Fallback to existing flow for single speaker or invalid layout
-        else {
-          console.log('[Generate API] Using standard speaker overlay flow')
-          imageUrl = await processImageWithSpeakerPhoto(imageUrl, normalizedSpeakerPhoto)
-          console.log(`[Generate API] Successfully overlaid ${speakerCount} speaker photo${speakerCount > 1 ? 's' : ''}`)
-        }
+        imageUrl = await processImageWithSpeakerPhoto(imageUrl, normalizedSpeakerPhoto)
+        console.log(`[Generate API] Successfully overlaid ${speakerCount} speaker photo${speakerCount > 1 ? 's' : ''}`)
       } catch (error) {
         console.error('[Generate API] Speaker photo overlay failed:', error)
         // Continue with original image on error
@@ -2645,42 +2572,20 @@ function buildDesignPromptWithFormat(
       layoutGuidance: logoAwareness.layoutGuidance,
       hasLogos: logoAwareness.hasLogos,
     } : undefined,
-    // Pass multi-speaker layout guidance for intelligent positioning
-    multiSpeakerGuidance: multiSpeakerLayout && multiSpeakerLayout.isValid ? {
-      compositionGuidance: multiSpeakerLayout.compositionGuidance,
-      textZoneAdjustments: multiSpeakerLayout.textZoneAdjustments,
-      speakerCount: multiSpeakerLayout.positions.length,
-      layoutKey: multiSpeakerLayout.layoutKey,
-    } : undefined,
   }
 
   // Generate the prompt (now includes design intelligence if available)
   const promptOutput = generatePrompt(params)
 
-  // Inject multi-speaker layout guidance into prompt (Phase 2)
-  let enhancedPrompt = ''
-  if (multiSpeakerLayout && multiSpeakerLayout.isValid) {
-    enhancedPrompt = `\n\n${multiSpeakerLayout.compositionGuidance}\n\n`
-    enhancedPrompt += `TEXT ZONE CONSTRAINTS (percentage from top):\n`
-    enhancedPrompt += `- Headline: ${multiSpeakerLayout.textZoneAdjustments.headline.start}-${multiSpeakerLayout.textZoneAdjustments.headline.end}%\n`
-    enhancedPrompt += `- Tagline: ${multiSpeakerLayout.textZoneAdjustments.tagline.start}-${multiSpeakerLayout.textZoneAdjustments.tagline.end}%\n`
-    enhancedPrompt += `- Date/Venue: ${multiSpeakerLayout.textZoneAdjustments.dateVenue.start}-${multiSpeakerLayout.textZoneAdjustments.dateVenue.end}%\n`
-    enhancedPrompt += `- Speaker Details: ${multiSpeakerLayout.textZoneAdjustments.speakers.start}-${multiSpeakerLayout.textZoneAdjustments.speakers.end}%\n`
-    enhancedPrompt += `- Additional Details: ${multiSpeakerLayout.textZoneAdjustments.additionalDetails.start}-${multiSpeakerLayout.textZoneAdjustments.additionalDetails.end}%\n\n`
-    enhancedPrompt += `SPEAKER PHOTOS: ${multiSpeakerLayout.positions.length} circular speaker photos will be overlaid at calculated positions. Ensure decorative elements and background visuals avoid these zones to prevent overlap.\n\n`
-
-    console.log('[Multi-Speaker] Injected composition guidance into prompt')
-  }
-
   if (isGeminiPrompt(promptOutput)) {
     return {
-      prompt: promptOutput.userPrompt + enhancedPrompt,
+      prompt: promptOutput.userPrompt,
       systemPrompt: promptOutput.systemPrompt,
     }
   } else if (isIdeogramPrompt(promptOutput)) {
     const apiFormat = toIdeogramApiFormat(promptOutput)
     return {
-      prompt: apiFormat.prompt + enhancedPrompt,
+      prompt: apiFormat.prompt,
       styleType: apiFormat.styleType,
       magicPrompt: apiFormat.magicPrompt,
       negativePrompt: apiFormat.negativePrompt,
@@ -2688,7 +2593,7 @@ function buildDesignPromptWithFormat(
   }
 
   // Fallback
-  return { prompt: basePrompt + enhancedPrompt }
+  return { prompt: basePrompt }
 }
 
 // Get aspect ratio string for APIs
@@ -2936,8 +2841,7 @@ async function generateWithGemini(
   systemPrompt?: string,
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
   resolution?: string,
-  modelId?: string,  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
-  retryCount: number = 0  // Retry counter for dimension drift auto-upgrade (Tier 3)
+  modelId?: string  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -3030,19 +2934,14 @@ async function generateWithGemini(
 
   console.log('[Generate] Using model with imageConfig - model:', currentModel, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
 
-  // Build imageConfig - Flash models don't support imageSize parameter (confirmed via API 400 error)
+  // Build imageConfig - Flash models don't support imageSize parameter
   const imageConfig: { aspectRatio: string; imageSize?: string } = {
     aspectRatio: geminiAspectRatio,
   }
 
   // Only Pro model supports imageSize parameter
-  // CONFIRMED: Flash models (gemini-2.5-flash-image, gemini-2.0-flash-preview-image-generation)
-  // reject imageSize with 400 Bad Request error
   if (currentModel === 'gemini-3-pro-image-preview') {
     imageConfig.imageSize = geminiImageSize
-    console.log(`[IMAGE SIZE] Adding imageSize="${geminiImageSize}" to Pro model`)
-  } else {
-    console.log(`[IMAGE SIZE] Flash model will use aspectRatio only (imageSize not supported)`)
   }
 
   requestBody = {
@@ -3122,71 +3021,6 @@ async function generateWithGemini(
   // Convert base64 to data URL
   const imageData = imagePart.inlineData.data
   const mimeType = imagePart.inlineData.mimeType || 'image/png'
-
-  // TIER 3: DIMENSION VALIDATION + AUTO-RETRY WITH PRO MODEL
-  // Detect Flash model dimension drift and auto-upgrade to Pro for quality
-  try {
-    const sharp = await getSharp()
-    const imageBuffer = Buffer.from(imageData, 'base64')
-    const metadata = await sharp(imageBuffer).metadata()
-    const actualWidth = metadata.width || 0
-    const actualHeight = metadata.height || 0
-
-    console.log(`[DIMENSION CHECK] ${currentModel} returned: ${actualWidth}x${actualHeight} for ${geminiAspectRatio} @ ${geminiImageSize}`)
-
-    // CRITICAL FIX: Use format-specific dimensions (e.g., event_poster 1080x1440)
-    // NOT generic DIMENSION_QUALITY (which has 3:4 = 896x1200)
-    // Format dimensions are what Sharp resizes to, so drift check must match those
-    const expectedWidth = format?.width || 1024
-    const expectedHeight = format?.height || 1024
-
-    console.log(`[TIER 3] Format-specific dimensions: ${format?.label} = ${expectedWidth}x${expectedHeight} (ignoring generic DIMENSION_QUALITY)`)
-
-    // Calculate drift percentage (width and height separately)
-    const widthDrift = Math.abs(actualWidth - expectedWidth) / expectedWidth
-    const heightDrift = Math.abs(actualHeight - expectedHeight) / expectedHeight
-    const maxDrift = Math.max(widthDrift, heightDrift)
-
-    console.log(`[TIER 3] Dimension drift analysis:`)
-    console.log(`[TIER 3]   Expected: ${expectedWidth}x${expectedHeight}`)
-    console.log(`[TIER 3]   Actual: ${actualWidth}x${actualHeight}`)
-    console.log(`[TIER 3]   Width drift: ${(widthDrift * 100).toFixed(2)}%`)
-    console.log(`[TIER 3]   Height drift: ${(heightDrift * 100).toFixed(2)}%`)
-    console.log(`[TIER 3]   Max drift: ${(maxDrift * 100).toFixed(2)}%`)
-
-    // TIER 3 AUTO-RETRY LOGIC
-    // If drift exceeds 5% threshold AND this is a Flash model AND we haven't retried yet
-    // Then auto-upgrade to Pro model for perfect quality
-    const DRIFT_THRESHOLD = 0.05  // 5% - anything above this triggers Pro upgrade
-    const isFlashModel = currentModel !== 'gemini-3-pro-image-preview'
-    const shouldRetry = maxDrift > DRIFT_THRESHOLD && isFlashModel && retryCount < 1
-
-    if (shouldRetry) {
-      console.warn(`[TIER 3] ⚠️ DIMENSION DRIFT TOO HIGH: ${(maxDrift * 100).toFixed(2)}% > ${(DRIFT_THRESHOLD * 100)}% threshold`)
-      console.warn(`[TIER 3] 🔄 AUTO-UPGRADING to Pro model for quality (retry ${retryCount + 1}/1)`)
-      console.warn(`[TIER 3] 💰 Cost impact: $0.039 → $0.1344 per image (3.4x increase justified by quality)`)
-
-      // Recursive retry with Pro model (retryCount+1 prevents infinite loops)
-      return await generateWithGemini(
-        prompt,
-        designData,
-        systemPrompt,
-        format,
-        resolution,
-        'gemini-3-pro-image-preview',  // Force Pro model
-        retryCount + 1  // Increment retry counter (max 1 retry)
-      )
-    } else if (maxDrift > DRIFT_THRESHOLD) {
-      // Drift is high but we've already retried or this is Pro model
-      console.warn(`[TIER 3] ⚠️ High drift ${(maxDrift * 100).toFixed(2)}% but not retrying (retryCount=${retryCount}, model=${currentModel})`)
-    } else {
-      // Drift is acceptable
-      console.log(`[TIER 3] ✅ Drift ${(maxDrift * 100).toFixed(2)}% is acceptable (threshold: ${(DRIFT_THRESHOLD * 100)}%)`)
-    }
-  } catch (error) {
-    console.warn('[TIER 3] Failed to validate dimensions:', error)
-    // Continue with generation even if validation fails
-  }
 
   // For production, upload to Supabase Storage instead
   return `data:${mimeType};base64,${imageData}`

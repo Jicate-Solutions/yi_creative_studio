@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -124,6 +125,16 @@ export function Sidebar() {
   const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed, createModeActive, analyticsModeActive } = useUIStore()
   const { canManage } = useAuthStore()
   const { user, profile, signOut, currentOrganization } = useAuth()
+
+  // Prevent hydration mismatch by only rendering after client mount
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render during SSR to avoid hydration mismatch with Radix UI
+  if (!mounted) return null
 
   // Hide sidebar when closed or when Create/Analytics mode is active (child sidebar takes over)
   if (!sidebarOpen || createModeActive || analyticsModeActive) return null
