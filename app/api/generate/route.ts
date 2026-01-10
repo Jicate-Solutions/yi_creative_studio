@@ -810,6 +810,7 @@ export async function POST(request: NextRequest) {
       let multiSpeakerLayout: MultiSpeakerLayout | null = null
       let speakerCountWithPhotos = 0  // Hoisted to top level for accessibility
       let totalSpeakers = 0             // Hoisted for logging consistency
+      let speakerCount = 0              // Hoisted for consistent scoping
 
       if (speakerPhotoConfig) {
         // CRITICAL: Count only speakers WITH photos, not total speakers
@@ -2037,8 +2038,8 @@ ${typographyProfile.hierarchy}
     if (userHasSpeakerPhoto && speakerPhoto) {
       // Normalize speaker config (handles migration from legacy to new format)
       const normalizedSpeakerPhoto = normalizeSpeakerConfig(speakerPhoto)
-      const speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
-      const speakerCountWithPhotos = getSpeakerCountWithPhotos(normalizedSpeakerPhoto)
+      speakerCount = getSpeakerCount(normalizedSpeakerPhoto)
+      speakerCountWithPhotos = getSpeakerCountWithPhotos(normalizedSpeakerPhoto)
 
       console.log(`[Generate API] Applying speaker photo overlays (${speakerCountWithPhotos} WITH photos, ${speakerCount} total)`)
 
