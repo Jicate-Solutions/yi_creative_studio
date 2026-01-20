@@ -2,12 +2,12 @@
 
 /**
  * Organizations Table Component
- * Display all organizations with search, filters, and pagination
+ * Display all organizations with search, filters, pagination, and realtime updates
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, ArrowUpDown } from 'lucide-react'
+import { Search, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,8 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAutoRefresh } from '@/hooks/use-auto-refresh'
-import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
+import { createClient } from '@/lib/supabase/client'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface Organization {
   id: string
@@ -43,24 +43,17 @@ interface Organization {
 }
 
 export default function OrganizationsTable() {
+  const supabase = useMemo(() => createClient(), [])
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isConnected, setIsConnected] = useState(false)
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
-  // Auto-refresh every 60 seconds
-  const { isRefreshing, lastRefresh, manualRefresh } = useAutoRefresh({
-    onRefresh: fetchOrganizations,
-    interval: 60000, // 60 seconds
-  })
-
-  useEffect(() => {
-    fetchOrganizations()
-  }, [search, statusFilter, page])
-
-  async function fetchOrganizations() {
+  const fetchOrganizations = useCallback(async () => {
     setLoading(true)
 
     const params = new URLSearchParams({
@@ -83,7 +76,59 @@ export default function OrganizationsTable() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, search, statusFilter])
+
+  // Set up realtime subscription
+  useEffect(() => {
+    const channelName = `org-table-${Date.now()}`
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'organizations' },
+        (payload) => {
+          console.log('[OrganizationsTable] Org change detected:', payload.eventType)
+          // Refresh the list when any organization changes
+          fetchOrganizations()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'organization_credits' },
+        () => {
+          // Refresh when credits change
+          fetchOrganizations()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'organization_members' },
+        () => {
+          // Refresh when members change (affects member count)
+          fetchOrganizations()
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true)
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setIsConnected(false)
+        }
+      })
+
+    channelRef.current = channel
+
+    return () => {
+      supabase.removeChannel(channel)
+      setIsConnected(false)
+    }
+  }, [supabase, fetchOrganizations])
+
+  // Fetch data when filters change
+  useEffect(() => {
+    fetchOrganizations()
+  }, [fetchOrganizations])
 
   function getHealthBadge(score: string) {
     const colors = {
@@ -152,12 +197,28 @@ export default function OrganizationsTable() {
           </Select>
         </div>
 
-        {/* Auto-refresh indicator */}
-        <RefreshIndicator
-          lastRefresh={lastRefresh}
-          isRefreshing={isRefreshing}
-          onManualRefresh={manualRefresh}
-        />
+        {/* Connection Status & Refresh */}
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+              <Wifi className="h-3 w-3 mr-1" />
+              Live
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+              <WifiOff className="h-3 w-3 mr-1" />
+              Offline
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchOrganizations}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -189,11 +250,11 @@ export default function OrganizationsTable() {
               </TableRow>
             ) : (
               organizations.map((org) => (
-                <TableRow key={org.id}>
+                <TableRow key={org.id} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="font-medium">
                     <div>
                       <div className="font-semibold">{org.name}</div>
-                      <div className="text-xs text-gray-500">{org.id}</div>
+                      <div className="text-xs text-gray-500">{org.id.slice(0, 8)}...</div>
                     </div>
                   </TableCell>
                   <TableCell>

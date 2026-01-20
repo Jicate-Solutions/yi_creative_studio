@@ -1539,7 +1539,8 @@ export async function processImageWithMultiSpeakerLayout(
   }
 
   // Apply each speaker photo using layout-calculated positions
-  let resultBuffer = imageBuffer
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let resultBuffer: Buffer<any> = imageBuffer
 
   for (let i = 0; i < layout.positions.length && i < speakersWithPhotos.length; i++) {
     const position = layout.positions[i]
@@ -1560,6 +1561,12 @@ export async function processImageWithMultiSpeakerLayout(
     })
 
     try {
+      // Skip if no photo URL
+      if (!speaker.photoUrl) {
+        console.warn(`[Multi-Speaker Layout] No photo URL for speaker ${i + 1}`)
+        continue
+      }
+
       // Fetch speaker photo
       const photoResponse = await fetch(speaker.photoUrl)
       if (!photoResponse.ok) {

@@ -10,23 +10,22 @@ import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admi
 import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
-interface RouteContext {
-  params: { id: string }
-}
-
 /**
  * DELETE - Delete logo
  */
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   return superAdminGuard(request, async (req, { superAdmin }) => {
     const supabase = await createClient()
-    const { id: logoId } = context.params
+    const { id: logoId } = await params
     const metadata = getRequestMetadata(req)
 
     try {
       // Get logo details before deletion
       const { data: logo, error: fetchError } = await supabase
-        .from('logos')
+        .from('organization_logos')
         .select(`
           *,
           organizations(id, name)
@@ -49,16 +48,21 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
       const usedInCreatives = (usageCount as any)?.count || 0
 
-      // Delete logo file from storage if exists
-      if (logo.storage_path) {
+      // Delete logo file from storage if exists (file_url contains the path)
+      if (logo.file_url) {
         try {
-          const { error: storageError } = await supabase.storage
-            .from('logos')
-            .remove([logo.storage_path])
+          // Extract storage path from file_url
+          const urlParts = logo.file_url.split('/storage/v1/object/public/logos/')
+          const storagePath = urlParts[1]
+          if (storagePath) {
+            const { error: storageError } = await supabase.storage
+              .from('logos')
+              .remove([storagePath])
 
-          if (storageError) {
-            console.error('[super-admin] Failed to delete logo file from storage:', storageError)
-            // Continue with database deletion even if storage fails
+            if (storageError) {
+              console.error('[super-admin] Failed to delete logo file from storage:', storageError)
+              // Continue with database deletion even if storage fails
+            }
           }
         } catch (storageError) {
           console.error('[super-admin] Exception deleting logo file:', storageError)
@@ -67,7 +71,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
       // Delete logo from database
       const { error: deleteError } = await supabase
-        .from('logos')
+        .from('organization_logos')
         .delete()
         .eq('id', logoId)
 
@@ -88,7 +92,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         changes: {
           before: {
             name: logo.name,
-            type: logo.type,
+            category: logo.category,
             organization_name: (logo.organizations as any)?.name,
             used_in_creatives: usedInCreatives,
           },

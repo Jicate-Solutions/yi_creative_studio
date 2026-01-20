@@ -1108,6 +1108,15 @@ ${options.ultraProContext.designGuidance || 'Follow the visual scene description
 
 ${hasSpeakerPhoto ? speakerZoneContext : ''}
 
+${options.speakerLayoutContext ? `
+SPEAKER LAYOUT AGENT DECISION (v7.1 - AI-Analyzed):
+${options.speakerLayoutContext}
+
+CRITICAL: The above layout analysis was performed by an AI agent that analyzed the TOTAL number of speakers
+vs speakers with photos. Photo sizing is based on TOTAL speakers to prevent oversized photos when only
+some speakers have uploaded photos. Follow the layout guidance strictly.
+` : ''}
+
 ${logoStripZoneContext ? `${logoStripZoneContext}
 
 ` : ''}POSTER LAYOUT AND COMPOSITION:

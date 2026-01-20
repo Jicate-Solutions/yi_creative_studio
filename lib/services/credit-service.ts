@@ -4,11 +4,15 @@
  *
  * CRITICAL: All credit operations MUST be atomic (balance + transaction in single operation)
  *
+ * NOTE: Credits are stored directly on the organizations table as credits_balance.
+ * Transactions are logged in the credit_transactions table.
+ *
  * @module credit-service
  */
 
 import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from './audit-service'
+import type { Json } from '@/types/database.types'
 
 export interface AllocateCreditsParams {
   organization_id: string
@@ -17,7 +21,7 @@ export interface AllocateCreditsParams {
   allocated_by: string // Super Admin user ID
   reference_type?: 'subscription_renewal' | 'manual_allocation' | 'purchase' | 'bonus' | 'adjustment'
   reference_id?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface ConsumeCreditsParams {
@@ -26,7 +30,7 @@ export interface ConsumeCreditsParams {
   reason: string
   reference_type: string // e.g., 'api_usage', 'creative_generation'
   reference_id: string // e.g., creative.id
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface RefundCreditsParams {
@@ -62,18 +66,18 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
   const supabase = await createClient()
 
   try {
-    // 1. Get current balance (with row lock for consistency)
-    const { data: creditRecord, error: fetchError } = await supabase
-      .from('organization_credits')
-      .select('balance, total_allocated')
-      .eq('organization_id', params.organization_id)
+    // 1. Get current balance from organizations table
+    const { data: org, error: fetchError } = await supabase
+      .from('organizations')
+      .select('credits_balance')
+      .eq('id', params.organization_id)
       .single()
 
-    if (fetchError || !creditRecord) {
-      throw new Error(`Organization credit record not found: ${params.organization_id}`)
+    if (fetchError || !org) {
+      throw new Error(`Organization not found: ${params.organization_id}`)
     }
 
-    const balance_before = creditRecord.balance
+    const balance_before = org.credits_balance || 0
     const balance_after = balance_before + params.amount
 
     // 2. Create transaction record
@@ -81,15 +85,12 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
       .from('credit_transactions')
       .insert({
         organization_id: params.organization_id,
-        type: params.reference_type || 'manual_allocation',
+        type: params.reference_type || 'allocation',
         amount: params.amount,
-        balance_before,
         balance_after,
-        reason: params.reason,
-        reference_type: params.reference_type,
-        reference_id: params.reference_id,
-        metadata: params.metadata || {},
-        created_by: params.allocated_by,
+        description: params.reason,
+        metadata: (params.metadata || null) as Json,
+        user_id: params.allocated_by,
       })
       .select('id')
       .single()
@@ -98,16 +99,14 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
       throw new Error(`Failed to create transaction: ${txnError.message}`)
     }
 
-    // 3. Update balance and total allocated
+    // 3. Update balance on organizations table
     const { error: updateError } = await supabase
-      .from('organization_credits')
+      .from('organizations')
       .update({
-        balance: balance_after,
-        total_allocated: creditRecord.total_allocated + params.amount,
-        last_allocation_at: new Date().toISOString(),
+        credits_balance: balance_after,
         updated_at: new Date().toISOString(),
       })
-      .eq('organization_id', params.organization_id)
+      .eq('id', params.organization_id)
 
     if (updateError) {
       throw new Error(`Failed to update balance: ${updateError.message}`)
@@ -163,18 +162,18 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
   const supabase = await createClient()
 
   try {
-    // 1. Get current balance
-    const { data: creditRecord, error: fetchError } = await supabase
-      .from('organization_credits')
-      .select('balance, total_consumed')
-      .eq('organization_id', params.organization_id)
+    // 1. Get current balance from organizations table
+    const { data: org, error: fetchError } = await supabase
+      .from('organizations')
+      .select('credits_balance')
+      .eq('id', params.organization_id)
       .single()
 
-    if (fetchError || !creditRecord) {
-      throw new Error(`Organization credit record not found: ${params.organization_id}`)
+    if (fetchError || !org) {
+      throw new Error(`Organization not found: ${params.organization_id}`)
     }
 
-    const balance_before = creditRecord.balance
+    const balance_before = org.credits_balance || 0
 
     // 2. Check sufficient balance
     if (balance_before < params.amount) {
@@ -188,14 +187,12 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
       .from('credit_transactions')
       .insert({
         organization_id: params.organization_id,
-        type: 'consumption',
+        type: 'usage',
         amount: -params.amount, // Negative for consumption
-        balance_before,
         balance_after,
-        reason: params.reason,
-        reference_type: params.reference_type,
-        reference_id: params.reference_id,
-        metadata: params.metadata || {},
+        description: params.reason,
+        creative_id: params.reference_id,
+        metadata: (params.metadata || null) as Json,
       })
       .select('id')
       .single()
@@ -204,16 +201,14 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
       throw new Error(`Failed to create transaction: ${txnError.message}`)
     }
 
-    // 4. Update balance and total consumed
+    // 4. Update balance on organizations table
     const { error: updateError } = await supabase
-      .from('organization_credits')
+      .from('organizations')
       .update({
-        balance: balance_after,
-        total_consumed: creditRecord.total_consumed + params.amount,
-        last_consumption_at: new Date().toISOString(),
+        credits_balance: balance_after,
         updated_at: new Date().toISOString(),
       })
-      .eq('organization_id', params.organization_id)
+      .eq('id', params.organization_id)
 
     if (updateError) {
       throw new Error(`Failed to update balance: ${updateError.message}`)
@@ -254,18 +249,18 @@ export async function refundCredits(params: RefundCreditsParams): Promise<{
   const supabase = await createClient()
 
   try {
-    // 1. Get current balance
-    const { data: creditRecord, error: fetchError } = await supabase
-      .from('organization_credits')
-      .select('balance')
-      .eq('organization_id', params.organization_id)
+    // 1. Get current balance from organizations table
+    const { data: org, error: fetchError } = await supabase
+      .from('organizations')
+      .select('credits_balance')
+      .eq('id', params.organization_id)
       .single()
 
-    if (fetchError || !creditRecord) {
-      throw new Error(`Organization credit record not found: ${params.organization_id}`)
+    if (fetchError || !org) {
+      throw new Error(`Organization not found: ${params.organization_id}`)
     }
 
-    const balance_before = creditRecord.balance
+    const balance_before = org.credits_balance || 0
     const balance_after = balance_before + params.amount
 
     // 2. Create transaction record
@@ -275,12 +270,10 @@ export async function refundCredits(params: RefundCreditsParams): Promise<{
         organization_id: params.organization_id,
         type: 'refund',
         amount: params.amount,
-        balance_before,
         balance_after,
-        reason: params.reason,
-        reference_type: params.reference_type,
-        reference_id: params.reference_id,
-        created_by: params.refunded_by,
+        description: params.reason,
+        creative_id: params.reference_id,
+        user_id: params.refunded_by,
       })
       .select('id')
       .single()
@@ -289,14 +282,14 @@ export async function refundCredits(params: RefundCreditsParams): Promise<{
       throw new Error(`Failed to create transaction: ${txnError.message}`)
     }
 
-    // 3. Update balance
+    // 3. Update balance on organizations table
     const { error: updateError } = await supabase
-      .from('organization_credits')
+      .from('organizations')
       .update({
-        balance: balance_after,
+        credits_balance: balance_after,
         updated_at: new Date().toISOString(),
       })
-      .eq('organization_id', params.organization_id)
+      .eq('id', params.organization_id)
 
     if (updateError) {
       throw new Error(`Failed to update balance: ${updateError.message}`)
@@ -339,28 +332,81 @@ export async function refundCredits(params: RefundCreditsParams): Promise<{
  */
 export async function getCreditBalance(organization_id: string): Promise<{
   balance: number
-  total_allocated: number
-  total_consumed: number
-  low_balance_threshold: number
   is_low_balance: boolean
 }> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
-    .from('organization_credits')
-    .select('*')
-    .eq('organization_id', organization_id)
+    .from('organizations')
+    .select('credits_balance')
+    .eq('id', organization_id)
     .single()
 
   if (error || !data) {
     throw new Error(`Failed to fetch credit balance: ${error?.message}`)
   }
 
+  const balance = data.credits_balance || 0
+  const LOW_BALANCE_THRESHOLD = 100 // Default threshold
+
   return {
-    balance: data.balance,
-    total_allocated: data.total_allocated,
-    total_consumed: data.total_consumed,
-    low_balance_threshold: data.low_balance_threshold,
-    is_low_balance: data.balance <= data.low_balance_threshold,
+    balance,
+    is_low_balance: balance <= LOW_BALANCE_THRESHOLD,
+  }
+}
+
+/**
+ * Get credit transaction history for an organization
+ */
+export async function getCreditTransactions(
+  organization_id: string,
+  options?: {
+    limit?: number
+    offset?: number
+    type?: string
+  }
+): Promise<{
+  transactions: Array<{
+    id: string
+    type: string
+    amount: number
+    balance_after: number
+    description: string | null
+    created_at: string | null
+  }>
+  total: number
+}> {
+  const supabase = await createClient()
+  const limit = options?.limit || 50
+  const offset = options?.offset || 0
+
+  let query = supabase
+    .from('credit_transactions')
+    .select('*', { count: 'exact' })
+    .eq('organization_id', organization_id)
+    .order('created_at', { ascending: false })
+
+  if (options?.type) {
+    query = query.eq('type', options.type)
+  }
+
+  query = query.range(offset, offset + limit - 1)
+
+  const { data, error, count } = await query
+
+  if (error) {
+    throw new Error(`Failed to fetch transactions: ${error.message}`)
+  }
+
+  return {
+    transactions: (data || []).map((t) => ({
+      id: t.id,
+      type: t.type,
+      amount: t.amount,
+      balance_after: t.balance_after || 0,
+      description: t.description,
+      created_at: t.created_at,
+    })),
+    total: count || 0,
   }
 }

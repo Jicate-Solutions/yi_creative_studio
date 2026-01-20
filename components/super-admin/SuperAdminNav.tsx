@@ -12,9 +12,12 @@ import {
   Building2,
   Users,
   CreditCard,
-  Package,
   FileText,
   Settings,
+  Coins,
+  BarChart3,
+  UserCog,
+  DollarSign,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -40,11 +43,6 @@ const navItems = [
     icon: CreditCard,
   },
   {
-    name: 'Subscriptions',
-    href: '/super-admin/subscriptions',
-    icon: Package,
-  },
-  {
     name: 'Audit Logs',
     href: '/super-admin/audit',
     icon: FileText,
@@ -53,6 +51,27 @@ const navItems = [
     name: 'Settings',
     href: '/super-admin/settings',
     icon: Settings,
+  },
+  // Platform-wide views
+  {
+    name: 'Platform Credits',
+    href: '/super-admin/credits-platform',
+    icon: Coins,
+  },
+  {
+    name: 'Platform Analytics',
+    href: '/super-admin/analytics',
+    icon: BarChart3,
+  },
+  {
+    name: 'Platform Teams',
+    href: '/super-admin/teams',
+    icon: UserCog,
+  },
+  {
+    name: 'Platform Billing',
+    href: '/super-admin/billing',
+    icon: DollarSign,
   },
 ]
 

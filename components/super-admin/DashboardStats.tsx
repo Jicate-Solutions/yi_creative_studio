@@ -2,123 +2,172 @@
 
 /**
  * Dashboard Stats Component
- * Display platform metrics with auto-refresh
+ * Display platform metrics with realtime updates via Supabase
  */
 
-import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, CreditCard, TrendingUp } from 'lucide-react'
-import { useAutoRefresh } from '@/hooks/use-auto-refresh'
-import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
-
-interface PlatformStats {
-  orgCount: number
-  userCount: number
-  activeSubsCount: number
-  totalCreditsAllocated: number
-}
+import { Badge } from '@/components/ui/badge'
+import { Building2, Users, CreditCard, TrendingUp, Zap, ImagePlus, Wifi, WifiOff } from 'lucide-react'
+import { useSuperAdminRealtime } from '@/hooks/use-super-admin-realtime'
 
 export default function DashboardStats() {
-  const [stats, setStats] = useState<PlatformStats>({
-    orgCount: 0,
-    userCount: 0,
-    activeSubsCount: 0,
-    totalCreditsAllocated: 0,
-  })
-  const [loading, setLoading] = useState(true)
-
-  // Auto-refresh every 30 seconds
-  const { isRefreshing, lastRefresh, manualRefresh } = useAutoRefresh({
-    onRefresh: fetchStats,
-    interval: 30000, // 30 seconds
-  })
-
-  useEffect(() => {
-    fetchStats()
-  }, [])
-
-  async function fetchStats() {
-    setLoading(true)
-
-    try {
-      const response = await fetch('/api/super-admin/dashboard/stats')
-      const data = await response.json()
-
-      if (data.success) {
-        setStats(data.stats)
-      }
-    } catch (error) {
-      console.error('Failed to fetch dashboard stats:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const {
+    isConnected,
+    connectionStatus,
+    stats,
+    todayNewOrgs,
+    todayNewUsers,
+    todayTransactions,
+    todayGenerations,
+    refreshStats,
+  } = useSuperAdminRealtime({ enabled: true })
 
   return (
     <div className="space-y-6">
-      {/* Refresh indicator */}
-      <div className="flex justify-end">
-        <RefreshIndicator
-          lastRefresh={lastRefresh}
-          isRefreshing={isRefreshing}
-          onManualRefresh={manualRefresh}
-        />
+      {/* Connection Status */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <>
+              <Wifi className="h-4 w-4 text-green-500" />
+              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                Live Updates
+              </Badge>
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-4 w-4 text-amber-500" />
+              <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                {connectionStatus === 'connecting' ? 'Connecting...' : 'Reconnecting...'}
+              </Badge>
+            </>
+          )}
+        </div>
+        <button
+          onClick={refreshStats}
+          className="text-xs text-gray-500 hover:text-gray-700 underline"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
             <Building2 className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.orgCount.toLocaleString()}
+            <div className="text-2xl font-bold">{stats.orgCount.toLocaleString()}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-gray-500">Registered organizations</p>
+              {todayNewOrgs > 0 && (
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                  +{todayNewOrgs} today
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Registered organizations</p>
           </CardContent>
+          {todayNewOrgs > 0 && (
+            <div className="absolute top-0 right-0 w-2 h-2 m-2 rounded-full bg-green-500 animate-pulse" />
+          )}
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
             <Users className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.userCount.toLocaleString()}
+            <div className="text-2xl font-bold">{stats.userCount.toLocaleString()}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-gray-500">Platform users</p>
+              {todayNewUsers > 0 && (
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                  +{todayNewUsers} today
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Platform users</p>
           </CardContent>
+          {todayNewUsers > 0 && (
+            <div className="absolute top-0 right-0 w-2 h-2 m-2 rounded-full bg-blue-500 animate-pulse" />
+          )}
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-            <TrendingUp className="h-4 w-4 text-gray-500" />
+            <CardTitle className="text-sm font-medium">Today&apos;s Generations</CardTitle>
+            <ImagePlus className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.activeSubsCount.toLocaleString()}
+            <div className="text-2xl font-bold">{stats.todayGenerations.toLocaleString()}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-gray-500">Creatives generated</p>
+              {todayGenerations > 0 && (
+                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Live
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Currently active</p>
           </CardContent>
+          {todayGenerations > 0 && (
+            <div className="absolute top-0 right-0 w-2 h-2 m-2 rounded-full bg-purple-500 animate-pulse" />
+          )}
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Credits Allocated</CardTitle>
             <CreditCard className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.totalCreditsAllocated.toLocaleString()}
+            <div className="text-2xl font-bold">{stats.totalCreditsAllocated.toLocaleString()}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-gray-500">Total lifetime credits</p>
+              {todayTransactions > 0 && (
+                <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                  {todayTransactions} txn today
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Total lifetime credits</p>
           </CardContent>
+          {todayTransactions > 0 && (
+            <div className="absolute top-0 right-0 w-2 h-2 m-2 rounded-full bg-amber-500 animate-pulse" />
+          )}
         </Card>
       </div>
+
+      {/* Credits Usage Today */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Today&apos;s Activity Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-lg font-semibold text-green-600">+{todayNewOrgs}</div>
+              <div className="text-xs text-gray-500">New Orgs</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-blue-600">+{todayNewUsers}</div>
+              <div className="text-xs text-gray-500">New Users</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-purple-600">{todayGenerations}</div>
+              <div className="text-xs text-gray-500">Generations</div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-amber-600">{stats.todayCreditsUsed}</div>
+              <div className="text-xs text-gray-500">Credits Used</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

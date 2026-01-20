@@ -12,32 +12,22 @@ import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admi
 import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
-interface RouteContext {
-  params: { id: string }
-}
-
 /**
  * GET - Retrieve organization details with full stats
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   return superAdminGuard(request, async (req, { superAdmin }) => {
     const supabase = await createClient()
-    const { id } = context.params
+    const { id } = await params
 
     try {
-      // Fetch organization with all related data
+      // Fetch organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
-        .select(
-          `
-          *,
-          organization_credits(*),
-          organization_subscriptions(
-            *,
-            subscription_tiers(*)
-          )
-        `
-        )
+        .select('*')
         .eq('id', id)
         .single()
 
@@ -48,15 +38,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Get member count and list
+      // Get member count and list with user profiles
       const { data: members } = await supabase
         .from('organization_members')
-        .select(
-          `
+        .select(`
           *,
-          auth.users(id, email, raw_user_meta_data)
-        `
-        )
+          user_profiles(id, full_name)
+        `)
         .eq('organization_id', id)
 
       // Get recent credit transactions
@@ -73,10 +61,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', id)
 
-      // Calculate analytics
-      const totalCreditConsumed = org.organization_credits?.[0]?.total_consumed || 0
-      const currentBalance = org.organization_credits?.[0]?.balance || 0
-      const lastActivity = org.organization_credits?.[0]?.last_consumption_at || org.created_at
+      // Calculate total credits consumed from transactions
+      const { data: consumptionTxns } = await supabase
+        .from('credit_transactions')
+        .select('amount')
+        .eq('organization_id', id)
+        .in('type', ['usage', 'consumption'])
+
+      const totalCreditConsumed = consumptionTxns?.reduce(
+        (sum, tx) => sum + Math.abs(tx.amount || 0),
+        0
+      ) || 0
+
+      // Get last activity from most recent transaction
+      const lastTransaction = recentTransactions?.[0]
+      const lastActivity = lastTransaction?.created_at || org.created_at
 
       return NextResponse.json({
         success: true,
@@ -86,7 +85,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             member_count: members?.length || 0,
             creative_count: creativeCount || 0,
             total_credit_consumed: totalCreditConsumed,
-            current_balance: currentBalance,
+            current_balance: org.credits_balance || 0,
             last_activity: lastActivity,
           },
           members: members || [],
@@ -109,15 +108,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
 /**
  * PATCH - Update organization settings
  */
-export async function PATCH(request: NextRequest, context: RouteContext) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   return superAdminGuard(request, async (req, { superAdmin }) => {
     const supabase = await createClient()
-    const { id } = context.params
+    const { id } = await params
     const metadata = getRequestMetadata(req)
 
     try {
       const body = await req.json()
-      const { name, type, settings } = body
+      const { name, type } = body
 
       // Get organization before update
       const { data: orgBefore } = await supabase
@@ -131,10 +133,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
 
       // Update organization
-      const updateData: any = {}
+      const updateData: Record<string, unknown> = {}
       if (name !== undefined) updateData.name = name
       if (type !== undefined) updateData.type = type
-      if (settings !== undefined) updateData.settings = settings
+      updateData.updated_at = new Date().toISOString()
 
       const { data: orgAfter, error: updateError } = await supabase
         .from('organizations')
@@ -183,12 +185,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 /**
- * DELETE - Soft delete organization
+ * DELETE - Deactivate organization (soft delete)
  */
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   return superAdminGuard(request, async (req, { superAdmin }) => {
     const supabase = await createClient()
-    const { id } = context.params
+    const { id } = await params
     const metadata = getRequestMetadata(req)
 
     try {
@@ -203,12 +208,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
       }
 
-      // Soft delete (mark as deleted instead of actual deletion)
+      // Soft delete (mark as inactive instead of actual deletion)
       const { error: deleteError } = await supabase
         .from('organizations')
         .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: superAdmin.id,
+          is_active: false,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
 
@@ -228,14 +233,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         target_organization_id: id,
         changes: {
           before: orgBefore,
-          after: { deleted_at: new Date().toISOString() },
+          after: { is_active: false },
         },
         ...metadata,
       })
 
       return NextResponse.json({
         success: true,
-        message: 'Organization deleted successfully',
+        message: 'Organization deactivated successfully',
       })
     } catch (error) {
       console.error('[super-admin] Failed to delete org:', error)

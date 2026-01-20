@@ -177,15 +177,15 @@ export default function AnalyticsPage() {
     const [aggregatedResult, dailyTrendResult, recentRecordsResult] = await Promise.all([
       supabase.rpc('get_api_usage_analytics', {
         org_id: currentOrganization.id,
-        start_date: startDate?.toISOString() || null
+        start_date: startDate?.toISOString() ?? undefined
       }),
       supabase.rpc('get_daily_usage_trend', {
         org_id: currentOrganization.id,
-        start_date: startDate?.toISOString() || null
+        start_date: startDate?.toISOString() ?? undefined
       }),
       supabase.rpc('get_recent_api_usage', {
         org_id: currentOrganization.id,
-        start_date: startDate?.toISOString() || null,
+        start_date: startDate?.toISOString() ?? undefined,
         record_limit: 10
       })
     ])

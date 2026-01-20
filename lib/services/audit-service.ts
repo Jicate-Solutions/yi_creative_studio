@@ -47,19 +47,16 @@ export async function logSuperAdminAction(params: AuditLogParams): Promise<void>
   try {
     const supabase = await createClient()
 
-    // Get Super Admin email for cached record (in case user is deleted later)
-    const { data: user } = await supabase
-      .from('auth.users')
-      .select('email')
-      .eq('id', params.super_admin_id)
-      .single()
+    // Get current user's email from auth (the logged-in user)
+    const { data: { user } } = await supabase.auth.getUser()
+    const email = user?.email || 'unknown'
 
     // Insert audit log entry
     const { error } = await supabase
       .from('super_admin_audit_logs')
       .insert({
         super_admin_id: params.super_admin_id,
-        super_admin_email: user?.email || 'unknown',
+        super_admin_email: email,
         action: params.action,
         resource_type: params.resource_type,
         resource_id: params.resource_id,

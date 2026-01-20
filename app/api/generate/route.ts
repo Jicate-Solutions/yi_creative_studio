@@ -27,6 +27,7 @@ import { processImageWithLogos, resizeImageToExactDimensions, applyEnhanced4RowS
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
 import { processImageWithSpeakerPhoto, processImageWithMultiSpeakerLayout, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
 import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, getSpeakersWithPhotos } from '@/lib/utils/speaker-migration'
+import { analyzeSpeakerLayout, type SpeakerLayoutDecision } from '@/lib/agents/speaker-layout-agent'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
 import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
 import {
@@ -202,6 +203,7 @@ export async function POST(request: NextRequest) {
   let speakerCountWithPhotos = 0
   let multiSpeakerLayout: MultiSpeakerLayout | null = null
   let speakerPhotoZoneCoordinates: ReturnType<typeof calculateSpeakerPhotoCoordinates> | undefined
+  let speakerLayoutDecision: SpeakerLayoutDecision | undefined  // v7.1: AI-analyzed layout decision
 
   try {
     const supabase = await createClient()
@@ -210,6 +212,28 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // SECURITY: Verify user has editor+ role (viewers cannot generate)
+    // Super Admins automatically pass this check
+    const isSuperAdmin = (user as any).is_super_admin === true
+    if (!isSuperAdmin) {
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!membership || membership.role === 'viewer') {
+        return NextResponse.json(
+          {
+            error: 'Insufficient permissions',
+            code: 'EDITOR_REQUIRED',
+            message: 'Editor or Admin role required to generate creatives',
+          },
+          { status: 403 }
+        )
+      }
     }
 
     const body = await request.json()
@@ -819,18 +843,51 @@ export async function POST(request: NextRequest) {
         // CRITICAL: Count only speakers WITH photos, not total speakers
         // Example: 3 speakers total, but only 1 has photo → count = 1
         speakerCountWithPhotos = getSpeakerCountWithPhotos(speakerPhotoConfig)
-        totalSpeakers = speakerPhotoConfig.speakers?.length || 0
+        totalSpeakers = speakerPhotoConfig.speakers?.length || (speakerPhotoConfig.photoUrl ? 1 : 0)
+
+        // ========================================================
+        // v7.1: SPEAKER LAYOUT AGENT - AI-Powered Pre-Generation Analysis
+        // Analyzes TOTAL speakers vs speakers with photos to make intelligent
+        // layout decisions. Prevents oversized photos when only some speakers
+        // have uploaded photos.
+        // ========================================================
+        if (totalSpeakers > 0) {
+          console.log(`[Speaker Layout Agent] Analyzing ${totalSpeakers} total speakers (${speakerCountWithPhotos} with photos)`)
+
+          try {
+            const speakerLayoutResult = await analyzeSpeakerLayout({
+              speakerConfig: speakerPhotoConfig,
+              formatId: (formatId as string) || 'event_poster',
+              canvasWidth: formatDimensions?.width || selectedFormat?.width || 1080,
+              canvasHeight: formatDimensions?.height || selectedFormat?.height || 1440,
+              aspectRatio: selectedFormat?.aspectRatio || '4:5',
+              eventType: formDataContent?.eventType || parsedContent?.eventType,
+              organizationId,
+              userId: user.id,
+            })
+
+            speakerLayoutDecision = speakerLayoutResult.decision
+            console.log(`[Speaker Layout Agent] Decision: ${speakerLayoutResult.source} analysis completed in ${speakerLayoutResult.durationMs}ms`)
+            console.log(`[Speaker Layout Agent] Layout: ${speakerLayoutDecision.layoutStrategy}, Photo size: ${speakerLayoutDecision.photoSizePercent}%`)
+            console.log(`[Speaker Layout Agent] Reasoning: ${speakerLayoutDecision.reasoning}`)
+          } catch (error) {
+            console.warn('[Speaker Layout Agent] Analysis failed, continuing without agent decision:', error)
+            // Continue without agent decision - existing flow will handle layout
+          }
+        }
 
         if (speakerCountWithPhotos > 1) {
           console.log(`[Multi-Speaker] Calculating intelligent layout for ${speakerCountWithPhotos} speakers WITH photos (${totalSpeakers} total speakers)`)
 
         try {
           multiSpeakerLayout = calculateIntelligentLayout({
-            speakerCount: speakerCountWithPhotos,  // Use count WITH photos only
+            speakerCount: speakerCountWithPhotos,  // Use count WITH photos for positions
             formatId: (formatId as string) || 'event_poster',
-            canvasWidth: designDimensions?.width || 1080,
-            canvasHeight: designDimensions?.height || 1440,
-            sophistication: effectiveDesignData?.sophistication as 'minimalist' | 'balanced' | 'rich' | undefined || 'balanced'
+            canvasWidth: formatDimensions?.width || selectedFormat?.width || 1080,
+            canvasHeight: formatDimensions?.height || selectedFormat?.height || 1440,
+            sophistication: (effectiveDesignData as any)?.sophistication as 'minimalist' | 'balanced' | 'rich' | undefined || 'balanced',
+            // v7.1: Use TOTAL speakers for sizing (prevents oversized photos when only some have photos)
+            totalSpeakersForSizing: totalSpeakers > speakerCountWithPhotos ? totalSpeakers : undefined,
           })
 
           // Validate layout
@@ -844,7 +901,7 @@ export async function POST(request: NextRequest) {
               positions: multiSpeakerLayout.positions.length,
               sizes: multiSpeakerLayout.positions.map(p => `${p.size}px`),
               footerZoneClear: multiSpeakerLayout.positions.every(p => {
-                const bottomEdge = ((p.y + p.size / 2) / (designDimensions?.height || 1440)) * 100
+                const bottomEdge = ((p.y + p.size / 2) / (formatDimensions?.height || 1440)) * 100
                 return bottomEdge < 85 // Footer zone starts at 85%
               })
             })
@@ -1314,6 +1371,11 @@ export async function POST(request: NextRequest) {
           // Role-based color configuration with WCAG accessibility validation
           // Only included when AI optimization is enabled
           multiColorTypography: unifiedOptimization?.colors,
+
+          // NEW v7.1: SPEAKER LAYOUT AGENT CONTEXT
+          // AI-analyzed layout decision for speaker photos based on TOTAL speakers
+          // Prevents oversized photos when only some speakers have uploaded photos
+          speakerLayoutContext: speakerLayoutDecision?.promptContext || undefined,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(sanitizeForLogging(buildOptions), null, 2))
@@ -1647,7 +1709,11 @@ export async function POST(request: NextRequest) {
           selectedFormat,
           designContext, // Pass AI-generated design context
           language || 'en', // Pass language from request (PRD Section 10.2)
-          logoAwarenessContext // Pass logo awareness for Smart Layout
+          logoAwarenessContext, // Pass logo awareness for Smart Layout
+          multiSpeakerLayout, // Pass multi-speaker layout guidance
+          speakerCount, // Pass total speaker count
+          speakerCountWithPhotos, // Pass speakers with photos count
+          speakerPhotoZoneCoordinates // Pass speaker photo zone coordinates
         )
 
         // ========================================================
@@ -2704,7 +2770,11 @@ function buildDesignPromptWithFormat(
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
   designContext?: DesignContext, // AI-generated design intelligence
   language: 'en' | 'ta' | 'hi' = 'en', // Language for text content (PRD Section 10.2)
-  logoAwareness?: import('@/lib/prompts/helpers/logo-awareness').LogoAwarenessContext // Logo awareness for Smart Layout
+  logoAwareness?: import('@/lib/prompts/helpers/logo-awareness').LogoAwarenessContext, // Logo awareness for Smart Layout
+  multiSpeakerLayout?: MultiSpeakerLayout | null, // Multi-speaker layout guidance
+  speakerCount: number = 0, // Total speaker count
+  speakerCountWithPhotos: number = 0, // Speakers with photos
+  speakerPhotoZoneCoordinates?: ReturnType<typeof calculateSpeakerPhotoCoordinates> // Speaker photo zone coordinates
 ): { prompt: string; systemPrompt?: string; styleType?: string; magicPrompt?: string; negativePrompt?: string } {
   // Parse event content from the base prompt
   const content = parseEventContent(basePrompt)

@@ -204,9 +204,9 @@ export default function AuditLogViewer() {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 rounded-lg">
         <Select
-          value={filters.action}
+          value={filters.action || 'all'}
           onValueChange={(value) => {
-            setFilters({ ...filters, action: value })
+            setFilters({ ...filters, action: value === 'all' ? '' : value })
             setPagination({ ...pagination, page: 1 })
           }}
         >
@@ -214,7 +214,7 @@ export default function AuditLogViewer() {
             <SelectValue placeholder="All Actions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Actions</SelectItem>
+            <SelectItem value="all">All Actions</SelectItem>
             {availableFilters.actions.map((action) => (
               <SelectItem key={action} value={action}>
                 {action}
@@ -224,9 +224,9 @@ export default function AuditLogViewer() {
         </Select>
 
         <Select
-          value={filters.resourceType}
+          value={filters.resourceType || 'all'}
           onValueChange={(value) => {
-            setFilters({ ...filters, resourceType: value })
+            setFilters({ ...filters, resourceType: value === 'all' ? '' : value })
             setPagination({ ...pagination, page: 1 })
           }}
         >
@@ -234,7 +234,7 @@ export default function AuditLogViewer() {
             <SelectValue placeholder="All Resources" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Resources</SelectItem>
+            <SelectItem value="all">All Resources</SelectItem>
             {availableFilters.resourceTypes.map((type) => (
               <SelectItem key={type} value={type}>
                 {type}
@@ -272,9 +272,9 @@ export default function AuditLogViewer() {
         </div>
 
         <Select
-          value={filters.wasImpersonating}
+          value={filters.wasImpersonating || 'all'}
           onValueChange={(value) => {
-            setFilters({ ...filters, wasImpersonating: value })
+            setFilters({ ...filters, wasImpersonating: value === 'all' ? '' : value })
             setPagination({ ...pagination, page: 1 })
           }}
         >
@@ -282,7 +282,7 @@ export default function AuditLogViewer() {
             <SelectValue placeholder="All Sessions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Sessions</SelectItem>
+            <SelectItem value="all">All Sessions</SelectItem>
             <SelectItem value="true">Impersonation Only</SelectItem>
             <SelectItem value="false">Direct Only</SelectItem>
           </SelectContent>

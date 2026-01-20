@@ -283,6 +283,19 @@ export interface GeneratePromptParams {
     size?: string
     shape?: string
   }
+  /** Multi-speaker layout guidance for intelligent text positioning */
+  multiSpeakerGuidance?: {
+    compositionGuidance: string
+    textZoneAdjustments: {
+      headline: { start: number; end: number }
+      tagline: { start: number; end: number }
+      dateVenue: { start: number; end: number }
+      speakers: { start: number; end: number }
+      additionalDetails: { start: number; end: number }
+    }
+    speakerCount: number
+    layoutKey: string
+  }
 }
 
 // ============================================================

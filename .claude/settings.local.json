@@ -277,7 +277,9 @@
       "Bash(Copy-Item \"lib/sharp/logo-overlay.ts\" \"$backupDir/logo-overlay.ts.backup\")",
       "Bash(Write-Host \"✅ Backups created at: $backupDir\")",
       "Bash(Get-ChildItem $backupDir)",
-      "Bash(Format-Table Name, Length -AutoSize)"
+      "Bash(Format-Table Name, Length -AutoSize)",
+      "mcp__memory__search_nodes",
+      "mcp__memory__read_graph"
     ],
     "deny": [],
     "ask": [],

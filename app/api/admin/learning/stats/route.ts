@@ -28,25 +28,22 @@ export async function GET(request: NextRequest) {
     // 1. Pattern statistics - using learned_patterns table
     // Note: TypeScript types have 'effectiveness' as Json, not separate columns
     const patternQuery = supabase.from('learned_patterns')
-      .select('id, pattern_type, issue_signature, effectiveness, confidence, status', { count: 'exact' })
+      .select('id, pattern_type, issue_signature, times_applied, success_rate, confidence, status', { count: 'exact' })
 
     // Note: learned_patterns doesn't have organization_id, it's global
     // Skip organization filter for patterns
 
     const { data: patterns, count: totalPatterns } = await patternQuery
 
-    // effectiveness is a Json field that may contain: { times_applied, success_rate, ... }
-    type EffectivenessData = { times_applied?: number; success_rate?: number }
+    // times_applied and success_rate are direct columns on learned_patterns
     const activePatterns = patterns?.filter((p) => p.status === 'active').length || 0
     const totalApplications = patterns?.reduce((sum: number, p) => {
-      const eff = p.effectiveness as EffectivenessData | null
-      return sum + (eff?.times_applied || 0)
+      return sum + (p.times_applied || 0)
     }, 0) || 0
-    // Calculate successes from success_rate * times_applied in effectiveness json
+    // Calculate successes from success_rate * times_applied
     const totalSuccesses = patterns?.reduce((sum: number, p) => {
-      const eff = p.effectiveness as EffectivenessData | null
-      const applications = eff?.times_applied || 0
-      const rate = eff?.success_rate || 0
+      const applications = p.times_applied || 0
+      const rate = p.success_rate || 0
       return sum + Math.round(applications * rate)
     }, 0) || 0
     const overallEffectiveness = totalApplications > 0
@@ -82,10 +79,9 @@ export async function GET(request: NextRequest) {
         acc[type] = { count: 0, applications: 0, successes: 0 }
       }
       acc[type].count++
-      const eff = p.effectiveness as EffectivenessData | null
-      const applications = eff?.times_applied || 0
+      const applications = p.times_applied || 0
       acc[type].applications += applications
-      acc[type].successes += Math.round(applications * (eff?.success_rate || 0))
+      acc[type].successes += Math.round(applications * (p.success_rate || 0))
       return acc
     }, {} as BreakdownAcc) || {}
 
@@ -98,10 +94,9 @@ export async function GET(request: NextRequest) {
         acc[format] = { count: 0, applications: 0, successes: 0 }
       }
       acc[format].count++
-      const eff = p.effectiveness as EffectivenessData | null
-      const applications = eff?.times_applied || 0
+      const applications = p.times_applied || 0
       acc[format].applications += applications
-      acc[format].successes += Math.round(applications * (eff?.success_rate || 0))
+      acc[format].successes += Math.round(applications * (p.success_rate || 0))
       return acc
     }, {} as Record<string, { count: number; applications: number; successes: number }>) || {}
 

@@ -90,18 +90,35 @@ export async function superAdminGuard(
     )
   }
 
-  // 2. Check Super Admin flag
-  const isSuperAdmin = (user as any).is_super_admin === true
+  // 2. Check Super Admin flag using RPC function (checks raw_app_meta_data)
+  const { data: isSuperAdmin, error: rpcError } = await (supabase as any).rpc('is_current_user_super_admin')
+
+  if (rpcError) {
+    console.error('[super-admin-guard] RPC error checking super admin status:', rpcError)
+    return NextResponse.json(
+      {
+        error: 'Internal Server Error',
+        code: 'RPC_ERROR',
+        message: 'Failed to verify Super Admin status',
+      },
+      { status: 500 }
+    )
+  }
 
   if (!isSuperAdmin) {
     // Log unauthorized access attempt for security monitoring
-    await logSuperAdminAction({
-      super_admin_id: user.id,
-      action: 'unauthorized_access_attempt',
-      resource_type: 'platform',
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-      user_agent: request.headers.get('user-agent') || 'unknown',
-    })
+    // Note: This may fail silently if user doesn't have insert permission, which is fine
+    try {
+      await logSuperAdminAction({
+        super_admin_id: user.id,
+        action: 'unauthorized_access_attempt',
+        resource_type: 'platform',
+        ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+        user_agent: request.headers.get('user-agent') || 'unknown',
+      })
+    } catch (logError) {
+      console.warn('[super-admin-guard] Failed to log unauthorized access attempt:', logError)
+    }
 
     return NextResponse.json(
       {
@@ -120,7 +137,6 @@ export async function superAdminGuard(
         id: user.id,
         email: user.email || 'unknown',
         is_super_admin: true,
-        ...user,
       },
     })
   } catch (error) {
@@ -139,9 +155,9 @@ export async function superAdminGuard(
 
 /**
  * Validate Super Admin flag on user object
- * Useful for client-side checks before making API calls
+ * Checks raw_app_meta_data.is_super_admin for the flag
  *
- * @param user - Supabase user object
+ * @param user - Supabase user object (from auth.getUser())
  * @returns boolean indicating if user is Super Admin
  *
  * @example
@@ -151,9 +167,13 @@ export async function superAdminGuard(
  *   // Show Super Admin UI
  * }
  * ```
+ *
+ * Note: For server-side checks, prefer using the RPC function
+ * `is_current_user_super_admin` for database-level validation.
  */
 export function isSuperAdminUser(user: any): boolean {
-  return user?.is_super_admin === true
+  // Check raw_app_meta_data for the is_super_admin flag
+  return user?.app_metadata?.is_super_admin === true
 }
 
 /**

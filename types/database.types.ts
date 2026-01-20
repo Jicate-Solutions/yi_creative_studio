@@ -14,6 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_assignments: {
+        Row: {
+          adjustments_made: Json | null
+          assignment_hash: string | null
+          created_at: string | null
+          creative_id: string | null
+          experiment_id: string | null
+          feedback_id: string | null
+          feedback_rating: number | null
+          feedback_received_at: string | null
+          id: string
+          organization_id: string | null
+          pattern_applied: boolean | null
+          user_id: string | null
+          variant: string
+        }
+        Insert: {
+          adjustments_made?: Json | null
+          assignment_hash?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          experiment_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          feedback_received_at?: string | null
+          id?: string
+          organization_id?: string | null
+          pattern_applied?: boolean | null
+          user_id?: string | null
+          variant: string
+        }
+        Update: {
+          adjustments_made?: Json | null
+          assignment_hash?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          experiment_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          feedback_received_at?: string | null
+          id?: string
+          organization_id?: string | null
+          pattern_applied?: boolean | null
+          user_id?: string | null
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_assignments_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ab_assignments_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "ab_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ab_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ab_experiments: {
+        Row: {
+          completed_at: string | null
+          confidence_level: number | null
+          control_avg_rating: number | null
+          control_count: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_significant: boolean | null
+          min_samples: number | null
+          name: string
+          p_value: number | null
+          pattern_id: string | null
+          promoted_at: string | null
+          results: Json | null
+          started_at: string | null
+          status: string | null
+          traffic_percentage: number | null
+          treatment_avg_rating: number | null
+          treatment_count: number | null
+          updated_at: string | null
+          winner: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          confidence_level?: number | null
+          control_avg_rating?: number | null
+          control_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_significant?: boolean | null
+          min_samples?: number | null
+          name: string
+          p_value?: number | null
+          pattern_id?: string | null
+          promoted_at?: string | null
+          results?: Json | null
+          started_at?: string | null
+          status?: string | null
+          traffic_percentage?: number | null
+          treatment_avg_rating?: number | null
+          treatment_count?: number | null
+          updated_at?: string | null
+          winner?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          confidence_level?: number | null
+          control_avg_rating?: number | null
+          control_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_significant?: boolean | null
+          min_samples?: number | null
+          name?: string
+          p_value?: number | null
+          pattern_id?: string | null
+          promoted_at?: string | null
+          results?: Json | null
+          started_at?: string | null
+          status?: string | null
+          traffic_percentage?: number | null
+          treatment_avg_rating?: number | null
+          treatment_count?: number | null
+          updated_at?: string | null
+          winner?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_experiments_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "seeded_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_models: {
         Row: {
           avg_generation_time_seconds: number | null
@@ -133,6 +286,100 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creative_feedback: {
+        Row: {
+          admin_response: string | null
+          analyzed: boolean | null
+          analyzed_at: string | null
+          comment: string | null
+          created_at: string | null
+          creative_id: string | null
+          creative_type: string
+          form_data: Json | null
+          had_prevention_applied: boolean | null
+          id: string
+          issue_categories: string[] | null
+          organization_id: string | null
+          prevention_action_id: string | null
+          priority: string | null
+          prompt_used: string | null
+          rating: number | null
+          responded_at: string | null
+          responded_by: string | null
+          status: string | null
+          user_id: string | null
+          vertical: string | null
+        }
+        Insert: {
+          admin_response?: string | null
+          analyzed?: boolean | null
+          analyzed_at?: string | null
+          comment?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          creative_type: string
+          form_data?: Json | null
+          had_prevention_applied?: boolean | null
+          id?: string
+          issue_categories?: string[] | null
+          organization_id?: string | null
+          prevention_action_id?: string | null
+          priority?: string | null
+          prompt_used?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string | null
+          user_id?: string | null
+          vertical?: string | null
+        }
+        Update: {
+          admin_response?: string | null
+          analyzed?: boolean | null
+          analyzed_at?: string | null
+          comment?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          creative_type?: string
+          form_data?: Json | null
+          had_prevention_applied?: boolean | null
+          id?: string
+          issue_categories?: string[] | null
+          organization_id?: string | null
+          prevention_action_id?: string | null
+          priority?: string | null
+          prompt_used?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string | null
+          user_id?: string | null
+          vertical?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_feedback_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_feedback_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_feedback_prevention_action_id_fkey"
+            columns: ["prevention_action_id"]
+            isOneToOne: false
+            referencedRelation: "prevention_actions"
             referencedColumns: ["id"]
           },
         ]
@@ -331,6 +578,500 @@ export type Database = {
           },
         ]
       }
+      generation_lineage: {
+        Row: {
+          ab_experiment_id: string | null
+          ab_variant: string | null
+          adjustments_applied: Json | null
+          created_at: string | null
+          creative_id: string | null
+          feedback_id: string | null
+          feedback_rating: number | null
+          feedback_received_at: string | null
+          format_id: string
+          id: string
+          organization_id: string | null
+          patterns_matched: string[] | null
+          pipeline_trace: Json
+          prevention_action_id: string | null
+          prevention_helped: boolean | null
+          processing_time_ms: number | null
+          shadow_mode: boolean | null
+          user_id: string | null
+          vision_analysis_id: string | null
+        }
+        Insert: {
+          ab_experiment_id?: string | null
+          ab_variant?: string | null
+          adjustments_applied?: Json | null
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          feedback_received_at?: string | null
+          format_id: string
+          id?: string
+          organization_id?: string | null
+          patterns_matched?: string[] | null
+          pipeline_trace: Json
+          prevention_action_id?: string | null
+          prevention_helped?: boolean | null
+          processing_time_ms?: number | null
+          shadow_mode?: boolean | null
+          user_id?: string | null
+          vision_analysis_id?: string | null
+        }
+        Update: {
+          ab_experiment_id?: string | null
+          ab_variant?: string | null
+          adjustments_applied?: Json | null
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          feedback_received_at?: string | null
+          format_id?: string
+          id?: string
+          organization_id?: string | null
+          patterns_matched?: string[] | null
+          pipeline_trace?: Json
+          prevention_action_id?: string | null
+          prevention_helped?: boolean | null
+          processing_time_ms?: number | null
+          shadow_mode?: boolean | null
+          user_id?: string | null
+          vision_analysis_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_lineage_vision_analysis"
+            columns: ["vision_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "vision_analysis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_lineage_ab_experiment_id_fkey"
+            columns: ["ab_experiment_id"]
+            isOneToOne: false
+            referencedRelation: "ab_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_lineage_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_lineage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_lineage_prevention_action_id_fkey"
+            columns: ["prevention_action_id"]
+            isOneToOne: false
+            referencedRelation: "prevention_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_patches: {
+        Row: {
+          admin_reviewed_at: string | null
+          admin_reviewed_by: string | null
+          applied_at: string | null
+          auto_generated: boolean | null
+          created_at: string | null
+          feedback_count: number | null
+          feedback_ids: string[] | null
+          id: string
+          learned_pattern_id: string | null
+          original_content: string | null
+          patch_type: string
+          pattern_confidence: number | null
+          proposed_content: string
+          reasoning: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          target_file: string
+        }
+        Insert: {
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
+          applied_at?: string | null
+          auto_generated?: boolean | null
+          created_at?: string | null
+          feedback_count?: number | null
+          feedback_ids?: string[] | null
+          id?: string
+          learned_pattern_id?: string | null
+          original_content?: string | null
+          patch_type: string
+          pattern_confidence?: number | null
+          proposed_content: string
+          reasoning: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          target_file: string
+        }
+        Update: {
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
+          applied_at?: string | null
+          auto_generated?: boolean | null
+          created_at?: string | null
+          feedback_count?: number | null
+          feedback_ids?: string[] | null
+          id?: string
+          learned_pattern_id?: string | null
+          original_content?: string | null
+          patch_type?: string
+          pattern_confidence?: number | null
+          proposed_content?: string
+          reasoning?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          target_file?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_patches_learned_pattern_id_fkey"
+            columns: ["learned_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "learned_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_versions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          patches_applied: string[] | null
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          patches_applied?: string[] | null
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          patches_applied?: string[] | null
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: []
+      }
+      landmark_signatures: {
+        Row: {
+          city: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          file_size_bytes: number | null
+          file_url: string
+          height: number | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          region: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          width: number | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          file_size_bytes?: number | null
+          file_url: string
+          height?: number | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          region?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          file_size_bytes?: number | null
+          file_url?: string
+          height?: number | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          region?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landmark_signatures_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learned_patterns: {
+        Row: {
+          confidence: number
+          created_at: string | null
+          created_from_feedback_ids: string[]
+          embedding: Json | null
+          feedback_improvement: number | null
+          fix_mapping: Json
+          id: string
+          issue_signature: Json
+          last_evaluated: string | null
+          pattern_type: string
+          status: string
+          success_rate: number | null
+          times_applied: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          confidence: number
+          created_at?: string | null
+          created_from_feedback_ids?: string[]
+          embedding?: Json | null
+          feedback_improvement?: number | null
+          fix_mapping: Json
+          id?: string
+          issue_signature: Json
+          last_evaluated?: string | null
+          pattern_type: string
+          status?: string
+          success_rate?: number | null
+          times_applied?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          confidence?: number
+          created_at?: string | null
+          created_from_feedback_ids?: string[]
+          embedding?: Json | null
+          feedback_improvement?: number | null
+          fix_mapping?: Json
+          id?: string
+          issue_signature?: Json
+          last_evaluated?: string | null
+          pattern_type?: string
+          status?: string
+          success_rate?: number | null
+          times_applied?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      learning_agent_sessions: {
+        Row: {
+          adjustments_suggested: number | null
+          completed_at: string | null
+          duration_ms: number | null
+          estimated_cost_usd: number | null
+          id: string
+          input_summary: Json | null
+          mode: string
+          organization_id: string | null
+          output_summary: Json | null
+          patches_created: number | null
+          patterns_matched: number | null
+          started_at: string | null
+          state_snapshot: Json | null
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          adjustments_suggested?: number | null
+          completed_at?: string | null
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          id?: string
+          input_summary?: Json | null
+          mode: string
+          organization_id?: string | null
+          output_summary?: Json | null
+          patches_created?: number | null
+          patterns_matched?: number | null
+          started_at?: string | null
+          state_snapshot?: Json | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          adjustments_suggested?: number | null
+          completed_at?: string | null
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          id?: string
+          input_summary?: Json | null
+          mode?: string
+          organization_id?: string | null
+          output_summary?: Json | null
+          patches_created?: number | null
+          patterns_matched?: number | null
+          started_at?: string | null
+          state_snapshot?: Json | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_agent_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_queue: {
+        Row: {
+          created_at: string | null
+          creative_id: string | null
+          error_message: string | null
+          event_data: Json
+          event_type: string
+          id: string
+          max_retries: number | null
+          organization_id: string | null
+          pattern_id: string | null
+          priority: number | null
+          processed_at: string | null
+          processed_by: string | null
+          result: Json | null
+          retry_count: number | null
+          scheduled_for: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creative_id?: string | null
+          error_message?: string | null
+          event_data: Json
+          event_type: string
+          id?: string
+          max_retries?: number | null
+          organization_id?: string | null
+          pattern_id?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          processed_by?: string | null
+          result?: Json | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creative_id?: string | null
+          error_message?: string | null
+          event_data?: Json
+          event_type?: string
+          id?: string
+          max_retries?: number | null
+          organization_id?: string | null
+          pattern_id?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          processed_by?: string | null
+          result?: Json | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_queue_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logo_presets: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          placements: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          placements: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          placements?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logo_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_logos: {
         Row: {
           category: string
@@ -463,6 +1204,487 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pattern_cache_state: {
+        Row: {
+          cache_version: number
+          expires_at: string | null
+          id: string
+          last_updated: string | null
+          organization_id: string | null
+          patterns_hash: string
+          patterns_snapshot: Json
+          scope: string | null
+          total_patterns: number
+        }
+        Insert: {
+          cache_version: number
+          expires_at?: string | null
+          id?: string
+          last_updated?: string | null
+          organization_id?: string | null
+          patterns_hash: string
+          patterns_snapshot: Json
+          scope?: string | null
+          total_patterns: number
+        }
+        Update: {
+          cache_version?: number
+          expires_at?: string | null
+          id?: string
+          last_updated?: string | null
+          organization_id?: string | null
+          patterns_hash?: string
+          patterns_snapshot?: Json
+          scope?: string | null
+          total_patterns?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pattern_cache_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_understanding: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          format_specific_paths: Json
+          id: string
+          interconnections: Json
+          key_insights: string[]
+          stages: Json
+          total_files: number
+          version: number
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          format_specific_paths: Json
+          id?: string
+          interconnections: Json
+          key_insights?: string[]
+          stages: Json
+          total_files?: number
+          version: number
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          format_specific_paths?: Json
+          id?: string
+          interconnections?: Json
+          key_insights?: string[]
+          stages?: Json
+          total_files?: number
+          version?: number
+        }
+        Relationships: []
+      }
+      prevention_actions: {
+        Row: {
+          adjustments_applied: Json
+          created_at: string | null
+          creative_id: string | null
+          feedback_rating: number | null
+          fix_effective: boolean | null
+          id: string
+          matched_patterns: string[]
+          organization_id: string | null
+          session_id: string | null
+          was_effective: boolean | null
+        }
+        Insert: {
+          adjustments_applied?: Json
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_rating?: number | null
+          fix_effective?: boolean | null
+          id?: string
+          matched_patterns?: string[]
+          organization_id?: string | null
+          session_id?: string | null
+          was_effective?: boolean | null
+        }
+        Update: {
+          adjustments_applied?: Json
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_rating?: number | null
+          fix_effective?: boolean | null
+          id?: string
+          matched_patterns?: string[]
+          organization_id?: string | null
+          session_id?: string | null
+          was_effective?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "learning_agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rollback_checkpoints: {
+        Row: {
+          changes_summary: string | null
+          checkpoint_type: string
+          created_at: string | null
+          created_by: string | null
+          entity_id: string | null
+          entity_type: string
+          expires_at: string | null
+          id: string
+          new_state: Json
+          organization_id: string | null
+          previous_state: Json
+          quality_score_after: number | null
+          quality_score_before: number | null
+          reason: string | null
+          rollback_reason: string | null
+          rolled_back: boolean | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
+        }
+        Insert: {
+          changes_summary?: string | null
+          checkpoint_type: string
+          created_at?: string | null
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type: string
+          expires_at?: string | null
+          id?: string
+          new_state: Json
+          organization_id?: string | null
+          previous_state: Json
+          quality_score_after?: number | null
+          quality_score_before?: number | null
+          reason?: string | null
+          rollback_reason?: string | null
+          rolled_back?: boolean | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+        }
+        Update: {
+          changes_summary?: string | null
+          checkpoint_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          expires_at?: string | null
+          id?: string
+          new_state?: Json
+          organization_id?: string | null
+          previous_state?: Json
+          quality_score_after?: number | null
+          quality_score_before?: number | null
+          reason?: string | null
+          rollback_reason?: string | null
+          rolled_back?: boolean | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rollback_checkpoints_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seeded_patterns: {
+        Row: {
+          category: string
+          confidence: number | null
+          created_at: string | null
+          description: string
+          fix_mapping: Json
+          format_ids: string[] | null
+          id: string
+          is_active: boolean | null
+          issue_signature: Json
+          last_applied_at: string | null
+          name: string
+          organization_id: string | null
+          pattern_key: string
+          source: string | null
+          success_rate: number | null
+          times_applied: number | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          category: string
+          confidence?: number | null
+          created_at?: string | null
+          description: string
+          fix_mapping: Json
+          format_ids?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          issue_signature: Json
+          last_applied_at?: string | null
+          name: string
+          organization_id?: string | null
+          pattern_key: string
+          source?: string | null
+          success_rate?: number | null
+          times_applied?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          confidence?: number | null
+          created_at?: string | null
+          description?: string
+          fix_mapping?: Json
+          format_ids?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          issue_signature?: Json
+          last_applied_at?: string | null
+          name?: string
+          organization_id?: string | null
+          pattern_key?: string
+          source?: string | null
+          success_rate?: number | null
+          times_applied?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seeded_patterns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shadow_mode_logs: {
+        Row: {
+          confidence_delta: number | null
+          correlated_at: string | null
+          correlation_notes: string | null
+          created_at: string | null
+          creative_id: string | null
+          feedback_id: string | null
+          feedback_rating: number | null
+          format_id: string
+          generation_request_id: string
+          id: string
+          matched_patterns: Json
+          organization_id: string | null
+          prediction_accurate: boolean | null
+          proposed_adjustments: Json | null
+          request_snapshot: Json
+          user_id: string | null
+          would_have_adjusted: boolean | null
+        }
+        Insert: {
+          confidence_delta?: number | null
+          correlated_at?: string | null
+          correlation_notes?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          format_id: string
+          generation_request_id: string
+          id?: string
+          matched_patterns?: Json
+          organization_id?: string | null
+          prediction_accurate?: boolean | null
+          proposed_adjustments?: Json | null
+          request_snapshot: Json
+          user_id?: string | null
+          would_have_adjusted?: boolean | null
+        }
+        Update: {
+          confidence_delta?: number | null
+          correlated_at?: string | null
+          correlation_notes?: string | null
+          created_at?: string | null
+          creative_id?: string | null
+          feedback_id?: string | null
+          feedback_rating?: number | null
+          format_id?: string
+          generation_request_id?: string
+          id?: string
+          matched_patterns?: Json
+          organization_id?: string | null
+          prediction_accurate?: boolean | null
+          proposed_adjustments?: Json | null
+          request_snapshot?: Json
+          user_id?: string | null
+          would_have_adjusted?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shadow_mode_logs_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shadow_mode_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      success_patterns: {
+        Row: {
+          amplification_hints: Json | null
+          application_success_rate: number | null
+          avg_rating: number
+          confidence: number | null
+          created_at: string | null
+          description: string | null
+          format_id: string
+          id: string
+          is_active: boolean | null
+          last_applied_at: string | null
+          name: string
+          organization_id: string | null
+          pattern_key: string
+          sample_count: number
+          source_creative_ids: string[] | null
+          success_signature: Json
+          times_applied: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          amplification_hints?: Json | null
+          application_success_rate?: number | null
+          avg_rating: number
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          format_id: string
+          id?: string
+          is_active?: boolean | null
+          last_applied_at?: string | null
+          name: string
+          organization_id?: string | null
+          pattern_key: string
+          sample_count?: number
+          source_creative_ids?: string[] | null
+          success_signature: Json
+          times_applied?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          amplification_hints?: Json | null
+          application_success_rate?: number | null
+          avg_rating?: number
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          format_id?: string
+          id?: string
+          is_active?: boolean | null
+          last_applied_at?: string | null
+          name?: string
+          organization_id?: string | null
+          pattern_key?: string
+          sample_count?: number
+          source_creative_ids?: string[] | null
+          success_signature?: Json
+          times_applied?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "success_patterns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      super_admin_audit_logs: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string
+          id: string
+          impersonated_user_id: string | null
+          ip_address: string | null
+          resource_id: string | null
+          resource_type: string
+          super_admin_email: string
+          super_admin_id: string
+          target_organization_id: string | null
+          target_user_id: string | null
+          user_agent: string | null
+          was_impersonating: boolean | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          impersonated_user_id?: string | null
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type: string
+          super_admin_email: string
+          super_admin_id: string
+          target_organization_id?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          was_impersonating?: boolean | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          impersonated_user_id?: string | null
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          super_admin_email?: string
+          super_admin_id?: string
+          target_organization_id?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          was_impersonating?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "super_admin_audit_logs_target_organization_id_fkey"
+            columns: ["target_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       template_images: {
         Row: {
@@ -727,290 +1949,95 @@ export type Database = {
         }
         Relationships: []
       }
-      learned_patterns: {
+      vision_analysis: {
         Row: {
-          id: string
-          pattern_type: string
-          issue_signature: Json
-          fix_mapping: Json
-          effectiveness: Json
-          confidence: number
-          status: string
-          created_from_feedback_ids: string[]
-          embedding: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          pattern_type: string
-          issue_signature: Json
-          fix_mapping: Json
-          effectiveness?: Json
-          confidence?: number
-          status?: string
-          created_from_feedback_ids?: string[]
-          embedding?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          pattern_type?: string
-          issue_signature?: Json
-          fix_mapping?: Json
-          effectiveness?: Json
-          confidence?: number
-          status?: string
-          created_from_feedback_ids?: string[]
-          embedding?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      prevention_actions: {
-        Row: {
-          id: string
-          session_id: string | null
+          brand_consistency_score: number | null
+          category_scores: Json | null
+          color_harmony_score: number | null
+          composition_score: number | null
+          created_at: string | null
           creative_id: string | null
-          organization_id: string
-          matched_patterns: string[]
-          adjustments_applied: Json
-          was_effective: boolean | null
-          feedback_rating: number | null
-          fix_effective: boolean | null
-          created_at: string
+          detected_issues: Json
+          flag_for_review: boolean | null
+          format_id: string
+          id: string
+          image_url: string
+          logo_placement_score: number | null
+          model_used: string | null
+          organization_id: string | null
+          overall_score: number | null
+          processing_time_ms: number | null
+          raw_response: Json | null
+          review_completed: boolean | null
+          review_notes: string | null
+          review_reasons: string[] | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          text_readability_score: number | null
         }
         Insert: {
-          id?: string
-          session_id?: string | null
+          brand_consistency_score?: number | null
+          category_scores?: Json | null
+          color_harmony_score?: number | null
+          composition_score?: number | null
+          created_at?: string | null
           creative_id?: string | null
-          organization_id: string
-          matched_patterns?: string[]
-          adjustments_applied?: Json
-          was_effective?: boolean | null
-          feedback_rating?: number | null
-          fix_effective?: boolean | null
-          created_at?: string
+          detected_issues?: Json
+          flag_for_review?: boolean | null
+          format_id: string
+          id?: string
+          image_url: string
+          logo_placement_score?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          overall_score?: number | null
+          processing_time_ms?: number | null
+          raw_response?: Json | null
+          review_completed?: boolean | null
+          review_notes?: string | null
+          review_reasons?: string[] | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          text_readability_score?: number | null
         }
         Update: {
-          id?: string
-          session_id?: string | null
+          brand_consistency_score?: number | null
+          category_scores?: Json | null
+          color_harmony_score?: number | null
+          composition_score?: number | null
+          created_at?: string | null
           creative_id?: string | null
-          organization_id?: string
-          matched_patterns?: string[]
-          adjustments_applied?: Json
-          was_effective?: boolean | null
-          feedback_rating?: number | null
-          fix_effective?: boolean | null
-          created_at?: string
+          detected_issues?: Json
+          flag_for_review?: boolean | null
+          format_id?: string
+          id?: string
+          image_url?: string
+          logo_placement_score?: number | null
+          model_used?: string | null
+          organization_id?: string | null
+          overall_score?: number | null
+          processing_time_ms?: number | null
+          raw_response?: Json | null
+          review_completed?: boolean | null
+          review_notes?: string | null
+          review_reasons?: string[] | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          text_readability_score?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "prevention_actions_creative_id_fkey"
+            foreignKeyName: "vision_analysis_creative_id_fkey"
             columns: ["creative_id"]
             isOneToOne: false
             referencedRelation: "creatives"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "prevention_actions_organization_id_fkey"
+            foreignKeyName: "vision_analysis_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agent_sessions: {
-        Row: {
-          id: string
-          mode: string
-          organization_id: string
-          user_id: string
-          state_snapshot: Json | null
-          input_summary: Json | null
-          output_summary: Json | null
-          patterns_matched: number
-          patches_created: number
-          adjustments_suggested: number
-          started_at: string
-          completed_at: string | null
-          duration_ms: number | null
-          total_tokens: number
-          estimated_cost_usd: number
-        }
-        Insert: {
-          id?: string
-          mode: string
-          organization_id: string
-          user_id: string
-          state_snapshot?: Json | null
-          input_summary?: Json | null
-          output_summary?: Json | null
-          patterns_matched?: number
-          patches_created?: number
-          adjustments_suggested?: number
-          started_at?: string
-          completed_at?: string | null
-          duration_ms?: number | null
-          total_tokens?: number
-          estimated_cost_usd?: number
-        }
-        Update: {
-          id?: string
-          mode?: string
-          organization_id?: string
-          user_id?: string
-          state_snapshot?: Json | null
-          input_summary?: Json | null
-          output_summary?: Json | null
-          patterns_matched?: number
-          patches_created?: number
-          adjustments_suggested?: number
-          started_at?: string
-          completed_at?: string | null
-          duration_ms?: number | null
-          total_tokens?: number
-          estimated_cost_usd?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_sessions_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      landmark_signatures: {
-        Row: {
-          city: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          file_size_bytes: number | null
-          file_url: string
-          height: number | null
-          id: string
-          is_default: boolean | null
-          name: string
-          organization_id: string
-          region: string | null
-          thumbnail_url: string | null
-          updated_at: string
-          width: number | null
-        }
-        Insert: {
-          city?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          file_size_bytes?: number | null
-          file_url: string
-          height?: number | null
-          id?: string
-          is_default?: boolean | null
-          name: string
-          organization_id: string
-          region?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string
-          width?: number | null
-        }
-        Update: {
-          city?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          file_size_bytes?: number | null
-          file_url?: string
-          height?: number | null
-          id?: string
-          is_default?: boolean | null
-          name?: string
-          organization_id?: string
-          region?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string
-          width?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "landmark_signatures_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      knowledge_patches: {
-        Row: {
-          id: string
-          target_file: string
-          patch_type: string
-          original_content: string | null
-          proposed_content: string
-          reasoning: string
-          status: string
-          learned_pattern_id: string | null
-          auto_generated: boolean
-          feedback_ids: string[]
-          feedback_count: number
-          pattern_confidence: number
-          admin_reviewed_at: string | null
-          admin_reviewed_by: string | null
-          review_notes: string | null
-          created_at: string
-          applied_at: string | null
-        }
-        Insert: {
-          id?: string
-          target_file: string
-          patch_type: string
-          original_content?: string | null
-          proposed_content: string
-          reasoning: string
-          status?: string
-          learned_pattern_id?: string | null
-          auto_generated?: boolean
-          feedback_ids?: string[]
-          feedback_count?: number
-          pattern_confidence?: number
-          admin_reviewed_at?: string | null
-          admin_reviewed_by?: string | null
-          review_notes?: string | null
-          created_at?: string
-          applied_at?: string | null
-        }
-        Update: {
-          id?: string
-          target_file?: string
-          patch_type?: string
-          original_content?: string | null
-          proposed_content?: string
-          reasoning?: string
-          status?: string
-          learned_pattern_id?: string | null
-          auto_generated?: boolean
-          feedback_ids?: string[]
-          feedback_count?: number
-          pattern_confidence?: number
-          admin_reviewed_at?: string | null
-          admin_reviewed_by?: string | null
-          review_notes?: string | null
-          created_at?: string
-          applied_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "knowledge_patches_learned_pattern_id_fkey"
-            columns: ["learned_pattern_id"]
-            isOneToOne: false
-            referencedRelation: "learned_patterns"
             referencedColumns: ["id"]
           },
         ]
@@ -1033,6 +2060,23 @@ export type Database = {
           success: boolean
           transaction_id: string
         }[]
+      }
+      backfill_all_api_usage_creative_ids: {
+        Args: never
+        Returns: {
+          creative_id: string
+          linked_count: number
+        }[]
+      }
+      backfill_api_usage_creative_id: {
+        Args: {
+          p_created_at: string
+          p_creative_id: string
+          p_organization_id: string
+          p_user_id: string
+          p_window_seconds?: number
+        }
+        Returns: number
       }
       can_edit_org: { Args: { org_id: string }; Returns: boolean }
       check_org_has_no_members: { Args: { p_org_id: string }; Returns: boolean }
@@ -1058,12 +2102,69 @@ export type Database = {
           transaction_id: string
         }[]
       }
+      get_api_usage_analytics: {
+        Args: { org_id: string; start_date?: string }
+        Returns: {
+          avg_duration_ms: number
+          model: string
+          provider: string
+          request_count: number
+          request_type: string
+          success_count: number
+          total_cached_tokens: number
+          total_cost_usd: number
+          total_images: number
+          total_input_tokens: number
+          total_output_tokens: number
+        }[]
+      }
+      get_creative_analytics: {
+        Args: { org_id: string; start_date?: string }
+        Returns: {
+          avg_generation_time_ms: number
+          creatives_by_model: Json
+          creatives_by_type: Json
+          creatives_by_vertical: Json
+          total_creatives: number
+          total_credits_used: number
+          total_downloads: number
+        }[]
+      }
+      get_daily_usage_trend: {
+        Args: { org_id: string; start_date?: string }
+        Returns: {
+          cached_tokens: number
+          image_count: number
+          input_tokens: number
+          output_tokens: number
+          request_count: number
+          total_cost_usd: number
+          usage_date: string
+        }[]
+      }
+      get_recent_api_usage: {
+        Args: { org_id: string; record_limit?: number; start_date?: string }
+        Returns: {
+          created_at: string
+          duration_ms: number
+          estimated_cost_usd: number
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          provider: string
+          request_type: string
+          success: boolean
+        }[]
+      }
       get_user_org_role: { Args: { org_id: string }; Returns: string }
       increment_template_use_count: {
         Args: { template_id: string }
         Returns: undefined
       }
+      is_current_user_super_admin: { Args: never; Returns: boolean }
       is_org_admin: { Args: { org_id: string }; Returns: boolean }
+      is_user_super_admin: { Args: { user_id: string }; Returns: boolean }
       refund_credits: {
         Args: {
           p_amount: number
@@ -1080,69 +2181,6 @@ export type Database = {
       user_belongs_to_organization: {
         Args: { org_id: string }
         Returns: boolean
-      }
-      backfill_api_usage_creative_id: {
-        Args: {
-          p_creative_id: string
-          p_organization_id: string
-          p_user_id: string
-          p_created_at: string
-          p_window_seconds?: number
-        }
-        Returns: undefined
-      }
-      get_api_usage_analytics: {
-        Args: {
-          org_id: string
-          start_date: string | null
-        }
-        Returns: {
-          provider: string
-          request_type: string
-          model: string
-          total_cost_usd: number
-          total_input_tokens: number
-          total_output_tokens: number
-          total_cached_tokens: number
-          total_images: number
-          request_count: number
-          avg_duration_ms: number
-          success_count: number
-        }[]
-      }
-      get_daily_usage_trend: {
-        Args: {
-          org_id: string
-          start_date: string | null
-        }
-        Returns: {
-          usage_date: string
-          total_cost_usd: number
-          request_count: number
-          input_tokens: number
-          output_tokens: number
-          cached_tokens: number
-          image_count: number
-        }[]
-      }
-      get_recent_api_usage: {
-        Args: {
-          org_id: string
-          start_date: string | null
-          record_limit: number
-        }
-        Returns: {
-          id: string
-          provider: string
-          request_type: string
-          model: string
-          estimated_cost_usd: number
-          input_tokens: number
-          output_tokens: number
-          duration_ms: number
-          success: boolean
-          created_at: string
-        }[]
       }
     }
     Enums: {
@@ -1277,26 +2315,21 @@ export const Constants = {
   },
 } as const
 
-// Convenience type aliases for common tables
-export type Creative = Tables<'creatives'>
-export type Template = Tables<'templates'>
-export type VerticalPreset = Tables<'vertical_presets'>
-export type AIModel = Tables<'ai_models'>
-export type Organization = Tables<'organizations'>
-export type OrganizationMember = Tables<'organization_members'>
-export type OrganizationLogo = Tables<'organization_logos'>
-export type CreditTransaction = Tables<'credit_transactions'>
-export type UserProfile = Tables<'user_profiles'>
-export type TemplateImage = Tables<'template_images'>
-export type ApiUsage = Tables<'api_usage'>
+// Type aliases for common table types
+export type Template = Database['public']['Tables']['templates']['Row']
+export type TemplateImage = Database['public']['Tables']['template_images']['Row']
+export type VerticalPreset = Database['public']['Tables']['vertical_presets']['Row']
+export type AIModel = Database['public']['Tables']['ai_models']['Row']
+export type Creative = Database['public']['Tables']['creatives']['Row']
+export type Organization = Database['public']['Tables']['organizations']['Row']
+export type OrganizationLogo = Database['public']['Tables']['organization_logos']['Row']
+export type OrganizationMember = Database['public']['Tables']['organization_members']['Row']
+export type CreditTransaction = Database['public']['Tables']['credit_transactions']['Row']
+export type UserProfile = Database['public']['Tables']['user_profiles']['Row']
+export type APIUsage = Database['public']['Tables']['api_usage']['Row']
+export type SuperAdminAuditLog = Database['public']['Tables']['super_admin_audit_logs']['Row']
 
-// Feedback Learning Agent tables
-export type LearnedPattern = Tables<'learned_patterns'>
-export type PreventionAction = Tables<'prevention_actions'>
-export type AgentSession = Tables<'agent_sessions'>
-export type KnowledgePatch = Tables<'knowledge_patches'>
-
-// Custom types for JSON columns
+// Custom interfaces for application types
 export interface BrandConfig {
   primaryColor: string
   secondaryColor: string
@@ -1305,12 +2338,12 @@ export interface BrandConfig {
   fontSecondary: string
   headerZoneHeight: number
   footerZoneHeight: number
-  footerText: string
-  footerEmail: string
-  footerWebsite: string
-  footerPhone: string
-  footerAddress: string
-  footerSocial: {
+  footerText?: string
+  footerEmail?: string
+  footerWebsite?: string
+  footerPhone?: string
+  footerAddress?: string
+  footerSocial?: {
     instagram?: string
     linkedin?: string
     facebook?: string

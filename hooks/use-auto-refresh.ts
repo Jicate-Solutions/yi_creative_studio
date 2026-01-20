@@ -20,7 +20,7 @@ export function useAutoRefresh({
 }: UseAutoRefreshOptions) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
-  const intervalRef = useRef<NodeJS.Timeout>()
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!enabled) return

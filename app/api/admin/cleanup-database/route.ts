@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admin-guard'
+import { logSuperAdminAction } from '@/lib/services/audit-service'
 
 /**
  * Comprehensive Database Cleanup Script
+ *
+ * SECURITY: This endpoint affects ALL organizations' data, so it requires
+ * Super Admin access (platform-level). Organization admins cannot use this.
  *
  * Fixes Supabase disk full issues by:
  * 1. Migrating base64 images to Storage
@@ -18,25 +23,10 @@ import { createClient } from '@/lib/supabase/server'
  *   - retentionDays: Number of days to retain data (default: 90)
  */
 export async function POST(request: NextRequest) {
-  try {
+  return superAdminGuard(request, async (req, context) => {
+    const { superAdmin } = context
     const supabase = await createClient()
-
-    // Verify admin access
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single()
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
+    const metadata = getRequestMetadata(req)
 
     // Parse query parameters
     const { searchParams } = new URL(request.url)
@@ -280,22 +270,29 @@ export async function POST(request: NextRequest) {
       results.fullCleanup.steps.push('Use individual actions for safety')
     }
 
-    return NextResponse.json(results)
+    // Log the cleanup action to audit trail
+    if (!dryRun && action !== 'diagnose') {
+      await logSuperAdminAction({
+        super_admin_id: superAdmin.id,
+        action: `database:cleanup:${action}`,
+        resource_type: 'platform',
+        changes: {
+          after: results,
+        },
+        ...metadata,
+      })
+    }
 
-  } catch (error) {
-    console.error('Cleanup error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Cleanup failed' },
-      { status: 500 }
-    )
-  }
+    return NextResponse.json(results)
+  })
 }
 
 /**
  * GET endpoint to check cleanup status
+ * SECURITY: Requires Super Admin access
  */
-export async function GET() {
-  try {
+export async function GET(request: NextRequest) {
+  return superAdminGuard(request, async () => {
     const supabase = await createClient()
 
     const { count: totalCreatives } = await supabase
@@ -322,10 +319,5 @@ export async function GET() {
       },
       healthStatus: (base64Count || 0) === 0 ? 'HEALTHY' : 'NEEDS_CLEANUP',
     })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Status check failed' },
-      { status: 500 }
-    )
-  }
+  })
 }

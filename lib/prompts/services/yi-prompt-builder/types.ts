@@ -356,6 +356,11 @@ export interface EnhancedBuildOptions {
     rightEdge: number
   }
 
+  // NEW v7.1: Speaker Layout Agent context
+  // AI-analyzed layout decision for speaker photos based on TOTAL speakers (not just those with photos)
+  // Prevents oversized photos when only some speakers have uploaded photos
+  speakerLayoutContext?: string
+
   // NEW v7.0: Logo Strip Zone Coordinates for 4-Row Enhanced Strip (v13.0: Now with color contrast)
   // Tells Gemini AI to reserve space for logo strips (header and footer)
   // This prevents text/content from overlapping with logo overlay areas

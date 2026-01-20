@@ -192,6 +192,14 @@ export function MultiSpeakerInput({
 
   const { completed, total } = getCompletionCount()
 
+  // DEBUG: Log speakers array to diagnose missing button issue
+  console.log('[MultiSpeakerInput] Render debug:', {
+    speakersLength: speakers.length,
+    speakersIds: speakers.map(s => s.id),
+    shouldShowButton: speakers.length > 0 && speakers.length < 4,
+    shouldShowEmptyState: speakers.length === 0,
+  })
+
   return (
     <div className="space-y-4">
       {/* Speaker Cards List - Priority Content */}
@@ -239,15 +247,16 @@ export function MultiSpeakerInput({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="default"
                 onClick={handleAddSpeaker}
-                className="w-full gap-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-colors"
+                className="w-full gap-2 border-dashed border-2 border-primary/40 hover:border-primary hover:bg-primary/5 transition-colors py-3 mt-2"
               >
-                <Plus className="h-4 w-4" />
-                Add Another Speaker {speakers.length > 0 && `(${speakers.length}/4)`}
+                <Plus className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Add Another Speaker</span>
+                <span className="text-xs text-muted-foreground ml-1">({speakers.length}/4)</span>
               </Button>
             ) : (
-              <div className="text-center p-3 bg-muted/50 rounded-lg border border-dashed">
+              <div className="text-center p-3 bg-muted/50 rounded-lg border border-dashed mt-2">
                 <p className="text-xs text-muted-foreground">
                   Maximum 4 speakers reached
                 </p>

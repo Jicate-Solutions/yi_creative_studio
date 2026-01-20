@@ -14,30 +14,44 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
 
     try {
-      // 1. Total credits allocated across all organizations
-      const { data: creditData } = await supabase
-        .from('organization_credits')
-        .select('balance, total_allocated, total_consumed, total_purchased')
+      // 1. Get all organizations with their credit balances
+      const { data: organizations } = await supabase
+        .from('organizations')
+        .select('id, name, credits_balance')
 
-      const totals = creditData?.reduce(
-        (acc, org) => ({
-          total_balance: acc.total_balance + (org.balance || 0),
-          total_allocated: acc.total_allocated + (org.total_allocated || 0),
-          total_consumed: acc.total_consumed + (org.total_consumed || 0),
-          total_purchased: acc.total_purchased + (org.total_purchased || 0),
-        }),
-        { total_balance: 0, total_allocated: 0, total_consumed: 0, total_purchased: 0 }
-      ) || { total_balance: 0, total_allocated: 0, total_consumed: 0, total_purchased: 0 }
+      const totalBalance = organizations?.reduce(
+        (sum, org) => sum + (org.credits_balance || 0),
+        0
+      ) || 0
 
       // 2. Credit distribution (organizations by balance range)
       const balanceRanges = {
-        empty: creditData?.filter((org) => org.balance === 0).length || 0,
-        low: creditData?.filter((org) => org.balance > 0 && org.balance <= 100).length || 0,
-        medium: creditData?.filter((org) => org.balance > 100 && org.balance <= 1000).length || 0,
-        high: creditData?.filter((org) => org.balance > 1000).length || 0,
+        empty: organizations?.filter((org) => org.credits_balance === 0).length || 0,
+        low: organizations?.filter((org) => org.credits_balance > 0 && org.credits_balance <= 100).length || 0,
+        medium: organizations?.filter((org) => org.credits_balance > 100 && org.credits_balance <= 1000).length || 0,
+        high: organizations?.filter((org) => org.credits_balance > 1000).length || 0,
       }
 
-      // 3. Recent credit transactions (last 7 days)
+      // 3. Calculate totals from credit_transactions
+      const { data: allTransactions } = await supabase
+        .from('credit_transactions')
+        .select('type, amount')
+
+      const totals = allTransactions?.reduce(
+        (acc, txn) => {
+          if (txn.type === 'purchase') {
+            acc.total_purchased += txn.amount || 0
+          } else if (txn.type === 'allocation' || txn.type === 'bonus') {
+            acc.total_allocated += txn.amount || 0
+          } else if (txn.type === 'usage' || txn.type === 'consumption') {
+            acc.total_consumed += Math.abs(txn.amount || 0)
+          }
+          return acc
+        },
+        { total_balance: totalBalance, total_purchased: 0, total_allocated: 0, total_consumed: 0 }
+      ) || { total_balance: totalBalance, total_purchased: 0, total_allocated: 0, total_consumed: 0 }
+
+      // 4. Recent credit transactions (last 7 days)
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
@@ -54,44 +68,54 @@ export async function GET(request: NextRequest) {
           acc[day] = { allocated: 0, consumed: 0, refunded: 0 }
         }
 
-        if (txn.type === 'allocation' || txn.type === 'manual_allocation' || txn.type === 'bonus') {
-          acc[day].allocated += txn.amount
-        } else if (txn.type === 'consumption') {
-          acc[day].consumed += Math.abs(txn.amount)
+        if (txn.type === 'allocation' || txn.type === 'bonus' || txn.type === 'purchase') {
+          acc[day].allocated += txn.amount || 0
+        } else if (txn.type === 'usage' || txn.type === 'consumption') {
+          acc[day].consumed += Math.abs(txn.amount || 0)
         } else if (txn.type === 'refund') {
-          acc[day].refunded += txn.amount
+          acc[day].refunded += txn.amount || 0
         }
 
         return acc
       }, {} as Record<string, { allocated: number; consumed: number; refunded: number }>)
 
-      // 4. Top consumers (top 10 organizations by consumption)
-      const { data: topConsumers } = await supabase
-        .from('organization_credits')
-        .select('organization_id, total_consumed, organizations(name)')
-        .order('total_consumed', { ascending: false })
-        .limit(10)
+      // 5. Top consumers - from organizations sorted by credits usage
+      // Calculate total consumed per organization from transactions
+      const { data: consumptionByOrg } = await supabase
+        .from('credit_transactions')
+        .select('organization_id, amount')
+        .in('type', ['usage', 'consumption'])
 
-      const formattedTopConsumers = topConsumers?.map((org) => ({
-        organization_id: org.organization_id,
-        organization_name: (org.organizations as any)?.name || 'Unknown',
-        total_consumed: org.total_consumed,
-      }))
+      const orgConsumption: Record<string, number> = {}
+      consumptionByOrg?.forEach((txn) => {
+        if (txn.organization_id) {
+          orgConsumption[txn.organization_id] = (orgConsumption[txn.organization_id] || 0) + Math.abs(txn.amount || 0)
+        }
+      })
 
-      // 5. Organizations needing attention (low balance)
-      const { data: lowBalanceOrgs } = await supabase
-        .from('organization_credits')
-        .select('organization_id, balance, low_balance_threshold, organizations(name)')
-        .lte('balance', 100)
-        .order('balance', { ascending: true })
-        .limit(10)
+      // Sort and get top 10
+      const topConsumers = Object.entries(orgConsumption)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([orgId, consumed]) => {
+          const org = organizations?.find((o) => o.id === orgId)
+          return {
+            organization_id: orgId,
+            organization_name: org?.name || 'Unknown',
+            total_consumed: consumed,
+          }
+        })
 
-      const formattedLowBalance = lowBalanceOrgs?.map((org) => ({
-        organization_id: org.organization_id,
-        organization_name: (org.organizations as any)?.name || 'Unknown',
-        balance: org.balance,
-        threshold: org.low_balance_threshold,
-      }))
+      // 6. Organizations needing attention (low balance)
+      const lowBalanceOrgs = organizations
+        ?.filter((org) => org.credits_balance <= 100)
+        .sort((a, b) => a.credits_balance - b.credits_balance)
+        .slice(0, 10)
+        .map((org) => ({
+          organization_id: org.id,
+          organization_name: org.name,
+          balance: org.credits_balance,
+        })) || []
 
       return NextResponse.json({
         success: true,
@@ -99,8 +123,8 @@ export async function GET(request: NextRequest) {
           totals,
           balance_distribution: balanceRanges,
           daily_stats: dailyStats || {},
-          top_consumers: formattedTopConsumers || [],
-          low_balance_orgs: formattedLowBalance || [],
+          top_consumers: topConsumers || [],
+          low_balance_orgs: lowBalanceOrgs,
         },
       })
     } catch (error) {

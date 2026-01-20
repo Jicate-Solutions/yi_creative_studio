@@ -53,13 +53,11 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     // Calculate effectiveness rate for each pattern
-    // effectiveness is a Json field: { times_applied, success_rate, ... }
-    type EffectivenessData = { times_applied?: number; success_rate?: number }
+    // success_rate and times_applied are direct columns on learned_patterns
     const patternsWithStats = patterns?.map((pattern) => {
-      const eff = pattern.effectiveness as EffectivenessData | null
       return {
         ...pattern,
-        effectiveness_rate: Math.round((eff?.success_rate ?? 0) * 100),
+        effectiveness_rate: Math.round((pattern.success_rate ?? 0) * 100),
       }
     }) || []
 

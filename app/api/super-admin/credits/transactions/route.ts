@@ -74,14 +74,15 @@ export async function GET(request: NextRequest) {
         organization_name: (txn.organizations as any)?.name || 'Unknown',
         type: txn.type,
         amount: txn.amount,
-        balance_before: txn.balance_before,
+        amount_inr: txn.amount_inr,
         balance_after: txn.balance_after,
-        reason: txn.reason,
-        reference_type: txn.reference_type,
-        reference_id: txn.reference_id,
+        description: txn.description,
+        creative_id: txn.creative_id,
+        user_id: txn.user_id,
+        payment_provider: txn.payment_provider,
+        payment_id: txn.payment_id,
         metadata: txn.metadata,
         created_at: txn.created_at,
-        created_by: txn.created_by,
       }))
 
       return NextResponse.json({

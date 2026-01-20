@@ -2,7 +2,7 @@
  * Super Admin API: List Organizations
  * GET /api/super-admin/organizations/list
  *
- * Returns paginated list of all organizations with subscription, credit, and member data
+ * Returns paginated list of all organizations with credit and member data
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,48 +18,35 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '25')
     const search = searchParams.get('search') || ''
-    const status = searchParams.get('status') || '' // 'active', 'trial', 'cancelled', etc.
+    const isActive = searchParams.get('isActive') // 'true', 'false', or null for all
     const sortBy = searchParams.get('sortBy') || 'created_at'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
 
     const offset = (page - 1) * pageSize
 
     try {
-      // Build base query with joins
+      // Build base query
       let query = supabase
         .from('organizations')
-        .select(
-          `
-          *,
-          organization_credits(balance, total_consumed, last_consumption_at),
-          organization_subscriptions!inner(
-            id,
-            tier_id,
-            status,
-            period_start,
-            period_end,
-            subscription_tiers(name, display_name)
-          )
-        `,
-          { count: 'exact' }
-        )
+        .select('*', { count: 'exact' })
 
       // Search filter (name or ID)
       if (search) {
         query = query.or(`name.ilike.%${search}%,id.eq.${search}`)
       }
 
-      // Status filter (subscription status)
-      if (status) {
-        query = query.eq('organization_subscriptions.status', status)
+      // Active status filter
+      if (isActive === 'true') {
+        query = query.eq('is_active', true)
+      } else if (isActive === 'false') {
+        query = query.eq('is_active', false)
       }
 
       // Sorting
       if (sortBy === 'name') {
         query = query.order('name', { ascending: sortOrder === 'asc' })
       } else if (sortBy === 'credits') {
-        // Sort by credit balance (requires join)
-        query = query.order('organization_credits.balance', { ascending: sortOrder === 'asc' })
+        query = query.order('credits_balance', { ascending: sortOrder === 'asc' })
       } else {
         query = query.order(sortBy, { ascending: sortOrder === 'asc' })
       }
@@ -90,16 +77,30 @@ export async function GET(request: NextRequest) {
         return acc
       }, {} as Record<string, number>) || {}
 
+      // Get last activity from credit transactions
+      const { data: recentTxns } = await supabase
+        .from('credit_transactions')
+        .select('organization_id, created_at')
+        .in('organization_id', orgIds)
+        .order('created_at', { ascending: false })
+
+      // Get last activity per organization
+      const lastActivityMap: Record<string, string> = {}
+      recentTxns?.forEach((txn) => {
+        if (!lastActivityMap[txn.organization_id]) {
+          lastActivityMap[txn.organization_id] = txn.created_at
+        }
+      })
+
       // Calculate health scores and format data
       const formattedOrganizations = organizations?.map((org) => {
-        const subscription = org.organization_subscriptions?.[0]
-        const credits = org.organization_credits?.[0]
+        const lastActivity = lastActivityMap[org.id] || org.created_at
 
         // Health score calculation
         const healthScore = calculateHealthScore({
-          creditBalance: credits?.balance || 0,
-          subscriptionStatus: subscription?.status || 'expired',
-          lastActivity: credits?.last_consumption_at || org.created_at,
+          creditBalance: org.credits_balance || 0,
+          isActive: org.is_active ?? true,
+          lastActivity,
           memberCount: memberCountMap[org.id] || 0,
         })
 
@@ -108,28 +109,19 @@ export async function GET(request: NextRequest) {
           name: org.name,
           type: org.type,
           created_at: org.created_at,
-
-          // Subscription info
-          subscription_tier: subscription?.subscription_tiers?.name || 'none',
-          subscription_tier_display: subscription?.subscription_tiers?.display_name || 'No Subscription',
-          subscription_status: subscription?.status || 'expired',
-          subscription_period_end: subscription?.period_end,
+          is_active: org.is_active ?? true,
 
           // Credit info
-          credit_balance: credits?.balance || 0,
-          total_consumed: credits?.total_consumed || 0,
+          credit_balance: org.credits_balance || 0,
 
           // Team info
           member_count: memberCountMap[org.id] || 0,
 
           // Activity
-          last_activity: credits?.last_consumption_at || org.created_at,
+          last_activity: lastActivity,
 
           // Health score
           health_score: healthScore,
-
-          // Raw data for detail pages
-          _raw: org,
         }
       }) || []
 
@@ -162,14 +154,14 @@ export async function GET(request: NextRequest) {
  */
 function calculateHealthScore(params: {
   creditBalance: number
-  subscriptionStatus: string
+  isActive: boolean
   lastActivity: string
   memberCount: number
 }): 'healthy' | 'warning' | 'critical' {
-  const { creditBalance, subscriptionStatus, lastActivity, memberCount } = params
+  const { creditBalance, isActive, lastActivity, memberCount } = params
 
   // Critical conditions
-  if (subscriptionStatus === 'cancelled' || subscriptionStatus === 'expired') {
+  if (!isActive) {
     return 'critical'
   }
 

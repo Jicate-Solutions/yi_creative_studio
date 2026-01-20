@@ -9,16 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admin-guard'
 import { startImpersonation } from '@/lib/services/impersonation-service'
 
-interface RouteContext {
-  params: { id: string }
-}
-
 /**
  * POST - Start impersonation session
  */
-export async function POST(request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: targetUserId } = await params
   return superAdminGuard(request, async (req, { superAdmin }) => {
-    const { id: targetUserId } = context.params
     const metadata = getRequestMetadata(req)
 
     try {

@@ -146,39 +146,55 @@ export default function TeamPage() {
   const regenerateInviteCode = async () => {
     if (!currentOrganization?.id || !isReady || !isAdmin) return
 
-    const newCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+    try {
+      const response = await fetch('/api/team/regenerate-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
 
-    const { error } = await supabase
-      .from('organizations')
-      .update({ invite_code: newCode })
-      .eq('id', currentOrganization.id)
+      const data = await response.json()
 
-    if (error) {
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to regenerate invite code')
+        return
+      }
+
+      toast.success('New invite code generated')
+      // Refresh organization data
+      window.location.reload()
+    } catch (error) {
+      console.error('Failed to regenerate invite code:', error)
       toast.error('Failed to regenerate invite code')
-      return
     }
-
-    toast.success('New invite code generated')
-    // Refresh organization data
-    window.location.reload()
   }
 
   const updateMemberRole = async () => {
     if (!editingMember || !isReady || !isAdmin) return
 
-    const { error } = await supabase
-      .from('organization_members')
-      .update({ role: newRole })
-      .eq('id', editingMember.id)
+    try {
+      const response = await fetch('/api/team/update-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId: editingMember.id,
+          newRole: newRole,
+        }),
+      })
 
-    if (error) {
+      const data = await response.json()
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to update role')
+        return
+      }
+
+      toast.success('Member role updated')
+      setEditingMember(null)
+      fetchMembers()
+    } catch (error) {
+      console.error('Failed to update role:', error)
       toast.error('Failed to update role')
-      return
     }
-
-    toast.success('Member role updated')
-    setEditingMember(null)
-    fetchMembers()
   }
 
   const removeMember = async (memberId: string, memberUserId: string) => {
@@ -192,18 +208,26 @@ export default function TeamPage() {
 
     if (!confirm('Are you sure you want to remove this member?')) return
 
-    const { error } = await supabase
-      .from('organization_members')
-      .delete()
-      .eq('id', memberId)
+    try {
+      const response = await fetch('/api/team/remove-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId }),
+      })
 
-    if (error) {
+      const data = await response.json()
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to remove member')
+        return
+      }
+
+      toast.success('Member removed')
+      fetchMembers()
+    } catch (error) {
+      console.error('Failed to remove member:', error)
       toast.error('Failed to remove member')
-      return
     }
-
-    toast.success('Member removed')
-    fetchMembers()
   }
 
   const getRoleBadgeVariant = (role: string) => {

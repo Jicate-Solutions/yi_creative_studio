@@ -1161,7 +1161,7 @@ async function adjustPatternConfidence(
     // Get current pattern
     const { data: pattern, error: fetchError } = await supabase
       .from('learned_patterns')
-      .select('confidence, effectiveness')
+      .select('confidence, times_applied, success_rate, feedback_improvement, last_evaluated')
       .eq('id', patternId)
       .single()
 
@@ -1177,36 +1177,20 @@ async function adjustPatternConfidence(
     const adjustment = effective ? 0.05 : -0.10
     const newConfidence = Math.max(0.1, Math.min(1.0, currentConfidence + adjustment))
 
-    // Update effectiveness tracking
-    type EffectivenessData = {
-      timesApplied?: number
-      successRate?: number
-      feedbackImprovement?: number
-      lastEvaluated?: string | null
-    }
-    const currentEffectiveness = (pattern.effectiveness || {
-      timesApplied: 0,
-      successRate: 0,
-      feedbackImprovement: 0,
-      lastEvaluated: null,
-    }) as EffectivenessData
-
-    const timesApplied = (currentEffectiveness.timesApplied || 0) + 1
-    const successCount = Math.round((currentEffectiveness.successRate || 0) * (currentEffectiveness.timesApplied || 0))
+    // Update effectiveness tracking using actual table columns
+    const timesApplied = (pattern.times_applied || 0) + 1
+    const successCount = Math.round((pattern.success_rate || 0) * (pattern.times_applied || 0))
     const newSuccessCount = effective ? successCount + 1 : successCount
     const newSuccessRate = timesApplied > 0 ? newSuccessCount / timesApplied : 0
 
-    // Update pattern
+    // Update pattern using actual column names
     const { error: updateError } = await supabase
       .from('learned_patterns')
       .update({
         confidence: newConfidence,
-        effectiveness: {
-          ...currentEffectiveness,
-          timesApplied,
-          successRate: newSuccessRate,
-          lastEvaluated: new Date().toISOString(),
-        },
+        times_applied: timesApplied,
+        success_rate: newSuccessRate,
+        last_evaluated: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', patternId)

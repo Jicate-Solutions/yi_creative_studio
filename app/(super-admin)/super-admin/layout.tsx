@@ -32,7 +32,8 @@ export default async function SuperAdminLayout({
   }
 
   // Check Super Admin flag using secure database function
-  const { data: isSuperAdminData, error: superAdminError } = await supabase
+  // Note: RPC function type not in generated types, using type assertion
+  const { data: isSuperAdminData, error: superAdminError } = await (supabase as any)
     .rpc('is_current_user_super_admin')
 
   if (superAdminError) {

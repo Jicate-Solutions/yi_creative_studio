@@ -12,6 +12,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logSuperAdminAction } from './audit-service'
 
 export interface ImpersonationSession {
@@ -63,25 +64,27 @@ export async function startImpersonation(
   restrictions: string[]
 }> {
   const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   try {
-    // Verify target user exists and is not a Super Admin
-    const { data: targetUser, error: userError } = await supabase
-      .from('auth.users')
-      .select('id, email, is_super_admin, status')
-      .eq('id', targetUserId)
-      .single()
+    // Verify target user exists using admin client
+    const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(targetUserId)
 
-    if (userError || !targetUser) {
+    if (userError || !userData?.user) {
       throw new Error('Target user not found')
     }
 
-    if ((targetUser as any).is_super_admin) {
+    const targetUser = userData.user
+
+    // Check if target is a Super Admin (cannot impersonate)
+    const isSuperAdmin = targetUser.app_metadata?.is_super_admin === true
+    if (isSuperAdmin) {
       throw new Error('Cannot impersonate Super Admin users')
     }
 
-    if (targetUser.status === 'suspended' || targetUser.status === 'deleted') {
-      throw new Error(`Cannot impersonate ${targetUser.status} users`)
+    // Check if user is confirmed (not deleted)
+    if (targetUser.deleted_at) {
+      throw new Error('Cannot impersonate deleted users')
     }
 
     const now = new Date()

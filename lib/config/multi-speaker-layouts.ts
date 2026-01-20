@@ -336,13 +336,20 @@ export function calculateMultiSpeakerLayout(
   options?: {
     useIntelligentSizing?: boolean
     sophistication?: 'minimalist' | 'balanced' | 'rich'
+    /** v7.1: Total speakers for sizing (may differ from speakerCount if some don't have photos) */
+    totalSpeakersForSizing?: number
   }
 ): MultiSpeakerLayout {
   const useIntelligentSizing = options?.useIntelligentSizing ?? true // Default to AI-driven sizing
   const sophistication = options?.sophistication ?? 'balanced'
+  // v7.1: Use totalSpeakersForSizing for photo sizing, speakerCount for positions
+  const sizingBasedOnSpeakers = options?.totalSpeakersForSizing ?? speakerCount
 
   console.log(`[Layout Engine] Calculating layout: ${speakerCount} speakers, ${aspectRatio} (${canvasWidth}×${canvasHeight})`)
   console.log(`[Layout Engine] Mode: ${useIntelligentSizing ? 'AI-DRIVEN INTELLIGENT SIZING' : `Manual (${photoSize})`}`)
+  if (options?.totalSpeakersForSizing && options.totalSpeakersForSizing !== speakerCount) {
+    console.log(`[Layout Engine v7.1] Sizing photos for ${sizingBasedOnSpeakers}-speaker layout (only ${speakerCount} have photos)`)
+  }
 
   // Validation: Speaker count
   if (speakerCount < 2) {
@@ -401,8 +408,9 @@ export function calculateMultiSpeakerLayout(
 
     if (useIntelligentSizing) {
       // AI-DRIVEN: Use context-aware intelligent sizing
+      // v7.1: Use sizingBasedOnSpeakers for sizing (may differ from speakerCount if some don't have photos)
       photoSizePixels = calculateOptimalPhotoSize({
-        speakerCount,
+        speakerCount: sizingBasedOnSpeakers, // v7.1: Size based on TOTAL speakers
         aspectRatio,
         canvasWidth,
         canvasHeight,
@@ -411,7 +419,7 @@ export function calculateMultiSpeakerLayout(
         textZones: template.textZoneAdjustments,
       })
 
-      console.log(`[Layout Engine] Speaker ${index + 1}: AI-sized to ${photoSizePixels}px (${((photoSizePixels / canvasWidth) * 100).toFixed(1)}% of width)`)
+      console.log(`[Layout Engine] Speaker ${index + 1}: AI-sized to ${photoSizePixels}px (${((photoSizePixels / canvasWidth) * 100).toFixed(1)}% of width, based on ${sizingBasedOnSpeakers} total speakers)`)
     } else {
       // MANUAL: Use legacy preset-based sizing
       const sizeMultiplier = getSizeMultiplier(photoSize)
@@ -760,8 +768,10 @@ export function calculateIntelligentLayout(params: {
   canvasWidth: number
   canvasHeight: number
   sophistication?: 'minimalist' | 'balanced' | 'rich'
+  /** v7.1: Total speakers for sizing (may differ from speakerCount if some don't have photos) */
+  totalSpeakersForSizing?: number
 }): MultiSpeakerLayout {
-  const { speakerCount, formatId, canvasWidth, canvasHeight, sophistication = 'balanced' } = params
+  const { speakerCount, formatId, canvasWidth, canvasHeight, sophistication = 'balanced', totalSpeakersForSizing } = params
 
   // Determine aspect ratio from format ID or calculate from dimensions
   const aspectRatioMap: Record<string, string> = {
@@ -777,10 +787,16 @@ export function calculateIntelligentLayout(params: {
 
   const aspectRatio = aspectRatioMap[formatId] || `${canvasWidth}:${canvasHeight}`
 
+  // v7.1: Log if sizing is based on different speaker count than positions
+  if (totalSpeakersForSizing && totalSpeakersForSizing !== speakerCount) {
+    console.log(`[Layout Engine v7.1] Sizing based on ${totalSpeakersForSizing} total speakers, positions for ${speakerCount} photos`)
+  }
+
   // Use AI-driven intelligent sizing
   return calculateMultiSpeakerLayout(speakerCount, aspectRatio, canvasWidth, canvasHeight, 'medium', {
     useIntelligentSizing: true,
     sophistication,
+    totalSpeakersForSizing, // v7.1: Pass total speakers for sizing
   })
 }
 

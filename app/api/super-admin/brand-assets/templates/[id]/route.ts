@@ -10,17 +10,16 @@ import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admi
 import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
-interface RouteContext {
-  params: { id: string }
-}
-
 /**
  * DELETE - Delete template
  */
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   return superAdminGuard(request, async (req, { superAdmin }) => {
     const supabase = await createClient()
-    const { id: templateId } = context.params
+    const { id: templateId } = await params
     const metadata = getRequestMetadata(req)
 
     try {
@@ -50,10 +49,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       const usedInCreatives = (usageCount as any)?.count || 0
 
       // Delete template thumbnail from storage if exists
-      if (template.thumbnail_url) {
+      if (template.preview_image_url) {
         try {
           // Extract storage path from URL
-          const urlParts = template.thumbnail_url.split('/storage/v1/object/public/')
+          const urlParts = template.preview_image_url.split('/storage/v1/object/public/')
           if (urlParts.length > 1) {
             const storagePath = urlParts[1]
             const [bucket, ...pathParts] = storagePath.split('/')
@@ -92,7 +91,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         action: 'brand:template:delete',
         resource_type: 'template',
         resource_id: templateId,
-        target_organization_id: template.organization_id,
+        target_organization_id: template.organization_id ?? undefined,
         changes: {
           before: {
             name: template.name,

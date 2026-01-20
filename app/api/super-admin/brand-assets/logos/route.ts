@@ -19,14 +19,14 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '24')
     const search = searchParams.get('search') || ''
     const organizationId = searchParams.get('organizationId') || ''
-    const type = searchParams.get('type') || '' // 'primary', 'secondary', 'text'
+    const category = searchParams.get('category') || '' // 'primary', 'secondary', 'text'
 
     const offset = (page - 1) * pageSize
 
     try {
       // Build query for logos
       let query = supabase
-        .from('logos')
+        .from('organization_logos')
         .select(`
           *,
           organizations(id, name)
@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
         query = query.eq('organization_id', organizationId)
       }
 
-      // Type filter
-      if (type) {
-        query = query.eq('type', type)
+      // Category filter
+      if (category) {
+        query = query.eq('category', category)
       }
 
       // Search by name

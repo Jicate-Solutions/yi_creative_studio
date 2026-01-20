@@ -78,24 +78,40 @@ export function useCredits() {
       return null
     }
 
-    const { data, error } = await supabase.rpc('add_credits', {
-      p_organization_id: currentOrganization.id,
-      p_amount: amount,
-      p_amount_inr: amountINR,
-      p_payment_id: paymentId,
-      p_description: description || 'Credit purchase',
-    })
+    try {
+      // Use API route for server-side role validation
+      const response = await fetch('/api/billing/purchase-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          amountINR,
+          paymentId,
+          description: description || 'Credit purchase',
+        }),
+      })
 
-    if (error || !data?.[0]?.success) {
+      const data = await response.json()
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to add credits')
+        return null
+      }
+
+      await refreshOrganization()
+      await fetchTransactions()
+      toast.success(`${amount} credits added successfully`)
+      return {
+        success: true,
+        new_balance: data.newBalance,
+        transaction_id: data.transactionId,
+      }
+    } catch (error) {
+      console.error('Failed to add credits:', error)
       toast.error('Failed to add credits')
       return null
     }
-
-    await refreshOrganization()
-    await fetchTransactions()
-    toast.success(`${amount} credits added successfully`)
-    return data[0]
-  }, [currentOrganization?.id, supabase, refreshOrganization, fetchTransactions])
+  }, [currentOrganization?.id, refreshOrganization, fetchTransactions])
 
   // Fetch transactions on mount only if not already loaded
   // Guard prevents infinite loops when fetchTransactions changes reference

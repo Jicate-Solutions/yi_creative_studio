@@ -3,6 +3,7 @@
  * GET /api/super-admin/users/list
  *
  * Returns paginated list of all users with organization memberships
+ * NOTE: This endpoint requires proper admin client setup with service role key
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,39 +19,28 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '25')
     const search = searchParams.get('search') || ''
-    const status = searchParams.get('status') || '' // 'active', 'suspended', 'deleted'
-    const isSuperAdmin = searchParams.get('isSuperAdmin') || '' // 'true', 'false'
-
-    const offset = (page - 1) * pageSize
 
     try {
-      // Build query for users
-      let query = supabase
-        .from('auth.users')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+      // Get users from organization_members (can't directly query auth.users without service role)
+      // This shows users who have joined at least one organization
+      const query = supabase
+        .from('organization_members')
+        .select(`
+          user_id,
+          role,
+          joined_at,
+          organizations (
+            id,
+            name
+          )
+        `, { count: 'exact' })
+        .order('joined_at', { ascending: false })
+        .range((page - 1) * pageSize, page * pageSize - 1)
 
-      // Search filter (email)
-      if (search) {
-        query = query.ilike('email', `%${search}%`)
-      }
+      // Note: search filter would need profiles table to have email column
+      // For now, we fetch all and filter in memory if needed
 
-      // Status filter
-      if (status) {
-        query = query.eq('status', status)
-      }
-
-      // Super Admin filter
-      if (isSuperAdmin === 'true') {
-        query = query.eq('is_super_admin', true)
-      } else if (isSuperAdmin === 'false') {
-        query = query.eq('is_super_admin', false)
-      }
-
-      // Pagination
-      query = query.range(offset, offset + pageSize - 1)
-
-      const { data: users, error, count } = await query
+      const { data: memberships, error, count } = await query
 
       if (error) {
         console.error('[super-admin] Failed to fetch users:', error)
@@ -60,47 +50,65 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Get organization memberships for each user
-      const userIds = users?.map((u) => u.id) || []
-      const { data: memberships } = await supabase
-        .from('organization_members')
-        .select('user_id, organization_id, role, organizations(name)')
-        .in('user_id', userIds)
+      // Group by user
+      const usersMap = new Map<string, {
+        id: string
+        joined_at: string | null
+        organizations: Array<{ id: string; name: string; role: string }>
+      }>()
 
-      // Map memberships to users
-      const membershipMap = memberships?.reduce((acc, m) => {
-        if (!acc[m.user_id]) acc[m.user_id] = []
-        acc[m.user_id].push({
-          organization_id: m.organization_id,
-          organization_name: (m.organizations as any)?.name || 'Unknown',
-          role: m.role,
-        })
-        return acc
-      }, {} as Record<string, any[]>) || {}
+      memberships?.forEach((m) => {
+        const userId = m.user_id
+        const org = m.organizations as { id: string; name: string } | null
 
-      // Format users
-      const formattedUsers = users?.map((user) => ({
+        if (!usersMap.has(userId)) {
+          usersMap.set(userId, {
+            id: userId,
+            joined_at: m.joined_at,
+            organizations: [],
+          })
+        }
+
+        const user = usersMap.get(userId)!
+        if (org) {
+          user.organizations.push({
+            id: org.id,
+            name: org.name,
+            role: m.role,
+          })
+        }
+      })
+
+      // Convert to array and apply search filter
+      let users = Array.from(usersMap.values())
+      if (search) {
+        const searchLower = search.toLowerCase()
+        users = users.filter(u =>
+          u.id.toLowerCase().includes(searchLower) ||
+          u.organizations.some(o => o.name.toLowerCase().includes(searchLower))
+        )
+      }
+
+      // Format output
+      const formattedUsers = users.map((user) => ({
         id: user.id,
-        email: user.email,
-        created_at: user.created_at,
-        last_sign_in_at: user.last_sign_in_at,
-        status: user.status || 'active',
-        is_super_admin: user.is_super_admin || false,
-        suspended_at: user.suspended_at,
-        suspension_reason: user.suspension_reason,
-        organizations: membershipMap[user.id] || [],
-        organization_count: (membershipMap[user.id] || []).length,
+        joined_at: user.joined_at,
+        status: 'active', // Default - would need user metadata for accurate status
+        is_super_admin: false, // Would need user metadata check
+        organizations: user.organizations,
+        organization_count: user.organizations.length,
       }))
 
       return NextResponse.json({
         success: true,
-        users: formattedUsers || [],
+        users: formattedUsers,
         pagination: {
           page,
           pageSize,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / pageSize),
+          total: count || users.length,
+          totalPages: Math.ceil((count || users.length) / pageSize),
         },
+        note: 'This endpoint shows users who have joined organizations. For full user list, configure admin client with service role.',
       })
     } catch (error) {
       console.error('[super-admin] Exception fetching users:', error)
