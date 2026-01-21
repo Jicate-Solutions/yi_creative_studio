@@ -68,7 +68,23 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      // Format users with auth data and memberships
+      // Fetch user profiles for all users
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, avatar_url, phone')
+        .in('id', userIds)
+
+      // Build profile map
+      const profileMap = new Map<string, { full_name: string | null; avatar_url: string | null; phone: string | null }>()
+      profiles?.forEach((p) => {
+        profileMap.set(p.id, {
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+          phone: p.phone,
+        })
+      })
+
+      // Format users with auth data, profiles, and memberships
       let formattedUsers = authUsers.map((user) => {
         // Check for banned_until in user_metadata or app_metadata
         // Supabase stores suspension info in different places depending on version
@@ -84,9 +100,16 @@ export async function GET(request: NextRequest) {
           status = 'active'
         }
 
+        // Get profile data (fallback to auth metadata for full_name)
+        const profile = profileMap.get(user.id)
+        const fullName = profile?.full_name || (userMeta?.full_name as string | undefined) || null
+
         return {
           id: user.id,
           email: user.email || 'No email',
+          full_name: fullName,
+          avatar_url: profile?.avatar_url || null,
+          phone: profile?.phone || null,
           created_at: user.created_at,
           last_sign_in_at: user.last_sign_in_at,
           status,
@@ -102,6 +125,7 @@ export async function GET(request: NextRequest) {
         formattedUsers = formattedUsers.filter(u =>
           u.email.toLowerCase().includes(searchLower) ||
           u.id.toLowerCase().includes(searchLower) ||
+          (u.full_name && u.full_name.toLowerCase().includes(searchLower)) ||
           u.organizations.some(o => o.organization_name.toLowerCase().includes(searchLower))
         )
       }

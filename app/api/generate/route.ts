@@ -625,6 +625,7 @@ export async function POST(request: NextRequest) {
     // Position locking is now user-controlled via the UI
 
     let imageUrl: string
+    let storedPromptForRegeneration: string | undefined = undefined  // v24.0: Store prompt for potential regeneration
 
     // Determine if user has their own speaker photo(s) to overlay
     // If yes, we don't want AI to generate placeholder speaker in the design
@@ -1734,6 +1735,9 @@ export async function POST(request: NextRequest) {
           ? injectVerticalContext(xmlPrompt, verticalSlug)
           : xmlPrompt
 
+        // v24.0: Store prompt for potential regeneration if text violations are detected
+        storedPromptForRegeneration = finalXmlPrompt
+
         // CRITICAL: Validate speaker text presence in XML tags
         const formSpeakers = (userFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
         if (formSpeakers && formSpeakers.length > 0) {
@@ -2259,6 +2263,10 @@ ${typographyProfile.hierarchy}
         }
         const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
 
+        // v24.0: Adaptive row heights for text-logo overlap prevention
+        // Will be set if violations are detected during spatial verification
+        let adaptiveRowHeights: { brand: number; vertical: number; initiative: number } | undefined = undefined
+
         // ========================================================
         // v24.0: HYBRID SPATIAL STRATEGY
         // Detect actual text position and adapt logo bar height
@@ -2377,11 +2385,16 @@ ${typographyProfile.hierarchy}
             hasInitiative: !!enhanced4RowStrip.rows.initiative.text.trim(),
           })
 
+          const calculatedHeight = calculateLayoutHeight(adaptiveLayout)
+          const fitsInAvailableSpace = calculatedHeight <= finalHeaderHeight
+
           console.log('[v24.0 Adaptive Layout] Layout mode selected:', {
             mode: adaptiveLayout.mode,
             description: getLayoutModeDescription(adaptiveLayout.mode),
-            calculatedHeight: calculateLayoutHeight(adaptiveLayout),
+            calculatedHeight: calculatedHeight,
             availableHeight: finalHeaderHeight,
+            fitsInAvailableSpace: fitsInAvailableSpace,
+            compressionLevel: adaptiveLayout.brandHeight === 120 ? 'none' : adaptiveLayout.brandHeight === 80 ? 'standard' : adaptiveLayout.brandHeight === 60 ? 'super' : 'emergency',
             rowHeights: {
               brand: adaptiveLayout.brandHeight,
               vertical: adaptiveLayout.verticalHeight,
@@ -2397,8 +2410,33 @@ ${typographyProfile.hierarchy}
             },
           })
 
-          // TODO: Pass adaptiveLayout to rendering functions
-          // For now, this logs the intended behavior for monitoring
+          // v24.0.1: Verify that calculated layout actually fits (bug fix validation)
+          if (!fitsInAvailableSpace) {
+            console.error('[v24.0 Adaptive Layout] ❌ BUG: Calculated height exceeds available space!', {
+              calculated: calculatedHeight,
+              available: finalHeaderHeight,
+              overflow: calculatedHeight - finalHeaderHeight,
+              willStillOverlap: true,
+            })
+          }
+
+          // v24.0: Convert adaptive layout to row heights format for rendering
+          // Only apply adaptive layout when using dynamic strategy (text violations detected)
+          adaptiveRowHeights = (spatialAdjustmentInfo.strategy === 'dynamic') ? {
+            brand: adaptiveLayout.brandHeight,
+            vertical: adaptiveLayout.verticalHeight,
+            initiative: adaptiveLayout.initiativeHeight,
+          } : undefined
+
+          if (adaptiveRowHeights) {
+            console.log('[v24.0 Adaptive Layout] ✅ Will apply adaptive row heights to rendering:', {
+              ...adaptiveRowHeights,
+              compressionLevel: adaptiveLayout.brandHeight === 120 ? 'none' : adaptiveLayout.brandHeight === 80 ? 'standard' : adaptiveLayout.brandHeight === 60 ? 'super' : 'emergency',
+              fitsInSpace: fitsInAvailableSpace,
+            })
+          } else {
+            console.log('[v24.0 Adaptive Layout] Using default row heights (no violations detected)')
+          }
         }
 
         // ========================================================
@@ -2458,6 +2496,7 @@ ${typographyProfile.hierarchy}
               verticalLogos,
               partnerLogo,
               signatureLogo,  // v9.0: Zone 1 signature illustration
+              adaptiveLayout: adaptiveRowHeights,  // v24.0: Adaptive row heights for text-logo overlap prevention
             }
           )
         } else {
@@ -2506,6 +2545,7 @@ ${typographyProfile.hierarchy}
               brandLogos,
               verticalLogos,
               partnerLogo,
+              adaptiveLayout: adaptiveRowHeights,  // v24.0: Adaptive row heights for text-logo overlap prevention
             }
           )
         }

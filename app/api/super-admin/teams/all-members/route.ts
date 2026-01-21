@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
       // Step 3: Fetch user profiles separately (no FK constraint)
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('id, full_name')
+        .select('id, full_name, avatar_url')
         .in('id', userIds)
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || [])
+      const profileMap = new Map(profiles?.map(p => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]) || [])
 
       // Step 4: Fetch user emails from auth (in batches to avoid rate limits)
       const userAuthMap = new Map<string, { email: string; full_name?: string }>()
@@ -103,13 +103,14 @@ export async function GET(request: NextRequest) {
       memberships?.forEach((membership: any) => {
         const userId = membership.user_id
         const authData = userAuthMap.get(userId)
-        const profileName = profileMap.get(userId)
+        const profileData = profileMap.get(userId)
 
         if (!userMap[userId]) {
           userMap[userId] = {
             user_id: userId,
             email: authData?.email || '',
-            full_name: profileName || authData?.full_name || 'Unknown',
+            full_name: profileData?.full_name || authData?.full_name || 'Unknown',
+            avatar_url: profileData?.avatar_url || null,
             organizations: [],
           }
         }

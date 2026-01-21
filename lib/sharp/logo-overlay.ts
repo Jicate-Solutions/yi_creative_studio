@@ -22,6 +22,19 @@ import {
 import { renderInitiativeText, renderPartnerLabel, renderFooterBar, estimateTextWidth } from './svg-text-renderer'
 
 // ============================================================================
+// v24.0: ADAPTIVE LOGO LAYOUT TYPES
+// ============================================================================
+/**
+ * Adaptive row heights for logo bars when text violations are detected
+ * Allows dynamic compression of logo bars to fit within safe zones
+ */
+export interface AdaptiveRowHeights {
+  brand: number
+  vertical: number
+  initiative: number
+}
+
+// ============================================================================
 // v24.6: TRANSPARENT LOGO BAR PROTECTION
 // ============================================================================
 // ⚠️ WARNING: DO NOT CHANGE THESE TRANSPARENCY VALUES WITHOUT USER APPROVAL ⚠️
@@ -1665,6 +1678,7 @@ export async function createEnhanced4RowStrip(
     brandLogos: LogoBufferData[]
     verticalLogos: LogoBufferData[]
     partnerLogo?: LogoBufferData
+    adaptiveLayout?: AdaptiveRowHeights  // v24.0: Optional adaptive row heights for text-logo overlap prevention
   }
 ): Promise<Enhanced4RowStripResult> {
   const { rows, background, rowSpacing, padding, logoBound } = config
@@ -1703,33 +1717,46 @@ export async function createEnhanced4RowStrip(
 
   console.log(`[4-Row Strip] Creating strip with ${activeRows.length} active rows: ${activeRows.join(', ')}`)
 
-  // Calculate row heights based on content
+  // v24.0: Calculate row heights - use adaptive layout if provided, otherwise calculate from content
   const rowHeights: Partial<Record<'brand' | 'vertical' | 'initiative' | 'partner', number>> = {}
 
-  if (activeRows.includes('brand')) {
-    const maxLogoHeight = Math.max(
-      ...logoData.brandLogos.map((l) => l.height),
-      ENHANCED_STRIP_ROW_HEIGHTS.brand * 0.6
-    )
-    rowHeights.brand = Math.min(maxLogoHeight + 16, ENHANCED_STRIP_ROW_HEIGHTS.brand)
-  }
+  if (logoData.adaptiveLayout) {
+    // Use adaptive layout heights (overrides content-based calculation)
+    console.log('[4-Row Strip] Using adaptive layout for text-logo overlap prevention:', logoData.adaptiveLayout)
+    rowHeights.brand = logoData.adaptiveLayout.brand
+    rowHeights.vertical = logoData.adaptiveLayout.vertical
+    rowHeights.initiative = logoData.adaptiveLayout.initiative
+    // Partner row not affected by adaptive layout (footer section)
+    if (activeRows.includes('partner')) {
+      rowHeights.partner = rows.partner.logoSize + 16
+    }
+  } else {
+    // Calculate row heights based on content
+    if (activeRows.includes('brand')) {
+      const maxLogoHeight = Math.max(
+        ...logoData.brandLogos.map((l) => l.height),
+        ENHANCED_STRIP_ROW_HEIGHTS.brand * 0.6
+      )
+      rowHeights.brand = Math.min(maxLogoHeight + 16, ENHANCED_STRIP_ROW_HEIGHTS.brand)
+    }
 
-  if (activeRows.includes('vertical')) {
-    const maxLogoHeight = Math.max(
-      ...logoData.verticalLogos.map((l) => l.height),
-      ENHANCED_STRIP_ROW_HEIGHTS.vertical * 0.6
-    )
-    rowHeights.vertical = Math.min(maxLogoHeight + 12, ENHANCED_STRIP_ROW_HEIGHTS.vertical)
-  }
+    if (activeRows.includes('vertical')) {
+      const maxLogoHeight = Math.max(
+        ...logoData.verticalLogos.map((l) => l.height),
+        ENHANCED_STRIP_ROW_HEIGHTS.vertical * 0.6
+      )
+      rowHeights.vertical = Math.min(maxLogoHeight + 12, ENHANCED_STRIP_ROW_HEIGHTS.vertical)
+    }
 
-  if (activeRows.includes('initiative')) {
-    // Height based on font size with padding
-    rowHeights.initiative = rows.initiative.fontSize * 1.5 + 16
-  }
+    if (activeRows.includes('initiative')) {
+      // Height based on font size with padding
+      rowHeights.initiative = rows.initiative.fontSize * 1.5 + 16
+    }
 
-  if (activeRows.includes('partner')) {
-    // Height based on logo size with padding
-    rowHeights.partner = rows.partner.logoSize + 16
+    if (activeRows.includes('partner')) {
+      // Height based on logo size with padding
+      rowHeights.partner = rows.partner.logoSize + 16
+    }
   }
 
   // Calculate total strip dimensions
@@ -2139,6 +2166,7 @@ export async function applyEnhanced4RowStrip(
     brandLogos: LogoBufferData[]
     verticalLogos: LogoBufferData[]
     partnerLogo?: LogoBufferData
+    adaptiveLayout?: AdaptiveRowHeights  // v24.0: Optional adaptive row heights for text-logo overlap prevention
   }
 ): Promise<Buffer> {
   if (!config.enabled) {
@@ -2189,6 +2217,7 @@ export async function createEnhanced4RowHeaderStrip(
   logoData: {
     brandLogos: LogoBufferData[]
     verticalLogos: LogoBufferData[]
+    adaptiveLayout?: AdaptiveRowHeights  // v24.0: Optional adaptive row heights for text-logo overlap prevention
   }
 ): Promise<{ stripBuffer: Buffer; stripHeight: number; stripLeft: number }> {
   const { rows, background, rowSpacing, padding, logoBound } = config
@@ -2211,10 +2240,21 @@ export async function createEnhanced4RowHeaderStrip(
     }
   }
 
+  // v24.0: Use adaptive row heights if provided, otherwise use defaults
+  const rowHeights = logoData.adaptiveLayout || ENHANCED_STRIP_ROW_HEIGHTS
+
+  console.log('[Logo Strip Rendering] Using row heights:', {
+    mode: logoData.adaptiveLayout ? 'adaptive' : 'default',
+    brand: rowHeights.brand,
+    vertical: rowHeights.vertical,
+    initiative: rowHeights.initiative,
+    source: logoData.adaptiveLayout ? 'adaptive (text-logo overlap prevention)' : 'hardcoded constant'
+  })
+
   // v16.4: Calculate total height - ROW 1 attached to top (no top padding)
   let totalHeight = padding.vertical  // Only bottom padding (ROW 1 attached to top)
   for (const row of activeRows) {
-    totalHeight += ENHANCED_STRIP_ROW_HEIGHTS[row]
+    totalHeight += rowHeights[row]
     if (activeRows.indexOf(row) < activeRows.length - 1) {
       totalHeight += rowSpacing
     }
@@ -2238,7 +2278,7 @@ export async function createEnhanced4RowHeaderStrip(
   let currentY = 0  // v16.4: Start at Y=0 (ROW 1 attached to top edge of poster)
 
   for (const rowType of activeRows) {
-    const rowHeight = ENHANCED_STRIP_ROW_HEIGHTS[rowType]
+    const rowHeight = rowHeights[rowType]  // v24.0: Use adaptive or default row height
 
     if (rowType === 'brand' && logoData.brandLogos.length > 0) {
       // v18.2: ROW 1 - FULL WIDTH with space-evenly alignment
@@ -2562,6 +2602,7 @@ export async function applyEnhanced4RowStripSplit(
     verticalLogos: LogoBufferData[]
     partnerLogo?: LogoBufferData
     signatureLogo?: LogoBufferData  // v9.0: Zone 1 signature illustration
+    adaptiveLayout?: AdaptiveRowHeights  // v24.0: Optional adaptive row heights for text-logo overlap prevention
   }
 ): Promise<Buffer> {
   if (!config.enabled || config.version !== '4-row-split') {
@@ -2580,6 +2621,7 @@ export async function applyEnhanced4RowStripSplit(
     await createEnhanced4RowHeaderStrip(imageWidth, config, {
       brandLogos: logoData.brandLogos,
       verticalLogos: logoData.verticalLogos,
+      adaptiveLayout: logoData.adaptiveLayout,  // v24.0: Pass adaptive layout for text-logo overlap prevention
     })
 
   if (headerHeight > 0) {

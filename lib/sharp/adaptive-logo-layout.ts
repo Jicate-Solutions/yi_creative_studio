@@ -31,6 +31,11 @@ export interface AdaptiveLayoutConfig {
  *
  * @param config - Configuration with available header height and logo counts
  * @returns Layout configuration with row heights and mode
+ *
+ * BUG FIX v24.0.1: Fixed threshold calculations to prevent overlaps
+ * - Compressed mode now requires >= 226px (was >= 214px which caused overlaps)
+ * - Added super-compressed mode for tight spaces (165-225px)
+ * - Reduced emergency mode size for extreme cases
  */
 export function calculateAdaptiveLogoLayout(config: AdaptiveLayoutConfig): LogoLayout {
   const { headerHeight, brandLogos, verticalLogos, hasInitiative } = config
@@ -54,12 +59,13 @@ export function calculateAdaptiveLogoLayout(config: AdaptiveLayoutConfig): LogoL
     }
   }
 
-  // Compressed layout (requires 214px minimum)
+  // Compressed layout (requires 226px minimum)
   // Brand: 80px, Vertical: 60px, Initiative: 30px
   // Spacing: 12px x 2 = 24px
   // Padding: 16px x 2 = 32px
-  // Total: 80 + 60 + 30 + 24 + 32 = 226px (fits in 214px with some compression)
-  if (headerHeight >= 214) {
+  // Total: 80 + 60 + 30 + 24 + 32 = 226px
+  // BUG FIX: Changed threshold from >= 214 to >= 226 (was causing overlaps when available space was 214-225px)
+  if (headerHeight >= 226) {
     return {
       mode: 'compressed',
       brandHeight: 80,
@@ -72,17 +78,36 @@ export function calculateAdaptiveLogoLayout(config: AdaptiveLayoutConfig): LogoL
     }
   }
 
+  // Super-compressed layout (requires 165px minimum)
+  // Brand: 60px, Vertical: 45px, Initiative: 20px
+  // Spacing: 10px x 2 = 20px
+  // Padding: 10px x 2 = 20px
+  // Total: 60 + 45 + 20 + 20 + 20 = 165px
+  // Used when text is very close to top (e.g., 16-17% violations)
+  if (headerHeight >= 165) {
+    return {
+      mode: 'compressed',  // Keep mode name same for backward compatibility
+      brandHeight: 60,
+      verticalHeight: 45,
+      initiativeHeight: 20,
+      rowSpacing: 10,
+      verticalPadding: 10,
+      skipVertical: false,
+      skipInitiative: false,
+    }
+  }
+
   // Emergency layout (brand logos only)
-  // Brand: 80px
-  // Padding: 16px x 2 = 32px
-  // Total: 112px (minimum viable branding)
+  // Brand: 60px (reduced from 80px to fit tighter spaces)
+  // Padding: 10px x 2 = 20px
+  // Total: 80px (minimum viable branding)
   return {
     mode: 'emergency',
-    brandHeight: 80,
+    brandHeight: 60,
     verticalHeight: 0, // Skip vertical row
     initiativeHeight: 0, // Skip initiative row
     rowSpacing: 0,
-    verticalPadding: 16,
+    verticalPadding: 10,
     skipVertical: true,
     skipInitiative: true,
   }

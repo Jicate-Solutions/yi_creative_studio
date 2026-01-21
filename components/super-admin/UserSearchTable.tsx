@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Search, UserX, UserCheck, UserCog, Shield, Mail, Building, Send, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
@@ -43,6 +44,9 @@ interface Organization {
 interface User {
   id: string
   email: string
+  full_name: string | null
+  avatar_url: string | null
+  phone: string | null
   created_at: string
   last_sign_in_at: string | null
   status: 'active' | 'suspended' | 'pending' | 'deleted'
@@ -51,6 +55,19 @@ interface User {
   suspension_reason?: string | null
   organizations: Organization[]
   organization_count: number
+}
+
+// Helper to get initials from name or email
+function getInitials(name: string | null, email: string): string {
+  if (name) {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+  return email.charAt(0).toUpperCase()
 }
 
 interface Pagination {
@@ -465,17 +482,28 @@ export default function UserSearchTable() {
               users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium">{user.email}</span>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={user.avatar_url || undefined} />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-sm">
+                          {getInitials(user.full_name, user.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-0.5">
+                        <div className="font-medium">
+                          {user.full_name || 'No name'}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                          <Mail className="w-3.5 h-3.5" />
+                          {user.email}
+                        </div>
+                        {user.is_super_admin && (
+                          <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Super Admin
+                          </Badge>
+                        )}
                       </div>
-                      {user.is_super_admin && (
-                        <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-                          <Shield className="w-3 h-3 mr-1" />
-                          Super Admin
-                        </Badge>
-                      )}
                     </div>
                   </TableCell>
 

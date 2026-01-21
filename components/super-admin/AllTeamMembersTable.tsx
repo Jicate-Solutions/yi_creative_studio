@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Search } from 'lucide-react'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
@@ -39,7 +40,21 @@ interface TeamMember {
   user_id: string
   email: string
   full_name: string
+  avatar_url: string | null
   organizations: Organization[]
+}
+
+// Helper to get initials from name or email
+function getInitials(name: string, email: string): string {
+  if (name && name !== 'Unknown') {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+  return email.charAt(0).toUpperCase()
 }
 
 export default function AllTeamMembersTable() {
@@ -171,9 +186,17 @@ export default function AllTeamMembersTable() {
               members.map((member) => (
                 <TableRow key={member.user_id}>
                   <TableCell className="font-medium">
-                    <div>
-                      <div className="font-semibold">{member.full_name}</div>
-                      <div className="text-sm text-gray-500">{member.email}</div>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={member.avatar_url || undefined} />
+                        <AvatarFallback className="bg-gradient-to-br from-green-500 to-teal-500 text-white text-sm">
+                          {getInitials(member.full_name, member.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-semibold">{member.full_name}</div>
+                        <div className="text-sm text-gray-500">{member.email}</div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>

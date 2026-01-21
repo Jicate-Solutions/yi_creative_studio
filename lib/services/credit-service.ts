@@ -196,6 +196,8 @@ export async function consumeCredits(
     const balance_after = balance_before - params.amount
 
     // 3. Create transaction record (negative amount for consumption)
+    // Note: creative_id is set to null here because the creative doesn't exist yet
+    // It will be updated later after the creative is saved (if needed)
     const { data: transaction, error: txnError } = await supabase
       .from('credit_transactions')
       .insert({
@@ -204,8 +206,12 @@ export async function consumeCredits(
         amount: -params.amount, // Negative for consumption
         balance_after,
         description: params.reason,
-        creative_id: params.reference_id,
-        metadata: (params.metadata || null) as Json,
+        creative_id: null, // Don't set creative_id - it doesn't exist yet (FK constraint)
+        metadata: {
+          ...(params.metadata || {}),
+          reference_type: params.reference_type,
+          reference_id: params.reference_id, // Store reference in metadata instead
+        } as Json,
       })
       .select('id')
       .single()

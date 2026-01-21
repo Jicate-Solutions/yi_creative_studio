@@ -24,7 +24,9 @@ import {
   Clock,
   Mail,
   Shield,
+  BarChart3,
 } from 'lucide-react'
+import OrganizationAnalytics from './OrganizationAnalytics'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -488,6 +490,22 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
           </CardContent>
         </Card>
       </div>
+
+      {/* Organization Analytics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Usage Analytics
+          </CardTitle>
+          <CardDescription>
+            Detailed credit usage and generation statistics for this organization
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OrganizationAnalytics organizationId={organizationId} showTable={false} />
+        </CardContent>
+      </Card>
 
       {/* Members and Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
