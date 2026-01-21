@@ -2,6 +2,10 @@
  * Super Admin API: Platform Settings
  * GET /api/super-admin/settings - Get all platform settings
  * PATCH /api/super-admin/settings - Update platform settings
+ *
+ * NOTE: Until the platform_settings table is created via migration,
+ * this API uses a default settings configuration stored in memory.
+ * Settings changes will not persist across server restarts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,37 +20,60 @@ interface Setting {
   updated_by: string | null
 }
 
+// Default settings until platform_settings table is created
+const DEFAULT_SETTINGS: Setting[] = [
+  {
+    id: '1',
+    key: 'low_credit_threshold',
+    value: 10,
+    description: 'Alert threshold for low credits',
+    updated_at: new Date().toISOString(),
+    updated_by: null,
+  },
+  {
+    id: '2',
+    key: 'default_credit_allocation',
+    value: 100,
+    description: 'Default credits for new organizations',
+    updated_at: new Date().toISOString(),
+    updated_by: null,
+  },
+  {
+    id: '3',
+    key: 'session_timeout_minutes',
+    value: 60,
+    description: 'Admin session timeout in minutes',
+    updated_at: new Date().toISOString(),
+    updated_by: null,
+  },
+  {
+    id: '4',
+    key: 'registration_open',
+    value: true,
+    description: 'Allow new user registrations',
+    updated_at: new Date().toISOString(),
+    updated_by: null,
+  },
+  {
+    id: '5',
+    key: 'require_2fa',
+    value: false,
+    description: '2FA requirement for admin users',
+    updated_at: new Date().toISOString(),
+    updated_by: null,
+  },
+]
+
+// In-memory settings store (temporary until database table exists)
+let settingsStore = [...DEFAULT_SETTINGS]
+
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req, { adminClient }) => {
-    const supabase = adminClient
-
+  return superAdminGuard(request, async () => {
     try {
-      const { data: settings, error } = await supabase
-        .from('platform_settings')
-        .select('*')
-        .order('key', { ascending: true })
-
-      if (error) {
-        console.error('[settings] Failed to fetch settings:', error)
-        return NextResponse.json(
-          { success: false, error: 'Failed to fetch settings' },
-          { status: 500 }
-        )
-      }
-
-      // Parse JSONB values and format for frontend
-      const formattedSettings = (settings || []).map((s) => ({
-        id: s.id,
-        key: s.key,
-        value: typeof s.value === 'string' ? JSON.parse(s.value) : s.value,
-        description: s.description,
-        updated_at: s.updated_at,
-        updated_by: s.updated_by,
-      }))
-
       return NextResponse.json({
         success: true,
-        settings: formattedSettings,
+        settings: settingsStore,
+        _notice: 'Settings are stored in memory until platform_settings table is created',
       })
     } catch (error) {
       console.error('[settings] Error:', error)
@@ -61,7 +88,6 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
     const supabase = adminClient
-    const adminUserId = superAdmin.id
 
     try {
       const body = await req.json()
@@ -79,34 +105,23 @@ export async function PATCH(request: NextRequest) {
 
       // Process each setting update
       for (const [key, value] of Object.entries(settings)) {
-        // Validate the setting exists
-        const { data: existing, error: checkError } = await supabase
-          .from('platform_settings')
-          .select('id')
-          .eq('key', key)
-          .single()
+        // Find the setting in our store
+        const settingIndex = settingsStore.findIndex((s) => s.key === key)
 
-        if (checkError || !existing) {
+        if (settingIndex === -1) {
           errors.push(`Setting "${key}" not found`)
           continue
         }
 
-        // Update the setting
-        const { error: updateError } = await supabase
-          .from('platform_settings')
-          .update({
-            value: JSON.stringify(value),
-            updated_at: new Date().toISOString(),
-            updated_by: adminUserId,
-          })
-          .eq('key', key)
-
-        if (updateError) {
-          console.error(`[settings] Failed to update ${key}:`, updateError)
-          errors.push(`Failed to update "${key}"`)
-        } else {
-          updates.push({ key, value })
+        // Update the setting in memory
+        settingsStore[settingIndex] = {
+          ...settingsStore[settingIndex],
+          value: value as string | number | boolean,
+          updated_at: new Date().toISOString(),
+          updated_by: superAdmin.id,
         }
+
+        updates.push({ key, value })
       }
 
       // Log audit entry
@@ -136,6 +151,7 @@ export async function PATCH(request: NextRequest) {
         message: `Updated ${updates.length} setting(s)`,
         updated: updates.map((u) => u.key),
         errors: errors.length > 0 ? errors : undefined,
+        _notice: 'Settings stored in memory (not persisted until database table is created)',
       })
     } catch (error) {
       console.error('[settings] Error:', error)

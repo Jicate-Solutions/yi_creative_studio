@@ -16,7 +16,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
     const { id: organizationId } = await params
     const supabase = adminClient
-    const adminUserId = superAdmin.id
 
     try {
       // Check if organization exists and is deactivated
@@ -56,11 +55,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Log audit entry
       await supabase.from('super_admin_audit_logs').insert({
-        admin_user_id: adminUserId,
+        super_admin_id: superAdmin.id,
+        super_admin_email: superAdmin.email,
         action: 'organization_reactivated',
-        target_type: 'organization',
-        target_id: organizationId,
-        details: {
+        resource_type: 'organization',
+        resource_id: organizationId,
+        target_organization_id: organizationId,
+        changes: {
           organization_name: org.name,
         },
       })

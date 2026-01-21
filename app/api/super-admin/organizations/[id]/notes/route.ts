@@ -4,6 +4,7 @@
  * PATCH /api/super-admin/organizations/[id]/notes - Update notes
  *
  * Admin notes are internal notes visible only to super admins
+ * Notes are stored in the organization's brand_config JSONB field under 'admin_notes'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,6 +12,12 @@ import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
 
 interface RouteParams {
   params: Promise<{ id: string }>
+}
+
+interface AdminNotesData {
+  notes: string
+  updated_at: string | null
+  updated_by: string | null
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -22,33 +29,41 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
       const { data: org, error } = await supabase
         .from('organizations')
-        .select('admin_notes, admin_notes_updated_at, admin_notes_updated_by')
+        .select('brand_config')
         .eq('id', organizationId)
         .single()
 
       if (error) {
-        console.error('[org-notes] Failed to fetch notes:', error)
+        console.error('[org-notes] Failed to fetch organization:', error)
         return NextResponse.json(
           { success: false, error: 'Organization not found' },
           { status: 404 }
         )
       }
 
+      // Extract admin notes from brand_config
+      const brandConfig = (org.brand_config as Record<string, unknown>) || {}
+      const adminNotesData = (brandConfig.admin_notes as AdminNotesData) || {
+        notes: '',
+        updated_at: null,
+        updated_by: null,
+      }
+
       // Get the name of who last updated (if available)
       let updatedByName = null
-      if (org.admin_notes_updated_by) {
+      if (adminNotesData.updated_by) {
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('full_name')
-          .eq('id', org.admin_notes_updated_by)
+          .eq('id', adminNotesData.updated_by)
           .single()
         updatedByName = profile?.full_name || 'Unknown'
       }
 
       return NextResponse.json({
         success: true,
-        notes: org.admin_notes || '',
-        updated_at: org.admin_notes_updated_at,
+        notes: adminNotesData.notes || '',
+        updated_at: adminNotesData.updated_at,
         updated_by: updatedByName,
       })
     } catch (error) {
@@ -78,10 +93,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         )
       }
 
-      // Check if org exists
+      // Check if org exists and get current brand_config
       const { data: existingOrg, error: checkError } = await supabase
         .from('organizations')
-        .select('id, name')
+        .select('id, name, brand_config')
         .eq('id', organizationId)
         .single()
 
@@ -92,13 +107,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         )
       }
 
-      // Update notes
+      // Update notes in brand_config
+      const currentBrandConfig = (existingOrg.brand_config as Record<string, unknown>) || {}
+      const updatedBrandConfig = {
+        ...currentBrandConfig,
+        admin_notes: {
+          notes,
+          updated_at: new Date().toISOString(),
+          updated_by: superAdmin.id,
+        },
+      }
+
       const { error: updateError } = await supabase
         .from('organizations')
         .update({
-          admin_notes: notes,
-          admin_notes_updated_at: new Date().toISOString(),
-          admin_notes_updated_by: superAdmin.id,
+          brand_config: updatedBrandConfig,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', organizationId)
 
