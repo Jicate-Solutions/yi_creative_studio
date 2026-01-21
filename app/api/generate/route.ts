@@ -2396,24 +2396,29 @@ ${typographyProfile.hierarchy}
               const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
               const canvasHeight = selectedFormat.height
 
-              console.log(`[v24.0.1 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer reserved zone starts at ${footerStartPercent}%`)
+              // v24.0.2: Add safety buffer to catch edge cases (content at 81.9% when footer starts at 82%)
+              const footerSafetyMargin = 5  // 5% safety margin before footer zone
+              const adjustedFooterStart = footerStartPercent - footerSafetyMargin  // e.g., 82% - 5% = 77%
 
-              if (detectedFooterTextY < 100 && detectedFooterTextY >= footerStartPercent) {
-                // Content detected in footer zone - move footer up
-                // Calculate how much to move up: distance from detected content to footer start
+              console.log(`[v24.0.2 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer reserved zone starts at ${footerStartPercent}%, adjusted start: ${adjustedFooterStart}%`)
+
+              if (detectedFooterTextY < 100 && detectedFooterTextY >= adjustedFooterStart) {
+                // Content detected in or near footer zone - move footer up
+                // Calculate how much to move up: distance from detected content to canvas bottom
                 const contentPositionPx = (detectedFooterTextY / 100) * canvasHeight
-                const footerStartPx = (footerStartPercent / 100) * canvasHeight
-                const safetyBuffer = 30  // 30px buffer above detected content
+                const safetyBuffer = 50  // 50px buffer above detected content (increased from 30)
 
-                footerOffset = Math.max(0, canvasHeight - contentPositionPx + safetyBuffer)
+                // Calculate the offset needed to place footer above the detected content
+                const footerHeight = logoStripZoneCoordinates.footerHeight
+                footerOffset = Math.max(0, canvasHeight - contentPositionPx + safetyBuffer + footerHeight)
 
-                console.log(`[v24.0.1 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px to avoid overlap`)
-                console.log(`[v24.0.1 Footer Strategy] Content at ${contentPositionPx.toFixed(0)}px, moving footer to ~${(contentPositionPx - safetyBuffer).toFixed(0)}px`)
+                console.log(`[v24.0.2 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px to avoid overlap`)
+                console.log(`[v24.0.2 Footer Strategy] Content at ${contentPositionPx.toFixed(0)}px, footer height: ${footerHeight}px`)
               } else {
-                console.log('[v24.0.1 Footer Strategy] ✅ No footer overlap - content is within safe zone')
+                console.log('[v24.0.2 Footer Strategy] ✅ No footer overlap - content is within safe zone')
               }
             } else {
-              console.log('[v24.0.1 Footer Strategy] ✅ No footer violations detected')
+              console.log('[v24.0.2 Footer Strategy] ✅ No footer violations detected')
             }
 
           } catch (error) {
