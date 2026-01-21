@@ -37,7 +37,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       // Check if user exists
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, full_name, email')
+        .select('id, full_name')
         .eq('id', userId)
         .single()
 
@@ -56,7 +56,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       }
 
-      const userName = profile.full_name || profile.email || 'Unknown User'
+      const userName = profile.full_name || 'Unknown User'
 
       // Start deletion process
       const deletionSummary = {
@@ -94,11 +94,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         .eq('created_by', userId)
 
       if (!creativesQueryError && creatives && creatives.length > 0) {
+        // Set created_by to null to anonymize - keeps the creative but removes user association
         const { error: creativesUpdateError } = await supabase
           .from('creatives')
           .update({
             created_by: null,
-            metadata: supabase.sql`metadata || '{"anonymized": true, "original_user_deleted": true}'::jsonb`,
           })
           .eq('created_by', userId)
 
