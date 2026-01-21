@@ -24,8 +24,8 @@ import { analyzeColorPersonality, generateColorAwareBackground } from '@/lib/pro
 import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { DesignContextForPrompt } from '../types'
 
-// Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+// Import logo zone enforcement helper (v3.4, v4.0)
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -177,6 +177,26 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     ? `Brand professional: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}, ${options.brandContext.accentColor || 'subtle gold accent'}`
     : data.colorScheme || 'Professional blues (#0077b5, #004182), grays, white, subtle gold accent'
 
+  // v4.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // LinkedIn dimensions: 1200x628 (landscape, recommended) or 1080x1080 (square)
+  const CANVAS_WIDTH = 1200
+  const CANVAS_HEIGHT = 628
+  const headerPercent = 12 // Top 12% reserved for logos
+  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+    headerHeight,
+    footerHeight,
+    headerPercent,
+    footerPercent
+  )
+
+  console.log('[LinkedIn v4.0] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a professional LinkedIn post graphic that builds credibility and encourages engagement</task>
 
@@ -187,6 +207,10 @@ Purpose: Establish thought leadership, drive professional engagement, build cred
 Content Type: ${options.contentType || data.contentType || 'Thought Leadership'}
 Audience: Business professionals, B2B context
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 

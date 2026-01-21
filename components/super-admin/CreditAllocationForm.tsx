@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface Organization {
   id: string
@@ -49,6 +50,7 @@ export default function CreditAllocationForm() {
       }
     } catch (err) {
       console.error('Failed to fetch organizations:', err)
+      toast.error('Failed to load organizations. Please refresh the page.')
     }
   }
 

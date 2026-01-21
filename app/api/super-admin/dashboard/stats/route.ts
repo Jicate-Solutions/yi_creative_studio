@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
 
       const totalCreditsBalance = orgsWithCredits?.reduce((sum, org) => sum + (org.credits_balance || 0), 0) || 0
 
+      // Count organizations with low credits (<10)
+      const { count: lowCreditOrgsCount } = await supabase
+        .from('organizations')
+        .select('*', { count: 'exact', head: true })
+        .lt('credits_balance', 10)
+
       // Calculate total allocated from credit_transactions (bonus/purchase types)
       const { data: allocations } = await supabase
         .from('credit_transactions')
@@ -72,6 +78,7 @@ export async function GET(request: NextRequest) {
           orgCount: orgCount || 0,
           userCount: userCount || 0,
           activeOrgsCount: activeOrgsCount || 0,
+          lowCreditOrgsCount: lowCreditOrgsCount || 0,
           totalCreditsBalance,
           totalCreditsAllocated,
           todayCreditsUsed,

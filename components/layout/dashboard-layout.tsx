@@ -10,6 +10,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
 import { OfflineBanner } from '@/components/ui/offline-banner'
+import ImpersonationBanner from '@/components/super-admin/ImpersonationBanner'
 import { FloatingActionButton } from '@/components/ui/floating-action-button'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUIStore } from '@/stores/ui-store'
@@ -80,6 +81,9 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             // Add margin for fixed sidebar on desktop (when not in create/analytics mode)
             !createModeActive && !analyticsModeActive && sidebarOpen && (sidebarCollapsed ? "md:ml-16" : "md:ml-64")
           )}>
+            {/* Impersonation Banner (Super Admin) */}
+            <ImpersonationBanner />
+
             {/* Role Simulation Banner */}
             <SimulationBanner />
 

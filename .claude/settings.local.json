@@ -280,7 +280,9 @@
       "Bash(Format-Table Name, Length -AutoSize)",
       "mcp__memory__search_nodes",
       "mcp__memory__read_graph",
-      "Skill(event-poster-ultra)"
+      "Skill(event-poster-ultra)",
+      "Bash(while read f)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": [],

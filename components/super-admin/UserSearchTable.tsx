@@ -30,10 +30,25 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Search, UserX, UserCheck, UserCog, Shield, Mail, Building, Send, Copy } from 'lucide-react'
+import { Search, UserX, UserCheck, UserCog, Shield, Mail, Building, Send, Copy, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
+import { ExportButton, type ExportColumn } from '@/components/super-admin/ExportButton'
+import UserDetailPanel from '@/components/super-admin/UserDetailPanel'
+import { startImpersonationSession } from '@/components/super-admin/ImpersonationBanner'
+
+// Export columns definition (matches API available columns)
+const USER_EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'id', label: 'User ID' },
+  { key: 'email', label: 'Email', selected: true },
+  { key: 'full_name', label: 'Full Name', selected: true },
+  { key: 'phone', label: 'Phone' },
+  { key: 'is_active', label: 'Active Status', selected: true },
+  { key: 'organization_name', label: 'Organization', selected: true },
+  { key: 'created_at', label: 'Created At', selected: true },
+  { key: 'last_sign_in_at', label: 'Last Sign In', selected: true },
+]
 
 interface Organization {
   organization_id: string
@@ -121,6 +136,10 @@ export default function UserSearchTable() {
   // Organizations list for dropdowns
   const [organizations, setOrganizations] = useState<OrgOption[]>([])
   const [loadingOrgs, setLoadingOrgs] = useState(false)
+
+  // User detail panel
+  const [detailPanelOpen, setDetailPanelOpen] = useState(false)
+  const [detailUser, setDetailUser] = useState<User | null>(null)
 
   // Auto-refresh every 45 seconds
   const { isRefreshing, lastRefresh, manualRefresh } = useAutoRefresh({
@@ -287,16 +306,21 @@ export default function UserSearchTable() {
 
       toast.success(`Impersonation started - Session expires in ${data.session.duration_minutes} minutes`)
 
-      // Store session token (in production, use sessionStorage or secure cookie)
-      console.log('[Impersonation] Session token:', data.session.token)
-      console.log('[Impersonation] Restrictions:', data.session.restrictions)
+      // Store impersonation session for the banner
+      startImpersonationSession({
+        userId: selectedUser.id,
+        userName: selectedUser.full_name || '',
+        userEmail: selectedUser.email,
+        durationMinutes: data.session.duration_minutes,
+        restrictions: data.session.restrictions || [],
+      })
 
       setImpersonateDialogOpen(false)
       setImpersonationReason('')
       setSelectedUser(null)
 
-      // TODO: Navigate to user's dashboard or show impersonation banner
-      alert(data.warning)
+      // Navigate to dashboard as the impersonated user
+      window.location.href = '/dashboard'
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start impersonation')
     } finally {
@@ -398,10 +422,10 @@ export default function UserSearchTable() {
 
   return (
     <div className="space-y-4">
-      {/* Search & Filters */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4 flex-wrap flex-1">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+      {/* Search & Filters - Responsive */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
+          <div className="relative flex-1 min-w-0 sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search by email..."
@@ -415,7 +439,7 @@ export default function UserSearchTable() {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -428,7 +452,7 @@ export default function UserSearchTable() {
           </Select>
 
           <Select value={superAdminFilter} onValueChange={setSuperAdminFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Users" />
             </SelectTrigger>
             <SelectContent>
@@ -439,12 +463,23 @@ export default function UserSearchTable() {
           </Select>
         </div>
 
-        {/* Auto-refresh indicator */}
-        <RefreshIndicator
-          lastRefresh={lastRefresh}
-          isRefreshing={isRefreshing}
-          onManualRefresh={manualRefresh}
-        />
+        {/* Export & Auto-refresh */}
+        <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/api/super-admin/users/export"
+            filename="users_export"
+            columns={USER_EXPORT_COLUMNS}
+            queryParams={{
+              search,
+              status: statusFilter !== 'all' ? statusFilter : '',
+            }}
+          />
+          <RefreshIndicator
+            lastRefresh={lastRefresh}
+            isRefreshing={isRefreshing}
+            onManualRefresh={manualRefresh}
+          />
+        </div>
       </div>
 
       {/* Results Summary */}
@@ -452,9 +487,9 @@ export default function UserSearchTable() {
         Showing {users.length} of {pagination.total} users
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
+      {/* Table - Horizontal scroll on mobile */}
+      <div className="border rounded-lg overflow-x-auto">
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead>User</TableHead>
@@ -480,7 +515,14 @@ export default function UserSearchTable() {
               </TableRow>
             ) : (
               users.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow
+                  key={user.id}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => {
+                    setDetailUser(user)
+                    setDetailPanelOpen(true)
+                  }}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
@@ -541,7 +583,7 @@ export default function UserSearchTable() {
                   </TableCell>
 
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                    <div className="flex items-center justify-end gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                       {/* Assign/Invite buttons for users without organizations */}
                       {user.organization_count === 0 && !user.is_super_admin && user.status === 'active' && (
                         <>
@@ -610,6 +652,9 @@ export default function UserSearchTable() {
                       {user.is_super_admin && (
                         <span className="text-xs text-gray-400 italic">Protected</span>
                       )}
+
+                      {/* Row click indicator */}
+                      <ChevronRight className="w-4 h-4 text-gray-300 ml-2" />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -945,6 +990,27 @@ export default function UserSearchTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Detail Panel */}
+      <UserDetailPanel
+        user={detailUser}
+        open={detailPanelOpen}
+        onOpenChange={setDetailPanelOpen}
+        onSuspend={(user) => {
+          setDetailPanelOpen(false)
+          setSelectedUser(user)
+          setSuspendDialogOpen(true)
+        }}
+        onReactivate={(user) => {
+          setDetailPanelOpen(false)
+          handleReactivate(user)
+        }}
+        onImpersonate={(user) => {
+          setDetailPanelOpen(false)
+          setSelectedUser(user)
+          setImpersonateDialogOpen(true)
+        }}
+      />
     </div>
   )
 }

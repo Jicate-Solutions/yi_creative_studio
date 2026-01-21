@@ -4,7 +4,9 @@
  */
 
 import CreditAllocationForm from '@/components/super-admin/CreditAllocationForm'
+import BulkCreditAllocationForm from '@/components/super-admin/BulkCreditAllocationForm'
 import TransactionHistoryTable from '@/components/super-admin/TransactionHistoryTable'
+import CreditAnalyticsDashboard from '@/components/super-admin/CreditAnalyticsDashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -20,22 +22,38 @@ export default function CreditsPage() {
       {/* Tabs */}
       <Tabs defaultValue="allocate" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="allocate">Allocate Credits</TabsTrigger>
+          <TabsTrigger value="allocate">Single Allocation</TabsTrigger>
+          <TabsTrigger value="bulk">Bulk Allocation</TabsTrigger>
           <TabsTrigger value="transactions">Transaction History</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        {/* Allocate Credits Tab */}
+        {/* Single Allocation Tab */}
         <TabsContent value="allocate" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Allocate Credits</CardTitle>
+              <CardTitle>Single Organization Allocation</CardTitle>
               <CardDescription>
-                Manually add credits to an organization's balance
+                Allocate credits to a single organization
               </CardDescription>
             </CardHeader>
             <CardContent>
               <CreditAllocationForm />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Bulk Allocation Tab */}
+        <TabsContent value="bulk" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulk Credit Allocation</CardTitle>
+              <CardDescription>
+                Allocate credits to multiple organizations at once
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BulkCreditAllocationForm />
             </CardContent>
           </Card>
         </TabsContent>
@@ -57,17 +75,7 @@ export default function CreditsPage() {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Credit Analytics</CardTitle>
-              <CardDescription>Platform-wide credit usage statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">
-                Analytics dashboard will be implemented in Phase 3+
-              </p>
-            </CardContent>
-          </Card>
+          <CreditAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>

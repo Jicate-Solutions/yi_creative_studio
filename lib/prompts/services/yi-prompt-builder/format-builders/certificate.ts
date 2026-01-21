@@ -27,7 +27,7 @@ import {
   normalizeStyleId,
 } from '../../../knowledge-base/design-architecture'
 
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -154,6 +154,26 @@ export function buildCertificatePrompt(
 
   const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
+  // v4.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Certificate dimensions: 1754x1240 (A4 landscape)
+  const CANVAS_WIDTH = 1754
+  const CANVAS_HEIGHT = 1240
+  const headerPercent = 15 // Top 15% reserved for logos
+  const footerPercent = 10 // Bottom 10% reserved for footer elements
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+    headerHeight,
+    footerHeight,
+    headerPercent,
+    footerPercent
+  )
+
+  console.log('[Certificate v4.0] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a prestigious, professional certificate design</task>
 
@@ -163,6 +183,10 @@ Aspect Ratio: Landscape (1.41:1, A4 proportions)
 Purpose: Official recognition document that will be printed, framed, and displayed
 Style Variant: ${style.charAt(0).toUpperCase() + style.slice(1)}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 

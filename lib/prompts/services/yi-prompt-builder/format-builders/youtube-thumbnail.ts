@@ -26,8 +26,8 @@ import {
   getTypographyPromptFragment,
 } from '../../../knowledge-base/design-architecture'
 
-// Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+// Import logo zone enforcement helper (v3.4, v4.0)
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -117,6 +117,26 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
   const scrollStopPatterns = getScrollStopPromptFragment('youtube_thumbnail')
   const typographyRules = getTypographyPromptFragment('youtube_thumbnail')
 
+  // v4.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // YouTube thumbnail dimensions: 1280x720 (16:9)
+  const CANVAS_WIDTH = 1280
+  const CANVAS_HEIGHT = 720
+  const headerPercent = 12 // Top 12% reserved for logos
+  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+    headerHeight,
+    footerHeight,
+    headerPercent,
+    footerPercent
+  )
+
+  console.log('[YouTube Thumbnail v4.0] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a high-CTR YouTube thumbnail designed to maximize clicks in search and recommendations</task>
 
@@ -126,6 +146,10 @@ Aspect Ratio: Landscape 16:9 (1280x720 equivalent)
 Viewing Size: Will display as small as 160x90 pixels - MUST be readable at tiny size
 Purpose: Compete with 500+ other videos, trigger curiosity, drive clicks
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 

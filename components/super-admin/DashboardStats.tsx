@@ -7,7 +7,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Users, CreditCard, TrendingUp, Zap, ImagePlus, Wifi, WifiOff } from 'lucide-react'
+import { Building2, Users, CreditCard, TrendingUp, Zap, ImagePlus, Wifi, WifiOff, AlertTriangle } from 'lucide-react'
 import { useSuperAdminRealtime } from '@/hooks/use-super-admin-realtime'
 
 export default function DashboardStats() {
@@ -50,6 +50,28 @@ export default function DashboardStats() {
           Refresh
         </button>
       </div>
+
+      {/* Low Credit Warning - Only show if there are orgs with low credits */}
+      {stats.lowCreditOrgsCount > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-orange-800">Low Credit Alert</CardTitle>
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats.lowCreditOrgsCount}</div>
+            <p className="text-xs text-orange-700 mt-1">
+              Organization{stats.lowCreditOrgsCount !== 1 ? 's' : ''} with &lt;10 credits
+            </p>
+            <a
+              href="/super-admin/credits"
+              className="text-xs text-orange-600 hover:text-orange-800 underline mt-2 inline-block"
+            >
+              View &amp; allocate credits →
+            </a>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

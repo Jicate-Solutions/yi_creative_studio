@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Coins, TrendingUp, TrendingDown, Activity } from 'lucide-react'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
+import toast from 'react-hot-toast'
 
 interface CreditStats {
   total_balance: number
@@ -54,6 +55,7 @@ export default function PlatformCreditStats() {
       }
     } catch (error) {
       console.error('Failed to fetch credit stats:', error)
+      toast.error('Failed to load credit stats. Please try again.')
     } finally {
       setLoading(false)
     }

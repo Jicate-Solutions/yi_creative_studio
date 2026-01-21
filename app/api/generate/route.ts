@@ -124,14 +124,17 @@ const PRESERVE_GEMINI_BACKGROUNDS = true
  * Check if footer has any content to render
  * Matches the logic in lib/sharp/logo-overlay.ts (createEnhanced4RowFooterStrip)
  * v12.1: Used for footer safe zone calculation
+ * v14.0: Added signature check (signatureId OR logoId)
  *
  * @param footer - Footer configuration
- * @returns true if footer has content (hashtag, website, or digital partner)
+ * @returns true if footer has content (signature, hashtag, website, or digital partner)
  */
 function hasFooterContent(footer?: FooterRowConfig): boolean {
   if (!footer) return false
 
   return !!(
+    // v14.0: Add signature check (signatureId OR logoId for backwards compatibility)
+    (footer.signature?.enabled && (footer.signature?.signatureId || footer.signature?.logoId)) ||
     footer.hashtag.text.trim() ||
     footer.website.url.trim() ||
     footer.website.socialHandle?.trim() ||
@@ -2288,7 +2291,7 @@ ${typographyProfile.hierarchy}
             const violations = await detectTextInForbiddenZones(
               imageBuffer,
               logoStripZoneCoordinates.headerReservePercent,
-              logoStripZoneCoordinates.footerReservePercent
+              100 - logoStripZoneCoordinates.footerReservePercent  // Fix: Convert height to start position
             )
 
             const headerViolation = violations.find(v => v.zoneType === 'header')
@@ -2389,7 +2392,8 @@ ${typographyProfile.hierarchy}
 
             if (footerViolation && enhanced4RowStrip.footer) {
               const detectedFooterTextY = footerViolation.detectedTextY
-              const footerStartPercent = logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
+              // Fix: footerReservePercent is the HEIGHT (e.g., 18%), so start position is 100 - 18 = 82%
+              const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
               const canvasHeight = selectedFormat.height
 
               console.log(`[v24.0.1 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer reserved zone starts at ${footerStartPercent}%`)

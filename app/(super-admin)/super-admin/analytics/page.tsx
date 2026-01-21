@@ -5,6 +5,8 @@
 
 import PlatformAnalyticsDashboard from '@/components/super-admin/PlatformAnalyticsDashboard'
 import OrganizationUsageBreakdown from '@/components/super-admin/OrganizationUsageBreakdown'
+import OrganizationAnalytics from '@/components/super-admin/OrganizationAnalytics'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default function AnalyticsPlatformPage() {
   return (
@@ -15,11 +17,30 @@ export default function AnalyticsPlatformPage() {
         <p className="text-gray-600 mt-2">API usage and cost analytics across all organizations</p>
       </div>
 
-      {/* Platform Analytics Dashboard */}
-      <PlatformAnalyticsDashboard />
+      {/* Analytics Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="comparison">Organization Comparison</TabsTrigger>
+          <TabsTrigger value="breakdown">API Breakdown</TabsTrigger>
+        </TabsList>
 
-      {/* Organization Usage Breakdown */}
-      <OrganizationUsageBreakdown />
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-8">
+          {/* Platform Analytics Dashboard */}
+          <PlatformAnalyticsDashboard />
+        </TabsContent>
+
+        {/* Organization Comparison Tab */}
+        <TabsContent value="comparison" className="space-y-6">
+          <OrganizationAnalytics showTable={true} />
+        </TabsContent>
+
+        {/* API Breakdown Tab */}
+        <TabsContent value="breakdown" className="space-y-6">
+          <OrganizationUsageBreakdown />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

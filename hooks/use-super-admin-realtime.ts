@@ -33,6 +33,7 @@ export interface PlatformStats {
   orgCount: number
   userCount: number
   activeSubsCount: number
+  lowCreditOrgsCount: number
   totalCreditsAllocated: number
   todayCreditsUsed: number
   todayGenerations: number
@@ -96,6 +97,7 @@ export function useSuperAdminRealtime({
     orgCount: 0,
     userCount: 0,
     activeSubsCount: 0,
+    lowCreditOrgsCount: 0,
     totalCreditsAllocated: 0,
     todayCreditsUsed: 0,
     todayGenerations: 0,

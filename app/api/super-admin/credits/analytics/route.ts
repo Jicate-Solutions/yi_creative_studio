@@ -15,6 +15,18 @@ export async function GET(request: NextRequest) {
     const supabase = adminClient
 
     try {
+      // Parse date range from query params
+      const { searchParams } = new URL(req.url)
+      const range = searchParams.get('range') || '7d'
+
+      // Calculate date range
+      let daysBack = 7
+      if (range === '30d') daysBack = 30
+      else if (range === '90d') daysBack = 90
+
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - daysBack)
+
       // 1. Get all organizations with their credit balance
       const { data: organizations, error: orgsError } = await supabase
         .from('organizations')
@@ -89,14 +101,11 @@ export async function GET(request: NextRequest) {
         total_refunded: totalRefunded,
       }
 
-      // 5. Recent credit transactions (last 7 days)
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
+      // 5. Recent credit transactions (based on date range)
       const { data: recentTransactions } = await supabase
         .from('credit_transactions')
         .select('type, amount, created_at')
-        .gte('created_at', sevenDaysAgo.toISOString())
+        .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true })
 
       // Group by day

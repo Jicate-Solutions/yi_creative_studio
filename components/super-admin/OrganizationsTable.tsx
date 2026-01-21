@@ -28,6 +28,20 @@ import {
 } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import toast from 'react-hot-toast'
+import { ExportButton, type ExportColumn } from '@/components/super-admin/ExportButton'
+
+// Export columns definition
+const ORG_EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'id', label: 'Organization ID' },
+  { key: 'name', label: 'Name', selected: true },
+  { key: 'slug', label: 'Slug' },
+  { key: 'credits_balance', label: 'Credits Balance', selected: true },
+  { key: 'member_count', label: 'Member Count', selected: true },
+  { key: 'is_active', label: 'Active Status', selected: true },
+  { key: 'created_at', label: 'Created At', selected: true },
+  { key: 'updated_at', label: 'Updated At' },
+]
 
 interface Organization {
   id: string
@@ -73,6 +87,7 @@ export default function OrganizationsTable() {
       }
     } catch (error) {
       console.error('Failed to fetch organizations:', error)
+      toast.error('Failed to load organizations. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -87,8 +102,7 @@ export default function OrganizationsTable() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'organizations' },
-        (payload) => {
-          console.log('[OrganizationsTable] Org change detected:', payload.eventType)
+        () => {
           // Refresh the list when any organization changes
           fetchOrganizations()
         }
@@ -167,10 +181,10 @@ export default function OrganizationsTable() {
 
   return (
     <div className="space-y-4">
-      {/* Search & Filters */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative flex-1 max-w-md">
+      {/* Search & Filters - Responsive */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
+          <div className="relative flex-1 min-w-0 sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search organizations..."
@@ -184,7 +198,7 @@ export default function OrganizationsTable() {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -197,8 +211,17 @@ export default function OrganizationsTable() {
           </Select>
         </div>
 
-        {/* Connection Status & Refresh */}
+        {/* Export, Connection Status & Refresh */}
         <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/api/super-admin/organizations/export"
+            filename="organizations_export"
+            columns={ORG_EXPORT_COLUMNS}
+            queryParams={{
+              search,
+              status: statusFilter !== 'all' ? statusFilter : '',
+            }}
+          />
           {isConnected ? (
             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
               <Wifi className="h-3 w-3 mr-1" />
@@ -221,9 +244,9 @@ export default function OrganizationsTable() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg bg-white">
-        <Table>
+      {/* Table - Horizontal scroll on mobile */}
+      <div className="border rounded-lg bg-white overflow-x-auto">
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow>
               <TableHead>Organization</TableHead>

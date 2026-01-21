@@ -25,6 +25,10 @@ import {
   Mail,
   Shield,
   BarChart3,
+  StickyNote,
+  ChevronDown,
+  ChevronRight,
+  Save,
 } from 'lucide-react'
 import OrganizationAnalytics from './OrganizationAnalytics'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +36,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Table,
   TableBody,
@@ -134,6 +145,24 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
   const [hardDeleting, setHardDeleting] = useState(false)
   const [confirmOrgName, setConfirmOrgName] = useState('')
 
+  // Reactivation state
+  const [reactivating, setReactivating] = useState(false)
+
+  // Admin notes state
+  const [notesExpanded, setNotesExpanded] = useState(false)
+  const [adminNotes, setAdminNotes] = useState('')
+  const [notesLastUpdated, setNotesLastUpdated] = useState<string | null>(null)
+  const [notesUpdatedBy, setNotesUpdatedBy] = useState<string | null>(null)
+  const [savingNotes, setSavingNotes] = useState(false)
+  const [notesLoading, setNotesLoading] = useState(false)
+
+  // Bulk member operations state
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+  const [bulkRoleDialogOpen, setBulkRoleDialogOpen] = useState(false)
+  const [bulkRemoveDialogOpen, setBulkRemoveDialogOpen] = useState(false)
+  const [bulkNewRole, setBulkNewRole] = useState('viewer')
+  const [bulkOperating, setBulkOperating] = useState(false)
+
   // Add credits dialog state
   const [creditsDialogOpen, setCreditsDialogOpen] = useState(false)
   const [creditAmount, setCreditAmount] = useState('')
@@ -220,6 +249,171 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
       toast.error(err instanceof Error ? err.message : 'Failed to deactivate organization')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleReactivate() {
+    setReactivating(true)
+    try {
+      const response = await fetch(`/api/super-admin/organizations/${organizationId}/reactivate`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reactivate organization')
+      }
+
+      toast.success(data.message || 'Organization reactivated successfully')
+      fetchOrganization()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reactivate organization')
+    } finally {
+      setReactivating(false)
+    }
+  }
+
+  async function fetchAdminNotes() {
+    setNotesLoading(true)
+    try {
+      const response = await fetch(`/api/super-admin/organizations/${organizationId}/notes`)
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setAdminNotes(data.notes || '')
+        setNotesLastUpdated(data.updated_at)
+        setNotesUpdatedBy(data.updated_by)
+      }
+    } catch (err) {
+      console.error('Failed to fetch admin notes:', err)
+    } finally {
+      setNotesLoading(false)
+    }
+  }
+
+  async function handleSaveNotes() {
+    setSavingNotes(true)
+    try {
+      const response = await fetch(`/api/super-admin/organizations/${organizationId}/notes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: adminNotes }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save notes')
+      }
+
+      toast.success('Notes saved successfully')
+      setNotesLastUpdated(new Date().toISOString())
+      setNotesUpdatedBy('You')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save notes')
+    } finally {
+      setSavingNotes(false)
+    }
+  }
+
+  // Fetch admin notes when expanded for the first time
+  useEffect(() => {
+    if (notesExpanded && adminNotes === '' && !notesLoading) {
+      fetchAdminNotes()
+    }
+  }, [notesExpanded])
+
+  // Bulk member operations
+  function toggleMemberSelection(memberId: string) {
+    setSelectedMembers((prev) =>
+      prev.includes(memberId)
+        ? prev.filter((id) => id !== memberId)
+        : [...prev, memberId]
+    )
+  }
+
+  function toggleAllMembers() {
+    if (!organization) return
+    if (selectedMembers.length === organization.members.length) {
+      setSelectedMembers([])
+    } else {
+      setSelectedMembers(organization.members.map((m) => m.id))
+    }
+  }
+
+  async function handleBulkRoleChange() {
+    if (selectedMembers.length === 0) {
+      toast.error('No members selected')
+      return
+    }
+
+    setBulkOperating(true)
+    try {
+      const response = await fetch(
+        `/api/super-admin/organizations/${organizationId}/members/bulk`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'change_role',
+            member_ids: selectedMembers,
+            new_role: bulkNewRole,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update roles')
+      }
+
+      toast.success(data.message || 'Roles updated successfully')
+      setBulkRoleDialogOpen(false)
+      setSelectedMembers([])
+      fetchOrganization()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update roles')
+    } finally {
+      setBulkOperating(false)
+    }
+  }
+
+  async function handleBulkRemove() {
+    if (selectedMembers.length === 0) {
+      toast.error('No members selected')
+      return
+    }
+
+    setBulkOperating(true)
+    try {
+      const response = await fetch(
+        `/api/super-admin/organizations/${organizationId}/members/bulk`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'remove',
+            member_ids: selectedMembers,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove members')
+      }
+
+      toast.success(data.message || 'Members removed successfully')
+      setBulkRemoveDialogOpen(false)
+      setSelectedMembers([])
+      fetchOrganization()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove members')
+    } finally {
+      setBulkOperating(false)
     }
   }
 
@@ -410,7 +604,7 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchOrganization}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -419,16 +613,32 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
             <Edit2 className="w-4 h-4 mr-2" />
             Edit
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={!organization.is_active}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Deactivate
-          </Button>
+          {!organization.is_active ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+              onClick={handleReactivate}
+              disabled={reactivating}
+            >
+              {reactivating ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              Reactivate
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Deactivate
+            </Button>
+          )}
           <Button
             variant="destructive"
             size="sm"
@@ -512,7 +722,7 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
         {/* Members List */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
@@ -520,6 +730,26 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
                 </CardTitle>
                 <CardDescription>Organization members and their roles</CardDescription>
               </div>
+              {selectedMembers.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{selectedMembers.length} selected</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBulkRoleDialogOpen(true)}
+                  >
+                    Change Role
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => setBulkRemoveDialogOpen(true)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -529,34 +759,50 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
                 <p>No members yet</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Joined</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organization.members.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{member.full_name}</div>
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {member.email}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getRoleBadge(member.role)}</TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {formatDate(member.created_at)}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[400px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={selectedMembers.length === organization.members.length}
+                          onCheckedChange={toggleAllMembers}
+                          aria-label="Select all members"
+                        />
+                      </TableHead>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {organization.members.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedMembers.includes(member.id)}
+                            onCheckedChange={() => toggleMemberSelection(member.id)}
+                            aria-label={`Select ${member.full_name}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{member.full_name}</div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {member.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getRoleBadge(member.role)}</TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {formatDate(member.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -662,6 +908,69 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      {/* Admin Notes (Collapsible) */}
+      <Card>
+        <Collapsible open={notesExpanded} onOpenChange={setNotesExpanded}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <StickyNote className="w-5 h-5" />
+                  Admin Notes
+                  {notesExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </CardTitle>
+                {notesLastUpdated && (
+                  <span className="text-xs text-gray-500 font-normal">
+                    Last updated {formatDateTime(notesLastUpdated)}
+                    {notesUpdatedBy && ` by ${notesUpdatedBy}`}
+                  </span>
+                )}
+              </div>
+              <CardDescription>
+                Internal notes visible only to super admins
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {notesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Textarea
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Add internal notes about this organization..."
+                    rows={6}
+                    className="resize-y"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSaveNotes}
+                      disabled={savingNotes}
+                      size="sm"
+                    >
+                      {savingNotes ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {savingNotes ? 'Saving...' : 'Save Notes'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* Edit Dialog */}
@@ -856,6 +1165,71 @@ export default function OrganizationDetail({ organizationId }: OrganizationDetai
               className="bg-red-600 hover:bg-red-700"
             >
               {hardDeleting ? 'Deleting...' : 'Delete Permanently'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Role Change Dialog */}
+      <Dialog open={bulkRoleDialogOpen} onOpenChange={setBulkRoleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Role for Selected Members</DialogTitle>
+            <DialogDescription>
+              Update the role for {selectedMembers.length} selected member(s)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-new-role">New Role</Label>
+              <Select value={bulkNewRole} onValueChange={setBulkNewRole}>
+                <SelectTrigger id="bulk-new-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkRoleDialogOpen(false)}
+              disabled={bulkOperating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkRoleChange} disabled={bulkOperating}>
+              {bulkOperating ? 'Updating...' : 'Update Roles'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Remove Confirmation Dialog */}
+      <AlertDialog open={bulkRemoveDialogOpen} onOpenChange={setBulkRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Members from Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {selectedMembers.length} member(s) from{' '}
+              <strong>{organization.name}</strong>? They will lose access to the organization
+              but their user accounts will remain active.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkOperating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkRemove}
+              disabled={bulkOperating}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {bulkOperating ? 'Removing...' : 'Remove Members'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

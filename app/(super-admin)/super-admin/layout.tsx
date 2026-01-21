@@ -54,11 +54,11 @@ export default async function SuperAdminLayout({
       <SuperAdminHeader user={user} />
 
       <div className="flex h-[calc(100vh-64px)]">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation (Desktop only - mobile handled inside) */}
         <SuperAdminNav />
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-8">
+        {/* Main Content - Responsive padding, extra bottom padding for mobile FAB */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
           {children}
         </main>
       </div>

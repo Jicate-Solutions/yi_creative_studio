@@ -26,6 +26,20 @@ import {
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
+import { ExportButton, type ExportColumn } from '@/components/super-admin/ExportButton'
+import toast from 'react-hot-toast'
+
+// Export columns definition
+const TXN_EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'id', label: 'Transaction ID' },
+  { key: 'organization_name', label: 'Organization', selected: true },
+  { key: 'type', label: 'Type', selected: true },
+  { key: 'amount', label: 'Amount', selected: true },
+  { key: 'balance_after', label: 'Balance After', selected: true },
+  { key: 'description', label: 'Description', selected: true },
+  { key: 'performed_by_name', label: 'Performed By' },
+  { key: 'created_at', label: 'Date', selected: true },
+]
 
 interface Transaction {
   id: string
@@ -75,6 +89,7 @@ export default function TransactionHistoryTable() {
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
+      toast.error('Failed to load transactions. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -121,10 +136,10 @@ export default function TransactionHistoryTable() {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Filters - Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
@@ -137,17 +152,27 @@ export default function TransactionHistoryTable() {
           </SelectContent>
         </Select>
 
-        {/* Auto-refresh indicator */}
-        <RefreshIndicator
-          lastRefresh={lastRefresh}
-          isRefreshing={isRefreshing}
-          onManualRefresh={manualRefresh}
-        />
+        {/* Export & Auto-refresh */}
+        <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/api/super-admin/credits/transactions/export"
+            filename="transactions_export"
+            columns={TXN_EXPORT_COLUMNS}
+            queryParams={{
+              type: typeFilter !== 'all' ? typeFilter : '',
+            }}
+          />
+          <RefreshIndicator
+            lastRefresh={lastRefresh}
+            isRefreshing={isRefreshing}
+            onManualRefresh={manualRefresh}
+          />
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg">
-        <Table>
+      {/* Table - Horizontal scroll on mobile */}
+      <div className="border rounded-lg overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>

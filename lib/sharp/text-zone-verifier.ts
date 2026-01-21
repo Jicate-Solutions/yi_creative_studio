@@ -61,12 +61,17 @@ export async function detectTextInForbiddenZones(
     .raw()
     .toBuffer()
 
-  const footerHasText = detectTextPattern(footerRegion, width, footerHeight)
+  // Use detectTextPatternWithPosition to get actual text position (not midpoint)
+  const footerTextInfo = detectTextPatternWithPosition(footerRegion, width, footerHeight)
 
-  if (footerHasText) {
+  if (footerTextInfo.hasText) {
+    // Calculate actual text Y position relative to full canvas
+    // footerTextInfo.firstTextRow is relative to footer region, so add footerStartPx offset
+    const actualTextY = ((footerStartPx + footerTextInfo.firstTextRow) / height) * 100
+
     violations.push({
       zoneType: 'footer',
-      detectedTextY: footerStartPercent + (100 - footerStartPercent) / 2,
+      detectedTextY: actualTextY, // Actual position where text starts, not midpoint
       forbiddenRangeStart: footerStartPercent,
       forbiddenRangeEnd: 100,
       severity: 'critical',

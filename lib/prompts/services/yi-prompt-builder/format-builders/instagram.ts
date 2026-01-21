@@ -32,8 +32,8 @@ import {
   getPlatformAntiPatterns,
 } from '../../../knowledge-base/design-architecture'
 
-// Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+// Import logo zone enforcement helper (v3.4, v4.0)
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 
 // Import enhanced typography enforcer (v4.0) - NEW
 import { buildEnhancedTypographyPrompt } from '../../../helpers/enhanced-typography-enforcer'
@@ -239,6 +239,26 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     ? `Brand colors: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}`
     : postContext.colors
 
+  // v4.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Instagram dimensions: 1080x1080 (square)
+  const CANVAS_WIDTH = 1080
+  const CANVAS_HEIGHT = 1080
+  const headerPercent = 12 // Top 12% reserved for logos
+  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+    headerHeight,
+    footerHeight,
+    headerPercent,
+    footerPercent
+  )
+
+  console.log('[Instagram v4.0] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a scroll-stopping Instagram post that demands attention in a crowded feed</task>
 
@@ -249,6 +269,10 @@ Purpose: Stop the scroll, communicate message instantly, drive engagement
 Post Type: ${data.postType || 'Announcement'}
 Viewing Context: Mobile phone feed, thumbnail size initially, competing with many posts
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 

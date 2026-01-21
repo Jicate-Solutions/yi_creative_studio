@@ -5,7 +5,8 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Settings, Bell, Shield, Database, Zap, Globe } from 'lucide-react'
+import { Bell, Shield, Database, Zap, Globe } from 'lucide-react'
+import PlatformSettings from '@/components/super-admin/PlatformSettings'
 
 export default function SuperAdminSettings() {
   return (
@@ -18,46 +19,11 @@ export default function SuperAdminSettings() {
         </p>
       </div>
 
-      {/* Settings Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* General Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Settings className="h-5 w-5 text-blue-500" />
-              <div>
-                <CardTitle className="text-lg">General Settings</CardTitle>
-                <CardDescription>Platform configuration options</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2 border-b">
-                <div>
-                  <p className="font-medium text-sm">Platform Name</p>
-                  <p className="text-xs text-gray-500">Yi CreativeStudio</p>
-                </div>
-                <Badge variant="secondary">Default</Badge>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b">
-                <div>
-                  <p className="font-medium text-sm">Default Credits</p>
-                  <p className="text-xs text-gray-500">New organizations receive 100 credits</p>
-                </div>
-                <Badge variant="secondary">100</Badge>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="font-medium text-sm">Registration</p>
-                  <p className="text-xs text-gray-500">New user registration status</p>
-                </div>
-                <Badge className="bg-green-100 text-green-800">Open</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Editable Platform Settings */}
+      <PlatformSettings />
 
+      {/* Read-only Status Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Notifications */}
         <Card>
           <CardHeader>
@@ -111,22 +77,22 @@ export default function SuperAdminSettings() {
             <div className="space-y-4">
               <div className="flex items-center justify-between py-2 border-b">
                 <div>
-                  <p className="font-medium text-sm">2FA Requirement</p>
-                  <p className="text-xs text-gray-500">Require 2FA for Super Admins</p>
+                  <p className="font-medium text-sm">Audit Logging</p>
+                  <p className="text-xs text-gray-500">Track all admin actions</p>
                 </div>
-                <Badge className="bg-yellow-100 text-yellow-800">Optional</Badge>
+                <Badge className="bg-green-100 text-green-800">Active</Badge>
               </div>
               <div className="flex items-center justify-between py-2 border-b">
                 <div>
-                  <p className="font-medium text-sm">Session Timeout</p>
-                  <p className="text-xs text-gray-500">Auto-logout after inactivity</p>
+                  <p className="font-medium text-sm">IP Rate Limiting</p>
+                  <p className="text-xs text-gray-500">Protection against brute force</p>
                 </div>
-                <Badge variant="secondary">24 hours</Badge>
+                <Badge className="bg-green-100 text-green-800">Enabled</Badge>
               </div>
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="font-medium text-sm">Audit Logging</p>
-                  <p className="text-xs text-gray-500">Track all admin actions</p>
+                  <p className="font-medium text-sm">CSRF Protection</p>
+                  <p className="text-xs text-gray-500">Cross-site request forgery protection</p>
                 </div>
                 <Badge className="bg-green-100 text-green-800">Active</Badge>
               </div>
@@ -211,7 +177,7 @@ export default function SuperAdminSettings() {
         </Card>
 
         {/* Localization */}
-        <Card>
+        <Card className="md:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5 text-indigo-500" />
@@ -222,15 +188,15 @@ export default function SuperAdminSettings() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2 border-b">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="font-medium text-sm">Default Timezone</p>
                   <p className="text-xs text-gray-500">Platform default</p>
                 </div>
                 <Badge variant="secondary">IST (UTC+5:30)</Badge>
               </div>
-              <div className="flex items-center justify-between py-2 border-b">
+              <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="font-medium text-sm">Currency</p>
                   <p className="text-xs text-gray-500">Credit pricing currency</p>
@@ -248,22 +214,6 @@ export default function SuperAdminSettings() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Info Notice */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <Settings className="h-5 w-5 text-blue-600 mt-0.5" />
-            <div>
-              <p className="font-medium text-blue-900">Settings are read-only</p>
-              <p className="text-sm text-blue-700 mt-1">
-                Platform settings are currently managed through environment variables and Supabase dashboard.
-                Future versions will include editable settings here.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
