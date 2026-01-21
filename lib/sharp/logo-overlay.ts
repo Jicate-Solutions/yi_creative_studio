@@ -2603,6 +2603,7 @@ export async function applyEnhanced4RowStripSplit(
     partnerLogo?: LogoBufferData
     signatureLogo?: LogoBufferData  // v9.0: Zone 1 signature illustration
     adaptiveLayout?: AdaptiveRowHeights  // v24.0: Optional adaptive row heights for text-logo overlap prevention
+    footerOffset?: number  // v24.0.1: Optional footer upward offset in pixels for footer violations
   }
 ): Promise<Buffer> {
   if (!config.enabled || config.version !== '4-row-split') {
@@ -2640,9 +2641,20 @@ export async function applyEnhanced4RowStripSplit(
     })
 
   if (footerHeight > 0) {
+    // v24.0.1: Apply footer offset if violations detected
+    // Move footer UP by offset amount to avoid overlapping with detected content
+    const footerTopPosition = logoData.footerOffset
+      ? Math.max(0, imageHeight - footerHeight - logoData.footerOffset)  // Move up, but not above image
+      : imageHeight - footerHeight  // Default: bottom of image
+
+    if (logoData.footerOffset) {
+      console.log('[Footer Adaptive Positioning] Moving footer up by', logoData.footerOffset, 'px to avoid overlap')
+      console.log('[Footer Adaptive Positioning] Original position:', imageHeight - footerHeight, '→ Adjusted position:', footerTopPosition)
+    }
+
     compositeOps.push({
       input: footerBuffer,
-      top: imageHeight - footerHeight,
+      top: footerTopPosition,
       left: footerLeft,
     })
   }

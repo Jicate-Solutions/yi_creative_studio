@@ -2266,6 +2266,7 @@ ${typographyProfile.hierarchy}
         // v24.0: Adaptive row heights for text-logo overlap prevention
         // Will be set if violations are detected during spatial verification
         let adaptiveRowHeights: { brand: number; vertical: number; initiative: number } | undefined = undefined
+        let footerOffset: number | undefined = undefined  // v24.0.1: Footer upward offset for footer violations
 
         // ========================================================
         // v24.0: HYBRID SPATIAL STRATEGY
@@ -2298,16 +2299,33 @@ ${typographyProfile.hierarchy}
 
               console.log(`[v24.0 Spatial Strategy] Text detected at ${actualTextY.toFixed(1)}%, required safe zone: ${requiredSafeZone}%`)
 
-              // Decision tree based on overlap severity
+              // v24.7: Smart decision tree that distinguishes decorative header elements from main content
+              // Key insight: Text at 0-15% is likely Gemini's decorative header (badges, initiative banners)
+              // that SHOULD be overlaid by transparent logo bars (alpha: 0.1). Only compress for main content.
+
+              const DECORATIVE_HEADER_ZONE = 15 // 0-15%: Decorative elements (overlay them)
+              const CONTENT_ENCROACHMENT_ZONE = 30 // 15-30%: Main content encroaching (compress to protect)
+
               if (actualTextY >= requiredSafeZone) {
                 // ✅ PERFECT - No overlap
                 console.log('[v24.0 Spatial Strategy] ✅ Text position safe, using static logo bar')
                 spatialAdjustmentInfo.strategy = 'static'
                 spatialAdjustmentInfo.detectedTextY = actualTextY
 
-              } else if (actualTextY >= requiredSafeZone - 3) {
-                // ⚠️ MINOR OVERLAP - Adjust header dynamically
-                console.log('[v24.0 Spatial Strategy] ⚠️ Minor overlap, using dynamic logo bar')
+              } else if (actualTextY < DECORATIVE_HEADER_ZONE) {
+                // 🎨 DECORATIVE HEADER ZONE (0-15%) - Use FULL logo bars
+                // This is likely Gemini's artistic header elements (badges, banners, small text)
+                // Transparent logo bars (alpha: 0.1) are designed to overlay these gracefully
+                console.log(`[v24.7 Spatial Strategy] 🎨 Decorative header zone (${actualTextY.toFixed(1)}% < ${DECORATIVE_HEADER_ZONE}%)`)
+                console.log('[v24.7 Spatial Strategy] Using FULL logo bars to overlay Gemini\'s artistic header')
+                spatialAdjustmentInfo.strategy = 'static' // Use default full-size layout
+                spatialAdjustmentInfo.detectedTextY = actualTextY
+
+              } else if (actualTextY >= DECORATIVE_HEADER_ZONE && actualTextY < CONTENT_ENCROACHMENT_ZONE) {
+                // ⚠️ CONTENT ENCROACHMENT (15-30%) - Compress logo bars
+                // Main content (headline) is encroaching on header zone - compress to protect
+                console.log(`[v24.7 Spatial Strategy] ⚠️ Content encroachment zone (${DECORATIVE_HEADER_ZONE}%-${CONTENT_ENCROACHMENT_ZONE}%)`)
+                console.log('[v24.7 Spatial Strategy] Main content detected, compressing logo bars')
 
                 const suggestedHeight = getSuggestedHeaderHeight(
                   violations,
@@ -2326,19 +2344,12 @@ ${typographyProfile.hierarchy}
                 finalHeaderHeight = suggestedHeight.headerHeight
                 finalHeaderPercent = suggestedHeight.headerPercent
 
-                console.log(`[v24.0 Spatial Strategy] Adjusted header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
+                console.log(`[v24.7 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
 
               } else {
-                // ❌ MAJOR OVERLAP - Regenerate once
-                console.log('[v24.0 Spatial Strategy] ❌ Major overlap, regenerating once...')
-
-                // Get the prompt that was used for generation
-                // Note: We'll regenerate using the same finalXmlPrompt
-                // For this to work, we need access to the prompt used earlier
-                // Since we may not have it here, we'll skip regeneration for now
-                // and fall back to dynamic positioning
-
-                console.log('[v24.0 Spatial Strategy] Skipping regeneration (not implemented yet), using dynamic positioning fallback')
+                // ⚠️ MINOR OVERLAP (30-36%) - Light compression
+                // actualTextY >= CONTENT_ENCROACHMENT_ZONE (30%) and < requiredSafeZone (36%)
+                console.log('[v24.7 Spatial Strategy] ⚠️ Minor overlap, using light compression')
 
                 const suggestedHeight = getSuggestedHeaderHeight(
                   violations,
@@ -2357,12 +2368,50 @@ ${typographyProfile.hierarchy}
                 finalHeaderHeight = suggestedHeight.headerHeight
                 finalHeaderPercent = suggestedHeight.headerPercent
 
-                console.log(`[v24.0 Spatial Strategy] Fallback adjustment: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px)`)
+                console.log(`[v24.7 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
               }
             } else {
               console.log('[v24.0 Spatial Strategy] ✅ No header violations detected')
               spatialAdjustmentInfo.strategy = 'static'
             }
+
+            // v24.0.1: Handle footer violations
+            const footerViolation = violations.find(v => v.zoneType === 'footer')
+
+            // DEBUG: Log footer violation detection
+            console.log('[v24.0.1 Footer Strategy DEBUG]', {
+              hasFooterViolation: !!footerViolation,
+              footerViolationData: footerViolation,
+              hasEnhanced4RowStripFooter: !!enhanced4RowStrip.footer,
+              enhanced4RowStripVersion: enhanced4RowStrip.version,
+              isSplitLayout: enhanced4RowStrip.version === '4-row-split',
+            })
+
+            if (footerViolation && enhanced4RowStrip.footer) {
+              const detectedFooterTextY = footerViolation.detectedTextY
+              const footerStartPercent = logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
+              const canvasHeight = selectedFormat.height
+
+              console.log(`[v24.0.1 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer reserved zone starts at ${footerStartPercent}%`)
+
+              if (detectedFooterTextY < 100 && detectedFooterTextY >= footerStartPercent) {
+                // Content detected in footer zone - move footer up
+                // Calculate how much to move up: distance from detected content to footer start
+                const contentPositionPx = (detectedFooterTextY / 100) * canvasHeight
+                const footerStartPx = (footerStartPercent / 100) * canvasHeight
+                const safetyBuffer = 30  // 30px buffer above detected content
+
+                footerOffset = Math.max(0, canvasHeight - contentPositionPx + safetyBuffer)
+
+                console.log(`[v24.0.1 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px to avoid overlap`)
+                console.log(`[v24.0.1 Footer Strategy] Content at ${contentPositionPx.toFixed(0)}px, moving footer to ~${(contentPositionPx - safetyBuffer).toFixed(0)}px`)
+              } else {
+                console.log('[v24.0.1 Footer Strategy] ✅ No footer overlap - content is within safe zone')
+              }
+            } else {
+              console.log('[v24.0.1 Footer Strategy] ✅ No footer violations detected')
+            }
+
           } catch (error) {
             console.error('[v24.0 Spatial Strategy] Error during spatial verification:', error)
             // Continue with original header height on error
@@ -2497,6 +2546,7 @@ ${typographyProfile.hierarchy}
               partnerLogo,
               signatureLogo,  // v9.0: Zone 1 signature illustration
               adaptiveLayout: adaptiveRowHeights,  // v24.0: Adaptive row heights for text-logo overlap prevention
+              footerOffset: footerOffset,  // v24.0.1: Footer upward offset for footer violations
             }
           )
         } else {
