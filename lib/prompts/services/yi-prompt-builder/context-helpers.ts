@@ -793,33 +793,28 @@ export function buildLogoStripZoneContext(
   // Speaker photos use intelligent positioning (v6.8) - they can adapt to AI content
   // Header logos CANNOT move - AI must reserve space for them
 
+  // v24.3: CRITICAL - Avoid ALL trigger words that Gemini renders as visible text
+  // Words to NEVER use: header, footer, logo, branding, sponsor, contact, partner, zone
+  // Instead use neutral spatial descriptions only - describe WHAT to generate, not what to avoid
   if (headerReservePercent > 0) {
     parts.push(`
-🚫 HEADER LOGO ZONE (ABSOLUTE CONSTRAINT):
-- The top ${headerReservePercent}% (0-${headerHeight}px from top) is RESERVED for logo overlay
-- DO NOT generate important text, headlines, or focal elements in this zone
-- ONLY clean background (solid color, gradient, subtle texture) is allowed
-- Any content in this zone WILL BE COVERED by logos and become invisible
-- This is NOT a suggestion - it's a hard constraint for post-processing compatibility
+UPPER EDGE COMPOSITION (top ${headerReservePercent}% of canvas):
+The top portion should show only sky, clouds, gradient lighting, or ambient atmosphere.
+This area blends naturally into the main scene - keep it visually simple and open.
+Event title and all text content begins BELOW this upper edge area.
 `)
   }
 
   if (footerReservePercent > 0 && activeRows.footer) {
     parts.push(`
-🚫 FOOTER LOGO ZONE (ABSOLUTE CONSTRAINT):
-- The bottom ${footerReservePercent}% (${100 - footerReservePercent}%-100% from top) is RESERVED for footer overlay
-- DO NOT generate text, CTAs, or important elements in this zone
-- ONLY clean background allowed - footer bar will be composited here
+LOWER EDGE COMPOSITION (bottom ${footerReservePercent}% of canvas):
+The bottom portion should show only ground, floor, gradient, or ambient atmosphere.
+This area blends naturally into the main scene - keep it visually simple and open.
+All event information appears ABOVE this lower edge area.
 `)
   }
 
-  // Keep initiative text contrast guidance
-  if (activeRows.initiative && logoStripZone.initiativeColorInfo) {
-    const colorInfo = logoStripZone.initiativeColorInfo
-    if (colorInfo.needsAdjustment) {
-      parts.push(`IMPORTANT: Ensure ${colorInfo.recommendedBgTone} background for ${colorInfo.contrastRatio.toFixed(1)}:1 contrast with initiative text`)
-    }
-  }
+  // v24.3: No mention of overlays, branding, or what will be added later
 
   return parts.join('\n')
 }
@@ -854,17 +849,21 @@ export function buildInitiativeColorContext(
   const adjustedLuminance = calculateLuminance(adjustedRgb)
   const isLightText = adjustedLuminance > 0.5
 
+  // v24.2: SIMPLIFIED - No mention of "initiative text" to prevent AI rendering it
+  // Just specify background tone requirement without explaining WHY
   if (isLightText) {
-    // Light text needs dark background
+    // Light overlay text needs dark background
     return `
-ROW 3 BACKGROUND REQUIREMENT (for text overlay compatibility):
-The Row 3 initiative text area requires a DARK background tone (deep blues, navy, charcoal, dark greens) to ensure proper contrast with light-colored text that will be overlaid post-generation. Avoid light backgrounds, whites, creams, or pastels in this specific zone.
+UPPER HEADER BACKGROUND TONE (24%-38% zone):
+Use a DARK background tone (deep blues, navy, charcoal, dark greens) in this transition area.
+DO NOT generate any text or visual elements here - only background.
     `.trim()
   } else {
-    // Dark text needs light background
+    // Dark overlay text needs light background
     return `
-ROW 3 BACKGROUND REQUIREMENT (for text overlay compatibility):
-The Row 3 initiative text area requires a LIGHT background tone (whites, creams, soft pastels, light grays) to ensure proper contrast with dark-colored text that will be overlaid post-generation. Avoid dark backgrounds, deep colors, or saturated tones in this specific zone.
+UPPER HEADER BACKGROUND TONE (24%-38% zone):
+Use a LIGHT background tone (whites, creams, soft pastels, light grays) in this transition area.
+DO NOT generate any text or visual elements here - only background.
     `.trim()
   }
 }

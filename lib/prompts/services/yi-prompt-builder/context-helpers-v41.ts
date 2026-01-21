@@ -100,43 +100,13 @@ export function buildHeaderLogoBandContext(bandConfig?: HeaderLogoBandConfig): s
 
   const lines: string[] = []
 
-  // Enhanced header description for dual-stripe
-  if (dualStripeMode) {
-    lines.push(`HEADER LOGO BAND (top ${heightPercent}% of design):`)
-    lines.push(`This design features a TWO-ROW logo header occupying the top ${heightPercent} percent of the canvas.`)
-    lines.push(`${logoLayout}`)
-    lines.push(`Create a clean, simple background in this area (solid color or subtle gradient).`)
-    lines.push(`CRITICAL: Keep this zone completely clear - NO text, NO faces, NO detailed graphics in the top ${heightPercent}%.`)
-    lines.push(`The main event title MUST START BELOW the ${heightPercent} percent line.`)
-    lines.push(`Title starting position: Begin your headline at ${titleStartPercent} percent from the top edge.`)
-    lines.push(`Background should flow seamlessly from top to bottom without creating visible stripes or rectangular sections.`)
-  } else {
-    // Original single-stripe logic
-    lines.push(`HEADER LOGO BAND (top ${heightPercent}% of design):`)
-    lines.push(`Create a ${backgroundStyle} spanning the full width at the top of the design.`)
-    lines.push(`This header band contains ${logoLayout}.`)
-  }
-
-  // Only enforce strict clean background if the style explicitly asks for it or defaults to it
-  if (!backgroundStyle.toLowerCase().includes('transparent') && !backgroundStyle.toLowerCase().includes('integrated')) {
-    if (!dualStripeMode) {
-      lines.push(`The band MUST have a clean, solid background color (preferably white or very light) to ensure logo visibility.`)
-    }
-    lines.push(`CRITICAL: This is a STRICT PROTECTED ZONE. Absolutely NO complex patterns, photos, textures, or ambient lighting effects should spill into this area.`)
-    if (!dualStripeMode) {
-      lines.push(`Keep this zone simple and distinct from the main background content.`)
-    }
-  } else {
-    lines.push(`Ensure logos remain visible against the background (use white logos if background is dark).`)
-  }
-
-  if (!dualStripeMode) {
-    lines.push(`This zone is reserved for branding elements that will be overlaid during post-processing.`)
-  }
-
-  if (bandConfig.secondaryLogos && !dualStripeMode) {
-    lines.push(`Below the main header band, there may be additional vertical or campaign logos in small white badge containers. These must also sit on clean, non-busy background areas.`)
-  }
+  // v24.3: Use ONLY neutral spatial language - no trigger words like "logo", "header", "band", "zone"
+  // Gemini renders any descriptive words as visible text
+  lines.push(`UPPER EDGE AREA (top ${heightPercent}% of design):`)
+  lines.push(`The top portion should show only sky, clouds, soft lighting, or ambient atmosphere.`)
+  lines.push(`Keep this area visually open and simple - it blends naturally into the main scene.`)
+  lines.push(`The main event title begins at ${titleStartPercent}% from the top edge.`)
+  lines.push(`Background flows seamlessly from top to bottom without visible divisions.`)
 
   return lines.join(' ')
 }
@@ -148,6 +118,8 @@ export function buildHeaderLogoBandContext(bandConfig?: HeaderLogoBandConfig): s
 /**
  * Build footer style context combining visual styling + contact content
  * v4.1 - Creates standardized Yi footer with skyline, contact info, partner logo
+ * v24.2 - CRITICAL FIX: Removed all content descriptions to prevent AI rendering
+ *         Footer content is overlaid in post-processing, AI should NOT generate it
  */
 export function buildFooterStyleContext(
   footerStyle?: FooterStyleConfig,
@@ -158,38 +130,12 @@ export function buildFooterStyleContext(
   const heightPercent = footerStyle.heightPercent || 10
   const lines: string[] = []
 
-  lines.push(`FOOTER ZONE (bottom ${heightPercent}% of design):`)
-  lines.push(`Create a white rounded rectangle container spanning the full width at the bottom of the design.`)
-  lines.push(`The footer has gentle rounded corners matching the header style.`)
-
-  // Standard Yi footer structure
-  if (footerStyle.leftSection === 'standard_yi' && footerStyle.chapterDetails) {
-    const chapter = footerStyle.chapterDetails
-    const hashtag = chapter.hashtag || `#YI${chapter.chapterName.toUpperCase().replace(/\s/g, '')}`
-    const website = chapter.website || 'www.youngindians.net'
-    const social = chapter.socialHandle || `@yi.${chapter.chapterName.toLowerCase().replace(/\s/g, '')}`
-
-    lines.push(`LEFT SECTION of footer: Include a city skyline silhouette, then display these contact details:`)
-    lines.push(`- Hashtag: ${hashtag} (prominent, green color)`)
-    lines.push(`- Website: ${website}`)
-    lines.push(`- Social handle: ${social}`)
-
-    // Add optional contact info from FooterContactContext
-    if (footerContact?.phone) {
-      lines.push(`- Phone: ${footerContact.phone}`)
-    }
-    if (footerContact?.email) {
-      lines.push(`- Email: ${footerContact.email}`)
-    }
-  }
-
-  // Partner logo section
-  if (footerStyle.rightSection === 'partner_logo') {
-    const partnerLabel = footerStyle.partnerInfo?.partnerLabel || 'Digital Partner'
-    lines.push(`RIGHT SECTION of footer: Display "${partnerLabel}" label with space reserved for partner logo (will be overlaid in post-processing).`)
-  }
-
-  lines.push(`Footer text should be small, clean, and professional. Use adequate spacing between elements.`)
+  // v24.3: Use ONLY neutral spatial language - no trigger words
+  // Words to NEVER use: footer, sponsor, contact, partner, hashtag, website
+  lines.push(`LOWER EDGE AREA (bottom ${heightPercent}% of design):`)
+  lines.push(`The bottom portion should show only ground, floor, subtle gradient, or ambient atmosphere.`)
+  lines.push(`Keep this area visually open and simple - it blends naturally into the main scene.`)
+  lines.push(`All event details appear ABOVE this lower edge area.`)
 
   return lines.join(' ')
 }

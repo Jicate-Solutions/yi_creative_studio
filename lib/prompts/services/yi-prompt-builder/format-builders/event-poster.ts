@@ -567,95 +567,103 @@ export function buildEventPosterPrompt(
   const headerReservePercent = options.logoStripZoneCoordinates?.headerReservePercent || 18
   const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
 
-  // v20.11: AGGRESSIVE HEADER SAFE ZONE
-  // User requirement: 36% safe zone to account for Gemini violations
-  // Current 24-26% is insufficient - Gemini places content at 10%
-  const AGGRESSIVE_HEADER_SAFE_ZONE = 36 // User-specified safe zone
+  // v24.1: CENTER ZONE STRATEGY (38%-80%)
+  // All text content MUST be placed within the center zone to prevent header/footer overlap
+  // Zone Layout:
+  // - Header: 0-24% (logo strip - Yi, ONE, CII logos)
+  // - Buffer: 24-38% (transition zone - decorative elements only)
+  // - Content: 38-80% (ALL text - headline, tagline, date, venue, speakers)
+  // - Buffer: 80-82% (transition zone)
+  // - Footer: 82-100% (footer bar - hashtag, website, partner)
+  const CONTENT_START = 38  // 38% from top - ALL text starts here
+  const CONTENT_END = 80    // 80% from top - ALL text ends here
+  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 42% available for text
 
-  // Override calculated header start with aggressive safe zone
-  const headerStartPercent = AGGRESSIVE_HEADER_SAFE_ZONE
+  // Override calculated header start with center zone start
+  const headerStartPercent = CONTENT_START
 
-  console.log('[Event Poster v20.11] AGGRESSIVE SAFE ZONES:', {
-    headerSafeZone: `${AGGRESSIVE_HEADER_SAFE_ZONE}%`,
-    headerReserve: `${headerReservePercent}%`,
-    actualLogoZone: '0-10%',
-    safetyPadding: `${AGGRESSIVE_HEADER_SAFE_ZONE - 10}%`,
-    reasoning: 'Gemini violates by ~15% - aggressive padding protects logo zone'
+  console.log('[Event Poster v24.1] CENTER ZONE STRATEGY:', {
+    contentStart: `${CONTENT_START}%`,
+    contentEnd: `${CONTENT_END}%`,
+    centerZoneHeight: `${CENTER_ZONE_HEIGHT}%`,
+    headerLogoZone: '0% - 24%',
+    footerBarZone: '82% - 100%',
+    reasoning: 'Single clear instruction to Gemini - all text in center zone'
   })
 
-  // v12.6: Complete text positioning system - explicit Y-coordinates for ALL elements
-  // v20.11: AGGRESSIVE SAFE ZONES - Dynamic Additional Details zone calculation
+  // v24.1: Simplified text zones - all within 38%-80%
   // Calculate speaker zone height based on speaker count
   const speakerZoneHeight = speakers.length > 0 ?
-    (speakers.length > 2 ? 15 : 10) : 0 // More space for 3+ speakers
+    (speakers.length > 2 ? 12 : 8) : 0 // Adjusted for center zone
 
-  // Dynamic Additional Details start position
-  const additionalDetailsStart = Math.max(
-    54,
-    AGGRESSIVE_HEADER_SAFE_ZONE + 18 + speakerZoneHeight // Start from aggressive safe zone
-  )
-
-  // Aggressive footer buffer (8%)
-  const additionalDetailsEnd = 100 - footerReservePercent - 8
-
+  // Distribute text proportionally within center zone (38-80%)
   const textZones = {
     header: { start: 0, end: headerReservePercent },
-    headline: { start: AGGRESSIVE_HEADER_SAFE_ZONE, end: AGGRESSIVE_HEADER_SAFE_ZONE + 7 },
-    tagline: { start: AGGRESSIVE_HEADER_SAFE_ZONE + 8, end: AGGRESSIVE_HEADER_SAFE_ZONE + 12 },
-    dateVenue: { start: AGGRESSIVE_HEADER_SAFE_ZONE + 13, end: AGGRESSIVE_HEADER_SAFE_ZONE + 20 },
-    speakers: { start: AGGRESSIVE_HEADER_SAFE_ZONE + 22, end: AGGRESSIVE_HEADER_SAFE_ZONE + 32 },
-    additionalDetails: { start: additionalDetailsStart, end: additionalDetailsEnd },
-    buffer: { start: 100 - footerReservePercent - 3, end: 100 - footerReservePercent },
-    footer: { start: 100 - footerReservePercent, end: 100 }
+    headline: { start: CONTENT_START, end: CONTENT_START + 8 },          // 38-46%
+    tagline: { start: CONTENT_START + 9, end: CONTENT_START + 14 },      // 47-52%
+    dateVenue: { start: CONTENT_START + 16, end: CONTENT_START + 24 },   // 54-62%
+    speakers: { start: CONTENT_START + 26, end: CONTENT_START + 36 },    // 64-74%
+    additionalDetails: { start: CONTENT_START + 36, end: CONTENT_END - 2 }, // 74-78%
+    buffer: { start: CONTENT_END, end: 100 - footerReservePercent },     // 80-82%
+    footer: { start: 100 - footerReservePercent, end: 100 }              // 82-100%
   }
 
-  console.log('[Event Poster v20.11] Aggressive Text Zones:', {
-    contentStart: `${AGGRESSIVE_HEADER_SAFE_ZONE}%`,
-    contentEnd: `${additionalDetailsEnd}%`,
-    usableSpace: `${additionalDetailsEnd - AGGRESSIVE_HEADER_SAFE_ZONE}%`,
+  console.log('[Event Poster v24.1] Center Zone Text Distribution:', {
+    contentZone: `${CONTENT_START}% - ${CONTENT_END}%`,
     headline: `${textZones.headline.start}% - ${textZones.headline.end}%`,
-    additionalDetails: `${additionalDetailsStart}% - ${additionalDetailsEnd}%`,
+    tagline: `${textZones.tagline.start}% - ${textZones.tagline.end}%`,
+    dateVenue: `${textZones.dateVenue.start}% - ${textZones.dateVenue.end}%`,
+    speakers: `${textZones.speakers.start}% - ${textZones.speakers.end}%`,
     footer: `${100 - footerReservePercent}% - 100%`
   })
 
-  // v23.0: PIXEL-BASED ABSOLUTE POSITIONING
+  // v24.1: PIXEL-BASED CENTER ZONE POSITIONING
   // Gemini cannot parse XML percentages - use exact pixel coordinates
   const CANVAS_HEIGHT = 1440; // Event poster height
   const CANVAS_WIDTH = 1080;
 
+  // v24.1: Pixel zones based on CENTER ZONE STRATEGY (38%-80%)
   const pixelZones = {
-    headerEnd: Math.floor(CANVAS_HEIGHT * (headerStartPercent / 100)), // 518px for 36%
-    headlineStart: Math.floor(CANVAS_HEIGHT * (headerStartPercent / 100)),
-    headlineEnd: Math.floor(CANVAS_HEIGHT * ((headerStartPercent + 7) / 100)),
-    dateVenueStart: Math.floor(CANVAS_HEIGHT * ((headerStartPercent + 13) / 100)),
-    dateVenueEnd: Math.floor(CANVAS_HEIGHT * ((headerStartPercent + 20) / 100)),
-    footerStart: Math.floor(CANVAS_HEIGHT * ((100 - footerReservePercent) / 100)),
+    // Header logo zone (0-24%)
+    headerLogoEnd: Math.floor(CANVAS_HEIGHT * 0.24),  // 346px
+    // Upper buffer zone (24-38%)
+    contentStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 547px for 38%
+    // Content zone boundaries (38-80%)
+    headlineStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 547px
+    headlineEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 8) / 100)),  // 662px
+    dateVenueStart: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 16) / 100)),  // 778px
+    dateVenueEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 24) / 100)),  // 893px
+    contentEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1152px for 80%
+    // Footer zone (82-100%)
+    footerStart: Math.floor(CANVAS_HEIGHT * ((100 - footerReservePercent) / 100)),  // 1181px for 82%
     footerEnd: CANVAS_HEIGHT
   };
 
-  console.log('[Event Poster v23.0] PIXEL-BASED ZONES:', {
-    headerReserved: `0px - ${pixelZones.headerEnd}px`,
+  console.log('[Event Poster v24.1] CENTER ZONE PIXEL POSITIONS:', {
+    headerLogoZone: `0px - ${pixelZones.headerLogoEnd}px (0-24%)`,
+    contentZone: `${pixelZones.contentStart}px - ${pixelZones.contentEnd}px (38-80%)`,
     headlineZone: `${pixelZones.headlineStart}px - ${pixelZones.headlineEnd}px`,
     dateVenueZone: `${pixelZones.dateVenueStart}px - ${pixelZones.dateVenueEnd}px`,
-    footerReserved: `${pixelZones.footerStart}px - ${pixelZones.footerEnd}px`,
+    footerBarZone: `${pixelZones.footerStart}px - ${pixelZones.footerEnd}px`,
     canvasHeight: `${CANVAS_HEIGHT}px`
   });
 
   // v23.0: REMOVED buildSpatialLayoutXML function - replaced with pixel-based prose instructions
   // Gemini cannot parse XML structure, so we now use absolute pixel coordinates in natural language
 
-  // v24.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // v24.1: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
   // This is the PRIMARY defense layer with 90-95% success rate in preventing text-logo overlaps
+  // Updated to use CENTER ZONE STRATEGY (38%-80%) - content starts at contentStart, ends at contentEnd
   const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
     CANVAS_WIDTH,
     CANVAS_HEIGHT,
-    pixelZones.headerEnd, // headerHeight
+    pixelZones.contentStart, // headerHeight - content zone starts at 38% (547px)
     CANVAS_HEIGHT - pixelZones.footerStart, // footerHeight
-    headerStartPercent, // headerPercent
+    CONTENT_START, // headerPercent - now 38%
     footerReservePercent // footerPercent
   )
 
-  console.log('[Event Poster v24.0] LAYER 1: Pixel-precise spatial constraints generated')
+  console.log('[Event Poster v24.1] LAYER 1: Center zone spatial constraints generated')
 
   // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
 
@@ -1066,6 +1074,8 @@ Integrate this creative twist prominently into the background or decorative elem
     // Header logo band for Yi logo layout
     // v5.1: User-controlled via logoStripMode toggle
     // v6.0: Dual-stripe detection for two-row logo layouts
+    // v24.2: CRITICAL FIX - Removed all descriptions of what logos/badges will appear
+    // Gemini interprets descriptions as instructions to CREATE visible elements
     headerLogoBand: (() => {
       const logoStripEnabled = options.logoStripMode?.enabled || false
       // v6.0: Detect dual-stripe mode: Both primary logos AND vertical logos present
@@ -1075,17 +1085,13 @@ Integrate this creative twist prominently into the background or decorative elem
         enabled: logoStripEnabled,
         heightPercent: hasDualStripe ? 18 : 12,  // v6.0: 18% for dual-stripe, 12% for single-stripe
         dualStripeMode: hasDualStripe,  // v6.0: Flag for context builders
+        // v24.2: Simplified background style - no mention of logos
         backgroundStyle: logoStripEnabled
-          ? (sophistication === 'rich'
-            ? 'solid white band with subtle shadow for logo visibility on immersive backgrounds'
-            : 'clean white stripe with high contrast for professional logo display')
-          : (sophistication === 'rich'
-            ? 'transparent / integrated header for immersive background'
-            : 'transparent overlay mode - simple background for logo visibility'),
-        logoLayout: hasDualStripe
-          ? 'two rows of logos: Row 1 (Yi, Bharat Rising, CII), Row 2 (vertical program logos)'  // v6.0: Dual-stripe layout
-          : 'three logos positioned horizontally: Yi logo on the left, Bharat Rising logo in the center, CII logo on the right',
-        secondaryLogos: !!options.verticalId,  // Include vertical logos if applicable
+          ? 'clean, simple background only - NO text or visual elements'
+          : 'transparent - simple background only',
+        // v24.2: REMOVED logoLayout description - was causing AI to generate "Yi Learning" badges
+        logoLayout: 'EMPTY - generate only clean background in this zone',
+        secondaryLogos: false,  // v24.2: Disabled - was causing unwanted badge generation
       }
     })(),
     // Footer with Yi chapter branding (only if user provided footer data)

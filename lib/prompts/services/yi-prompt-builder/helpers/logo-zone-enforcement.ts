@@ -152,21 +152,23 @@ CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
 }
 
 /**
- * Build pixel-precise grid position constraints (v4.0 - Layer 1 Overlap Prevention)
+ * Build spatial composition guidance (v24.6 - Percentage-Only, No Pixel Leakage)
  *
- * Generates explicit pixel coordinates for the 18-position grid system to prevent
- * text placement in logo zones. This is LAYER 1 of the three-layer defense system.
+ * v24.6: RESTORED structural approach but with ZERO pixel values in output
  *
- * Strategy: Provide Gemini with exact pixel boundaries in natural language (not XML)
- * to dramatically reduce text-logo overlap violations.
+ * Key Changes:
+ * - Pixel values logged to console ONLY (for backend debugging)
+ * - Prompt text uses PERCENTAGE values only (38%, 80%, etc.)
+ * - Maintains the effective zone enforcement from old working version
+ * - Removes trigger words that Gemini might render
  *
- * @param canvasWidth - Canvas width in pixels (e.g., 1080px for event poster)
- * @param canvasHeight - Canvas height in pixels (e.g., 1440px for event poster)
- * @param headerHeight - Header zone height in pixels
- * @param footerHeight - Footer zone height in pixels
- * @param headerPercent - Header zone percentage (for backward compatibility)
- * @param footerPercent - Footer zone percentage (for backward compatibility)
- * @returns Natural language spatial constraints with pixel-precise coordinates
+ * @param canvasWidth - Canvas width in pixels (for logging only)
+ * @param canvasHeight - Canvas height in pixels (for logging only)
+ * @param headerHeight - Header zone height in pixels (for logging only)
+ * @param footerHeight - Footer zone height in pixels (for logging only)
+ * @param headerPercent - Header zone percentage (used in prompt)
+ * @param footerPercent - Footer zone percentage (used in prompt)
+ * @returns Percentage-based spatial constraints (no pixel values)
  */
 export function buildPixelPreciseSpatialConstraints(
   canvasWidth: number,
@@ -176,100 +178,51 @@ export function buildPixelPreciseSpatialConstraints(
   headerPercent: number,
   footerPercent: number
 ): string {
-  const colWidth = Math.floor(canvasWidth / 6) // 6 columns (180px each for 1080px canvas)
+  // v24.6: Calculate all pixel values for LOGGING ONLY - not sent to Gemini
+  const colWidth = Math.floor(canvasWidth / 6)
   const footerStartY = canvasHeight - footerHeight
-
-  // Calculate safety margins (30px buffers)
   const contentStartY = headerHeight + 30
   const contentEndY = footerStartY - 30
   const contentHeightPx = contentEndY - contentStartY
 
-  // Build grid position descriptions
-  const headerGridDescriptions: string[] = []
-  const footerGridDescriptions: string[] = []
+  // Calculate percentage equivalents
+  const contentStartPercent = Math.round((contentStartY / canvasHeight) * 100)
+  const contentEndPercent = Math.round((contentEndY / canvasHeight) * 100)
+  const footerStartPercent = Math.round((footerStartY / canvasHeight) * 100)
+  const contentHeightPercent = Math.round((contentHeightPx / canvasHeight) * 100)
 
-  for (let i = 0; i < 6; i++) {
-    const colNum = i + 1
-    const xStart = i * colWidth
-    const xEnd = (i + 1) * colWidth
+  // v24.6: Log pixel values for backend debugging ONLY
+  console.log(`[v24.6 Spatial Guidance] Backend reference (NOT in prompt):`, {
+    canvas: `${canvasWidth}x${canvasHeight}`,
+    headerZone: `0-${headerHeight}px (0-${headerPercent}%)`,
+    contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,
+    footerZone: `${footerStartY}-${canvasHeight}px (${footerStartPercent}-100%)`,
+    columnWidth: `${colWidth}px`
+  })
 
-    headerGridDescriptions.push(
-      `  • Position top-${colNum}: ${xStart}px–${xEnd}px horizontally, 0px–${headerHeight}px vertically`
-    )
-
-    footerGridDescriptions.push(
-      `  • Position bottom-${colNum}: ${xStart}px–${xEnd}px horizontally, ${footerStartY}px–${canvasHeight}px vertically`
-    )
-  }
-
+  // v24.6: Return PERCENTAGE-ONLY constraints - no pixel values leak to Gemini
   return `
-PIXEL-PRECISE SPATIAL CONSTRAINTS (CRITICAL - DO NOT VIOLATE):
+COMPOSITION LAYOUT GUIDE:
 
-═══════════════════════════════════════════════════════════
-CANVAS SPECIFICATIONS:
-═══════════════════════════════════════════════════════════
-• Total dimensions: ${canvasWidth}px × ${canvasHeight}px
-• Grid system: 6 columns × 3 rows (18 positions)
-• Column width: ${colWidth}px each
+The image uses a three-band vertical structure for professional poster layout.
 
-═══════════════════════════════════════════════════════════
-HEADER GRID POSITIONS (OCCUPIED - NO TEXT ALLOWED):
-═══════════════════════════════════════════════════════════
-These 6 positions are OCCUPIED by branding elements:
-${headerGridDescriptions.join('\n')}
+UPPER BAND (0% to ${headerPercent}% from top):
+Keep this area clean with simple background only. Solid colors, subtle gradients, or soft atmospheric lighting work best. This space accommodates branding elements added in post-processing.
 
-⚠️  CRITICAL: Header zone (0px to ${headerHeight}px) is ABSOLUTELY FORBIDDEN for text placement
-⚠️  This zone is ${headerPercent}% of the canvas and will be covered by logo overlays
-⚠️  Any text placed here will be COMPLETELY OBSCURED
+CENTER BAND (${contentStartPercent}% to ${contentEndPercent}% from top):
+All text content belongs here - the main title, event details, date, time, and venue information. This is the primary content area with ${contentHeightPercent}% of the total height available for text.
 
-═══════════════════════════════════════════════════════════
-FOOTER GRID POSITIONS (OCCUPIED - NO TEXT ALLOWED):
-═══════════════════════════════════════════════════════════
-These 6 positions are OCCUPIED by footer elements:
-${footerGridDescriptions.join('\n')}
+Text hierarchy within center band:
+• Main headline: Position around ${contentStartPercent + 2}% from top
+• Supporting text: Distribute between ${contentStartPercent + 5}% and ${contentEndPercent - 5}%
+• Keep text horizontally centered (25% to 75% width range)
 
-⚠️  CRITICAL: Footer zone (${footerStartY}px to ${canvasHeight}px) is ABSOLUTELY FORBIDDEN for text placement
-⚠️  This zone is ${footerPercent}% of the canvas and will be covered by footer overlays
-⚠️  Any text placed here will be COMPLETELY OBSCURED
+LOWER BAND (${footerStartPercent}% to 100% from top):
+Reserve this area for footer elements. Keep it clean with simple background continuation - ground texture, subtle gradient, or gentle fade. No text in this zone.
 
-═══════════════════════════════════════════════════════════
-SAFE CONTENT ZONE (ALL TEXT MUST BE HERE):
-═══════════════════════════════════════════════════════════
-• Vertical range: ${contentStartY}px to ${contentEndY}px
-• Percentage equivalent: ${headerPercent + 2}% to ${Math.floor((footerStartY / canvasHeight) * 100) - 2}%
-• Available height: ${contentHeightPx}px (${Math.floor((contentHeightPx / canvasHeight) * 100)}% of canvas)
-• Safety margins: 30px buffer from both header and footer boundaries
+SEAMLESS TRANSITIONS:
+The background flows naturally from top to bottom without visible horizontal bands or stripes. Colors and textures transition smoothly across all three areas while maintaining the clean spaces needed for branding.
 
-═══════════════════════════════════════════════════════════
-BOUNDARY ENFORCEMENT RULES:
-═══════════════════════════════════════════════════════════
-1. ALL text Y-coordinates MUST satisfy: ${contentStartY}px < textY < ${contentEndY}px
-2. NO exceptions for headlines, titles, captions, or any other text elements
-3. Background elements (gradients, colors, textures) MAY flow through all zones
-4. Only TEXT and FOCAL GRAPHICS must respect these boundaries
-5. Safety margin: Leave minimum 30px buffer from both boundaries
-
-═══════════════════════════════════════════════════════════
-VALIDATION CHECKPOINT (VERIFY BEFORE FINALIZING):
-═══════════════════════════════════════════════════════════
-Before submitting the generated image, verify:
-  ☐ Is ALL text positioned BELOW ${headerHeight}px (header boundary)?
-  ☐ Is ALL text positioned ABOVE ${footerStartY}px (footer boundary)?
-  ☐ Are safety margins maintained (30px from both boundaries)?
-  ☐ Are header/footer zones (grid positions) free of text content?
-  ☐ Does background flow naturally WITHOUT creating visible bands?
-
-If ANY check fails, adjust text position immediately to comply.
-
-═══════════════════════════════════════════════════════════
-POSITIONING GUIDANCE:
-═══════════════════════════════════════════════════════════
-• Headline/Title: Start at approximately ${contentStartY + 20}px (${Math.floor(((contentStartY + 20) / canvasHeight) * 100)}%)
-• Subheadline/Tagline: Start at approximately ${contentStartY + 80}px (${Math.floor(((contentStartY + 80) / canvasHeight) * 100)}%)
-• Body content: Distribute within ${contentStartY + 150}px to ${contentEndY - 100}px
-• Footer content: Reserved zone (${footerStartY}px to ${canvasHeight}px) - DO NOT USE
-
-REMEMBER: These coordinates are NON-NEGOTIABLE technical requirements.
-Text outside these boundaries will be INVISIBLE after logo overlay processing.
+Remember: Text stays within the ${contentStartPercent}%-${contentEndPercent}% vertical range. Upper and lower areas remain text-free for overlay compatibility.
 `
 }

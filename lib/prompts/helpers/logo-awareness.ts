@@ -111,46 +111,25 @@ export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   const { top, middle, bottom } = groupZonesByRegion(safeZones)
   const lines: string[] = []
 
-  // Use natural composition language, not technical instructions
-  lines.push('Reserve clear space for branding elements:')
+  // v24.3: Use ONLY neutral spatial language - describe WHAT to show, not what to avoid
+  // Gemini renders any "DO NOT" or "forbidden" language as visible labels
 
-  // Yi Brand Guidelines: Two-strip logo band at top of design
-  // Header strip (brand logos) + Second strip (vertical logos) form a combined "logo band"
-  if (top.length > 0 && middle.length > 0) {
-    // Both header and second strip are used - describe as combined logo band
-    const topHorizontal = getHorizontalPositions(top)
-    const middleHorizontal = getHorizontalPositions(middle)
+  if (top.length > 0 || middle.length > 0) {
+    // Top area - describe positively what should be there
     lines.push(
-      `The upper portion has a two-row logo band: main branding in the top ${topHorizontal}, with secondary branding directly below it on the ${middleHorizontal}.`
-    )
-    lines.push(
-      `Keep this entire upper header area clean with simple, uncluttered background.`
-    )
-  } else if (top.length > 0) {
-    // Only header strip
-    const horizontalPos = getHorizontalPositions(top)
-    lines.push(
-      `Use simple, uncluttered background in the upper ${horizontalPos} area.`
-    )
-  } else if (middle.length > 0) {
-    // Only second strip (positioned just below where header would be)
-    const horizontalPos = getHorizontalPositions(middle)
-    lines.push(
-      `Reserve the upper ${horizontalPos} area just below the top edge for secondary branding.`
+      `The upper portion shows open sky, clouds, or soft ambient lighting.`
     )
   }
 
-  // Bottom region guidance - semantic description only
   if (bottom.length > 0) {
-    const horizontalPos = getHorizontalPositions(bottom)
+    // Bottom area - describe positively what should be there
     lines.push(
-      `Keep the lower ${horizontalPos} area clean with minimal elements.`
+      `The lower portion shows ground, floor, or subtle gradient fading out.`
     )
   }
 
-  // General composition guidance - natural language
-  lines.push('Position main content and headlines away from these reserved areas.')
-  lines.push('Use solid or gradient backgrounds in branding spaces for best visibility.')
+  // General composition guidance - focus on CENTER for content
+  lines.push('Place the event title and all text content in the CENTER portion of the image (between 38% and 80% from top).')
 
   return lines.join(' ')
 }

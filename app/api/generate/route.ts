@@ -2396,29 +2396,34 @@ ${typographyProfile.hierarchy}
               const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
               const canvasHeight = selectedFormat.height
 
-              // v24.0.2: Add safety buffer to catch edge cases (content at 81.9% when footer starts at 82%)
-              const footerSafetyMargin = 5  // 5% safety margin before footer zone
-              const adjustedFooterStart = footerStartPercent - footerSafetyMargin  // e.g., 82% - 5% = 77%
+              // v24.7: Only adjust footer if text is SIGNIFICANTLY into the footer zone
+              // Text at or near the boundary (within 3%) should NOT trigger footer movement
+              // This prevents false positives from date/time text near the content zone edge
+              const footerOverlapThreshold = 3  // Text must be 3%+ INTO the footer zone to trigger adjustment
+              const minimumOverlapPercent = footerStartPercent + footerOverlapThreshold  // e.g., 82% + 3% = 85%
 
-              console.log(`[v24.0.2 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer reserved zone starts at ${footerStartPercent}%, adjusted start: ${adjustedFooterStart}%`)
+              console.log(`[v24.7 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer zone starts at ${footerStartPercent}%, overlap threshold: ${minimumOverlapPercent}%`)
 
-              if (detectedFooterTextY < 100 && detectedFooterTextY >= adjustedFooterStart) {
-                // Content detected in or near footer zone - move footer up
-                // Calculate how much to move up: distance from detected content to canvas bottom
+              if (detectedFooterTextY >= minimumOverlapPercent) {
+                // Text is SIGNIFICANTLY into footer zone - needs adjustment
                 const contentPositionPx = (detectedFooterTextY / 100) * canvasHeight
-                const safetyBuffer = 50  // 50px buffer above detected content (increased from 30)
-
-                // Calculate the offset needed to place footer above the detected content
+                const safetyBuffer = 50  // 50px buffer above detected content
                 const footerHeight = logoStripZoneCoordinates.footerHeight
-                footerOffset = Math.max(0, canvasHeight - contentPositionPx + safetyBuffer + footerHeight)
 
-                console.log(`[v24.0.2 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px to avoid overlap`)
-                console.log(`[v24.0.2 Footer Strategy] Content at ${contentPositionPx.toFixed(0)}px, footer height: ${footerHeight}px`)
+                // v24.7: Calculate offset only when text is truly overlapping
+                const desiredFooterTop = contentPositionPx - safetyBuffer - footerHeight
+                const normalFooterTop = canvasHeight - footerHeight
+                footerOffset = Math.max(0, normalFooterTop - desiredFooterTop)
+
+                console.log(`[v24.7 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px (text at ${detectedFooterTextY.toFixed(1)}% is ${(detectedFooterTextY - footerStartPercent).toFixed(1)}% into footer zone)`)
+              } else if (detectedFooterTextY >= footerStartPercent) {
+                // Text is at boundary but within tolerance - no adjustment needed
+                console.log(`[v24.7 Footer Strategy] ✅ Text at ${detectedFooterTextY.toFixed(1)}% is at footer boundary but within ${footerOverlapThreshold}% tolerance - keeping footer at bottom`)
               } else {
-                console.log('[v24.0.2 Footer Strategy] ✅ No footer overlap - content is within safe zone')
+                console.log(`[v24.7 Footer Strategy] ✅ Text at ${detectedFooterTextY.toFixed(1)}% is above footer zone - no adjustment needed`)
               }
             } else {
-              console.log('[v24.0.2 Footer Strategy] ✅ No footer violations detected')
+              console.log('[v24.7 Footer Strategy] ✅ No footer violations detected')
             }
 
           } catch (error) {
