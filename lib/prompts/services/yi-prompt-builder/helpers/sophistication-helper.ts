@@ -90,20 +90,20 @@ LAYOUT GUIDANCE:
 
         zoneReminderContext = `
 IMMERSIVE BACKGROUND GUIDANCE:
-- The top 15% header area MUST be part of the main background art.
-- CRITICAL: Do NOT create a solid white bar or stripe at the top.
-- The background should extend edge-to-edge with artistic continuity.
-- Ensure the top area has enough contrast (e.g., use a subtle gradient or dark sky), but keep it artistic.
-- Keep the top 15% area empty with only background elements.`
+- Create edge-to-edge background art that flows through ALL regions of the canvas
+- Background (colors, gradients, ambient elements) MAY extend through forbidden zones
+- HOWEVER: Text and focal visual elements MUST respect <text_zone> boundaries in <spatial_layout_constraints>
+- The forbidden zones will have logo overlays applied - keep them free of text/graphics
+- Use subtle contrast or gradients in forbidden zone backgrounds for logo visibility`
 
         // We completely replace the "Forbidden Zone" text to remove the "simple, clean background" requirement
         forbiddenZonesContext = `
 LAYOUT GUIDANCE:
-- Create a full-bleed, immersive design that fills the entire canvas.
-- The top 15% should remain part of the scene (e.g., sky, texture) with subtle contrast.
-- Do not place main subjects (faces, text) in the top 15% or bottom 10%.
-- Center the main event title in the middle visual zone.
-- Do NOT generate any text or labels in the top and bottom areas.`
+- Create a full-bleed, immersive design that fills the entire canvas
+- Background elements (colors, gradients, textures) may flow through all areas
+- Text and focal elements MUST be positioned within designated <text_zone> areas only
+- Refer to <spatial_layout_constraints> for exact Y-coordinate boundaries
+- Use subtle contrast in logo overlay areas for visual continuity`
     }
 
     // v5.1: PRIORITY 3 - Default (logo strip disabled + Minimalist/Balanced): Use default forbidden zones

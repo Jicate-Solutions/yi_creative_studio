@@ -73,12 +73,13 @@ type LayoutKey =
 // ============================================================
 
 // Default text zones (used when no adjustment needed)
+// v20.11: Updated with aggressive safe zones (36% start, 74% end)
 const DEFAULT_TEXT_ZONES: TextZoneAdjustments = {
-  headline: { start: 15, end: 35 },
-  tagline: { start: 35, end: 45 },
-  dateVenue: { start: 45, end: 55 },
-  speakers: { start: 65, end: 75 },
-  additionalDetails: { start: 75, end: 85 }
+  headline: { start: 36, end: 44 },
+  tagline: { start: 44, end: 50 },
+  dateVenue: { start: 50, end: 58 },
+  speakers: { start: 60, end: 68 },
+  additionalDetails: { start: 70, end: 74 }
 }
 
 // Photo size multipliers (percentage of canvas width)
@@ -107,11 +108,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 30 },
-      tagline: { start: 30, end: 38 },
-      dateVenue: { start: 38, end: 48 },
-      speakers: { start: 58, end: 66 }, // Moved UP from default 65% to create gap
-      additionalDetails: { start: 80, end: 85 }
+      headline: { start: 36, end: 43 }, // Start at 36% (aggressive safe zone)
+      tagline: { start: 44, end: 49 },
+      dateVenue: { start: 50, end: 58 },
+      speakers: { start: 60, end: 68 },
+      additionalDetails: { start: 70, end: 74 } // End at 74% (8% buffer before 82%)
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements and focal points in the middle region where the headline and key message live. The left and right edges benefit from understated elegance—use flowing gradients, gentle color transitions, and visual breathing room rather than dense patterns or intricate details. This balanced approach creates professional sophistication while maintaining dynamic visual interest.',
     isRecommended: true
@@ -124,11 +125,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 82, yPercent: 68, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 28 },
-      tagline: { start: 28, end: 35 },
-      dateVenue: { start: 35, end: 45 },
-      speakers: { start: 55, end: 63 }, // Moved significantly UP
-      additionalDetails: { start: 82, end: 85 }
+      headline: { start: 36, end: 42 }, // Start at 36%
+      tagline: { start: 42, end: 48 },
+      dateVenue: { start: 48, end: 56 },
+      speakers: { start: 58, end: 66 },
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Concentrate the primary visual elements, decorative details, and rich patterns in the upper and central regions (the first 55% of the canvas from top). The lower third should embrace elegant simplicity—think smooth color gradients, subtle atmospheric transitions, and visual breathing room. This creates a natural focal hierarchy that guides attention to the headline while maintaining professional polish throughout.',
     isRecommended: false,
@@ -143,11 +144,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 75, yPercent: 73, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 25 },
-      tagline: { start: 25, end: 32 },
-      dateVenue: { start: 32, end: 40 },
-      speakers: { start: 48, end: 56 }, // Heavily compressed
-      additionalDetails: { start: 83, end: 85 }
+      headline: { start: 36, end: 41 }, // Start at 36%
+      tagline: { start: 41, end: 46 },
+      dateVenue: { start: 46, end: 52 },
+      speakers: { start: 64, end: 70 },
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Build visual richness in the upper region (first 45% from top) where the headline commands attention. The middle and lower sections, as well as all edges and corners, should maintain elegant simplicity with smooth gradients and atmospheric transitions. This creates breathing room across the extended vertical canvas.',
     isRecommended: false,
@@ -164,11 +165,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 32 },
-      tagline: { start: 32, end: 40 },
-      dateVenue: { start: 40, end: 50 },
+      headline: { start: 36, end: 44 }, // Start at 36%
+      tagline: { start: 44, end: 50 },
+      dateVenue: { start: 50, end: 58 },
       speakers: { start: 60, end: 68 },
-      additionalDetails: { start: 80, end: 85 }
+      additionalDetails: { start: 70, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements in the upper and middle regions. The bottom edge and corners benefit from understated elegance—flowing gradients and gentle color transitions that create visual breathing room while maintaining balanced composition.',
     isRecommended: true
@@ -181,11 +182,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 48, end: 58 }, // Moved to MIDDLE (between top and bottom photos)
-      tagline: { start: 58, end: 63 },
-      dateVenue: { start: 63, end: 68 },
-      speakers: { start: 80, end: 85 }, // Pushed to bottom
-      additionalDetails: { start: 15, end: 25 } // Moved to TOP (unconventional but necessary)
+      headline: { start: 48, end: 56 }, // Moved to MIDDLE (between top and bottom photos)
+      tagline: { start: 56, end: 61 },
+      dateVenue: { start: 61, end: 66 },
+      speakers: { start: 72, end: 74 }, // Pushed to bottom, end at 74%
+      additionalDetails: { start: 36, end: 43 } // Moved to after aggressive safe zone
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Create visual interest through a triangular composition. The top-center and bottom corners benefit from elegant simplicity—smooth gradients and subtle atmospheric transitions. The middle horizontal band (45-70% from top) should concentrate the headline and key messages, creating a natural visual flow.',
     isRecommended: true
@@ -199,11 +200,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 75, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 25 },
-      tagline: { start: 25, end: 30 },
-      dateVenue: { start: 30, end: 38 },
-      speakers: { start: 60, end: 70 }, // Between top and bottom rows
-      additionalDetails: { start: 82, end: 85 }
+      headline: { start: 36, end: 41 }, // Start at 36%
+      tagline: { start: 41, end: 46 },
+      dateVenue: { start: 46, end: 52 },
+      speakers: { start: 60, end: 68 }, // Between top and bottom rows
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Emphasize visual richness in the center region (between the top and bottom photo rows) where the headline lives. The corners and outer edges should maintain elegant simplicity with smooth gradients and subtle color transitions that frame the composition. This 2×2 arrangement creates natural breathing room at the periphery.',
     isRecommended: true
@@ -219,11 +220,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 80, yPercent: 55, shape: 'circle', zIndex: 10 }  // Right side (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 32 },
-      tagline: { start: 32, end: 40 },
-      dateVenue: { start: 40, end: 48 },
-      speakers: { start: 72, end: 80 }, // Below photos
-      additionalDetails: { start: 80, end: 85 }
+      headline: { start: 36, end: 44 }, // Start at 36%
+      tagline: { start: 44, end: 50 },
+      dateVenue: { start: 50, end: 56 },
+      speakers: { start: 68, end: 72 }, // Below photos
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements and focal points across the horizontal expanse. The left and right side margins benefit from understated elegance—flowing gradients and gentle color transitions that create visual breathing room while maintaining professional sophistication across the wide canvas.',
     isRecommended: true
@@ -236,11 +237,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 80, yPercent: 58, shape: 'circle', zIndex: 10 }  // Right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 30 },
-      tagline: { start: 30, end: 37 },
-      dateVenue: { start: 37, end: 45 },
-      speakers: { start: 73, end: 80 }, // Below photos
-      additionalDetails: { start: 80, end: 85 }
+      headline: { start: 36, end: 43 }, // Start at 36%
+      tagline: { start: 43, end: 48 },
+      dateVenue: { start: 48, end: 54 },
+      speakers: { start: 68, end: 72 }, // Below photos
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Build visual richness in the upper region where the headline and message command attention. The side margins and lower edge benefit from understated elegance—let them breathe with flowing gradients, gentle color transitions, and atmospheric simplicity. This creates professional balance across the horizontal canvas while maintaining dynamic composition.',
     isRecommended: true
@@ -254,11 +255,11 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
       { xPercent: 85, yPercent: 58, shape: 'circle', zIndex: 10 }  // Far right (adjusted up)
     ],
     textZoneAdjustments: {
-      headline: { start: 15, end: 28 },
-      tagline: { start: 28, end: 35 },
-      dateVenue: { start: 35, end: 43 },
-      speakers: { start: 73, end: 80 }, // Below photos
-      additionalDetails: { start: 80, end: 85 }
+      headline: { start: 36, end: 42 }, // Start at 36%
+      tagline: { start: 42, end: 47 },
+      dateVenue: { start: 47, end: 53 },
+      speakers: { start: 68, end: 72 }, // Below photos
+      additionalDetails: { start: 72, end: 74 } // End at 74%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Concentrate primary visual elements in the upper-center region. The side margins and lower edge should embrace elegant simplicity with smooth gradients and subtle atmospheric transitions. This horizontal distribution creates natural breathing room at the periphery while maintaining visual balance across the wide canvas.',
     isRecommended: true
@@ -325,6 +326,7 @@ function getRecommendedAspectRatio(speakerCount: number): string[] {
  * @param options Optional configuration
  * @param options.useIntelligentSizing Use AI-driven intelligent photo sizing (default: true)
  * @param options.sophistication Design sophistication level (default: 'balanced')
+ * @param options.footerReservePercent Percentage reserved for footer (for maxY constraint)
  * @returns Complete layout with positions, text adjustments, and validation
  */
 export function calculateMultiSpeakerLayout(
@@ -338,6 +340,8 @@ export function calculateMultiSpeakerLayout(
     sophistication?: 'minimalist' | 'balanced' | 'rich'
     /** v7.1: Total speakers for sizing (may differ from speakerCount if some don't have photos) */
     totalSpeakersForSizing?: number
+    /** v20.10: PHASE 3 - Footer reserve percentage for boundary protection */
+    footerReservePercent?: number
   }
 ): MultiSpeakerLayout {
   const useIntelligentSizing = options?.useIntelligentSizing ?? true // Default to AI-driven sizing
@@ -401,7 +405,7 @@ export function calculateMultiSpeakerLayout(
   // Calculate absolute positions from percentages
   const positions: SpeakerPhotoPosition[] = template.positions.map((pos, index) => {
     const absoluteX = Math.round((pos.xPercent / 100) * canvasWidth)
-    const absoluteY = Math.round((pos.yPercent / 100) * canvasHeight)
+    let absoluteY = Math.round((pos.yPercent / 100) * canvasHeight)
 
     // INTELLIGENT SIZING: Calculate photo size per speaker
     let photoSizePixels: number
@@ -427,6 +431,24 @@ export function calculateMultiSpeakerLayout(
 
       if (index === 0) {
         console.log(`[Layout Engine] All speakers: Manual size ${photoSize} = ${photoSizePixels}px (${(sizeMultiplier * 100).toFixed(0)}% of width)`)
+      }
+    }
+
+    // v20.10: PHASE 3 - Add footer zone protection
+    // Prevent speaker photos from overlapping footer zone
+    if (options?.footerReservePercent && options.footerReservePercent > 0) {
+      const footerBufferZone = canvasHeight * 0.08 // 8% buffer above footer
+      const footerStartY = canvasHeight * ((100 - options.footerReservePercent) / 100)
+      const maxSpeakerY = footerStartY - footerBufferZone
+
+      // Check if speaker photo would extend into footer zone
+      const photoBottom = absoluteY + (photoSizePixels / 2)
+
+      if (photoBottom > maxSpeakerY) {
+        const adjustedY = maxSpeakerY - (photoSizePixels / 2)
+        console.warn(`[Layout Engine] Speaker ${index + 1} would overlap footer (Y=${absoluteY}, bottom=${photoBottom.toFixed(0)} > maxY=${maxSpeakerY.toFixed(0)})`)
+        console.warn(`[Layout Engine] Adjusting speaker Y position: ${absoluteY} → ${adjustedY.toFixed(0)}`)
+        absoluteY = Math.round(adjustedY)
       }
     }
 

@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
 /**
@@ -17,8 +16,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and delete any logo
+    const supabase = adminClient
     const { id: logoId } = await params
     const metadata = getRequestMetadata(req)
 
@@ -51,18 +51,28 @@ export async function DELETE(
       // Delete logo file from storage if exists (file_url contains the path)
       if (logo.file_url) {
         try {
-          // Extract storage path from file_url
-          const urlParts = logo.file_url.split('/storage/v1/object/public/logos/')
-          const storagePath = urlParts[1]
-          if (storagePath) {
-            const { error: storageError } = await supabase.storage
-              .from('logos')
-              .remove([storagePath])
+          // Extract storage path from file_url using safer URL parsing
+          const storageMarker = '/storage/v1/object/public/logos/'
+          const markerIndex = logo.file_url.indexOf(storageMarker)
 
-            if (storageError) {
-              console.error('[super-admin] Failed to delete logo file from storage:', storageError)
-              // Continue with database deletion even if storage fails
+          if (markerIndex !== -1) {
+            const storagePath = logo.file_url.substring(markerIndex + storageMarker.length)
+
+            // Validate storage path before attempting deletion
+            if (storagePath && storagePath.length > 0 && !storagePath.startsWith('/')) {
+              const { error: storageError } = await supabase.storage
+                .from('logos')
+                .remove([storagePath])
+
+              if (storageError) {
+                console.error('[super-admin] Failed to delete logo file from storage:', storageError)
+                // Continue with database deletion even if storage fails
+              }
+            } else {
+              console.warn('[super-admin] Invalid storage path extracted from URL:', logo.file_url)
             }
+          } else {
+            console.warn('[super-admin] Could not parse storage path from logo URL:', logo.file_url)
           }
         } catch (storageError) {
           console.error('[super-admin] Exception deleting logo file:', storageError)
@@ -82,6 +92,10 @@ export async function DELETE(
         )
       }
 
+      // Safely extract organization name from nested join
+      const orgData = logo.organizations as { id: string; name: string } | null
+      const organizationName = orgData?.name || 'Unknown'
+
       // Log Super Admin action
       await logSuperAdminAction({
         super_admin_id: superAdmin.id,
@@ -93,7 +107,7 @@ export async function DELETE(
           before: {
             name: logo.name,
             category: logo.category,
-            organization_name: (logo.organizations as any)?.name,
+            organization_name: organizationName,
             used_in_creatives: usedInCreatives,
           },
         },
@@ -106,7 +120,7 @@ export async function DELETE(
         logo: {
           id: logoId,
           name: logo.name,
-          organization_name: (logo.organizations as any)?.name,
+          organization_name: organizationName,
           was_used_in_creatives: usedInCreatives > 0,
           usage_count: usedInCreatives,
         },

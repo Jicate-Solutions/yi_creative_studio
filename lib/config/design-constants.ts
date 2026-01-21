@@ -1931,7 +1931,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
   // Zone 3: Digital partner (right)
   digitalPartner: {
     enabled: true,
-    labelText: 'Supported By', // v19.0: Changed from "Digital Partner" to "Supported By"
+    labelText: 'Digital Partner', // v20.9: Changed back from "Supported By" to "Digital Partner"
     labelColor: '#9CA3AF', // Light grey
     separator: '–',
     logoId: null,

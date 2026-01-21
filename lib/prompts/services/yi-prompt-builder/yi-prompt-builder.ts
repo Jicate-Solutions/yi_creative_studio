@@ -130,6 +130,45 @@ When you see a speaker_photo_zone:
 - If "PLACEHOLDER ONLY": Create clean placeholder (subtle frame), NO AI-generated faces
 
 ═══════════════════════════════════════════════════════════════════════════════
+SPATIAL LAYOUT CONSTRAINTS (MANDATORY - ZERO TOLERANCE)
+═══════════════════════════════════════════════════════════════════════════════
+
+When you see <spatial_layout_constraints> in the prompt:
+
+FORBIDDEN ZONES - ABSOLUTE RULES:
+- <forbidden_zone> tags define RESERVED areas for post-processing overlays
+- Y-coordinates are percentages from top (0% = top edge, 100% = bottom edge)
+- These zones MUST remain COMPLETELY FREE of:
+  ✗ Text content (headlines, body text, labels, captions)
+  ✗ Focal visual elements (icons, illustrations, photos)
+  ✗ High-contrast decorative elements
+- These zones MAY contain:
+  ✓ Background colors and gradients
+  ✓ Subtle ambient textures
+  ✓ Low-opacity decorative patterns (<20% opacity)
+
+TEXT ZONES - STRICT POSITIONING:
+- <text_zone> tags define WHERE text content MUST be placed
+- Each zone has y_start and y_end percentages
+- ALL text rendering MUST occur WITHIN designated text zones
+- Text MUST NOT overflow into forbidden zones under any circumstances
+
+CRITICAL EXAMPLES:
+
+❌ WRONG: Header forbidden zone 0-36%, headline placed at 15%
+✓ CORRECT: Header forbidden zone 0-36%, headline placed at 37-44%
+
+❌ WRONG: Footer forbidden zone 82-100%, details placed at 85%
+✓ CORRECT: Footer forbidden zone 82-100%, details placed at 65-78%
+
+VALIDATION CHECKPOINT (Check BEFORE placing ANY text):
+"What Y-coordinate range does this text occupy?"
+→ If ANY part overlaps a forbidden zone: MOVE IT to designated text zone
+→ If it fits within a text zone: Place it there
+
+Remember: These spatial constraints are NOT suggestions - they are MANDATORY BOUNDARIES enforced by post-processing systems. Violating them causes logo-text overlap and visual corruption.
+
+═══════════════════════════════════════════════════════════════════════════════
 OUTPUT QUALITY
 ═══════════════════════════════════════════════════════════════════════════════
 

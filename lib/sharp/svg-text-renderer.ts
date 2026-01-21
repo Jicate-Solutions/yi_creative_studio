@@ -114,6 +114,48 @@ function getXPosition(
 }
 
 /**
+ * Calculate text Y position with footer zone protection
+ *
+ * v20.10: PHASE 4 - Add Y-axis clamping to prevent footer overlap
+ * Similar to speaker photo maxY protection, ensures text doesn't extend into footer zone
+ *
+ * @param rowHeight Height of the text row/container
+ * @param fontSize Font size in pixels
+ * @param footerHeight Height of footer zone in pixels (0 = no footer)
+ * @param canvasHeight Total canvas height in pixels (required if footerHeight > 0)
+ * @returns Y-coordinate for text baseline (clamped if would overlap footer)
+ */
+export function calculateTextY(
+  rowHeight: number,
+  fontSize: number,
+  footerHeight: number = 0,
+  canvasHeight: number = 0
+): number {
+  // Standard vertical centering: baseline at center + 35% of font size
+  const baseY = rowHeight / 2 + fontSize * 0.35
+
+  // Add footer zone protection (like speaker photos v20.7)
+  if (footerHeight > 0 && canvasHeight > 0) {
+    // Calculate maximum Y position (with 5% buffer above footer)
+    const footerBufferPercent = 0.05 // 5% buffer zone
+    const maxY = canvasHeight - footerHeight - (canvasHeight * footerBufferPercent)
+
+    // Check if text would extend into footer zone
+    // Text extends below baseline by approximately 0.3 * fontSize (descenders)
+    const textBottom = baseY + (fontSize * 0.3)
+
+    if (textBottom > maxY) {
+      const clampedY = maxY - (fontSize * 0.3)
+      console.warn(`[SVG Text] Text at Y=${baseY.toFixed(0)} would overlap footer, clamping to ${clampedY.toFixed(0)}`)
+      console.warn(`[SVG Text] Footer boundary: ${maxY.toFixed(0)}px, text bottom would be: ${textBottom.toFixed(0)}px`)
+      return clampedY
+    }
+  }
+
+  return baseY
+}
+
+/**
  * Generate CSS @font-face definitions using embedded font constants
  *
  * v19.1: Replaced runtime file loading with build-time embedded fonts
@@ -730,7 +772,7 @@ interface FooterSection {
  *
  * 3-Zone Layout (v9.0):
  * - Zone 1 (Left): Signature illustration (rendered via logo-overlay, not SVG)
- * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar + Supported By (NEW)
+ * - Zone 2 (Center): Hashtag + Website URL + Social Media Bar + Digital Partner (NEW)
  * - Zone 3 (Right): Partner Logo
  *
  * Uses footer-zone-optimizer for intelligent zone width distribution
@@ -818,9 +860,9 @@ export function generateFooterBarSVG(
       maxWidth = Math.max(maxWidth, pillWidth)
     }
 
-    // "Supported By" label width (now in Zone 2, logo is in Zone 3)
+    // "Digital Partner" label width (now in Zone 2, logo is in Zone 3)
     if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
-      const labelText = "Supported By"
+      const labelText = "Digital Partner"
       const labelWidth = estimateTextWidth(labelText, fontSize - 2, '600')
       maxWidth = Math.max(maxWidth, labelWidth)
     }
@@ -906,8 +948,8 @@ export function generateFooterBarSVG(
   }
 
   // Calculate vertical stack in Zone 2
-  // Stack: Hashtag -> Website -> Social Pill -> "Supported By" -> Logo
-  // This is a lot of content for one column, so we'll center it all.
+  // v20.9: Zone 2 now only contains Hashtag + Website + Social (Digital Partner moved to Zone 3)
+  // Stack: Hashtag -> Website -> Social Pill
 
   // Calculate heights
   const hHashtag = (hashtag.enabled !== false && hashtag.text.trim()) ? (fontSize + 6 + 6) : 0
@@ -915,15 +957,12 @@ export function generateFooterBarSVG(
   const hSocial = ((socialBar?.enabled ?? true) && website.socialHandle?.trim()) ? ((fontSize + 2) + 22) : 0
 
   const labelFontSize = fontSize // 18px
-  // "Supported By" text
-  const hPartnerLabel = (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) ? (labelFontSize + 2) : 0
-  // Partner Logo
+  // Partner Logo height (used for Zone 3 positioning)
   const hPartnerLogo = (digitalPartner.enabled && digitalPartner.logoId) ? (digitalPartner.logoSize || 80) : 0
 
-  // Zone 2 total height: "Supported By" label at top, then hashtag/website/social
-  const totalStackHeight = hPartnerLabel + hHashtag + hWebsite + hSocial
-  // Add gap between "Supported By" label and other content if both exist
-  const sectionGap = hPartnerLabel && (hHashtag || hWebsite || hSocial) ? 15 : 0
+  // Zone 2 total height: only hashtag/website/social (Digital Partner moved to Zone 3)
+  const totalStackHeight = hHashtag + hWebsite + hSocial
+  const sectionGap = 0  // No gap needed since Digital Partner is in Zone 3
 
   const finalHeight = totalStackHeight + sectionGap
 
@@ -957,41 +996,12 @@ export function generateFooterBarSVG(
   }
 
   // Render Zone 2 Content
+  // v20.9: Zone 2 now only contains Hashtag + Website + Social (Digital Partner moved to Zone 3)
   if (zone2HasContent && zonePositions.zone2) {
     const zone2X = zone2CenterX
     let yCursor = currentY
 
-    // 1. "Supported By" Label (TOP of Zone 2)
-    if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
-      if (usePathRendering) {
-        svgElements.push(textToPath("Supported By", {
-          fontFamily: 'Poppins',  // v17.1: Use Poppins (Montserrat TTF fails on Vercel)
-          fontSize: labelFontSize,
-          fontWeight: 'bold',
-          x: zone2X,
-          y: yCursor + labelFontSize,
-          fill: '#666666',
-          textAnchor: 'middle',
-        }))
-      } else {
-        svgElements.push(`<text
-          x="${zone2X}"
-          y="${yCursor + labelFontSize}"
-          text-anchor="middle"
-          font-family="Montserrat, sans-serif"
-          font-size="${labelFontSize}"
-          font-weight="600"
-          fill="#666666"
-        >${escapeXml("Supported By")}</text>`)
-      }
-
-      yCursor += hPartnerLabel
-      if (hHashtag || hWebsite || hSocial) {
-        yCursor += sectionGap // Add gap if there's other content below
-      }
-    }
-
-    // 2. Hashtag
+    // 1. Hashtag
     if (hashtag.enabled !== false && hashtag.text.trim()) {
       const hashtagText = hashtag.text.startsWith('#') ? hashtag.text : `#${hashtag.text}`
       const hashtagFontSize = fontSize + 6
@@ -1156,20 +1166,56 @@ export function generateFooterBarSVG(
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ZONE 3: Partner Logo (Right Container)
+  // ZONE 3: Digital Partner Label + Logo (Right Container)
+  // v20.9: Digital Partner label now renders in Zone 3 above the logo
   // ═══════════════════════════════════════════════════════════════════════════
   if (zone3HasContent && zonePositions.zone3) {
     const zone3X = zonePositions.zone3.x + zonePositions.zone3.width / 2
 
-    // Partner logo will be composited later in renderFooterBar()
-    // Just calculate position here
-    if (digitalPartner.enabled && digitalPartner.logoId) {
-      const partnerLogoHeight = rowHeight * 0.95 // Match signature logo height
-      // Note: actual width will be calculated by Sharp based on aspect ratio
-      // For centering, we'll use an estimate based on signatureWidth
-      const estimatedWidth = signatureWidth > 0 ? signatureWidth : 100
-      partnerLogoX = zone3X - estimatedWidth / 2
-      partnerLogoY = (rowHeight - partnerLogoHeight) / 2
+    // Render "DIGITAL PARTNER" label in Zone 3
+    if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
+      const partnerLabelFontSize = labelFontSize + 2  // 20px - larger for visibility
+      const partnerLabelText = "DIGITAL PARTNER"  // Uppercase for emphasis
+      const partnerLabelColor = digitalPartner.labelColor || '#374151'  // Darker gray for better visibility
+
+      // Calculate vertical position - label at top, logo below
+      const labelHeight = partnerLabelFontSize + 4
+      const logoHeight = digitalPartner.logoId ? (digitalPartner.logoSize || 80) : 0
+      const gap = digitalPartner.logoId ? 8 : 0  // Gap between label and logo
+      const totalHeight = labelHeight + gap + logoHeight
+      const startY = (rowHeight - totalHeight) / 2
+
+      // Render the label
+      if (usePathRendering) {
+        svgElements.push(textToPath(partnerLabelText, {
+          fontFamily: 'Poppins',
+          fontSize: partnerLabelFontSize,
+          fontWeight: 'bold',  // 700 weight
+          x: zone3X,
+          y: startY + partnerLabelFontSize,
+          fill: partnerLabelColor,
+          textAnchor: 'middle',
+          letterSpacing: 1,  // Slight letter spacing for uppercase
+        }))
+      } else {
+        svgElements.push(`<text
+          x="${zone3X}"
+          y="${startY + partnerLabelFontSize}"
+          text-anchor="middle"
+          font-family="Montserrat, sans-serif"
+          font-size="${partnerLabelFontSize}"
+          font-weight="700"
+          fill="${partnerLabelColor}"
+          letter-spacing="0.05em"
+        >${escapeXml(partnerLabelText)}</text>`)
+      }
+
+      // Partner logo position - below the label, centered at zone3X
+      // v20.9: Use actualLogoWidth (passed as parameter) for accurate centering
+      if (digitalPartner.logoId) {
+        partnerLogoX = zone3X - actualLogoWidth / 2  // Center logo at same X as label
+        partnerLogoY = startY + labelHeight + gap  // Position below label
+      }
     }
   }
 
@@ -1315,10 +1361,11 @@ export async function renderFooterBar(
         partnerLogoBuffer &&
         actualPartnerLogoWidth > 0
       ) {
-        const partnerLogoHeight = rowHeight * 0.95
+        // v20.9: Use logoSize from config for consistent height (matches width calculation)
+        const partnerLogoHeight = config.digitalPartner.logoSize || 80
         const resizedPartner = await sharp(partnerLogoBuffer)
           .resize({
-            height: partnerLogoHeight,
+            height: Math.floor(partnerLogoHeight),
             fit: 'contain',
             background: { r: 0, g: 0, b: 0, alpha: 0 }
           })
@@ -1413,10 +1460,11 @@ export async function renderFooterBar(
       partnerLogoBuffer &&
       actualPartnerLogoWidth > 0
     ) {
-      const partnerLogoHeight = rowHeight * 0.95 // Match signature logo height
+      // v20.9: Use logoSize from config for consistent height (matches width calculation)
+      const partnerLogoHeight = config.digitalPartner.logoSize || 80
       const resizedPartner = await sharp(partnerLogoBuffer)
         .resize({
-          height: partnerLogoHeight, // Use same height as signature logo
+          height: Math.floor(partnerLogoHeight),
           fit: 'contain',
           background: { r: 0, g: 0, b: 0, alpha: 0 }
         })

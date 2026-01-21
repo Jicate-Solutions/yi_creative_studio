@@ -9,7 +9,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
 /**
@@ -19,8 +18,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and access any organization
+    const supabase = adminClient
     const { id } = await params
 
     try {
@@ -38,14 +38,45 @@ export async function GET(
         )
       }
 
-      // Get member count and list with user profiles
-      const { data: members } = await supabase
+      // Get member count and list
+      // Note: user_profiles has no FK relationship to organization_members,
+      // so we fetch user data separately
+      const { data: rawMembers } = await supabase
         .from('organization_members')
-        .select(`
-          *,
-          user_profiles(id, full_name)
-        `)
+        .select('*')
         .eq('organization_id', id)
+
+      // Fetch user details from auth for each member
+      const members = await Promise.all(
+        (rawMembers || []).map(async (member) => {
+          let email = ''
+          let fullName = 'Unknown'
+
+          try {
+            // Get user from auth
+            const { data: { user } } = await adminClient.auth.admin.getUserById(member.user_id)
+            if (user) {
+              email = user.email || ''
+              fullName = user.user_metadata?.full_name || 'Unknown'
+            }
+          } catch {
+            // User might have been deleted
+          }
+
+          // Try to get full name from user_profiles as fallback
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('full_name')
+            .eq('id', member.user_id)
+            .single()
+
+          return {
+            ...member,
+            email,
+            full_name: profile?.full_name || fullName,
+          }
+        })
+      )
 
       // Get recent credit transactions
       const { data: recentTransactions } = await supabase
@@ -112,8 +143,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and modify any organization
+    const supabase = adminClient
     const { id } = await params
     const metadata = getRequestMetadata(req)
 
@@ -185,16 +217,22 @@ export async function PATCH(
 }
 
 /**
- * DELETE - Deactivate organization (soft delete)
+ * DELETE - Deactivate (soft delete) or permanently delete organization
+ * Use ?permanent=true for hard delete
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and modify any organization
+    const supabase = adminClient
     const { id } = await params
     const metadata = getRequestMetadata(req)
+
+    // Check if permanent (hard) delete is requested
+    const url = new URL(req.url)
+    const permanent = url.searchParams.get('permanent') === 'true'
 
     try {
       // Get organization before deletion
@@ -208,40 +246,121 @@ export async function DELETE(
         return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
       }
 
-      // Soft delete (mark as inactive instead of actual deletion)
-      const { error: deleteError } = await supabase
-        .from('organizations')
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString(),
+      if (permanent) {
+        // HARD DELETE - Remove all related data and organization permanently
+        console.log(`[super-admin] Hard deleting organization: ${id}`)
+
+        // Delete in order to respect foreign key constraints (children first)
+
+        // 1. Delete related tables that reference creatives
+        await supabase.from('api_usage').delete().eq('organization_id', id)
+        await supabase.from('creative_feedback').delete().eq('organization_id', id)
+
+        // 2. Delete creatives
+        await supabase.from('creatives').delete().eq('organization_id', id)
+
+        // 3. Delete credit transactions
+        await supabase.from('credit_transactions').delete().eq('organization_id', id)
+
+        // 4. Delete organization members
+        await supabase.from('organization_members').delete().eq('organization_id', id)
+
+        // 5. Delete organization logos
+        await supabase.from('organization_logos').delete().eq('organization_id', id)
+
+        // 6. Delete logo presets
+        await supabase.from('logo_presets').delete().eq('organization_id', id)
+
+        // 7. Delete footer presets
+        await supabase.from('footer_presets').delete().eq('organization_id', id)
+
+        // 8. Delete landmark signatures
+        await supabase.from('landmark_signatures').delete().eq('organization_id', id)
+
+        // 9. Delete vertical logo presets
+        await supabase.from('vertical_logo_presets').delete().eq('organization_id', id)
+
+        // 10. Delete templates
+        await supabase.from('templates').delete().eq('organization_id', id)
+
+        // 11. Delete learning/AI related tables
+        await supabase.from('learning_agent_sessions').delete().eq('organization_id', id)
+        await supabase.from('learning_queue').delete().eq('organization_id', id)
+        await supabase.from('prevention_actions').delete().eq('organization_id', id)
+        await supabase.from('generation_lineage').delete().eq('organization_id', id)
+        await supabase.from('vision_analysis').delete().eq('organization_id', id)
+        await supabase.from('shadow_mode_logs').delete().eq('organization_id', id)
+        await supabase.from('ab_assignments').delete().eq('organization_id', id)
+        await supabase.from('pattern_cache_state').delete().eq('organization_id', id)
+        await supabase.from('seeded_patterns').delete().eq('organization_id', id)
+        await supabase.from('success_patterns').delete().eq('organization_id', id)
+        await supabase.from('rollback_checkpoints').delete().eq('organization_id', id)
+
+        // 12. Delete super admin audit logs referencing this org
+        await supabase.from('super_admin_audit_logs').delete().eq('target_organization_id', id)
+
+        // 13. Finally, delete the organization itself
+        const { error: deleteError } = await supabase
+          .from('organizations')
+          .delete()
+          .eq('id', id)
+
+        if (deleteError) {
+          console.error('[super-admin] Hard delete error:', deleteError)
+          return NextResponse.json(
+            { error: 'Failed to permanently delete organization', details: deleteError.message },
+            { status: 500 }
+          )
+        }
+
+        // Log Super Admin action (note: org is already deleted, so use a separate audit entry)
+        // We can't log to super_admin_audit_logs with target_organization_id since org is deleted
+        console.log(`[super-admin] Organization ${id} (${orgBefore.name}) permanently deleted by ${superAdmin.email}`)
+
+        return NextResponse.json({
+          success: true,
+          message: 'Organization permanently deleted',
+          deleted: {
+            id: orgBefore.id,
+            name: orgBefore.name,
+          },
         })
-        .eq('id', id)
+      } else {
+        // SOFT DELETE - Mark as inactive
+        const { error: deleteError } = await supabase
+          .from('organizations')
+          .update({
+            is_active: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
 
-      if (deleteError) {
-        return NextResponse.json(
-          { error: 'Failed to delete organization', details: deleteError.message },
-          { status: 500 }
-        )
+        if (deleteError) {
+          return NextResponse.json(
+            { error: 'Failed to deactivate organization', details: deleteError.message },
+            { status: 500 }
+          )
+        }
+
+        // Log Super Admin action
+        await logSuperAdminAction({
+          super_admin_id: superAdmin.id,
+          action: 'org:deactivate',
+          resource_type: 'organization',
+          resource_id: id,
+          target_organization_id: id,
+          changes: {
+            before: orgBefore,
+            after: { is_active: false },
+          },
+          ...metadata,
+        })
+
+        return NextResponse.json({
+          success: true,
+          message: 'Organization deactivated successfully',
+        })
       }
-
-      // Log Super Admin action
-      await logSuperAdminAction({
-        super_admin_id: superAdmin.id,
-        action: 'org:delete',
-        resource_type: 'organization',
-        resource_id: id,
-        target_organization_id: id,
-        changes: {
-          before: orgBefore,
-          after: { is_active: false },
-        },
-        ...metadata,
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'Organization deactivated successfully',
-      })
     } catch (error) {
       console.error('[super-admin] Failed to delete org:', error)
       return NextResponse.json(

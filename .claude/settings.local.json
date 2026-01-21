@@ -279,7 +279,8 @@
       "Bash(Get-ChildItem $backupDir)",
       "Bash(Format-Table Name, Length -AutoSize)",
       "mcp__memory__search_nodes",
-      "mcp__memory__read_graph"
+      "mcp__memory__read_graph",
+      "Skill(event-poster-ultra)"
     ],
     "deny": [],
     "ask": [],

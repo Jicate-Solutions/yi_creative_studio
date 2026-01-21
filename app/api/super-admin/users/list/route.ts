@@ -3,16 +3,15 @@
  * GET /api/super-admin/users/list
  *
  * Returns paginated list of all users with organization memberships
- * NOTE: This endpoint requires proper admin client setup with service role key
+ * Uses admin client with service role to access auth.users
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    const supabase = adminClient
     const { searchParams } = new URL(req.url)
 
     // Query parameters
@@ -21,9 +20,26 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
 
     try {
-      // Get users from organization_members (can't directly query auth.users without service role)
-      // This shows users who have joined at least one organization
-      const query = supabase
+      // Fetch all users from auth.users using admin API
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: pageSize,
+      })
+
+      if (authError) {
+        console.error('[super-admin] Failed to fetch auth users:', authError)
+        return NextResponse.json(
+          { error: 'Failed to fetch users', details: authError.message },
+          { status: 500 }
+        )
+      }
+
+      const authUsers = authData?.users || []
+      const totalUsers = authData?.total || authUsers.length
+
+      // Get organization memberships for all users
+      const userIds = authUsers.map(u => u.id)
+      const { data: memberships } = await supabase
         .from('organization_members')
         .select(`
           user_id,
@@ -33,71 +49,62 @@ export async function GET(request: NextRequest) {
             id,
             name
           )
-        `, { count: 'exact' })
-        .order('joined_at', { ascending: false })
-        .range((page - 1) * pageSize, page * pageSize - 1)
+        `)
+        .in('user_id', userIds)
 
-      // Note: search filter would need profiles table to have email column
-      // For now, we fetch all and filter in memory if needed
-
-      const { data: memberships, error, count } = await query
-
-      if (error) {
-        console.error('[super-admin] Failed to fetch users:', error)
-        return NextResponse.json(
-          { error: 'Failed to fetch users', details: error.message },
-          { status: 500 }
-        )
-      }
-
-      // Group by user
-      const usersMap = new Map<string, {
-        id: string
-        joined_at: string | null
-        organizations: Array<{ id: string; name: string; role: string }>
-      }>()
-
+      // Build membership map
+      const membershipMap = new Map<string, Array<{ organization_id: string; organization_name: string; role: string }>>()
       memberships?.forEach((m) => {
-        const userId = m.user_id
         const org = m.organizations as { id: string; name: string } | null
-
-        if (!usersMap.has(userId)) {
-          usersMap.set(userId, {
-            id: userId,
-            joined_at: m.joined_at,
-            organizations: [],
-          })
+        if (!membershipMap.has(m.user_id)) {
+          membershipMap.set(m.user_id, [])
         }
-
-        const user = usersMap.get(userId)!
         if (org) {
-          user.organizations.push({
-            id: org.id,
-            name: org.name,
+          membershipMap.get(m.user_id)!.push({
+            organization_id: org.id,
+            organization_name: org.name,
             role: m.role,
           })
         }
       })
 
-      // Convert to array and apply search filter
-      let users = Array.from(usersMap.values())
+      // Format users with auth data and memberships
+      let formattedUsers = authUsers.map((user) => {
+        // Check for banned_until in user_metadata or app_metadata
+        // Supabase stores suspension info in different places depending on version
+        const userMeta = user.user_metadata as Record<string, unknown> | undefined
+        const appMeta = user.app_metadata as Record<string, unknown> | undefined
+        const isBanned = !!(userMeta?.banned_until || appMeta?.banned_until)
+
+        // Determine user status
+        let status: 'suspended' | 'active' | 'pending' = 'pending'
+        if (isBanned) {
+          status = 'suspended'
+        } else if (user.confirmed_at) {
+          status = 'active'
+        }
+
+        return {
+          id: user.id,
+          email: user.email || 'No email',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          status,
+          is_super_admin: appMeta?.is_super_admin === true,
+          organizations: membershipMap.get(user.id) || [],
+          organization_count: (membershipMap.get(user.id) || []).length,
+        }
+      })
+
+      // Apply search filter
       if (search) {
         const searchLower = search.toLowerCase()
-        users = users.filter(u =>
+        formattedUsers = formattedUsers.filter(u =>
+          u.email.toLowerCase().includes(searchLower) ||
           u.id.toLowerCase().includes(searchLower) ||
-          u.organizations.some(o => o.name.toLowerCase().includes(searchLower))
+          u.organizations.some(o => o.organization_name.toLowerCase().includes(searchLower))
         )
       }
-
-      // Format output
-      const formattedUsers = users.map((user) => ({
-        id: user.id,
-        joined_at: user.joined_at,
-        status: 'active', // Default - would need user metadata for accurate status
-        is_super_admin: false, // Would need user metadata check
-        organizations: user.organizations,
-        organization_count: user.organizations.length,
-      }))
 
       return NextResponse.json({
         success: true,
@@ -105,10 +112,9 @@ export async function GET(request: NextRequest) {
         pagination: {
           page,
           pageSize,
-          total: count || users.length,
-          totalPages: Math.ceil((count || users.length) / pageSize),
+          total: totalUsers,
+          totalPages: Math.ceil(totalUsers / pageSize),
         },
-        note: 'This endpoint shows users who have joined organizations. For full user list, configure admin client with service role.',
       })
     } catch (error) {
       console.error('[super-admin] Exception fetching users:', error)

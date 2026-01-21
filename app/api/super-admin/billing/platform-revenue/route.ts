@@ -4,12 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+import { convertToUSD } from '@/lib/services/currency'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and access all revenue data
+    const supabase = adminClient
 
     // Parse query parameters
     const searchParams = req.nextUrl.searchParams
@@ -81,12 +82,14 @@ export async function GET(request: NextRequest) {
             organization_id: orgId,
             organization_name: txn.organizations?.name || 'Unknown',
             total_revenue_inr: 0,
+            total_revenue_usd: 0,
             total_credits_purchased: 0,
             transaction_count: 0,
           }
         }
 
         orgRevenue[orgId].total_revenue_inr += txn.amount_inr || 0
+        orgRevenue[orgId].total_revenue_usd = convertToUSD(orgRevenue[orgId].total_revenue_inr)
         orgRevenue[orgId].total_credits_purchased += txn.amount || 0
         orgRevenue[orgId].transaction_count += 1
       })
@@ -105,11 +108,13 @@ export async function GET(request: NextRequest) {
           providerBreakdown[provider] = {
             provider,
             revenue_inr: 0,
+            revenue_usd: 0,
             transaction_count: 0,
           }
         }
 
         providerBreakdown[provider].revenue_inr += txn.amount_inr || 0
+        providerBreakdown[provider].revenue_usd = convertToUSD(providerBreakdown[provider].revenue_inr)
         providerBreakdown[provider].transaction_count += 1
       })
 
@@ -118,6 +123,7 @@ export async function GET(request: NextRequest) {
         dateRange,
         totals: {
           total_revenue_inr: totalRevenueINR,
+          total_revenue_usd: convertToUSD(totalRevenueINR),
           total_credits_sold: totalCreditsSold,
           transaction_count: transactions?.length || 0,
         },

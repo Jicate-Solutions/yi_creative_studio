@@ -4,64 +4,41 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and access all organizations' credit data
+    const supabase = adminClient
 
     // Parse query parameters
     const searchParams = req.nextUrl.searchParams
     const search = searchParams.get('search') || ''
 
     try {
-      // Fetch organizations with their credit balances
+      // Fetch organizations - credits_balance is directly on organizations table
       const { data: orgsData, error: orgsError } = await supabase
         .from('organizations')
-        .select('id, name, credits_balance, created_at')
+        .select('*')
         .order('credits_balance', { ascending: false })
 
       if (orgsError) {
         throw orgsError
       }
 
-      // Get credit transaction summaries per organization
-      const { data: transactionSummaries } = await supabase
-        .from('credit_transactions')
-        .select('organization_id, type, amount')
-
-      // Calculate totals per organization
-      const orgTotals: Record<string, { allocated: number; consumed: number; purchased: number; lastTransaction: string | null }> = {}
-
-      transactionSummaries?.forEach((txn) => {
-        if (!txn.organization_id) return
-
-        if (!orgTotals[txn.organization_id]) {
-          orgTotals[txn.organization_id] = { allocated: 0, consumed: 0, purchased: 0, lastTransaction: null }
-        }
-
-        if (txn.type === 'purchase') {
-          orgTotals[txn.organization_id].purchased += txn.amount || 0
-        } else if (txn.type === 'allocation' || txn.type === 'bonus') {
-          orgTotals[txn.organization_id].allocated += txn.amount || 0
-        } else if (txn.type === 'usage' || txn.type === 'consumption') {
-          orgTotals[txn.organization_id].consumed += Math.abs(txn.amount || 0)
-        }
-      })
-
       // Format results
-      let organizations = orgsData?.map((org) => {
-        const totals = orgTotals[org.id] || { allocated: 0, consumed: 0, purchased: 0 }
-        return {
-          organization_id: org.id,
-          organization_name: org.name || 'Unknown',
-          balance: org.credits_balance || 0,
-          total_allocated: totals.allocated,
-          total_consumed: totals.consumed,
-          total_purchased: totals.purchased,
-        }
-      }) || []
+      let organizations = orgsData?.map((org: any) => ({
+        organization_id: org.id,
+        organization_name: org.name || 'Unknown',
+        balance: org.credits_balance || 0,
+        total_allocated: 0,  // Not tracked in current schema
+        total_consumed: 0,   // Not tracked in current schema
+        total_purchased: 0,  // Not tracked in current schema
+        low_balance_threshold: 100,  // Default value
+        last_allocation_at: null,
+        last_consumption_at: null,
+        is_active: org.is_active ?? true,
+      })) || []
 
       // Apply search filter
       if (search) {

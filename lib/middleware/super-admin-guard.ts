@@ -20,7 +20,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
 export interface SuperAdminContext {
   superAdmin: {
@@ -29,6 +32,11 @@ export interface SuperAdminContext {
     is_super_admin: boolean
     [key: string]: any
   }
+  /**
+   * Admin Supabase client that bypasses RLS (Row Level Security)
+   * Use this for queries that need to access all data across organizations
+   */
+  adminClient: SupabaseClient<Database>
 }
 
 /**
@@ -74,12 +82,56 @@ export async function superAdminGuard(
   const supabase = await createClient()
 
   // 1. Check authentication
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  let user
+  try {
+    const { data, error: authError } = await supabase.auth.getUser()
 
-  if (authError || !user) {
+    // Check for network errors vs auth errors
+    if (authError) {
+      const errorMessage = authError.message?.toLowerCase() || ''
+      const isNetworkError =
+        errorMessage.includes('fetch failed') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('econnreset') ||
+        errorMessage.includes('network')
+
+      if (isNetworkError) {
+        console.error('[super-admin-guard] Network error during auth check:', authError.message)
+        return NextResponse.json(
+          {
+            error: 'Service Temporarily Unavailable',
+            code: 'NETWORK_ERROR',
+            message: 'Unable to connect to authentication service. Please try again.',
+          },
+          { status: 503 }
+        )
+      }
+
+      return NextResponse.json(
+        {
+          error: 'Authentication required',
+          code: 'UNAUTHORIZED',
+          message: 'You must be logged in to access this resource',
+        },
+        { status: 401 }
+      )
+    }
+
+    user = data.user
+  } catch (err) {
+    // Handle unexpected fetch errors (ECONNRESET, timeouts, etc.)
+    console.error('[super-admin-guard] Unexpected auth error:', err)
+    return NextResponse.json(
+      {
+        error: 'Service Temporarily Unavailable',
+        code: 'NETWORK_ERROR',
+        message: 'Unable to connect to authentication service. Please try again.',
+      },
+      { status: 503 }
+    )
+  }
+
+  if (!user) {
     return NextResponse.json(
       {
         error: 'Authentication required',
@@ -91,17 +143,53 @@ export async function superAdminGuard(
   }
 
   // 2. Check Super Admin flag using RPC function (checks raw_app_meta_data)
-  const { data: isSuperAdmin, error: rpcError } = await (supabase as any).rpc('is_current_user_super_admin')
+  let isSuperAdmin
+  try {
+    const { data, error: rpcError } = await (supabase as any).rpc('is_current_user_super_admin')
 
-  if (rpcError) {
-    console.error('[super-admin-guard] RPC error checking super admin status:', rpcError)
+    if (rpcError) {
+      const errorMessage = rpcError.message?.toLowerCase() || ''
+      const errorDetails = rpcError.details?.toLowerCase() || ''
+      const isNetworkError =
+        errorMessage.includes('fetch failed') ||
+        errorMessage.includes('timeout') ||
+        errorDetails.includes('timeout') ||
+        errorDetails.includes('econnreset')
+
+      if (isNetworkError) {
+        console.error('[super-admin-guard] Network error during RPC call:', rpcError.message)
+        return NextResponse.json(
+          {
+            error: 'Service Temporarily Unavailable',
+            code: 'NETWORK_ERROR',
+            message: 'Unable to verify permissions. Please try again.',
+          },
+          { status: 503 }
+        )
+      }
+
+      console.error('[super-admin-guard] RPC error checking super admin status:', rpcError)
+      return NextResponse.json(
+        {
+          error: 'Internal Server Error',
+          code: 'RPC_ERROR',
+          message: 'Failed to verify Super Admin status',
+        },
+        { status: 500 }
+      )
+    }
+
+    isSuperAdmin = data
+  } catch (err) {
+    // Handle unexpected fetch errors
+    console.error('[super-admin-guard] Unexpected RPC error:', err)
     return NextResponse.json(
       {
-        error: 'Internal Server Error',
-        code: 'RPC_ERROR',
-        message: 'Failed to verify Super Admin status',
+        error: 'Service Temporarily Unavailable',
+        code: 'NETWORK_ERROR',
+        message: 'Unable to verify permissions. Please try again.',
       },
-      { status: 500 }
+      { status: 503 }
     )
   }
 
@@ -130,7 +218,10 @@ export async function superAdminGuard(
     )
   }
 
-  // 3. Execute handler with Super Admin context
+  // 3. Create admin client for bypassing RLS
+  const adminClient = createAdminClient()
+
+  // 4. Execute handler with Super Admin context
   try {
     return await handler(request, {
       superAdmin: {
@@ -138,6 +229,7 @@ export async function superAdminGuard(
         email: user.email || 'unknown',
         is_super_admin: true,
       },
+      adminClient,
     })
   } catch (error) {
     console.error('[super-admin-guard] Handler error:', error)

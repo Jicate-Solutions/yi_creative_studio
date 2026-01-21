@@ -1205,6 +1205,59 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_credits: {
+        Row: {
+          id: string
+          organization_id: string
+          balance: number
+          total_allocated: number | null
+          total_consumed: number | null
+          total_purchased: number | null
+          credit_limit: number | null
+          low_balance_threshold: number | null
+          last_allocation_at: string | null
+          last_consumption_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          balance?: number
+          total_allocated?: number | null
+          total_consumed?: number | null
+          total_purchased?: number | null
+          credit_limit?: number | null
+          low_balance_threshold?: number | null
+          last_allocation_at?: string | null
+          last_consumption_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          balance?: number
+          total_allocated?: number | null
+          total_consumed?: number | null
+          total_purchased?: number | null
+          credit_limit?: number | null
+          low_balance_threshold?: number | null
+          last_allocation_at?: string | null
+          last_consumption_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_credits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       pattern_cache_state: {
         Row: {
           cache_version: number

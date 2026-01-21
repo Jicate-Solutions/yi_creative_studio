@@ -21,6 +21,42 @@ import {
 } from '@/lib/config/design-constants'
 import { renderInitiativeText, renderPartnerLabel, renderFooterBar, estimateTextWidth } from './svg-text-renderer'
 
+// ============================================================================
+// v24.6: TRANSPARENT LOGO BAR PROTECTION
+// ============================================================================
+// ⚠️ WARNING: DO NOT CHANGE THESE TRANSPARENCY VALUES WITHOUT USER APPROVAL ⚠️
+//
+// USER REQUIREMENT: Logo bars must be transparent to show Gemini's header/footer design
+// REASON: User wants AI-generated blue gradient visible through logo overlays
+//         NOT opaque white bars, NOT semi-transparent (0.92), TRANSPARENT!
+//
+// APPROVED TRANSPARENCY VALUES (v24.6):
+// - Row 1 (Brand Logos):     alpha: 0.1  (nearly transparent - Gemini header shows)
+// - Row 2 (Vertical Logos):  alpha: 0    (fully transparent - blue gradient visible)
+// - Row 3 (Initiative Text): alpha: 0.85 (semi-transparent - text readability maintained)
+//
+// HISTORY:
+// - v24.5: Changed to alpha: 0.92 (semi-transparent) → User rejected (too opaque)
+// - v24.6: Changed to alpha: 0.1/0/0.85 → User approved (Gemini shows through)
+//
+// If you're considering changing these values:
+// 1. Read doc/v24.6-full-canvas-restoration.md
+// 2. Understand user wants Gemini's design visible (NOT hidden by white bars)
+// 3. Get user approval before increasing opacity
+// ============================================================================
+
+/**
+ * LOGO BAR TRANSPARENCY VALUES (v24.6)
+ *
+ * These values control how much of Gemini's header/footer design shows through logo bars.
+ * Lower alpha = more transparent = more Gemini design visible
+ *
+ * ⚠️ DO NOT INCREASE THESE VALUES - User specifically wants transparent overlays
+ */
+const LOGO_BAR_ALPHA_ROW1_BRAND = 0.1      // Nearly transparent (Gemini header shows)
+const LOGO_BAR_ALPHA_ROW2_VERTICAL = 0     // Fully transparent (blue gradient visible)
+const LOGO_BAR_ALPHA_ROW3_INITIATIVE = 0.85 // Semi-transparent (text readable)
+
 // Logo position grid (18 positions - 6 columns × 3 rows) - matches lib/config/constants.ts
 export type LogoPosition =
   // Header strip (Row 1)
@@ -1776,7 +1812,7 @@ export async function createEnhanced4RowStrip(
             borderRadius: 16,
             roundTop: false,   // Sharp top (attached to top edge)
             roundBottom: true, // Rounded bottom (floating look)
-            backgroundColor: { r: 255, g: 255, b: 255, alpha: 1 },  // White background
+            backgroundColor: { r: 255, g: 255, b: 255, alpha: LOGO_BAR_ALPHA_ROW1_BRAND },  // v24.6: Nearly transparent (Gemini header design shows through)
             logoGap: logoGap,
           }
         )
@@ -1819,7 +1855,7 @@ export async function createEnhanced4RowStrip(
           12,
           {
             borderRadius: 8,   // rounded-lg for floating card look
-            backgroundColor: { r: 255, g: 255, b: 255, alpha: 1 },
+            backgroundColor: { r: 255, g: 255, b: 255, alpha: LOGO_BAR_ALPHA_ROW2_VERTICAL },  // v24.6: Fully transparent (Gemini blue gradient shows through)
             logoGap: logoGap,
           }
         )
@@ -2194,8 +2230,8 @@ export async function createEnhanced4RowHeaderStrip(
   // v15.1: Per-row card approach - no unified background wrapper
   // Each row will have its own background and border radius applied by renderLogoRow
 
-  // v15.1: White background config for floating card effect
-  const rowBackgroundColor = { r: 255, g: 255, b: 255, alpha: 1 }  // White solid background
+  // v24.6: Semi-transparent white background for initiative text (needs readability)
+  const rowBackgroundColor = { r: 255, g: 255, b: 255, alpha: LOGO_BAR_ALPHA_ROW3_INITIATIVE }  // v24.6: Medium opacity (shows some Gemini bg, maintains text readability)
 
   // Render and composite each row
   const compositeOps: sharp.OverlayOptions[] = []

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { redirect } from 'next/navigation'
-import { useClientAdmin } from '@/hooks/use-client-admin'
+import { useClientSuperAdmin } from '@/hooks/use-client-super-admin'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,11 +35,11 @@ type CreditTransaction = {
 }
 
 export default function AdminCreditsPage() {
-  const { isAdmin, isReady } = useClientAdmin()
+  const { isSuperAdmin, isReady } = useClientSuperAdmin()
   const { currentOrganization } = useAuthStore()
 
-  // Redirect non-admins
-  if (isReady && !isAdmin) {
+  // Redirect non-super-admins (this page is for platform-level credit management)
+  if (isReady && !isSuperAdmin) {
     redirect(ROUTES.billing)
   }
 

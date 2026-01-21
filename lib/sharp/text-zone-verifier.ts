@@ -1,0 +1,198 @@
+import type { Sharp } from 'sharp'
+
+export interface ZoneViolation {
+  zoneType: 'header' | 'footer'
+  detectedTextY: number
+  forbiddenRangeStart: number
+  forbiddenRangeEnd: number
+  severity: 'critical' | 'warning'
+}
+
+/**
+ * Detects if text appears in forbidden zones using edge detection
+ * Returns violations found
+ */
+export async function detectTextInForbiddenZones(
+  imageBuffer: Buffer,
+  headerEndPercent: number,
+  footerStartPercent: number
+): Promise<ZoneViolation[]> {
+  const sharp = (await import('sharp')).default
+  const { width, height } = await sharp(imageBuffer).metadata()
+
+  if (!width || !height) return []
+
+  const violations: ZoneViolation[] = []
+
+  // Convert percentages to pixel coordinates
+  const headerEndPx = Math.floor((height * headerEndPercent) / 100)
+  const footerStartPx = Math.floor((height * footerStartPercent) / 100)
+
+  // Extract header region and analyze for text-like patterns
+  const headerRegion = await sharp(imageBuffer)
+    .extract({ left: 0, top: 0, width, height: headerEndPx })
+    .greyscale()
+    .threshold(128) // Binarize
+    .raw()
+    .toBuffer()
+
+  // Detect high-contrast horizontal patterns (text indicators)
+  const headerTextInfo = detectTextPatternWithPosition(headerRegion, width, headerEndPx)
+
+  if (headerTextInfo.hasText) {
+    // Calculate actual text Y position as percentage
+    const actualTextY = (headerTextInfo.firstTextRow / height) * 100
+
+    violations.push({
+      zoneType: 'header',
+      detectedTextY: actualTextY, // Actual position where text starts
+      forbiddenRangeStart: 0,
+      forbiddenRangeEnd: headerEndPercent,
+      severity: 'critical',
+    })
+  }
+
+  // Repeat for footer zone
+  const footerHeight = height - footerStartPx
+  const footerRegion = await sharp(imageBuffer)
+    .extract({ left: 0, top: footerStartPx, width, height: footerHeight })
+    .greyscale()
+    .threshold(128)
+    .raw()
+    .toBuffer()
+
+  const footerHasText = detectTextPattern(footerRegion, width, footerHeight)
+
+  if (footerHasText) {
+    violations.push({
+      zoneType: 'footer',
+      detectedTextY: footerStartPercent + (100 - footerStartPercent) / 2,
+      forbiddenRangeStart: footerStartPercent,
+      forbiddenRangeEnd: 100,
+      severity: 'critical',
+    })
+  }
+
+  return violations
+}
+
+interface TextDetectionResult {
+  hasText: boolean
+  firstTextRow: number // Y coordinate of first detected text row
+  textRowCount: number
+}
+
+function detectTextPatternWithPosition(buffer: Buffer, width: number, height: number): TextDetectionResult {
+  // Simplified text detection with position tracking:
+  // Text creates horizontal runs of white pixels (in threshold image)
+  // Count horizontal runs above threshold length and track first occurrence
+
+  let textRunCount = 0
+  let firstTextRow = -1
+  const minRunLength = width * 0.1 // 10% of width
+
+  for (let y = 0; y < height; y++) {
+    let runLength = 0
+    let rowHasText = false
+
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x
+      const pixel = buffer[idx]
+
+      if (pixel > 128) {
+        // White pixel (potential text)
+        runLength++
+      } else {
+        if (runLength >= minRunLength) {
+          textRunCount++
+          rowHasText = true
+        }
+        runLength = 0
+      }
+    }
+
+    // Check end of row
+    if (runLength >= minRunLength) {
+      textRunCount++
+      rowHasText = true
+    }
+
+    // Track first row with text
+    if (rowHasText && firstTextRow === -1) {
+      firstTextRow = y
+    }
+  }
+
+  // If 3+ rows have long white runs, likely text
+  return {
+    hasText: textRunCount >= 3,
+    firstTextRow: firstTextRow >= 0 ? firstTextRow : 0,
+    textRowCount: textRunCount,
+  }
+}
+
+function detectTextPattern(buffer: Buffer, width: number, height: number): boolean {
+  // Legacy function for backward compatibility
+  const result = detectTextPatternWithPosition(buffer, width, height)
+  return result.hasText
+}
+
+/**
+ * v24.0: Calculate safe header height based on detected text position
+ * Returns optimal header dimensions to avoid text overlap
+ *
+ * @param violations - Array of zone violations from detectTextInForbiddenZones
+ * @param canvasHeight - Total canvas height in pixels
+ * @param options - Configuration options
+ * @returns Recommended header height in pixels and percentage
+ */
+export function getSuggestedHeaderHeight(
+  violations: ZoneViolation[],
+  canvasHeight: number,
+  options: {
+    minimumHeaderPercent?: number // Minimum acceptable header (default: 15%)
+    safetyBufferPercent?: number   // Gap between logo bar and text (default: 3%)
+    defaultHeaderPercent?: number  // Default when no violations (default: 24%)
+  } = {}
+): {
+  headerHeight: number
+  headerPercent: number
+  dynamicAdjustment: boolean
+  detectedTextY: number | null
+} {
+  const {
+    minimumHeaderPercent = 15,
+    safetyBufferPercent = 3,
+    defaultHeaderPercent = 24,
+  } = options
+
+  const headerViolation = violations.find(v => v.zoneType === 'header')
+
+  if (!headerViolation) {
+    // No violations - use default header height
+    return {
+      headerHeight: Math.floor(canvasHeight * (defaultHeaderPercent / 100)),
+      headerPercent: defaultHeaderPercent,
+      dynamicAdjustment: false,
+      detectedTextY: null,
+    }
+  }
+
+  // Text detected in header zone - calculate safe header height
+  const actualTextY = headerViolation.detectedTextY
+
+  // Calculate safe header percent (text position minus safety buffer)
+  const safeHeaderPercent = Math.max(
+    minimumHeaderPercent,
+    actualTextY - safetyBufferPercent
+  )
+
+  const safeHeaderHeight = Math.floor(canvasHeight * (safeHeaderPercent / 100))
+
+  return {
+    headerHeight: safeHeaderHeight,
+    headerPercent: safeHeaderPercent,
+    dynamicAdjustment: true,
+    detectedTextY: actualTextY,
+  }
+}

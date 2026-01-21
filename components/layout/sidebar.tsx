@@ -51,6 +51,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
   badge?: string
   adminOnly?: boolean
+  superAdminOnly?: boolean
 }
 
 const mainNavItems: NavItem[] = [
@@ -116,14 +117,14 @@ const settingsNavItems: NavItem[] = [
     title: 'Admin Credits',
     href: ROUTES.adminCredits,
     icon: Coins,
-    adminOnly: true,
+    superAdminOnly: true,
   },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, sidebarCollapsed, setSidebarCollapsed, createModeActive, analyticsModeActive } = useUIStore()
-  const { canManage } = useAuthStore()
+  const { canManage, checkSuperAdmin } = useAuthStore()
   const { user, profile, signOut, currentOrganization } = useAuth()
 
   // Prevent hydration mismatch by only rendering after client mount
@@ -141,10 +142,13 @@ export function Sidebar() {
 
   const initials = profile?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase() || '?'
   const isAdmin = canManage()
+  const isSuperAdmin = checkSuperAdmin()
 
-  const filteredSettingsItems = settingsNavItems.filter(
-    (item) => !item.adminOnly || isAdmin
-  )
+  const filteredSettingsItems = settingsNavItems.filter((item) => {
+    if (item.superAdminOnly) return isSuperAdmin
+    if (item.adminOnly) return isAdmin
+    return true
+  })
 
   return (
     <aside

@@ -4,12 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and get accurate platform-wide stats
+    const supabase = adminClient
 
     try {
       // Get today's date for filtering
@@ -28,25 +28,28 @@ export async function GET(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
 
       // Fetch active organizations count (those with credits > 0)
+      // Note: credits_balance is stored directly on organizations table
       const { count: activeOrgsCount } = await supabase
         .from('organizations')
         .select('*', { count: 'exact', head: true })
         .gt('credits_balance', 0)
 
       // Calculate total credits balance across all organizations
-      const { data: orgCredits } = await supabase
+      // Note: organizations table has credits_balance column directly
+      const { data: orgsWithCredits } = await supabase
         .from('organizations')
         .select('credits_balance')
 
-      const totalCreditsBalance = orgCredits?.reduce((sum, org) => sum + (org.credits_balance || 0), 0) || 0
+      const totalCreditsBalance = orgsWithCredits?.reduce((sum, org) => sum + (org.credits_balance || 0), 0) || 0
 
-      // Calculate total credits allocated from transactions
-      const { data: allocationTxns } = await supabase
+      // Calculate total allocated from credit_transactions (bonus/purchase types)
+      const { data: allocations } = await supabase
         .from('credit_transactions')
         .select('amount')
-        .in('type', ['allocation', 'purchase', 'bonus'])
+        .in('type', ['bonus', 'purchase', 'adjustment'])
+        .gt('amount', 0)
 
-      const totalCreditsAllocated = allocationTxns?.reduce((sum, tx) => sum + (tx.amount || 0), 0) || 0
+      const totalCreditsAllocated = allocations?.reduce((sum, tx) => sum + (tx.amount || 0), 0) || 0
 
       // Fetch today's credit usage
       const { data: todayUsageData } = await supabase

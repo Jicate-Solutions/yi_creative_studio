@@ -4,12 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+import { convertToINR } from '@/lib/services/currency'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and access all platform usage data
+    const supabase = adminClient
 
     // Parse query parameters
     const searchParams = req.nextUrl.searchParams
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
             total_input_tokens: 0,
             total_output_tokens: 0,
             total_cost_usd: 0,
+            total_cost_inr: 0,
             request_count: 0,
           }
         }
@@ -77,6 +79,7 @@ export async function GET(request: NextRequest) {
         aggregatedByProvider[key].total_input_tokens += usage.input_tokens || 0
         aggregatedByProvider[key].total_output_tokens += usage.output_tokens || 0
         aggregatedByProvider[key].total_cost_usd += usage.estimated_cost_usd || 0
+        aggregatedByProvider[key].total_cost_inr = convertToINR(aggregatedByProvider[key].total_cost_usd)
         aggregatedByProvider[key].request_count += 1
       })
 
@@ -86,11 +89,13 @@ export async function GET(request: NextRequest) {
       )
 
       // Calculate totals
+      const totalCostUSD = usageData?.reduce((sum, u) => sum + (u.estimated_cost_usd || 0), 0) || 0
       const totals = {
         total_requests: usageData?.length || 0,
         total_input_tokens: usageData?.reduce((sum, u) => sum + (u.input_tokens || 0), 0) || 0,
         total_output_tokens: usageData?.reduce((sum, u) => sum + (u.output_tokens || 0), 0) || 0,
-        total_cost_usd: usageData?.reduce((sum, u) => sum + (u.estimated_cost_usd || 0), 0) || 0,
+        total_cost_usd: totalCostUSD,
+        total_cost_inr: convertToINR(totalCostUSD),
       }
 
       return NextResponse.json({

@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Search, UserX, UserCheck, UserCog, Shield, Mail } from 'lucide-react'
+import { Search, UserX, UserCheck, UserCog, Shield, Mail, Building, Send, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { RefreshIndicator } from '@/components/super-admin/RefreshIndicator'
@@ -45,10 +45,10 @@ interface User {
   email: string
   created_at: string
   last_sign_in_at: string | null
-  status: 'active' | 'suspended' | 'deleted'
+  status: 'active' | 'suspended' | 'pending' | 'deleted'
   is_super_admin: boolean
-  suspended_at: string | null
-  suspension_reason: string | null
+  suspended_at?: string | null
+  suspension_reason?: string | null
   organizations: Organization[]
   organization_count: number
 }
@@ -58,6 +58,12 @@ interface Pagination {
   pageSize: number
   total: number
   totalPages: number
+}
+
+interface OrgOption {
+  id: string
+  name: string
+  slug: string
 }
 
 export default function UserSearchTable() {
@@ -83,6 +89,21 @@ export default function UserSearchTable() {
   const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false)
   const [impersonationReason, setImpersonationReason] = useState('')
   const [impersonating, setImpersonating] = useState(false)
+
+  // Assign to org dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [selectedOrgId, setSelectedOrgId] = useState('')
+  const [selectedRole, setSelectedRole] = useState<'viewer' | 'editor' | 'admin'>('viewer')
+  const [assigning, setAssigning] = useState(false)
+
+  // Invite to org dialog
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  const [inviteResult, setInviteResult] = useState<{ code: string; url: string } | null>(null)
+
+  // Organizations list for dropdowns
+  const [organizations, setOrganizations] = useState<OrgOption[]>([])
+  const [loadingOrgs, setLoadingOrgs] = useState(false)
 
   // Auto-refresh every 45 seconds
   const { isRefreshing, lastRefresh, manualRefresh } = useAutoRefresh({
@@ -126,10 +147,32 @@ export default function UserSearchTable() {
     }
   }
 
+  async function fetchOrganizations() {
+    if (organizations.length > 0) return // Already loaded
+    setLoadingOrgs(true)
+    try {
+      const response = await fetch('/api/super-admin/organizations/list?pageSize=100')
+      if (!response.ok) {
+        throw new Error('Failed to fetch organizations')
+      }
+      const data = await response.json()
+      setOrganizations(data.organizations.map((org: any) => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+      })))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch organizations')
+    } finally {
+      setLoadingOrgs(false)
+    }
+  }
+
   function getStatusBadge(status: string) {
     const variants = {
       active: { color: 'bg-green-100 text-green-800', label: 'Active' },
       suspended: { color: 'bg-red-100 text-red-800', label: 'Suspended' },
+      pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pending' },
       deleted: { color: 'bg-gray-100 text-gray-800', label: 'Deleted' },
     }
     const variant = variants[status as keyof typeof variants] || variants.active
@@ -244,6 +287,98 @@ export default function UserSearchTable() {
     }
   }
 
+  async function handleAssignToOrg() {
+    if (!selectedUser || !selectedOrgId) {
+      toast.error('Please select an organization')
+      return
+    }
+
+    setAssigning(true)
+    try {
+      const response = await fetch(`/api/super-admin/users/${selectedUser.id}/assign-org`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_id: selectedOrgId,
+          role: selectedRole,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.details || 'Failed to assign user to organization')
+      }
+
+      const data = await response.json()
+      toast.success(data.message)
+
+      setAssignDialogOpen(false)
+      setSelectedOrgId('')
+      setSelectedRole('viewer')
+      setSelectedUser(null)
+      fetchUsers() // Refresh list
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to assign user')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  async function handleInviteToOrg() {
+    if (!selectedUser || !selectedOrgId) {
+      toast.error('Please select an organization')
+      return
+    }
+
+    setInviting(true)
+    try {
+      const response = await fetch(`/api/super-admin/users/${selectedUser.id}/invite-org`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_id: selectedOrgId,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.details || 'Failed to generate invite')
+      }
+
+      const data = await response.json()
+      setInviteResult({
+        code: data.invite.invite_code,
+        url: data.invite.invite_url,
+      })
+      toast.success('Invite generated successfully')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate invite')
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    toast.success('Copied to clipboard')
+  }
+
+  function openAssignDialog(user: User) {
+    setSelectedUser(user)
+    setSelectedOrgId('')
+    setSelectedRole('viewer')
+    setAssignDialogOpen(true)
+    fetchOrganizations()
+  }
+
+  function openInviteDialog(user: User) {
+    setSelectedUser(user)
+    setSelectedOrgId('')
+    setInviteResult(null)
+    setInviteDialogOpen(true)
+    fetchOrganizations()
+  }
+
   return (
     <div className="space-y-4">
       {/* Search & Filters */}
@@ -269,6 +404,7 @@ export default function UserSearchTable() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="suspended">Suspended</SelectItem>
               <SelectItem value="deleted">Deleted</SelectItem>
             </SelectContent>
@@ -377,7 +513,31 @@ export default function UserSearchTable() {
                   </TableCell>
 
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      {/* Assign/Invite buttons for users without organizations */}
+                      {user.organization_count === 0 && !user.is_super_admin && user.status === 'active' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openAssignDialog(user)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Building className="w-4 h-4 mr-1" />
+                            Assign
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openInviteDialog(user)}
+                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          >
+                            <Send className="w-4 h-4 mr-1" />
+                            Invite
+                          </Button>
+                        </>
+                      )}
+
                       {user.status === 'active' && !user.is_super_admin && (
                         <>
                           <Button
@@ -560,6 +720,200 @@ export default function UserSearchTable() {
             >
               {impersonating ? 'Starting Session...' : 'Start Impersonation'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign to Organization Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign User to Organization</DialogTitle>
+            <DialogDescription>
+              Directly add <strong>{selectedUser?.email}</strong> to an organization. They will immediately gain access based on the assigned role.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+              <strong>Note:</strong> This assigns the user immediately without sending an invitation. Use &quot;Invite&quot; instead if you want them to join via a link.
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="assign-org">Organization *</Label>
+              <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                <SelectTrigger id="assign-org">
+                  <SelectValue placeholder={loadingOrgs ? 'Loading...' : 'Select an organization'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="assign-role">Role</Label>
+              <Select value={selectedRole} onValueChange={(value: 'viewer' | 'editor' | 'admin') => setSelectedRole(value)}>
+                <SelectTrigger id="assign-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer (read-only)</SelectItem>
+                  <SelectItem value="editor">Editor (can create/edit)</SelectItem>
+                  <SelectItem value="admin">Admin (full access)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Default role is Viewer. You can change this later from the organization settings.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssignDialogOpen(false)
+                setSelectedOrgId('')
+                setSelectedRole('viewer')
+                setSelectedUser(null)
+              }}
+              disabled={assigning}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignToOrg}
+              disabled={assigning || !selectedOrgId}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {assigning ? 'Assigning...' : 'Assign to Organization'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite to Organization Dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={(open) => {
+        setInviteDialogOpen(open)
+        if (!open) {
+          setInviteResult(null)
+          setSelectedOrgId('')
+          setSelectedUser(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite User to Organization</DialogTitle>
+            <DialogDescription>
+              Generate an invite link for <strong>{selectedUser?.email}</strong> to join an organization.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {!inviteResult ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-org">Organization *</Label>
+                  <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                    <SelectTrigger id="invite-org">
+                      <SelectValue placeholder={loadingOrgs ? 'Loading...' : 'Select an organization'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-sm text-indigo-800">
+                  <strong>How it works:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>An invite link will be generated</li>
+                    <li>Share the link with the user</li>
+                    <li>They can join by clicking the link</li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800 font-medium mb-2">Invite Generated Successfully!</p>
+                  <p className="text-xs text-green-700">Share this link with the user:</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Invite URL</Label>
+                  <div className="flex gap-2">
+                    <Input value={inviteResult.url} readOnly className="flex-1 font-mono text-sm" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyToClipboard(inviteResult.url)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Invite Code</Label>
+                  <div className="flex gap-2">
+                    <Input value={inviteResult.code} readOnly className="flex-1 font-mono text-sm tracking-wider" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyToClipboard(inviteResult.code)}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {!inviteResult ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInviteDialogOpen(false)
+                    setSelectedOrgId('')
+                    setSelectedUser(null)
+                  }}
+                  disabled={inviting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleInviteToOrg}
+                  disabled={inviting || !selectedOrgId}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {inviting ? 'Generating...' : 'Generate Invite'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => {
+                  setInviteDialogOpen(false)
+                  setInviteResult(null)
+                  setSelectedOrgId('')
+                  setSelectedUser(null)
+                }}
+              >
+                Done
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

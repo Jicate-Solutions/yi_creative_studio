@@ -70,6 +70,26 @@ The main creative generation flow (`/api/generate`) uses a multi-stage AI pipeli
 
 ### Critical Design Patterns
 
+**⚠️ FULL-CANVAS GENERATION (v24.6 - MANDATORY)** (`app/api/generate/route.ts`, `lib/sharp/logo-overlay.ts`):
+- **USER REQUIREMENT**: Gemini MUST generate FULL canvas (e.g., 1080x1440) including header/footer design
+- **REASON**: User wants AI-generated blue gradient header/footer (NOT static, NOT blurred!)
+- **IMPLEMENTATION**:
+  - Generate at full canvas size (NOT content-only, REVERTED v24.4)
+  - Use Gemini's output directly (NO artificial backgrounds, REVERTED v24.5)
+  - Logo bars overlay with TRANSPARENT backgrounds (alpha: 0.1/0/0.85)
+  - Gemini's artistic header/footer shows through logo overlays
+- **PROTECTION**: Feature flags `USE_FULL_CANVAS_GENERATION` and `PRESERVE_GEMINI_BACKGROUNDS` enforce this
+- **TRADE-OFF**: Accept occasional text-logo overlaps (user-approved for Gemini creativity)
+- **NEVER**: Switch to content-only generation or add blurred backgrounds without user approval
+- **DOCUMENTATION**: See `doc/v24.6-full-canvas-restoration.md` for full details
+
+**Transparent Logo Bar Values (v24.6 - MANDATORY)**:
+- Row 1 (Brand): `alpha: 0.1` (nearly transparent - Gemini header visible)
+- Row 2 (Vertical): `alpha: 0` (fully transparent - blue gradient visible)
+- Row 3 (Initiative): `alpha: 0.85` (semi-transparent - text readable with Gemini showing)
+- Constants: `LOGO_BAR_ALPHA_ROW1_BRAND`, `LOGO_BAR_ALPHA_ROW2_VERTICAL`, `LOGO_BAR_ALPHA_ROW3_INITIATIVE`
+- **NEVER**: Increase opacity without user approval (user rejected alpha: 0.92 as too opaque)
+
 **Instruction vs Content Separation**: Gemini renders instruction language ("Include", "Feature", "Create") as visible text. Use XML-structured prompts:
 ```xml
 <text role="headline">Event Title Here</text>  <!-- RENDERS -->

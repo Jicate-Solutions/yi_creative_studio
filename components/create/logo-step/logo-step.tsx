@@ -72,14 +72,14 @@ export function LogoStep() {
 
         {/* Right Column: 4-Row Strip Settings */}
         <div className="lg:col-span-1 space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="max-h-[calc(100vh-200px)] flex flex-col">
+            <CardHeader className="pb-3 flex-shrink-0">
               <CardTitle className="text-sm font-medium">Logo Strip Configuration</CardTitle>
               <CardDescription className="text-xs">
                 Set up your header and footer branding
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-y-auto">
               <EnhancedStripSettings />
             </CardContent>
           </Card>

@@ -3,55 +3,93 @@
  * GET /api/super-admin/credits/analytics
  *
  * Platform-wide credit usage analytics and statistics
+ * Note: Credits are stored directly on organizations.credits_balance
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    // Use adminClient to bypass RLS and access all credit analytics
+    const supabase = adminClient
 
     try {
-      // 1. Get all organizations with their credit balances
-      const { data: organizations } = await supabase
+      // 1. Get all organizations with their credit balance
+      const { data: organizations, error: orgsError } = await supabase
         .from('organizations')
-        .select('id, name, credits_balance')
+        .select('id, name, is_active, credits_balance')
 
+      if (orgsError) {
+        console.error('[credits-analytics] Failed to fetch organizations:', orgsError)
+        throw new Error('Failed to fetch organizations')
+      }
+
+      // Calculate total balance across all organizations
       const totalBalance = organizations?.reduce(
         (sum, org) => sum + (org.credits_balance || 0),
         0
       ) || 0
 
-      // 2. Credit distribution (organizations by balance range)
-      const balanceRanges = {
-        empty: organizations?.filter((org) => org.credits_balance === 0).length || 0,
-        low: organizations?.filter((org) => org.credits_balance > 0 && org.credits_balance <= 100).length || 0,
-        medium: organizations?.filter((org) => org.credits_balance > 100 && org.credits_balance <= 1000).length || 0,
-        high: organizations?.filter((org) => org.credits_balance > 1000).length || 0,
-      }
-
-      // 3. Calculate totals from credit_transactions
-      const { data: allTransactions } = await supabase
+      // 2. Get aggregated transaction data for totals
+      const { data: transactions, error: txnError } = await supabase
         .from('credit_transactions')
         .select('type, amount')
 
-      const totals = allTransactions?.reduce(
-        (acc, txn) => {
-          if (txn.type === 'purchase') {
-            acc.total_purchased += txn.amount || 0
-          } else if (txn.type === 'allocation' || txn.type === 'bonus') {
-            acc.total_allocated += txn.amount || 0
-          } else if (txn.type === 'usage' || txn.type === 'consumption') {
-            acc.total_consumed += Math.abs(txn.amount || 0)
-          }
-          return acc
-        },
-        { total_balance: totalBalance, total_purchased: 0, total_allocated: 0, total_consumed: 0 }
-      ) || { total_balance: totalBalance, total_purchased: 0, total_allocated: 0, total_consumed: 0 }
+      if (txnError) {
+        console.error('[credits-analytics] Failed to fetch transactions:', txnError)
+      }
 
-      // 4. Recent credit transactions (last 7 days)
+      // Calculate totals from transactions
+      let totalAllocated = 0
+      let totalConsumed = 0
+      let totalPurchased = 0
+      let totalRefunded = 0
+
+      transactions?.forEach((txn) => {
+        const amount = txn.amount || 0
+        switch (txn.type) {
+          case 'bonus':
+          case 'adjustment':
+            if (amount > 0) totalAllocated += amount
+            break
+          case 'purchase':
+            totalPurchased += amount
+            totalAllocated += amount
+            break
+          case 'generation':
+            totalConsumed += Math.abs(amount)
+            break
+          case 'refund':
+            totalRefunded += amount
+            break
+        }
+      })
+
+      // 3. Credit distribution (organizations by balance range)
+      const balanceRanges = {
+        empty: organizations?.filter((org) => (org.credits_balance || 0) === 0).length || 0,
+        low: organizations?.filter((org) => {
+          const balance = org.credits_balance || 0
+          return balance > 0 && balance <= 100
+        }).length || 0,
+        medium: organizations?.filter((org) => {
+          const balance = org.credits_balance || 0
+          return balance > 100 && balance <= 1000
+        }).length || 0,
+        high: organizations?.filter((org) => (org.credits_balance || 0) > 1000).length || 0,
+      }
+
+      // 4. Totals object
+      const totals = {
+        total_balance: totalBalance,
+        total_allocated: totalAllocated,
+        total_consumed: totalConsumed,
+        total_purchased: totalPurchased,
+        total_refunded: totalRefunded,
+      }
+
+      // 5. Recent credit transactions (last 7 days)
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
@@ -68,9 +106,9 @@ export async function GET(request: NextRequest) {
           acc[day] = { allocated: 0, consumed: 0, refunded: 0 }
         }
 
-        if (txn.type === 'allocation' || txn.type === 'bonus' || txn.type === 'purchase') {
+        if (txn.type === 'bonus' || txn.type === 'purchase' || txn.type === 'adjustment') {
           acc[day].allocated += txn.amount || 0
-        } else if (txn.type === 'usage' || txn.type === 'consumption') {
+        } else if (txn.type === 'generation') {
           acc[day].consumed += Math.abs(txn.amount || 0)
         } else if (txn.type === 'refund') {
           acc[day].refunded += txn.amount || 0
@@ -79,13 +117,13 @@ export async function GET(request: NextRequest) {
         return acc
       }, {} as Record<string, { allocated: number; consumed: number; refunded: number }>)
 
-      // 5. Top consumers - from organizations sorted by credits usage
-      // Calculate total consumed per organization from transactions
+      // 6. Top consumers - aggregate from credit_transactions by organization
       const { data: consumptionByOrg } = await supabase
         .from('credit_transactions')
         .select('organization_id, amount')
-        .in('type', ['usage', 'consumption'])
+        .eq('type', 'generation')
 
+      // Aggregate consumption by organization
       const orgConsumption: Record<string, number> = {}
       consumptionByOrg?.forEach((txn) => {
         if (txn.organization_id) {
@@ -93,7 +131,7 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      // Sort and get top 10
+      // Map to organization details and sort
       const topConsumers = Object.entries(orgConsumption)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 10)
@@ -103,18 +141,21 @@ export async function GET(request: NextRequest) {
             organization_id: orgId,
             organization_name: org?.name || 'Unknown',
             total_consumed: consumed,
+            current_balance: org?.credits_balance || 0,
           }
         })
 
-      // 6. Organizations needing attention (low balance)
+      // 7. Organizations needing attention (low balance, threshold = 100)
+      const LOW_BALANCE_THRESHOLD = 100
       const lowBalanceOrgs = organizations
-        ?.filter((org) => org.credits_balance <= 100)
-        .sort((a, b) => a.credits_balance - b.credits_balance)
+        ?.filter((org) => org.is_active && (org.credits_balance || 0) <= LOW_BALANCE_THRESHOLD)
+        .sort((a, b) => (a.credits_balance || 0) - (b.credits_balance || 0))
         .slice(0, 10)
         .map((org) => ({
           organization_id: org.id,
           organization_name: org.name,
-          balance: org.credits_balance,
+          balance: org.credits_balance || 0,
+          threshold: LOW_BALANCE_THRESHOLD,
         })) || []
 
       return NextResponse.json({
@@ -123,12 +164,12 @@ export async function GET(request: NextRequest) {
           totals,
           balance_distribution: balanceRanges,
           daily_stats: dailyStats || {},
-          top_consumers: topConsumers || [],
+          top_consumers: topConsumers,
           low_balance_orgs: lowBalanceOrgs,
         },
       })
     } catch (error) {
-      console.error('[super-admin] Exception fetching analytics:', error)
+      console.error('[credits-analytics] Exception fetching analytics:', error)
       return NextResponse.json(
         {
           error: 'Failed to fetch analytics',

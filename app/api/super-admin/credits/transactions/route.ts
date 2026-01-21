@@ -7,11 +7,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    // Use adminClient to bypass RLS and access all credit transactions
+    const supabase = adminClient
     const { searchParams } = new URL(req.url)
 
     // Query parameters
@@ -67,23 +67,29 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Format transactions
-      const formattedTransactions = transactions?.map((txn) => ({
-        id: txn.id,
-        organization_id: txn.organization_id,
-        organization_name: (txn.organizations as any)?.name || 'Unknown',
-        type: txn.type,
-        amount: txn.amount,
-        amount_inr: txn.amount_inr,
-        balance_after: txn.balance_after,
-        description: txn.description,
-        creative_id: txn.creative_id,
-        user_id: txn.user_id,
-        payment_provider: txn.payment_provider,
-        payment_id: txn.payment_id,
-        metadata: txn.metadata,
-        created_at: txn.created_at,
-      }))
+      // Format transactions with proper type handling
+      const formattedTransactions = transactions?.map((txn) => {
+        // Safely extract organization name from nested join
+        const orgData = txn.organizations as { id: string; name: string } | null
+        const organizationName = orgData?.name || 'Unknown'
+
+        return {
+          id: txn.id,
+          organization_id: txn.organization_id,
+          organization_name: organizationName,
+          type: txn.type,
+          amount: txn.amount,
+          amount_inr: txn.amount_inr,
+          balance_after: txn.balance_after,
+          description: txn.description,
+          creative_id: txn.creative_id,
+          user_id: txn.user_id,
+          payment_provider: txn.payment_provider,
+          payment_id: txn.payment_id,
+          metadata: txn.metadata,
+          created_at: txn.created_at,
+        }
+      })
 
       return NextResponse.json({
         success: true,

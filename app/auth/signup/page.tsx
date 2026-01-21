@@ -253,6 +253,10 @@ export default function SignupPage() {
             </form>
           </Form>
 
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+            <strong>Next step after signup:</strong> You&apos;ll need to create a new organization or join an existing one to access the platform and start creating.
+          </div>
+
           <p className="text-xs text-muted-foreground text-center">
             By signing up, you agree to our{' '}
             <Link href="/terms" className="text-primary hover:underline">

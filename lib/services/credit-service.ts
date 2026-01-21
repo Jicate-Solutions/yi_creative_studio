@@ -4,7 +4,7 @@
  *
  * CRITICAL: All credit operations MUST be atomic (balance + transaction in single operation)
  *
- * NOTE: Credits are stored directly on the organizations table as credits_balance.
+ * NOTE: Credits are stored in the organizations.credits_balance column.
  * Transactions are logged in the credit_transactions table.
  *
  * @module credit-service
@@ -14,12 +14,16 @@ import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from './audit-service'
 import type { Json } from '@/types/database.types'
 
+// Type for Supabase client (can be regular or admin client)
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+
 export interface AllocateCreditsParams {
   organization_id: string
   amount: number
   reason: string
   allocated_by: string // Super Admin user ID
-  reference_type?: 'subscription_renewal' | 'manual_allocation' | 'purchase' | 'bonus' | 'adjustment'
+  // Valid DB types: 'purchase', 'generation', 'refund', 'bonus', 'adjustment'
+  reference_type?: 'purchase' | 'bonus' | 'adjustment'
   reference_id?: string
   metadata?: Record<string, unknown>
 }
@@ -46,9 +50,12 @@ export interface RefundCreditsParams {
  * Allocate credits to organization
  * Creates transaction and updates balance atomically
  *
+ * @param supabase - Supabase client (should be admin client for super-admin operations)
+ * @param params - Allocation parameters
+ *
  * @example
  * ```typescript
- * const result = await allocateCredits({
+ * const result = await allocateCredits(adminClient, {
  *   organization_id: 'org-uuid',
  *   amount: 1000,
  *   reason: 'Monthly subscription renewal',
@@ -58,18 +65,19 @@ export interface RefundCreditsParams {
  * })
  * ```
  */
-export async function allocateCredits(params: AllocateCreditsParams): Promise<{
+export async function allocateCredits(
+  supabase: SupabaseClient,
+  params: AllocateCreditsParams
+): Promise<{
   success: boolean
   new_balance: number
   transaction_id: string
 }> {
-  const supabase = await createClient()
-
   try {
     // 1. Get current balance from organizations table
     const { data: org, error: fetchError } = await supabase
       .from('organizations')
-      .select('credits_balance')
+      .select('id, credits_balance')
       .eq('id', params.organization_id)
       .single()
 
@@ -85,7 +93,7 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
       .from('credit_transactions')
       .insert({
         organization_id: params.organization_id,
-        type: params.reference_type || 'allocation',
+        type: params.reference_type || 'bonus',
         amount: params.amount,
         balance_after,
         description: params.reason,
@@ -142,9 +150,13 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
  * Consume credits (called during API usage)
  * Deducts credits and logs consumption
  *
+ * @param supabase - Supabase client
+ * @param params - Consumption parameters
+ *
  * @example
  * ```typescript
- * const result = await consumeCredits({
+ * const supabase = await createClient()
+ * const result = await consumeCredits(supabase, {
  *   organization_id: org.id,
  *   amount: 10,
  *   reason: 'AI creative generation',
@@ -154,18 +166,19 @@ export async function allocateCredits(params: AllocateCreditsParams): Promise<{
  * })
  * ```
  */
-export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
+export async function consumeCredits(
+  supabase: SupabaseClient,
+  params: ConsumeCreditsParams
+): Promise<{
   success: boolean
   new_balance: number
   transaction_id: string
 }> {
-  const supabase = await createClient()
-
   try {
     // 1. Get current balance from organizations table
     const { data: org, error: fetchError } = await supabase
       .from('organizations')
-      .select('credits_balance')
+      .select('id, credits_balance')
       .eq('id', params.organization_id)
       .single()
 
@@ -187,7 +200,7 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
       .from('credit_transactions')
       .insert({
         organization_id: params.organization_id,
-        type: 'usage',
+        type: 'generation',
         amount: -params.amount, // Negative for consumption
         balance_after,
         description: params.reason,
@@ -229,9 +242,13 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
  * Refund credits to organization
  * Used when AI generation fails or needs to be reversed
  *
+ * @param supabase - Supabase client
+ * @param params - Refund parameters
+ *
  * @example
  * ```typescript
- * await refundCredits({
+ * const supabase = await createClient()
+ * await refundCredits(supabase, {
  *   organization_id: org.id,
  *   amount: 10,
  *   reason: 'AI generation failed',
@@ -241,18 +258,19 @@ export async function consumeCredits(params: ConsumeCreditsParams): Promise<{
  * })
  * ```
  */
-export async function refundCredits(params: RefundCreditsParams): Promise<{
+export async function refundCredits(
+  supabase: SupabaseClient,
+  params: RefundCreditsParams
+): Promise<{
   success: boolean
   new_balance: number
   transaction_id: string
 }> {
-  const supabase = await createClient()
-
   try {
     // 1. Get current balance from organizations table
     const { data: org, error: fetchError } = await supabase
       .from('organizations')
-      .select('credits_balance')
+      .select('id, credits_balance')
       .eq('id', params.organization_id)
       .single()
 
@@ -324,21 +342,27 @@ export async function refundCredits(params: RefundCreditsParams): Promise<{
 /**
  * Get organization credit balance
  *
+ * @param supabase - Supabase client
+ * @param organization_id - Organization ID
+ *
  * @example
  * ```typescript
- * const balance = await getCreditBalance(org.id)
+ * const supabase = await createClient()
+ * const balance = await getCreditBalance(supabase, org.id)
  * console.log(`Available credits: ${balance.balance}`)
  * ```
  */
-export async function getCreditBalance(organization_id: string): Promise<{
+export async function getCreditBalance(
+  supabase: SupabaseClient,
+  organization_id: string
+): Promise<{
   balance: number
   is_low_balance: boolean
+  low_balance_threshold: number
 }> {
-  const supabase = await createClient()
-
   const { data, error } = await supabase
     .from('organizations')
-    .select('credits_balance')
+    .select('id, credits_balance')
     .eq('id', organization_id)
     .single()
 
@@ -347,11 +371,12 @@ export async function getCreditBalance(organization_id: string): Promise<{
   }
 
   const balance = data.credits_balance || 0
-  const LOW_BALANCE_THRESHOLD = 100 // Default threshold
+  const threshold = 100 // Default threshold
 
   return {
     balance,
-    is_low_balance: balance <= LOW_BALANCE_THRESHOLD,
+    is_low_balance: balance <= threshold,
+    low_balance_threshold: threshold,
   }
 }
 

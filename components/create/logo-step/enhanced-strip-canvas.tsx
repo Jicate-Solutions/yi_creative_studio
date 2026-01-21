@@ -259,7 +259,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             </div>
 
             {/* ═══ ZONE 2: Center Content (Hashtag + Website + Social Bar) ═══ */}
-            {/* v18.4: Flex-1 to take remaining space, centered content */}
+            {/* v20.9: Only center info content - Digital Partner moved to Zone 3 */}
             <div className="flex-1 flex flex-col items-center justify-center gap-0.5 py-0">
               {/* Hashtag - Primary CTA */}
               {footer.hashtag.enabled && footer.hashtag.text.trim() && (
@@ -286,7 +286,6 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
               )}
 
               {/* Social Media Bar - Dark Pill */}
-              {/* v16.10: Increased sizes for better visibility to match SVG rendering */}
               {(footer.socialBar?.enabled ?? true) && footer.website.socialHandle?.trim() && (
                 <div
                   className="flex items-center gap-2 px-3 py-1 mt-0.5"
@@ -295,7 +294,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                     borderRadius: `${footer.socialBar?.borderRadius || 20}px`,
                   }}
                 >
-                  {/* Instagram Icon (Raw SVG for stability) */}
+                  {/* Instagram Icon */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -313,7 +312,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                   </svg>
 
-                  {/* Facebook Icon (Raw SVG for stability) */}
+                  {/* Facebook Icon */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -338,14 +337,17 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   </span>
                 </div>
               )}
+            </div>
 
-              {/* "Supported By" Label + Partner Logo (v19.0: Moved from Zone 3 to Zone 2) */}
+            {/* ═══ ZONE 3: Digital Partner (Right) ═══ */}
+            {/* v20.9: Moved Digital Partner to Zone 3 for proper 3-zone layout */}
+            <div className="w-[30%] flex flex-col items-center justify-center">
               {footer.digitalPartner.enabled && partnerLogo?.file_url && (
-                <div className="flex flex-col items-center justify-center gap-0.5 text-center mt-1">
-                  {/* "Supported By" Label */}
+                <div className="flex flex-col items-center justify-center gap-0.5 text-center">
+                  {/* "Digital Partner" Label - Bold uppercase for visibility */}
                   <span
-                    className="text-[7px] uppercase tracking-wider whitespace-nowrap"
-                    style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
+                    className="text-[9px] uppercase tracking-wider whitespace-nowrap font-bold"
+                    style={{ color: footer.digitalPartner.labelColor || '#374151' }}
                   >
                     {footer.digitalPartner.labelText}
                   </span>
@@ -374,9 +376,6 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                 </div>
               )}
             </div>
-
-            {/* ═══ ZONE 3: Reserved (Empty in preview, used in backend generation) ═══ */}
-            {/* v19.0: "Supported By" moved to Zone 2 - Zone 3 empty in preview to match backend layout */}
           </div>
         </div>
       )}

@@ -10,7 +10,7 @@ import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admi
 import { allocateCredits } from '@/lib/services/credit-service'
 
 export async function POST(request: NextRequest) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
     const metadata = getRequestMetadata(req)
 
     try {
@@ -35,13 +35,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Allocate credits
-      const result = await allocateCredits({
+      // Allocate credits using admin client to bypass RLS
+      // Valid types: 'purchase', 'generation', 'refund', 'bonus', 'adjustment'
+      const result = await allocateCredits(adminClient, {
         organization_id,
         amount,
         reason,
         allocated_by: superAdmin.id,
-        reference_type: reference_type || 'manual_allocation',
+        reference_type: reference_type || 'bonus',
         metadata: {
           ...metadata,
           super_admin_email: superAdmin.email,

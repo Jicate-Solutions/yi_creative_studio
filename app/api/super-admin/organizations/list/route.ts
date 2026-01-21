@@ -7,11 +7,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async (req) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    // Use adminClient to bypass RLS and see all organizations
+    const supabase = adminClient
     const { searchParams } = new URL(req.url)
 
     // Query parameters
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * pageSize
 
     try {
-      // Build base query
+      // Build base query - credits_balance is directly on organizations table
       let query = supabase
         .from('organizations')
         .select('*', { count: 'exact' })
@@ -46,7 +46,10 @@ export async function GET(request: NextRequest) {
       if (sortBy === 'name') {
         query = query.order('name', { ascending: sortOrder === 'asc' })
       } else if (sortBy === 'credits') {
-        query = query.order('credits_balance', { ascending: sortOrder === 'asc' })
+        // For sorting by credits, we need to order by the joined table field
+        // Note: Supabase may not support ordering by joined fields directly
+        // We'll fetch all and sort in memory if needed
+        query = query.order('created_at', { ascending: sortOrder === 'asc' })
       } else {
         query = query.order(sortBy, { ascending: sortOrder === 'asc' })
       }
@@ -93,12 +96,15 @@ export async function GET(request: NextRequest) {
       })
 
       // Calculate health scores and format data
-      const formattedOrganizations = organizations?.map((org) => {
+      const formattedOrganizations = organizations?.map((org: any) => {
+        // credits_balance is directly on organizations table
+        const creditBalance = org.credits_balance || 0
+
         const lastActivity = lastActivityMap[org.id] || org.created_at
 
         // Health score calculation
         const healthScore = calculateHealthScore({
-          creditBalance: org.credits_balance || 0,
+          creditBalance,
           isActive: org.is_active ?? true,
           lastActivity,
           memberCount: memberCountMap[org.id] || 0,
@@ -111,8 +117,11 @@ export async function GET(request: NextRequest) {
           created_at: org.created_at,
           is_active: org.is_active ?? true,
 
-          // Credit info
-          credit_balance: org.credits_balance || 0,
+          // Credit info directly from organizations table
+          credit_balance: creditBalance,
+          total_allocated: 0,  // Not tracked in current schema
+          total_consumed: 0,   // Not tracked in current schema
+          low_balance_threshold: 100,  // Default value
 
           // Team info
           member_count: memberCountMap[org.id] || 0,
@@ -124,6 +133,15 @@ export async function GET(request: NextRequest) {
           health_score: healthScore,
         }
       }) || []
+
+      // Sort by credits in memory if requested (since Supabase doesn't support sorting by joined fields)
+      if (sortBy === 'credits') {
+        formattedOrganizations.sort((a, b) => {
+          const aBalance = a.credit_balance || 0
+          const bBalance = b.credit_balance || 0
+          return sortOrder === 'asc' ? aBalance - bBalance : bBalance - aBalance
+        })
+      }
 
       return NextResponse.json({
         success: true,

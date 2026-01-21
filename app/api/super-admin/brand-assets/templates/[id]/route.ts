@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard, getRequestMetadata } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 import { logSuperAdminAction } from '@/lib/services/audit-service'
 
 /**
@@ -17,8 +16,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return superAdminGuard(request, async (req, { superAdmin }) => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { superAdmin, adminClient }) => {
+    // Use adminClient to bypass RLS and delete any template
+    const supabase = adminClient
     const { id: templateId } = await params
     const metadata = getRequestMetadata(req)
 
@@ -51,21 +51,37 @@ export async function DELETE(
       // Delete template thumbnail from storage if exists
       if (template.preview_image_url) {
         try {
-          // Extract storage path from URL
-          const urlParts = template.preview_image_url.split('/storage/v1/object/public/')
-          if (urlParts.length > 1) {
-            const storagePath = urlParts[1]
-            const [bucket, ...pathParts] = storagePath.split('/')
-            const filePath = pathParts.join('/')
+          // Extract storage path from URL using safer parsing
+          const storageMarker = '/storage/v1/object/public/'
+          const markerIndex = template.preview_image_url.indexOf(storageMarker)
 
-            const { error: storageError } = await supabase.storage
-              .from(bucket)
-              .remove([filePath])
+          if (markerIndex !== -1) {
+            const storagePath = template.preview_image_url.substring(markerIndex + storageMarker.length)
+            const pathParts = storagePath.split('/')
 
-            if (storageError) {
-              console.error('[super-admin] Failed to delete template thumbnail:', storageError)
-              // Continue with database deletion even if storage fails
+            // Validate we have at least bucket/filepath
+            if (pathParts.length >= 2) {
+              const bucket = pathParts[0]
+              const filePath = pathParts.slice(1).join('/')
+
+              // Validate bucket name (should be alphanumeric with hyphens/underscores)
+              if (bucket && /^[a-zA-Z0-9_-]+$/.test(bucket) && filePath) {
+                const { error: storageError } = await supabase.storage
+                  .from(bucket)
+                  .remove([filePath])
+
+                if (storageError) {
+                  console.error('[super-admin] Failed to delete template thumbnail:', storageError)
+                  // Continue with database deletion even if storage fails
+                }
+              } else {
+                console.warn('[super-admin] Invalid bucket or file path:', { bucket, filePath })
+              }
+            } else {
+              console.warn('[super-admin] Could not parse bucket/filepath from URL:', template.preview_image_url)
             }
+          } else {
+            console.warn('[super-admin] Could not find storage marker in URL:', template.preview_image_url)
           }
         } catch (storageError) {
           console.error('[super-admin] Exception deleting template thumbnail:', storageError)
@@ -85,6 +101,10 @@ export async function DELETE(
         )
       }
 
+      // Safely extract organization name from nested join
+      const orgData = template.organizations as { id: string; name: string } | null
+      const organizationName = orgData?.name || 'Platform Template'
+
       // Log Super Admin action
       await logSuperAdminAction({
         super_admin_id: superAdmin.id,
@@ -96,7 +116,7 @@ export async function DELETE(
           before: {
             name: template.name,
             category: template.category,
-            organization_name: (template.organizations as any)?.name,
+            organization_name: organizationName,
             used_in_creatives: usedInCreatives,
           },
         },
@@ -109,7 +129,7 @@ export async function DELETE(
         template: {
           id: templateId,
           name: template.name,
-          organization_name: (template.organizations as any)?.name,
+          organization_name: organizationName,
           was_used_in_creatives: usedInCreatives > 0,
           usage_count: usedInCreatives,
         },

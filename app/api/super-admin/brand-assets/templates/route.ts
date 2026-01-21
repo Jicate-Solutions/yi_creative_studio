@@ -7,11 +7,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
-import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  return superAdminGuard(request, async () => {
-    const supabase = await createClient()
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    // Use adminClient to bypass RLS and access all templates
+    const supabase = adminClient
     const { searchParams } = new URL(request.url)
 
     // Query parameters
