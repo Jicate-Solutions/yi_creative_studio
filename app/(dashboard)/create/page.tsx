@@ -77,6 +77,7 @@ import {
   Save,
   Maximize2,
   ChevronDown,
+  Users,
 } from 'lucide-react'
 import { VerticalIcon } from '@/components/ui/vertical-icon'
 import { Stepper, type Step } from '@/components/ui/stepper'
@@ -210,9 +211,11 @@ function ComponentLoadingSkeleton({ type }: { type: 'preview' | 'grid' | 'templa
 
 import { ROUTES } from '@/lib/config/constants'
 import { isPastDate } from '@/lib/utils/date-utils'
+import { STAKEHOLDERS, VERTICALS, normalizeVerticalName } from '@/lib/config/vertical-groups'
 import type { CreationMode } from '@/types/design.types'
 import type { SpeakerPhotoCustomization, CustomColors } from '@/lib/config/design-constants'
 import { cn } from '@/lib/utils'
+
 
 // Display-friendly names for AI models (hide technical names from users)
 const getModelDisplayName = (slug: string) => {
@@ -936,7 +939,14 @@ export default function CreatePage() {
 
   // Navigation handlers
   const handleBack = () => {
-    if (step > 1) setStep(step - 1)
+    if (step > 1) {
+      // Skip Step 6 (Styling) if in template mode - we go back to Details
+      if (step === 7 && formData.creationMode === 'template') {
+        setStep(5)
+      } else {
+        setStep(step - 1)
+      }
+    }
   }
 
   const handleNext = async () => {
@@ -982,7 +992,14 @@ export default function CreatePage() {
       }
     }
 
-    if (step < 7) setStep(step + 1)
+    if (step < 7) {
+      // Skip Step 6 (Styling) if in template mode - we go straight to Generate
+      if (step === 5 && formData.creationMode === 'template') {
+        setStep(7)
+      } else {
+        setStep(step + 1)
+      }
+    }
   }
 
   const canProceed = () => {
@@ -992,7 +1009,9 @@ export default function CreatePage() {
       case 2:
         return !!selectedVertical
       case 3:
-        return !!formData.creationMode
+        if (!formData.creationMode) return false
+        if (formData.creationMode === 'template' && !selectedTemplate) return false
+        return true
       case 4:
         return true // Logos are optional (Smart Layout - AI knows positions)
       case 5:
@@ -1153,106 +1172,214 @@ export default function CreatePage() {
 
                 {/* Step 2: Select Vertical & Creation Mode */}
                 {step === 2 && (
-                  <div className="space-y-6">
-                    <Card darkVariant="elevated">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Palette className="h-5 w-5 text-primary" />
-                          Select Vertical
-                        </CardTitle>
-                        <CardDescription>
-                          Choose the Yi initiative category for your creative
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {isVerticalsLoading ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {[...Array(6)].map((_, i) => (
-                              <Skeleton key={i} className="h-28 rounded-xl" />
-                            ))}
-                          </div>
-                        ) : verticalsError ? (
-                          <div className="text-center py-12">
-                            <p className="text-destructive mb-4">Failed to load verticals: {verticalsError}</p>
-                            <Button variant="outline" onClick={() => fetchVerticals()}>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Retry
-                            </Button>
-                          </div>
-                        ) : verticals.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p>No verticals available.</p>
-                            <Button variant="outline" className="mt-4" onClick={() => fetchVerticals()}>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Refresh
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {verticals.map((vertical) => (
-                              <Tooltip key={vertical.id}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => selectVertical(vertical.id)}
-                                    className={cn(
-                                      'group relative p-4 rounded-xl border-2 text-left transition-all duration-200',
-                                      'hover:border-primary hover:shadow-md hover:-translate-y-0.5',
-                                      selectedVertical?.id === vertical.id
-                                        ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
-                                        : 'border-border bg-card'
-                                    )}
-                                  >
-                                    {/* Selected indicator */}
-                                    {selectedVertical?.id === vertical.id && (
-                                      <div className="absolute top-2 right-2">
-                                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                          <Check className="h-3 w-3 text-primary-foreground" />
-                                        </div>
-                                      </div>
-                                    )}
-                                    <div className="mb-3">
-                                      <div className={cn(
-                                        'w-12 h-12 rounded-lg flex items-center justify-center transition-colors',
-                                        selectedVertical?.id === vertical.id
-                                          ? 'bg-primary/10'
-                                          : 'bg-muted group-hover:bg-primary/10'
-                                      )}>
-                                        <VerticalIcon
-                                          icon={vertical.icon || 'help-circle'}
-                                          className={cn(
-                                            'h-6 w-6 transition-colors',
+                  <div className="space-y-8">
+                    {/* Stakeholders Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 px-1">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">Select Stakeholder</h3>
+                          <p className="text-sm text-muted-foreground">Choose the stakeholder group</p>
+                        </div>
+                      </div>
+
+                      <Card darkVariant="elevated">
+                        <CardContent className="pt-6">
+                          {isVerticalsLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                              {[...Array(4)].map((_, i) => (
+                                <Skeleton key={i} className="h-28 rounded-xl" />
+                              ))}
+                            </div>
+                          ) : verticalsError ? (
+                            <div className="text-center py-6">
+                              <p className="text-destructive mb-2">Failed to load stakeholders</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                              {STAKEHOLDERS
+                                .map(name => verticals.find(v => normalizeVerticalName(v.name) === normalizeVerticalName(name)))
+                                .filter((v): v is typeof verticals[0] => !!v)
+                                .map((vertical) => (
+                                  <Tooltip key={vertical.id}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => selectVertical(vertical.id)}
+                                        className={cn(
+                                          'group relative p-4 rounded-xl border-2 text-left transition-all duration-200 h-full',
+                                          'hover:border-primary hover:shadow-md hover:-translate-y-0.5',
+                                          selectedVertical?.id === vertical.id
+                                            ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
+                                            : 'border-border bg-card'
+                                        )}
+                                      >
+                                        {/* Selected indicator */}
+                                        {selectedVertical?.id === vertical.id && (
+                                          <div className="absolute top-2 right-2">
+                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                              <Check className="h-3 w-3 text-primary-foreground" />
+                                            </div>
+                                          </div>
+                                        )}
+                                        <div className="mb-3">
+                                          <div className={cn(
+                                            'w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
                                             selectedVertical?.id === vertical.id
-                                              ? 'text-primary'
-                                              : 'text-muted-foreground group-hover:text-primary'
-                                          )}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="font-medium">{vertical.name}</div>
-                                    <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                                      {vertical.description}
-                                    </div>
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs">
-                                  <p className="font-medium">{vertical.name}</p>
-                                  <p className="text-xs text-muted-foreground">{vertical.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                                              ? 'bg-primary/10'
+                                              : 'bg-muted group-hover:bg-primary/10'
+                                          )}>
+                                            <VerticalIcon
+                                              icon={vertical.icon || 'help-circle'}
+                                              className={cn(
+                                                'h-5 w-5 transition-colors',
+                                                selectedVertical?.id === vertical.id
+                                                  ? 'text-primary'
+                                                  : 'text-muted-foreground group-hover:text-primary'
+                                              )}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="font-medium text-sm">{vertical.name}</div>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-xs">
+                                      <p className="font-medium">{vertical.name}</p>
+                                      <p className="text-xs text-muted-foreground">{vertical.description}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Verticals Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 px-1">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Palette className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">Select Vertical</h3>
+                          <p className="text-sm text-muted-foreground">Choose the specific vertical</p>
+                        </div>
+                      </div>
+
+                      <Card darkVariant="elevated">
+                        <CardContent className="pt-6">
+                          {isVerticalsLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                              {[...Array(8)].map((_, i) => (
+                                <Skeleton key={i} className="h-28 rounded-xl" />
+                              ))}
+                            </div>
+                          ) : verticals.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                              <p>No verticals available.</p>
+                              <Button variant="outline" className="mt-4" onClick={() => fetchVerticals()}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Refresh
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                              {VERTICALS
+                                .map(name => verticals.find(v => normalizeVerticalName(v.name) === normalizeVerticalName(name)))
+                                .filter((v): v is typeof verticals[0] => !!v)
+                                .map((vertical) => (
+                                  <Tooltip key={vertical.id}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => selectVertical(vertical.id)}
+                                        className={cn(
+                                          'group relative p-4 rounded-xl border-2 text-left transition-all duration-200 h-full',
+                                          'hover:border-primary hover:shadow-md hover:-translate-y-0.5',
+                                          selectedVertical?.id === vertical.id
+                                            ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
+                                            : 'border-border bg-card'
+                                        )}
+                                      >
+                                        {/* Selected indicator */}
+                                        {selectedVertical?.id === vertical.id && (
+                                          <div className="absolute top-2 right-2">
+                                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                              <Check className="h-3 w-3 text-primary-foreground" />
+                                            </div>
+                                          </div>
+                                        )}
+                                        <div className="mb-3">
+                                          <div className={cn(
+                                            'w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+                                            selectedVertical?.id === vertical.id
+                                              ? 'bg-primary/10'
+                                              : 'bg-muted group-hover:bg-primary/10'
+                                          )}>
+                                            <VerticalIcon
+                                              icon={vertical.icon || 'help-circle'}
+                                              className={cn(
+                                                'h-5 w-5 transition-colors',
+                                                selectedVertical?.id === vertical.id
+                                                  ? 'text-primary'
+                                                  : 'text-muted-foreground group-hover:text-primary'
+                                              )}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="font-medium text-sm">{vertical.name}</div>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-xs">
+                                      <p className="font-medium">{vertical.name}</p>
+                                      <p className="text-xs text-muted-foreground">{vertical.description}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
                 )}
 
                 {/* Step 3: How would you like to create? */}
                 {step === 3 && selectedVertical && (
-                  <ModeSelector
-                    mode={formData.creationMode}
-                    onModeChange={setCreationMode}
-                  />
+                  <div className="space-y-8">
+                    <ModeSelector
+                      mode={formData.creationMode}
+                      onModeChange={setCreationMode}
+                    />
+
+                    {/* Template Selection - Show immediately if template mode is selected */}
+                    {formData.creationMode === 'template' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <Card darkVariant="elevated">
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <FileImage className="h-5 w-5 text-primary" />
+                              Choose Template
+                            </CardTitle>
+                            <CardDescription>
+                              Select an image template for your {selectedVertical.name} creative
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <TemplateSelector
+                              verticalId={selectedVertical.id}
+                              verticalName={selectedVertical.name}
+                              onSelect={selectTemplate}
+                              selectedTemplate={selectedTemplate}
+                              selectedFormat={selectedFormat}
+                              verticals={verticals}
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Step 4: Smart Logo Placement (AI will avoid these areas) */}
@@ -1264,54 +1391,30 @@ export default function CreatePage() {
                   </div>
                 )}
 
-                {/* Step 6: Choose Template or Styling Options (moved after Details for better AI context) */}
-                {step === 6 && selectedVertical && (
-                  formData.creationMode === 'template' ? (
-                    <Card darkVariant="elevated">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <FileImage className="h-5 w-5 text-primary" />
-                          Choose Template
-                        </CardTitle>
-                        <CardDescription>
-                          Select an image template for your {selectedVertical.name} creative
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <TemplateSelector
-                          verticalId={selectedVertical.id}
-                          verticalName={selectedVertical.name}
-                          onSelect={selectTemplate}
-                          selectedTemplate={selectedTemplate}
-                          selectedFormat={selectedFormat}
-                          verticals={verticals}
-                        />
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <StylingStep
-                      designData={formData.designData}
-                      onThemeChange={updateTheme}
-                      onStyleChange={updateStyle}
-                      onResolutionChange={updateResolution}
-                      onToggleBrandColors={setUseBrandColors}
-                      onTypographyChange={updateTypography}
-                      onSelectPalette={setColorPalette}
-                      onCustomColorChange={setCustomColors}
-                      brandColors={(() => {
-                        const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
-                        return {
-                          primary_color: brandConfig?.primaryColor,
-                          secondary_color: brandConfig?.secondaryColor,
-                          accent_color: brandConfig?.accentColor,
-                        }
-                      })()}
-                      brandFont={(() => {
-                        const brandConfig = currentOrganization?.brand_config as { fontPrimary?: string } | null
-                        return brandConfig?.fontPrimary
-                      })()}
-                    />
-                  )
+                {/* Step 6: Styling Options (Scratch mode only) */}
+                {step === 6 && selectedVertical && formData.creationMode === 'scratch' && (
+                  <StylingStep
+                    designData={formData.designData}
+                    onThemeChange={updateTheme}
+                    onStyleChange={updateStyle}
+                    onResolutionChange={updateResolution}
+                    onToggleBrandColors={setUseBrandColors}
+                    onTypographyChange={updateTypography}
+                    onSelectPalette={setColorPalette}
+                    onCustomColorChange={setCustomColors}
+                    brandColors={(() => {
+                      const brandConfig = currentOrganization?.brand_config as { primaryColor?: string; secondaryColor?: string; accentColor?: string } | null
+                      return {
+                        primary_color: brandConfig?.primaryColor,
+                        secondary_color: brandConfig?.secondaryColor,
+                        accent_color: brandConfig?.accentColor,
+                      }
+                    })()}
+                    brandFont={(() => {
+                      const brandConfig = currentOrganization?.brand_config as { fontPrimary?: string } | null
+                      return brandConfig?.fontPrimary
+                    })()}
+                  />
                 )}
 
                 {/* Step 5: Fill Details - Dynamic form based on format type (moved before Template for better AI context) */}
@@ -2012,8 +2115,8 @@ export default function CreatePage() {
                         isGenerating
                           ? "Generating your creative"
                           : !isOnline
-                          ? "Cannot generate while offline"
-                          : `Generate creative for ${creditCost} credits`
+                            ? "Cannot generate while offline"
+                            : `Generate creative for ${creditCost} credits`
                       }
                       className={cn(
                         "gap-1.5 px-3 sm:gap-2 sm:px-6 transition-all duration-300",
