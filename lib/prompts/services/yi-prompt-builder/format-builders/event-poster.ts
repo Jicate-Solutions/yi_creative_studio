@@ -654,16 +654,21 @@ export function buildEventPosterPrompt(
   // v24.1: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
   // This is the PRIMARY defense layer with 90-95% success rate in preventing text-logo overlaps
   // Updated to use CENTER ZONE STRATEGY (38%-80%) - content starts at contentStart, ends at contentEnd
+  // v24.7: Now model-aware - Pro model gets STRICTER enforcement than Flash
   const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
     CANVAS_WIDTH,
     CANVAS_HEIGHT,
     pixelZones.contentStart, // headerHeight - content zone starts at 38% (547px)
     CANVAS_HEIGHT - pixelZones.footerStart, // footerHeight
     CONTENT_START, // headerPercent - now 38%
-    footerReservePercent // footerPercent
+    footerReservePercent, // footerPercent
+    options.engine // v24.7: Pass engine for model-aware zone enforcement
   )
 
-  console.log('[Event Poster v24.1] LAYER 1: Center zone spatial constraints generated')
+  console.log('[Event Poster v24.7] LAYER 1:', options.engine === 'yi_craft'
+    ? 'Pro model STRICT spatial constraints'
+    : 'Flash model standard constraints'
+  )
 
   // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention
 

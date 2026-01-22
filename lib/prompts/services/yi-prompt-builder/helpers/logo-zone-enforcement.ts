@@ -168,7 +168,8 @@ CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
  * @param footerHeight - Footer zone height in pixels (for logging only)
  * @param headerPercent - Header zone percentage (used in prompt)
  * @param footerPercent - Footer zone percentage (used in prompt)
- * @returns Percentage-based spatial constraints (no pixel values)
+ * @param engine - Optional engine type for model-aware constraints (v24.7)
+ * @returns Percentage-based spatial constraints (no pixel values for Flash, explicit for Pro)
  */
 export function buildPixelPreciseSpatialConstraints(
   canvasWidth: number,
@@ -176,9 +177,24 @@ export function buildPixelPreciseSpatialConstraints(
   headerHeight: number,
   footerHeight: number,
   headerPercent: number,
-  footerPercent: number
+  footerPercent: number,
+  engine?: 'yi_vision' | 'yi_craft'
 ): string {
-  // v24.6: Calculate all pixel values for LOGGING ONLY - not sent to Gemini
+  // v24.7: Pro model (yi_craft) needs STRICTER enforcement with different language
+  // Pro ignores percentage-based prose guidance, needs explicit pixel boundaries
+  if (engine === 'yi_craft') {
+    return buildProModelSpatialConstraints(
+      canvasWidth,
+      canvasHeight,
+      headerHeight,
+      footerHeight,
+      headerPercent,
+      footerPercent
+    )
+  }
+
+  // v24.6: Flash model (yi_vision) - keep existing working implementation unchanged
+  // Calculate all pixel values for LOGGING ONLY - not sent to Gemini
   const colWidth = Math.floor(canvasWidth / 6)
   const footerStartY = canvasHeight - footerHeight
   const contentStartY = headerHeight + 30
@@ -224,5 +240,135 @@ SEAMLESS TRANSITIONS:
 The background flows naturally from top to bottom without visible horizontal bands or stripes. Colors and textures transition smoothly across all three areas while maintaining the clean spaces needed for branding.
 
 Remember: Text stays within the ${contentStartPercent}%-${contentEndPercent}% vertical range. Upper and lower areas remain text-free for overlay compatibility.
+`
+}
+
+/**
+ * Build AGGRESSIVE spatial constraints for Pro model (gemini-3-pro-image-preview)
+ * v24.9.1: Expanded safe zones for both header AND footer
+ *
+ * Key strategy:
+ * - Layer 1: Opening warning block (repeated 3x)
+ * - Layer 2: Explicit forbidden zones with blocklist
+ * - Layer 3: Allowed content zone (positive framing)
+ * - Layer 4: Pre-render checklist
+ * - Layer 5: Specific word blocklist for header
+ *
+ * v24.9.1 Zone Changes (Pro model only):
+ * - Header zone: 0-40% (was 0-38%) - extra 2% buffer at top
+ * - Footer zone: 70-100% (was 82-100%) - extra 12% buffer at bottom
+ * - Content zone: 40-70% (was 38-80%) - 30% available for text
+ *
+ * Pixel values for 1080x1440 canvas:
+ * - Header: 0-576px (40%)
+ * - Content: 606px-978px (42%-68% with padding)
+ * - Footer: 1008px-1440px (70%-100%)
+ *
+ * Flash model unchanged at 38%-80% (working correctly)
+ *
+ * Why this is needed:
+ * - Pro model ignores zone guidance, puts text in header AND footer
+ * - Larger forbidden zones give more buffer for AI imprecision
+ */
+function buildProModelSpatialConstraints(
+  canvasWidth: number,
+  canvasHeight: number,
+  headerHeight: number,
+  footerHeight: number,
+  headerPercent: number,
+  footerPercent: number
+): string {
+  // v24.9.1: Pro model uses expanded safe zones
+  // Header: 40% (was 38%) - extra 2% buffer at top
+  // Footer: 70% (was 82%) - extra 12% buffer at bottom
+  // Content zone: 40%-70% (was 38%-80%)
+  const PRO_HEADER_ZONE_PERCENT = 40
+  const PRO_FOOTER_ZONE_PERCENT = 70  // v24.9.1: Content ends at 70%, footer starts at 70%
+
+  const proHeaderHeight = Math.floor(canvasHeight * (PRO_HEADER_ZONE_PERCENT / 100))
+  const proFooterStartY = Math.floor(canvasHeight * (PRO_FOOTER_ZONE_PERCENT / 100))
+
+  const contentStartY = proHeaderHeight + 30  // Use Pro header height (40%)
+  const contentEndY = proFooterStartY - 30    // Use Pro footer start (70%)
+
+  const contentStartPercent = PRO_HEADER_ZONE_PERCENT  // 40% for Pro
+  const contentEndPercent = PRO_FOOTER_ZONE_PERCENT    // 70% for Pro
+  const footerStartPercent = PRO_FOOTER_ZONE_PERCENT   // 70% for Pro
+
+  console.log(`[v24.9.1 Pro Zone Enforcement] Content zone 40%-70%:`, {
+    canvas: `${canvasWidth}x${canvasHeight}`,
+    headerZone: `0-${proHeaderHeight}px (0-${PRO_HEADER_ZONE_PERCENT}%)`,
+    contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,
+    footerZone: `${proFooterStartY}-${canvasHeight}px (${footerStartPercent}-100%)`,
+  })
+
+  return `
+⚠️⚠️⚠️ CRITICAL TEXT PLACEMENT RULE - READ FIRST ⚠️⚠️⚠️
+ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
+ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
+ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
+
+Canvas: ${canvasWidth}px × ${canvasHeight}px
+
+════════════════════════════════════════════════════════════════════════
+FORBIDDEN HEADER ZONE (0px - ${proHeaderHeight}px / 0% - ${PRO_HEADER_ZONE_PERCENT}%)
+════════════════════════════════════════════════════════════════════════
+❌ NO event titles in header
+❌ NO "Infographic" or "Info" text in header
+❌ NO "Overview" or "About" labels in header
+❌ NO captions or descriptions in header
+❌ NO text of ANY kind in header
+✅ ONLY simple backgrounds: sky, gradients, clouds, solid colors
+
+DO NOT place text above ${contentStartY}px.
+DO NOT place text above ${contentStartY}px.
+DO NOT place text above ${contentStartY}px.
+
+════════════════════════════════════════════════════════════════════════
+ALLOWED CONTENT ZONE (${contentStartY}px - ${contentEndY}px / ${contentStartPercent}% - ${contentEndPercent}%)
+════════════════════════════════════════════════════════════════════════
+✅ Event title starts at ${contentStartY}px (${contentStartPercent}% from top)
+✅ Date/time/venue between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.2)}px-${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px
+✅ Additional details between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px-${contentEndY}px
+✅ ALL text elements MUST fit within this ${contentEndY - contentStartY}px tall zone
+
+════════════════════════════════════════════════════════════════════════
+FORBIDDEN FOOTER ZONE (${proFooterStartY}px - ${canvasHeight}px / ${footerStartPercent}% - 100%)
+════════════════════════════════════════════════════════════════════════
+❌ NO event details in footer
+❌ NO venue information in footer
+❌ NO dress code or additional info in footer
+❌ NO text of ANY kind in footer
+✅ ONLY simple backgrounds: ground textures, gradients, subtle fade
+
+DO NOT place text below ${contentEndY}px.
+DO NOT place text below ${contentEndY}px.
+DO NOT place text below ${contentEndY}px.
+
+════════════════════════════════════════════════════════════════════════
+PRE-RENDER VERIFICATION CHECKLIST
+════════════════════════════════════════════════════════════════════════
+Before generating, verify EVERY text element:
+□ Is the TOP edge of event title BELOW ${contentStartY}px? (REQUIRED: YES)
+□ Is ALL text ABOVE ${contentEndY}px? (REQUIRED: YES)
+□ Is header zone (0-${proHeaderHeight}px) completely text-free? (REQUIRED: YES)
+□ Is footer zone (${proFooterStartY}-${canvasHeight}px) completely text-free? (REQUIRED: YES)
+
+IF ANY CHECK FAILS → MOVE TEXT INTO ${contentStartY}-${contentEndY}px RANGE
+
+════════════════════════════════════════════════════════════════════════
+WORD BLOCKLIST FOR HEADER ZONE
+════════════════════════════════════════════════════════════════════════
+NEVER render these words above ${contentStartY}px:
+- "Infographic"
+- "Info"
+- "Overview"
+- "About"
+- "Summary"
+- Any descriptive labels
+
+These words belong INSIDE the content zone (${contentStartY}-${contentEndY}px), NOT in header.
+
+FINAL REMINDER: Text zone is ${contentStartPercent}%-${contentEndPercent}%. Header (0-${PRO_HEADER_ZONE_PERCENT}%) and footer (${footerStartPercent}%-100%) must be TEXT-FREE.
 `
 }

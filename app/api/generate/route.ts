@@ -1279,6 +1279,11 @@ export async function POST(request: NextRequest) {
           resolution: resolution,
           language: language || 'en',
 
+          // NEW v24.7: Pass engine for model-aware zone enforcement
+          // Pro model needs STRICTER zone constraints than Flash model
+          // Pro ignores percentage-based prose guidance, needs explicit boundaries
+          engine: model === 'gemini-3-pro-image-preview' ? 'yi_craft' : 'yi_vision',
+
           // Logo awareness - tells AI where to keep zones clear for overlay
           // Supports multiple logos with individual positions and sizes
           logoAwareness: logoAwarenessContext.hasLogos ? {
@@ -2390,40 +2395,18 @@ ${typographyProfile.hierarchy}
               isSplitLayout: enhanced4RowStrip.version === '4-row-split',
             })
 
-            if (footerViolation && enhanced4RowStrip.footer) {
+            // v24.8: DISABLED adaptive footer repositioning
+            // Footer now stays FIXED at bottom (82-100%) regardless of violations
+            // Logo bars will overlay any text that appears in footer zone
+            // This prevents "footer moving to middle" issue
+            if (footerViolation) {
               const detectedFooterTextY = footerViolation.detectedTextY
-              // Fix: footerReservePercent is the HEIGHT (e.g., 18%), so start position is 100 - 18 = 82%
-              const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent  // e.g., 82%
-              const canvasHeight = selectedFormat.height
-
-              // v24.7: Only adjust footer if text is SIGNIFICANTLY into the footer zone
-              // Text at or near the boundary (within 3%) should NOT trigger footer movement
-              // This prevents false positives from date/time text near the content zone edge
-              const footerOverlapThreshold = 3  // Text must be 3%+ INTO the footer zone to trigger adjustment
-              const minimumOverlapPercent = footerStartPercent + footerOverlapThreshold  // e.g., 82% + 3% = 85%
-
-              console.log(`[v24.7 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}%, footer zone starts at ${footerStartPercent}%, overlap threshold: ${minimumOverlapPercent}%`)
-
-              if (detectedFooterTextY >= minimumOverlapPercent) {
-                // Text is SIGNIFICANTLY into footer zone - needs adjustment
-                const contentPositionPx = (detectedFooterTextY / 100) * canvasHeight
-                const safetyBuffer = 50  // 50px buffer above detected content
-                const footerHeight = logoStripZoneCoordinates.footerHeight
-
-                // v24.7: Calculate offset only when text is truly overlapping
-                const desiredFooterTop = contentPositionPx - safetyBuffer - footerHeight
-                const normalFooterTop = canvasHeight - footerHeight
-                footerOffset = Math.max(0, normalFooterTop - desiredFooterTop)
-
-                console.log(`[v24.7 Footer Strategy] ⚠️ Moving footer UP by ${footerOffset}px (text at ${detectedFooterTextY.toFixed(1)}% is ${(detectedFooterTextY - footerStartPercent).toFixed(1)}% into footer zone)`)
-              } else if (detectedFooterTextY >= footerStartPercent) {
-                // Text is at boundary but within tolerance - no adjustment needed
-                console.log(`[v24.7 Footer Strategy] ✅ Text at ${detectedFooterTextY.toFixed(1)}% is at footer boundary but within ${footerOverlapThreshold}% tolerance - keeping footer at bottom`)
-              } else {
-                console.log(`[v24.7 Footer Strategy] ✅ Text at ${detectedFooterTextY.toFixed(1)}% is above footer zone - no adjustment needed`)
-              }
+              const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent
+              console.log(`[v24.8 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}% (footer zone: ${footerStartPercent}%-100%)`)
+              console.log(`[v24.8 Footer Strategy] ✅ STATIC footer position - keeping at bottom, logo bar will overlay`)
+              // footerOffset stays 0 - footer does NOT move
             } else {
-              console.log('[v24.7 Footer Strategy] ✅ No footer violations detected')
+              console.log('[v24.8 Footer Strategy] ✅ No footer violations - footer at bottom')
             }
 
           } catch (error) {
