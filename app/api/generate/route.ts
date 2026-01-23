@@ -2020,11 +2020,12 @@ ${typographyProfile.hierarchy}
       // Import the verifier dynamically
       const { detectTextInForbiddenZones } = await import('@/lib/sharp/text-zone-verifier')
 
-      // Calculate forbidden zone percentages
-      // Header: 0% to headerStartPercent (e.g., 36%)
-      // Footer: footerStartPercent to 100% (e.g., 82% to 100%)
-      const headerEndPercent = 36 // Default safe zone
-      const footerStartPercent = 82 // Default safe zone
+      // v24.10: Calculate forbidden zone percentages (UNIFIED ZONES)
+      // Header: 0% to 40% (FORBIDDEN - no text)
+      // Content: 40% to 70% (ALL text must be here)
+      // Footer: 70% to 100% (FORBIDDEN - no text)
+      const headerEndPercent = 40 // v24.10: Unified header zone
+      const footerStartPercent = 70 // v24.10: Unified footer zone
 
       const violations = await detectTextInForbiddenZones(
         imageBuffer,
@@ -2307,12 +2308,13 @@ ${typographyProfile.hierarchy}
 
               console.log(`[v24.0 Spatial Strategy] Text detected at ${actualTextY.toFixed(1)}%, required safe zone: ${requiredSafeZone}%`)
 
-              // v24.7: Smart decision tree that distinguishes decorative header elements from main content
-              // Key insight: Text at 0-15% is likely Gemini's decorative header (badges, initiative banners)
-              // that SHOULD be overlaid by transparent logo bars (alpha: 0.1). Only compress for main content.
+              // v24.10: Smart decision tree aligned with unified 40%-70% content zone
+              // Key insight: With unified zones, header is 0-40% (ALL forbidden for text)
+              // ANY text in 0-40% should be overlaid by logo bars, NOT accommodated by compression
+              // Only compress if text is in the 35-40% "near boundary" zone
 
-              const DECORATIVE_HEADER_ZONE = 15 // 0-15%: Decorative elements (overlay them)
-              const CONTENT_ENCROACHMENT_ZONE = 30 // 15-30%: Main content encroaching (compress to protect)
+              const DECORATIVE_HEADER_ZONE = 35 // 0-35%: All header content (overlay them with logo bars)
+              const CONTENT_ENCROACHMENT_ZONE = 40 // 35-40%: Near content boundary (light compression only)
 
               if (actualTextY >= requiredSafeZone) {
                 // ✅ PERFECT - No overlap
@@ -2321,19 +2323,19 @@ ${typographyProfile.hierarchy}
                 spatialAdjustmentInfo.detectedTextY = actualTextY
 
               } else if (actualTextY < DECORATIVE_HEADER_ZONE) {
-                // 🎨 DECORATIVE HEADER ZONE (0-15%) - Use FULL logo bars
-                // This is likely Gemini's artistic header elements (badges, banners, small text)
-                // Transparent logo bars (alpha: 0.1) are designed to overlay these gracefully
-                console.log(`[v24.7 Spatial Strategy] 🎨 Decorative header zone (${actualTextY.toFixed(1)}% < ${DECORATIVE_HEADER_ZONE}%)`)
-                console.log('[v24.7 Spatial Strategy] Using FULL logo bars to overlay Gemini\'s artistic header')
+                // 🎨 HEADER ZONE (0-35%) - Use FULL logo bars, overlay any content
+                // v24.10: With unified 40% header zone, anything in 0-35% gets overlaid
+                // Transparent logo bars will cover this - NO compression needed
+                console.log(`[v24.10 Spatial Strategy] 🎨 Header zone content (${actualTextY.toFixed(1)}% < ${DECORATIVE_HEADER_ZONE}%)`)
+                console.log('[v24.10 Spatial Strategy] Using FULL logo bars to overlay - NO compression')
                 spatialAdjustmentInfo.strategy = 'static' // Use default full-size layout
                 spatialAdjustmentInfo.detectedTextY = actualTextY
 
               } else if (actualTextY >= DECORATIVE_HEADER_ZONE && actualTextY < CONTENT_ENCROACHMENT_ZONE) {
-                // ⚠️ CONTENT ENCROACHMENT (15-30%) - Compress logo bars
-                // Main content (headline) is encroaching on header zone - compress to protect
-                console.log(`[v24.7 Spatial Strategy] ⚠️ Content encroachment zone (${DECORATIVE_HEADER_ZONE}%-${CONTENT_ENCROACHMENT_ZONE}%)`)
-                console.log('[v24.7 Spatial Strategy] Main content detected, compressing logo bars')
+                // ⚠️ NEAR BOUNDARY (35-40%) - Light compression only
+                // Content is very close to the allowed zone, slight adjustment may help
+                console.log(`[v24.10 Spatial Strategy] ⚠️ Near boundary zone (${DECORATIVE_HEADER_ZONE}%-${CONTENT_ENCROACHMENT_ZONE}%)`)
+                console.log('[v24.10 Spatial Strategy] Content near 40% boundary, light compression')
 
                 const suggestedHeight = getSuggestedHeaderHeight(
                   violations,
@@ -2352,12 +2354,12 @@ ${typographyProfile.hierarchy}
                 finalHeaderHeight = suggestedHeight.headerHeight
                 finalHeaderPercent = suggestedHeight.headerPercent
 
-                console.log(`[v24.7 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
+                console.log(`[v24.10 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
 
               } else {
-                // ⚠️ MINOR OVERLAP (30-36%) - Light compression
-                // actualTextY >= CONTENT_ENCROACHMENT_ZONE (30%) and < requiredSafeZone (36%)
-                console.log('[v24.7 Spatial Strategy] ⚠️ Minor overlap, using light compression')
+                // ⚠️ MINOR OVERLAP (40%+) - This shouldn't happen with proper zone enforcement
+                // actualTextY >= CONTENT_ENCROACHMENT_ZONE (40%) and < requiredSafeZone
+                console.log('[v24.10 Spatial Strategy] ⚠️ Minor overlap at boundary, light compression')
 
                 const suggestedHeight = getSuggestedHeaderHeight(
                   violations,
@@ -2376,10 +2378,10 @@ ${typographyProfile.hierarchy}
                 finalHeaderHeight = suggestedHeight.headerHeight
                 finalHeaderPercent = suggestedHeight.headerPercent
 
-                console.log(`[v24.7 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
+                console.log(`[v24.10 Spatial Strategy] Compressed header: ${finalHeaderPercent.toFixed(1)}% (${finalHeaderHeight}px) ← was ${requiredSafeZone}%`)
               }
             } else {
-              console.log('[v24.0 Spatial Strategy] ✅ No header violations detected')
+              console.log('[v24.10 Spatial Strategy] ✅ No header violations detected')
               spatialAdjustmentInfo.strategy = 'static'
             }
 

@@ -158,7 +158,7 @@ CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
  *
  * Key Changes:
  * - Pixel values logged to console ONLY (for backend debugging)
- * - Prompt text uses PERCENTAGE values only (38%, 80%, etc.)
+ * - Prompt text uses PERCENTAGE values only (40%, 70%, etc.)
  * - Maintains the effective zone enforcement from old working version
  * - Removes trigger words that Gemini might render
  *
@@ -193,37 +193,38 @@ export function buildPixelPreciseSpatialConstraints(
     )
   }
 
-  // v24.6: Flash model (yi_vision) - keep existing working implementation unchanged
-  // Calculate all pixel values for LOGGING ONLY - not sent to Gemini
-  const colWidth = Math.floor(canvasWidth / 6)
-  const footerStartY = canvasHeight - footerHeight
-  const contentStartY = headerHeight + 30
-  const contentEndY = footerStartY - 30
+  // v24.10: Flash model (yi_vision) - UNIFIED with Pro model zones
+  // Both models now use same 40%-70% content zone for consistency
+  const UNIFIED_HEADER_ZONE_PERCENT = 40
+  const UNIFIED_FOOTER_ZONE_PERCENT = 70
+
+  const unifiedHeaderHeight = Math.floor(canvasHeight * (UNIFIED_HEADER_ZONE_PERCENT / 100))
+  const unifiedFooterStartY = Math.floor(canvasHeight * (UNIFIED_FOOTER_ZONE_PERCENT / 100))
+
+  const contentStartY = unifiedHeaderHeight + 30
+  const contentEndY = unifiedFooterStartY - 30
   const contentHeightPx = contentEndY - contentStartY
 
-  // Calculate percentage equivalents
-  const contentStartPercent = Math.round((contentStartY / canvasHeight) * 100)
-  const contentEndPercent = Math.round((contentEndY / canvasHeight) * 100)
-  const footerStartPercent = Math.round((footerStartY / canvasHeight) * 100)
-  const contentHeightPercent = Math.round((contentHeightPx / canvasHeight) * 100)
+  const contentStartPercent = UNIFIED_HEADER_ZONE_PERCENT  // 40%
+  const contentEndPercent = UNIFIED_FOOTER_ZONE_PERCENT    // 70%
+  const contentHeightPercent = contentEndPercent - contentStartPercent  // 30%
 
-  // v24.6: Log pixel values for backend debugging ONLY
-  console.log(`[v24.6 Spatial Guidance] Backend reference (NOT in prompt):`, {
+  // v24.10: Log pixel values for backend debugging ONLY
+  console.log(`[v24.10 Unified Zones - Flash] Content zone 40%-70%:`, {
     canvas: `${canvasWidth}x${canvasHeight}`,
-    headerZone: `0-${headerHeight}px (0-${headerPercent}%)`,
+    headerZone: `0-${unifiedHeaderHeight}px (0-${UNIFIED_HEADER_ZONE_PERCENT}%)`,
     contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,
-    footerZone: `${footerStartY}-${canvasHeight}px (${footerStartPercent}-100%)`,
-    columnWidth: `${colWidth}px`
+    footerZone: `${unifiedFooterStartY}-${canvasHeight}px (${UNIFIED_FOOTER_ZONE_PERCENT}-100%)`,
   })
 
-  // v24.6: Return PERCENTAGE-ONLY constraints - no pixel values leak to Gemini
+  // v24.10: Return PERCENTAGE-ONLY constraints with unified zones
   return `
 COMPOSITION LAYOUT GUIDE:
 
 The image uses a three-band vertical structure for professional poster layout.
 
-UPPER BAND (0% to ${headerPercent}% from top):
-Keep this area clean with simple background only. Solid colors, subtle gradients, or soft atmospheric lighting work best. This space accommodates branding elements added in post-processing.
+UPPER BAND (0% to ${UNIFIED_HEADER_ZONE_PERCENT}% from top):
+Keep this area clean with simple background only. Solid colors, subtle gradients, or soft atmospheric lighting work best. This space accommodates branding elements added in post-processing. NO TEXT in this zone.
 
 CENTER BAND (${contentStartPercent}% to ${contentEndPercent}% from top):
 All text content belongs here - the main title, event details, date, time, and venue information. This is the primary content area with ${contentHeightPercent}% of the total height available for text.
@@ -233,8 +234,8 @@ Text hierarchy within center band:
 • Supporting text: Distribute between ${contentStartPercent + 5}% and ${contentEndPercent - 5}%
 • Keep text horizontally centered (25% to 75% width range)
 
-LOWER BAND (${footerStartPercent}% to 100% from top):
-Reserve this area for footer elements. Keep it clean with simple background continuation - ground texture, subtle gradient, or gentle fade. No text in this zone.
+LOWER BAND (${UNIFIED_FOOTER_ZONE_PERCENT}% to 100% from top):
+Reserve this area for footer elements. Keep it clean with simple background continuation - ground texture, subtle gradient, or gentle fade. NO TEXT in this zone.
 
 SEAMLESS TRANSITIONS:
 The background flows naturally from top to bottom without visible horizontal bands or stripes. Colors and textures transition smoothly across all three areas while maintaining the clean spaces needed for branding.
@@ -245,7 +246,7 @@ Remember: Text stays within the ${contentStartPercent}%-${contentEndPercent}% ve
 
 /**
  * Build AGGRESSIVE spatial constraints for Pro model (gemini-3-pro-image-preview)
- * v24.9.1: Expanded safe zones for both header AND footer
+ * v24.10: UNIFIED zones - Both Flash and Pro now use same 40%-70% content zone
  *
  * Key strategy:
  * - Layer 1: Opening warning block (repeated 3x)
@@ -254,21 +255,18 @@ Remember: Text stays within the ${contentStartPercent}%-${contentEndPercent}% ve
  * - Layer 4: Pre-render checklist
  * - Layer 5: Specific word blocklist for header
  *
- * v24.9.1 Zone Changes (Pro model only):
- * - Header zone: 0-40% (was 0-38%) - extra 2% buffer at top
- * - Footer zone: 70-100% (was 82-100%) - extra 12% buffer at bottom
- * - Content zone: 40-70% (was 38-80%) - 30% available for text
+ * v24.10 UNIFIED Zone Configuration (both models):
+ * - Header zone: 0-40% (FORBIDDEN - no text)
+ * - Content zone: 40-70% (ALL text must be here)
+ * - Footer zone: 70-100% (FORBIDDEN - no text)
  *
  * Pixel values for 1080x1440 canvas:
  * - Header: 0-576px (40%)
  * - Content: 606px-978px (42%-68% with padding)
  * - Footer: 1008px-1440px (70%-100%)
  *
- * Flash model unchanged at 38%-80% (working correctly)
- *
- * Why this is needed:
- * - Pro model ignores zone guidance, puts text in header AND footer
- * - Larger forbidden zones give more buffer for AI imprecision
+ * Pro model uses more aggressive language/formatting than Flash
+ * but both enforce the same zone boundaries.
  */
 function buildProModelSpatialConstraints(
   canvasWidth: number,
@@ -278,12 +276,12 @@ function buildProModelSpatialConstraints(
   headerPercent: number,
   footerPercent: number
 ): string {
-  // v24.9.1: Pro model uses expanded safe zones
-  // Header: 40% (was 38%) - extra 2% buffer at top
-  // Footer: 70% (was 82%) - extra 12% buffer at bottom
-  // Content zone: 40%-70% (was 38%-80%)
+  // v24.10: UNIFIED zones for both Flash and Pro models
+  // Header: 0-40% (FORBIDDEN)
+  // Content: 40-70% (ALL text here)
+  // Footer: 70-100% (FORBIDDEN)
   const PRO_HEADER_ZONE_PERCENT = 40
-  const PRO_FOOTER_ZONE_PERCENT = 70  // v24.9.1: Content ends at 70%, footer starts at 70%
+  const PRO_FOOTER_ZONE_PERCENT = 70  // v24.10: Content ends at 70%, footer starts at 70%
 
   const proHeaderHeight = Math.floor(canvasHeight * (PRO_HEADER_ZONE_PERCENT / 100))
   const proFooterStartY = Math.floor(canvasHeight * (PRO_FOOTER_ZONE_PERCENT / 100))
@@ -295,7 +293,7 @@ function buildProModelSpatialConstraints(
   const contentEndPercent = PRO_FOOTER_ZONE_PERCENT    // 70% for Pro
   const footerStartPercent = PRO_FOOTER_ZONE_PERCENT   // 70% for Pro
 
-  console.log(`[v24.9.1 Pro Zone Enforcement] Content zone 40%-70%:`, {
+  console.log(`[v24.10 Unified Zones - Pro] Content zone 40%-70%:`, {
     canvas: `${canvasWidth}x${canvasHeight}`,
     headerZone: `0-${proHeaderHeight}px (0-${PRO_HEADER_ZONE_PERCENT}%)`,
     contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,

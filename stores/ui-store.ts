@@ -11,9 +11,6 @@ interface UIState {
   // Analytics mode - hides parent sidebar for analytics sidebar
   analyticsModeActive: boolean
 
-  // Mobile navigation
-  mobileNavOpen: boolean
-
   // Modals
   activeModal: string | null
   modalData: Record<string, unknown> | null
@@ -30,8 +27,6 @@ interface UIState {
   exitCreateMode: () => void
   enterAnalyticsMode: () => void
   exitAnalyticsMode: () => void
-  toggleMobileNav: () => void
-  setMobileNavOpen: (open: boolean) => void
   openModal: (modalId: string, data?: Record<string, unknown>) => void
   closeModal: () => void
   setGlobalLoading: (loading: boolean, message?: string) => void
@@ -43,7 +38,6 @@ export const useUIStore = create<UIState>()((set) => ({
   sidebarCollapsed: false,
   createModeActive: false,
   analyticsModeActive: false,
-  mobileNavOpen: false,
   activeModal: null,
   modalData: null,
   globalLoading: false,
@@ -63,10 +57,6 @@ export const useUIStore = create<UIState>()((set) => ({
   enterAnalyticsMode: () => set({ analyticsModeActive: true }),
 
   exitAnalyticsMode: () => set({ analyticsModeActive: false }),
-
-  toggleMobileNav: () => set((state) => ({ mobileNavOpen: !state.mobileNavOpen })),
-
-  setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
 
   openModal: (activeModal, modalData) => set({ activeModal, modalData: modalData ?? null }),
 

@@ -28,7 +28,6 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
 import { Loader2, Palette, Save, RotateCcw } from 'lucide-react'
-import type { BrandConfig } from '@/types/database.types'
 import { DEFAULT_BRAND_CONFIG } from '@/lib/config/constants'
 
 const brandConfigSchema = z.object({

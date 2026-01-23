@@ -44,11 +44,11 @@ export async function GET() {
 
     const organizationId = member.organization_id
 
-    // Get organization credits from organization_credits table
-    const { data: orgCredit } = await supabase
-      .from('organization_credits')
-      .select('balance, total_consumed, total_allocated')
-      .eq('organization_id', organizationId)
+    // Get organization credits balance
+    const { data: organization } = await supabase
+      .from('organizations')
+      .select('credits_balance')
+      .eq('id', organizationId)
       .single()
 
     const now = new Date()
@@ -117,7 +117,7 @@ export async function GET() {
     ])
 
     // Calculate credits
-    const creditsBalance = orgCredit?.balance || 0
+    const creditsBalance = organization?.credits_balance || 0
     const monthlyCreditsUsed = (monthlyCreditsResult.data || []).reduce(
       (sum, t) => sum + Math.abs(t.amount || 0),
       0

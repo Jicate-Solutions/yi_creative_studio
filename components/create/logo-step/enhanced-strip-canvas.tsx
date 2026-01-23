@@ -140,13 +140,13 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
         <div className="w-full rounded-t-none rounded-b-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 border-t-0 px-4 py-1">
           <div className="flex items-center justify-evenly">  {/* v18.3: space-evenly alignment to match backend */}
             {brandLogos.map((logo) => (
-              <div key={logo.id} className="h-[120px] flex items-center">
+              <div key={logo.id} className="h-[130px] flex items-center">
                 {logo.file_url && (
                   <Image
                     src={logo.file_url}
                     alt={logo.name || 'Logo'}
-                    width={150}
-                    height={95}
+                    width={180}
+                    height={110}
                     className="object-contain"
                     unoptimized
                   />
@@ -166,12 +166,12 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
               const logo = logos.find(l => l.id === logoId)
               return logo?.file_url ? (
-                <div key={logoId} className="h-[75px] flex items-center shrink-0">
+                <div key={logoId} className="h-[90px] flex items-center shrink-0">
                   <Image
                     src={logo.file_url}
                     alt={logo.name || ''}
-                    width={112}
-                    height={72}
+                    width={140}
+                    height={85}
                     className="object-contain"
                     unoptimized
                   />
@@ -224,9 +224,9 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
           </div>
 
           {/* Footer Container with configurable background */}
-          {/* v16.3: Height 120px - more prominent footer */}
+          {/* v21.0: justify-evenly for dynamic zone distribution */}
           <div
-            className="relative flex items-center overflow-hidden h-[120px]"
+            className="relative flex items-center justify-evenly overflow-hidden h-[120px]"
             style={{
               backgroundColor: footer.background.color,
               borderRadius: footer.background.borderRadius || '0',
@@ -234,9 +234,12 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             }}
           >
             {/* ═══ ZONE 1: Signature Illustration (Left) ═══ */}
-            {/* v18.4: Fixed width zone for better balance */}
-            <div className="w-[35%] flex items-end justify-start">
-              {zone1HasContent && (
+            {/* v21.0: Dynamic width based on zoneWidths from optimizer */}
+            {zone1HasContent && (
+              <div
+                className="flex items-end justify-start"
+                style={{ width: `${zoneWidths.zone1Width}%` }}
+              >
                 <div
                   className="pointer-events-none"
                   style={{
@@ -255,12 +258,15 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                     unoptimized
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* ═══ ZONE 2: Center Content (Hashtag + Website + Social Bar) ═══ */}
-            {/* v20.9: Only center info content - Digital Partner moved to Zone 3 */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-0.5 py-0">
+            {/* v21.0: Dynamic width with even spacing when zones are missing */}
+            <div
+              className="flex flex-col items-center justify-center gap-0.5 py-0"
+              style={{ width: zone2HasContent ? `${zoneWidths.zone2Width}%` : 0 }}
+            >
               {/* Hashtag - Primary CTA */}
               {footer.hashtag.enabled && footer.hashtag.text.trim() && (
                 <div
@@ -340,9 +346,13 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
             </div>
 
             {/* ═══ ZONE 3: Digital Partner (Right) ═══ */}
-            {/* v20.9: Moved Digital Partner to Zone 3 for proper 3-zone layout */}
-            <div className="w-[30%] flex flex-col items-center justify-center">
-              {footer.digitalPartner.enabled && partnerLogo?.file_url && (
+            {/* v21.0: Dynamic width based on zoneWidths from optimizer */}
+            {zone3HasContent && (
+              <div
+                className="flex flex-col items-center justify-center"
+                style={{ width: `${zoneWidths.zone3Width}%` }}
+              >
+                {footer.digitalPartner.enabled && partnerLogo?.file_url && (
                 <div className="flex flex-col items-center justify-center gap-0.5 text-center">
                   {/* "Digital Partner" Label - Bold uppercase for visibility */}
                   <span
@@ -374,8 +384,9 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                     </span>
                   )}
                 </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

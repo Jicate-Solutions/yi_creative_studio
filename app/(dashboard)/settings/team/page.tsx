@@ -60,6 +60,7 @@ import {
 } from 'lucide-react'
 import { USER_ROLES, type UserRole } from '@/lib/config/constants'
 import { format } from 'date-fns'
+import { InviteLinksSection } from '@/components/team'
 
 interface TeamMember {
   id: string
@@ -253,16 +254,21 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Invite Code Card */}
+      {/* Role-Based Invite Links Section */}
+      {isReady && isAdmin && (
+        <InviteLinksSection />
+      )}
+
+      {/* Legacy Invite Code Card */}
       {isReady && isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Invite New Members
+              Quick Invite Code
             </CardTitle>
             <CardDescription>
-              Share this code with team members to let them join your organization
+              Share this code for quick viewer access (joins as Viewer)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -285,7 +291,7 @@ export default function TeamPage() {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-2">
-              New members will join with the &quot;Viewer&quot; role. You can change their role after they join.
+              Use the Invite Links section above for role-based invitations with more control.
             </p>
           </CardContent>
         </Card>

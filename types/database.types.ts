@@ -290,6 +290,65 @@ export type Database = {
           },
         ]
       }
+      color_analysis_cache: {
+        Row: {
+          analysis_result: Json
+          content_zone_bounds: Json | null
+          created_at: string | null
+          creative_id: string
+          detected_zones: Json
+          error_message: string | null
+          estimated_cost_usd: number | null
+          expires_at: string | null
+          id: string
+          image_url: string
+          input_tokens: number | null
+          model_used: string | null
+          output_tokens: number | null
+          status: string | null
+        }
+        Insert: {
+          analysis_result: Json
+          content_zone_bounds?: Json | null
+          created_at?: string | null
+          creative_id: string
+          detected_zones: Json
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          expires_at?: string | null
+          id?: string
+          image_url: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          status?: string | null
+        }
+        Update: {
+          analysis_result?: Json
+          content_zone_bounds?: Json | null
+          created_at?: string | null
+          creative_id?: string
+          detected_zones?: Json
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          expires_at?: string | null
+          id?: string
+          image_url?: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "color_analysis_cache_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: true
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creative_feedback: {
         Row: {
           admin_response: string | null
@@ -404,6 +463,9 @@ export type Database = {
           prevention_applied: boolean | null
           prevention_holdout: boolean | null
           prompt_used: string | null
+          shuffled_at: string | null
+          shuffled_color_mapping: Json | null
+          shuffled_image_url: string | null
           thumbnail_url: string | null
           title: string | null
           vertical: string | null
@@ -427,6 +489,9 @@ export type Database = {
           prevention_applied?: boolean | null
           prevention_holdout?: boolean | null
           prompt_used?: string | null
+          shuffled_at?: string | null
+          shuffled_color_mapping?: Json | null
+          shuffled_image_url?: string | null
           thumbnail_url?: string | null
           title?: string | null
           vertical?: string | null
@@ -450,6 +515,9 @@ export type Database = {
           prevention_applied?: boolean | null
           prevention_holdout?: boolean | null
           prompt_used?: string | null
+          shuffled_at?: string | null
+          shuffled_color_mapping?: Json | null
+          shuffled_image_url?: string | null
           thumbnail_url?: string | null
           title?: string | null
           vertical?: string | null
@@ -1072,6 +1140,62 @@ export type Database = {
           },
         ]
       }
+      organization_invites: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          email: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          organization_id: string
+          role: string
+          token: string
+          used_at: string | null
+          used_by: string | null
+          used_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          organization_id: string
+          role?: string
+          token: string
+          used_at?: string | null
+          used_by?: string | null
+          used_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          organization_id?: string
+          role?: string
+          token?: string
+          used_at?: string | null
+          used_by?: string | null
+          used_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_logos: {
         Row: {
           category: string
@@ -1168,6 +1292,9 @@ export type Database = {
       }
       organizations: {
         Row: {
+          admin_notes: string | null
+          admin_notes_updated_at: string | null
+          admin_notes_updated_by: string | null
           brand_config: Json | null
           created_at: string
           credits_balance: number
@@ -1180,6 +1307,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_notes?: string | null
+          admin_notes_updated_at?: string | null
+          admin_notes_updated_by?: string | null
           brand_config?: Json | null
           created_at?: string
           credits_balance?: number
@@ -1192,6 +1322,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_notes?: string | null
+          admin_notes_updated_at?: string | null
+          admin_notes_updated_by?: string | null
           brand_config?: Json | null
           created_at?: string
           credits_balance?: number
@@ -1204,59 +1337,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      organization_credits: {
-        Row: {
-          id: string
-          organization_id: string
-          balance: number
-          total_allocated: number | null
-          total_consumed: number | null
-          total_purchased: number | null
-          credit_limit: number | null
-          low_balance_threshold: number | null
-          last_allocation_at: string | null
-          last_consumption_at: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          organization_id: string
-          balance?: number
-          total_allocated?: number | null
-          total_consumed?: number | null
-          total_purchased?: number | null
-          credit_limit?: number | null
-          low_balance_threshold?: number | null
-          last_allocation_at?: string | null
-          last_consumption_at?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          balance?: number
-          total_allocated?: number | null
-          total_consumed?: number | null
-          total_purchased?: number | null
-          credit_limit?: number | null
-          low_balance_threshold?: number | null
-          last_allocation_at?: string | null
-          last_consumption_at?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_credits_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          }
-        ]
       }
       pattern_cache_state: {
         Row: {
@@ -1335,6 +1415,33 @@ export type Database = {
           stages?: Json
           total_files?: number
           version?: number
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json
         }
         Relationships: []
       }
@@ -2141,6 +2248,7 @@ export type Database = {
         Args: { p_org_id: string; p_user_id: string }
         Returns: boolean
       }
+      cleanup_expired_color_cache: { Args: never; Returns: number }
       deduct_credits: {
         Args: {
           p_amount: number
@@ -2368,38 +2476,16 @@ export const Constants = {
   },
 } as const
 
-// Type aliases for common table types
-export type Template = Database['public']['Tables']['templates']['Row']
-export type TemplateImage = Database['public']['Tables']['template_images']['Row']
-export type VerticalPreset = Database['public']['Tables']['vertical_presets']['Row']
-export type AIModel = Database['public']['Tables']['ai_models']['Row']
-export type Creative = Database['public']['Tables']['creatives']['Row']
-export type Organization = Database['public']['Tables']['organizations']['Row']
-export type OrganizationLogo = Database['public']['Tables']['organization_logos']['Row']
-export type OrganizationMember = Database['public']['Tables']['organization_members']['Row']
-export type CreditTransaction = Database['public']['Tables']['credit_transactions']['Row']
-export type UserProfile = Database['public']['Tables']['user_profiles']['Row']
-export type APIUsage = Database['public']['Tables']['api_usage']['Row']
-export type SuperAdminAuditLog = Database['public']['Tables']['super_admin_audit_logs']['Row']
-
-// Custom interfaces for application types
-export interface BrandConfig {
-  primaryColor: string
-  secondaryColor: string
-  accentColor: string
-  fontPrimary: string
-  fontSecondary: string
-  headerZoneHeight: number
-  footerZoneHeight: number
-  footerText?: string
-  footerEmail?: string
-  footerWebsite?: string
-  footerPhone?: string
-  footerAddress?: string
-  footerSocial?: {
-    instagram?: string
-    linkedin?: string
-    facebook?: string
-    twitter?: string
-  }
-}
+// Convenience type aliases for commonly used tables
+export type Template = Tables<'templates'>
+export type TemplateImage = Tables<'template_images'>
+export type VerticalPreset = Tables<'vertical_presets'>
+export type AIModel = Tables<'ai_models'>
+export type Creative = Tables<'creatives'>
+export type Organization = Tables<'organizations'>
+export type OrganizationLogo = Tables<'organization_logos'>
+export type OrganizationMember = Tables<'organization_members'>
+export type OrganizationInvite = Tables<'organization_invites'>
+export type UserProfile = Tables<'user_profiles'>
+export type ApiUsage = Tables<'api_usage'>
+export type CreditTransaction = Tables<'credit_transactions'>

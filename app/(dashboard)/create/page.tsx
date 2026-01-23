@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useCreativeStore } from '@/stores/creative-store'
 import { useVerticals, useAIModels, useLogos, useCredits, useOnlineStatus } from '@/hooks'
@@ -9,7 +10,27 @@ import { useEventSuggestions } from '@/hooks/use-event-suggestions'
 import { useSSEGeneration } from '@/hooks/use-sse-generation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
-import type { TablesInsert, Json, BrandConfig } from '@/types/database.types'
+import type { TablesInsert, Json } from '@/types/database.types'
+
+// Brand config type for type safety
+interface BrandConfig {
+  primaryColor?: string
+  secondaryColor?: string
+  accentColor?: string
+  backgroundColor?: string
+  fontPrimary?: string
+  fontSecondary?: string
+  footerWebsite?: string
+  footerPhone?: string
+  footerEmail?: string
+  footerAddress?: string
+  footerSocial?: {
+    instagram?: string
+    linkedin?: string
+    facebook?: string
+    twitter?: string
+  }
+}
 import type { SuggestableField } from '@/types/suggestions'
 import { getCreativeSchema } from '@/lib/schemas/creativeSchemas'
 import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
@@ -89,6 +110,8 @@ import {
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { SaveTemplateDialog } from '@/components/create/SaveTemplateDialog'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
+import { ShuffleButton } from '@/components/create/shuffle-button'
+import { ColorShuffleModal } from '@/components/create/color-shuffle-modal'
 import { CreateSidebar } from '@/components/create/create-sidebar'
 import { useUIStore } from '@/stores/ui-store'
 
@@ -140,6 +163,11 @@ const DynamicDetailsForm = dynamic(
 
 const ProgressiveLoadingUI = dynamic(
   () => import('@/components/create/progressive-loading-ui').then(mod => ({ default: mod.ProgressiveLoadingUI })),
+  { ssr: false }
+)
+
+const GenerateSummaryCard = dynamic(
+  () => import('@/components/create/generate-summary-card').then(mod => ({ default: mod.GenerateSummaryCard })),
   { ssr: false }
 )
 
@@ -347,6 +375,7 @@ export default function CreatePage() {
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false)
   const [regenerateModalOpen, setRegenerateModalOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [shuffleModalOpen, setShuffleModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [showPastDateWarning, setShowPastDateWarning] = useState(false)
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
@@ -381,6 +410,7 @@ export default function CreatePage() {
     'venue': ['venue', 'eventVenue', 'location'],
     'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
     'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+    'eventTagline': ['eventTagline', 'tagline', 'subtitle', 'eventSubtitle', 'postTagline'],
     'title': ['eventName', 'eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle', 'linkedinHeadline', 'pinTitle', 'tweetText'],
   }
 
@@ -826,7 +856,11 @@ export default function CreatePage() {
         credits_used: creditCost,
         image_url: data.imageUrl,
         thumbnail_url: thumbnailUrl,
-        form_data: formData.formData as Json,
+        // Save complete form data (user fields + design settings including colorConfig)
+        form_data: {
+          formData: formData.formData,      // User input (title, date, venue, etc.)
+          designData: formData.designData,  // Design settings (colors, theme, resolution, etc.)
+        } as unknown as Json,
         prompt_used: prompt,
         title: (formData.formData as { title?: string }).title || `${selectedVertical.name} Creative`,
         logo_config: formData.logosPlacements as unknown as Json,
@@ -1086,7 +1120,17 @@ export default function CreatePage() {
           <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b md:hidden">
             <div className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
+                {/* Back to Dashboard - Mobile only */}
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group mr-3 shrink-0"
+                  aria-label="Back to dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="text-sm font-medium">Dashboard</span>
+                </Link>
+
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center",
                     isGenerating ? "bg-primary animate-pulse" : "bg-primary/10"
@@ -1097,8 +1141,8 @@ export default function CreatePage() {
                       STEPS[step - 1]?.icon
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
                       {isGenerating ? 'Creating your design...' : STEPS[step - 1]?.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -1106,7 +1150,8 @@ export default function CreatePage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">
+
+                <span className="text-xs text-muted-foreground font-medium ml-3 shrink-0">
                   {isGenerating ? (
                     <span className="text-primary animate-pulse">Generating...</span>
                   ) : (
@@ -1435,8 +1480,8 @@ export default function CreatePage() {
                         // Map API suggestion field IDs to AI-generated schema field IDs
                         const suggestionMap: Record<string, { value: string; confidence: number }> = {}
 
-                        // API returns: date, time, venue, speaker, description
-                        // AI schema may use: eventDate, eventTime, venue, eventDescription, etc.
+                        // API returns: description, eventTagline (TEXT_CONTENT_FIELDS only)
+                        // AI schema may use: eventDescription, eventTagline, etc.
                         // We need to map based on actual schema field IDs
 
                         const apiToSchemaMap: Record<string, string[]> = {
@@ -1446,6 +1491,7 @@ export default function CreatePage() {
                           'venue': ['venue', 'eventVenue', 'location'],
                           'speaker': ['speaker', 'speakerName', 'guestSpeaker', 'recipientName'],
                           'description': ['eventDescription', 'description', 'achievementDescription', 'postDescription'],
+                          'eventTagline': ['eventTagline', 'tagline', 'subtitle', 'eventSubtitle', 'postTagline'],
                           'title': ['eventTitle', 'title', 'postTitle', 'certificateTitle', 'articleTitle'],
                         }
 
@@ -1803,54 +1849,17 @@ export default function CreatePage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4 flex-1 flex flex-col">
-                        {/* Summary Info */}
-                        <div className="space-y-3 flex-1">
-                          {/* Format */}
-                          {selectedFormat && (
-                            <div className="flex items-center justify-between py-2 border-b">
-                              <span className="text-sm text-muted-foreground">Format</span>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs font-medium">
-                                  {selectedFormat.label}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formData.customDimensions
-                                    ? `${formData.customDimensions.width}×${formData.customDimensions.height}`
-                                    : `${selectedFormat.width}×${selectedFormat.height}`}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Vertical */}
-                          {selectedVertical && (
-                            <div className="flex items-center justify-between py-2 border-b">
-                              <span className="text-sm text-muted-foreground">Category</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {selectedVertical.name}
-                              </Badge>
-                            </div>
-                          )}
-
-                          {/* Mode */}
-                          {formData.creationMode && (
-                            <div className="flex items-center justify-between py-2 border-b">
-                              <span className="text-sm text-muted-foreground">Mode</span>
-                              <span className="text-sm font-medium">
-                                {formData.creationMode === 'template' ? 'Template' : 'From Scratch'}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Template */}
-                          {selectedTemplate && (
-                            <div className="flex items-center justify-between py-2 border-b">
-                              <span className="text-sm text-muted-foreground">Template</span>
-                              <span className="text-sm font-medium truncate max-w-[150px]">
-                                {selectedTemplate.name}
-                              </span>
-                            </div>
-                          )}
+                        {/* v22.0: Comprehensive Summary Card with AI indicators and inline edit */}
+                        <div className="flex-1 overflow-y-auto max-h-[400px] custom-scrollbar -mx-2 px-2">
+                          <GenerateSummaryCard
+                            formData={formData}
+                            selectedFormat={selectedFormat}
+                            selectedVertical={selectedVertical}
+                            logos={logos}
+                            onEditField={(fieldId, value) => {
+                              updateFormData({ [fieldId]: value })
+                            }}
+                          />
                         </div>
 
                         {/* Model Selector - Compact */}
@@ -1912,6 +1921,10 @@ export default function CreatePage() {
                               <Download className="h-4 w-4" />
                               Download
                             </Button>
+                            <ShuffleButton
+                              creativeId={creativeId}
+                              onShuffleClick={() => setShuffleModalOpen(true)}
+                            />
                             <Button
                               size="default"
                               variant="secondary"
@@ -2281,6 +2294,13 @@ export default function CreatePage() {
             }}
           />
         )}
+
+        {/* Color Shuffle Modal - carousel of color variants */}
+        <ColorShuffleModal
+          open={shuffleModalOpen}
+          onOpenChange={setShuffleModalOpen}
+          creativeId={creativeId}
+        />
       </div>
     </TooltipProvider>
   )

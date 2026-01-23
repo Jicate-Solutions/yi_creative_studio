@@ -113,7 +113,7 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6">
+        <CardContent className="space-y-5 sm:space-y-6 px-4 sm:px-6">
           {/* Benefits */}
           <div className="bg-muted/50 rounded-lg p-3 sm:p-4">
             <ul className="space-y-2">
@@ -132,7 +132,7 @@ export default function SignupPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="w-full h-11"
             onClick={signUpWithGoogle}
             disabled={isGoogleLoading}
           >
@@ -174,7 +174,7 @@ export default function SignupPage() {
 
           {/* Email/Password Form */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
               <FormField
                 control={form.control}
                 name="fullName"
@@ -246,7 +246,7 @@ export default function SignupPage() {
                 )}
               />
 
-              <Button type="submit" className="w-full gradient-yi" disabled={isLoading}>
+              <Button type="submit" className="w-full h-11 gradient-yi" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Create account
               </Button>

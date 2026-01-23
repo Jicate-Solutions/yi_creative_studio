@@ -3,8 +3,11 @@
 import { useAuthStore } from '@/stores/auth-store'
 import { useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Organization, OrganizationMember, BrandConfig } from '@/types/database.types'
+import type { Organization, OrganizationMember } from '@/types/database.types'
 import { toast } from 'sonner'
+
+// Brand config type (stored as Json in database)
+type BrandConfig = Record<string, any>
 
 export function useOrganization() {
   const supabase = useMemo(() => createClient(), [])

@@ -2025,7 +2025,8 @@ function normalizeFormatId(formatId: string): string {
   const verticalSuffixes = [
     '_masoom', '_road_safety', '_health', '_yuva',
     '_climate_change', '_innovation', '_thalir', '_chapter_events',
-    '_innovation_technology', '_technology'
+    '_innovation_technology', '_technology',
+    '_rural_events', '_rural_initiatives'
   ]
 
   for (const suffix of verticalSuffixes) {

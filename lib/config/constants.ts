@@ -151,6 +151,8 @@ export const ROUTES = {
   analyticsLearning: '/settings/analytics/learning',
   profile: '/settings/profile',
   adminCredits: '/settings/admin/credits',
+  onboarding: '/onboarding',
+  join: '/join',
 } as const
 
 // API Routes

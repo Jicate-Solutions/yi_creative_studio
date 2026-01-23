@@ -77,6 +77,7 @@ interface CreativeFormData {
   verticalId: string | null
   modelId: string | null
   formData: Record<string, unknown>
+  aiFilledFields: string[] // v22.0: Track which fields were filled by AI suggestions
   logosPlacements: LogoPlacement[]
   logoBackgroundColor: string // Global background color for all logos (hex)
   logoStripMode: LogoStripMode // Unified strip layout for logos (legacy 3-row)
@@ -183,6 +184,39 @@ const initialTemplateResizeState: TemplateResizeState = {
   resizeError: null,
 }
 
+// Color Shuffle State (Canva-style color remixing)
+export interface ShuffleVariant {
+  id: string // Temporary UUID (not saved to DB)
+  variantIndex: number
+  imageDataUrl: string // base64 data URL (not uploaded to Storage yet)
+  thumbnailDataUrl: string
+  colorMapping: Array<{
+    zone: 'background' | 'text' | 'accent'
+    fromColor: string
+    toColor: string
+  }>
+  description: string
+  processingTimeMs: number
+}
+
+interface ColorShuffleState {
+  shuffleVariants: ShuffleVariant[] // Session memory only (NOT persisted)
+  activeVariantIndex: number
+  isShuffling: boolean
+  isSaving: boolean
+  shuffleError: string | null
+  parentCreativeId: string | null
+}
+
+const initialColorShuffleState: ColorShuffleState = {
+  shuffleVariants: [],
+  activeVariantIndex: 0,
+  isShuffling: false,
+  isSaving: false,
+  shuffleError: null,
+  parentCreativeId: null,
+}
+
 interface CreativeState {
   // Available data
   verticals: VerticalPreset[]
@@ -214,6 +248,9 @@ interface CreativeState {
 
   // Template Resize state (Canva-style Magic Resize)
   templateResize: TemplateResizeState
+
+  // Color Shuffle state (Canva-style color remixing)
+  colorShuffle: ColorShuffleState
 
   // Generation state
   isGenerating: boolean
@@ -248,6 +285,7 @@ interface CreativeState {
   addLogoPlacement: (logoId: string, position: LogoPosition, size?: LogoSizePreset | number) => void
   removeLogoPlacement: (logoId: string) => void
   updateLogoPosition: (logoId: string, position: LogoPosition) => void
+  swapLogoPositions: (logoId1: string, logoId2: string) => void // v21.0: Row-constrained swap
   updateLogoSize: (logoId: string, size: LogoSizePreset | number) => void
   toggleLogoLock: (logoId: string) => void
   clearLogoPlacements: () => void
@@ -380,6 +418,13 @@ interface CreativeState {
   clearResizedTemplate: () => void
   setTemplateResizeError: (error: string | null) => void
 
+  // Color Shuffle Actions (Canva-style color remixing)
+  shuffleColors: (creativeId: string, variantCount?: number) => Promise<void>
+  selectVariant: (index: number) => void
+  keepVariant: () => Promise<void>
+  resetToOriginal: () => void
+  setShuffleError: (error: string | null) => void
+
   resetForm: () => void
 }
 
@@ -399,6 +444,7 @@ const initialFormData: CreativeFormData = {
   verticalId: null,
   modelId: null,
   formData: {},
+  aiFilledFields: [], // v22.0: Track AI-filled fields for summary display
   logosPlacements: [],
   logoBackgroundColor: DEFAULT_LOGO_BACKGROUND_COLOR,
   logoStripMode: DEFAULT_LOGO_STRIP_MODE,
@@ -439,6 +485,7 @@ export const useCreativeStore = create<CreativeState>()(
       aiTypography: initialAITypographyState,
       dynamicSchema: initialDynamicSchemaState,
       templateResize: initialTemplateResizeState,
+      colorShuffle: initialColorShuffleState,
       isGenerating: false,
       generationProgress: 0,
       generatedImage: null,
@@ -662,12 +709,21 @@ export const useCreativeStore = create<CreativeState>()(
       selectTemplate: (template) => set({ selectedTemplate: template }),
 
       updateFormData: (data) =>
-        set((state) => ({
-          formData: {
-            ...state.formData,
-            formData: { ...state.formData.formData, ...data },
-          },
-        })),
+        set((state) => {
+          // v22.0: Clear AI marking when user manually edits a field
+          const editedFields = Object.keys(data)
+          const aiFilledFields = state.formData.aiFilledFields.filter(
+            (field) => !editedFields.includes(field)
+          )
+
+          return {
+            formData: {
+              ...state.formData,
+              formData: { ...state.formData.formData, ...data },
+              aiFilledFields,
+            },
+          }
+        }),
 
       addLogoPlacement: (logoId, position, size = DEFAULT_LOGO_SIZE) => {
         const { logos, formData } = get()
@@ -776,6 +832,53 @@ export const useCreativeStore = create<CreativeState>()(
               logosPlacements: state.formData.logosPlacements.map((p) =>
                 p.logoId === logoId ? { ...p, position } : p
               ),
+            },
+          }
+        }),
+
+      // v21.0: Row-constrained logo position swap
+      // Respects auto-locked brand logos (Yi, CII) and only allows swapping within the same row
+      swapLogoPositions: (logoId1, logoId2) =>
+        set((state) => {
+          const placement1 = state.formData.logosPlacements.find(p => p.logoId === logoId1)
+          const placement2 = state.formData.logosPlacements.find(p => p.logoId === logoId2)
+
+          if (!placement1 || !placement2) {
+            return state // Both logos must exist
+          }
+
+          // Check if either logo is auto-locked (brand logos)
+          if (placement1.logo?.name && isLogoAutoLocked(placement1.logo.name)) {
+            return state // Cannot swap auto-locked brand logos
+          }
+          if (placement2.logo?.name && isLogoAutoLocked(placement2.logo.name)) {
+            return state // Cannot swap auto-locked brand logos
+          }
+
+          // Check if user has manually locked either logo
+          if (placement1.isLocked || placement2.isLocked) {
+            return state // Cannot swap manually locked logos
+          }
+
+          // Row-constrained: both logos must be in the same row
+          const row1 = placement1.position.split('-')[0] // 'top', 'mid', or 'bottom'
+          const row2 = placement2.position.split('-')[0]
+          if (row1 !== row2) {
+            return state // Cannot swap across different rows
+          }
+
+          // Perform the swap
+          const pos1 = placement1.position
+          const pos2 = placement2.position
+
+          return {
+            formData: {
+              ...state.formData,
+              logosPlacements: state.formData.logosPlacements.map((p) => {
+                if (p.logoId === logoId1) return { ...p, position: pos2 }
+                if (p.logoId === logoId2) return { ...p, position: pos1 }
+                return p
+              }),
             },
           }
         }),
@@ -1504,10 +1607,16 @@ export const useCreativeStore = create<CreativeState>()(
         const suggestion = aiForm.suggestions[field]
 
         if (suggestion?.value) {
+          // v22.0: Track AI-filled field (avoid duplicates)
+          const aiFilledFields = formData.aiFilledFields.includes(field)
+            ? formData.aiFilledFields
+            : [...formData.aiFilledFields, field]
+
           set({
             formData: {
               ...formData,
               formData: { ...formData.formData, [field]: suggestion.value },
+              aiFilledFields,
             },
             aiForm: {
               ...aiForm,
@@ -1528,17 +1637,23 @@ export const useCreativeStore = create<CreativeState>()(
       acceptAllSuggestions: () => {
         const { aiForm, formData } = get()
         const updates: Record<string, string> = {}
+        const newAiFields: string[] = []
 
         Object.entries(aiForm.suggestions).forEach(([field, suggestion]) => {
           if (suggestion?.value) {
             updates[field] = suggestion.value
+            newAiFields.push(field)
           }
         })
+
+        // v22.0: Track all AI-filled fields (avoid duplicates)
+        const aiFilledFields = [...new Set([...formData.aiFilledFields, ...newAiFields])]
 
         set({
           formData: {
             ...formData,
             formData: { ...formData.formData, ...updates },
+            aiFilledFields,
           },
           aiForm: {
             ...aiForm,
@@ -2213,6 +2328,146 @@ export const useCreativeStore = create<CreativeState>()(
           },
         })),
 
+      // Color Shuffle Actions
+      shuffleColors: async (creativeId, variantCount = 5) => {
+        set((state) => ({
+          colorShuffle: {
+            ...state.colorShuffle,
+            isShuffling: true,
+            shuffleError: null,
+            parentCreativeId: creativeId,
+          },
+        }))
+
+        try {
+          const response = await fetch('/api/color-shuffle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creativeId, variantCount }),
+          })
+
+          const data = await response.json()
+
+          if (!response.ok || !data.success) {
+            // Enhanced error message for legacy creatives
+            const message = data.isLegacyCreative
+              ? 'This creative was generated before color shuffle support. Please regenerate it with custom colors to enable shuffling.'
+              : data.message || data.error || 'Failed to shuffle colors'
+
+            throw new Error(message)
+          }
+
+          set((state) => ({
+            colorShuffle: {
+              ...state.colorShuffle,
+              isShuffling: false,
+              shuffleVariants: data.variants,
+              activeVariantIndex: 0,
+              shuffleError: null,
+            },
+          }))
+        } catch (error) {
+          console.error('[Color Shuffle] Error:', error)
+          set((state) => ({
+            colorShuffle: {
+              ...state.colorShuffle,
+              isShuffling: false,
+              shuffleError: error instanceof Error ? error.message : 'Unknown error',
+            },
+          }))
+        }
+      },
+
+      selectVariant: (index) => {
+        set((state) => {
+          if (index < 0 || index >= state.colorShuffle.shuffleVariants.length) {
+            return state
+          }
+          return {
+            colorShuffle: {
+              ...state.colorShuffle,
+              activeVariantIndex: index,
+            },
+          }
+        })
+      },
+
+      keepVariant: async () => {
+        const state = get()
+        const { shuffleVariants, activeVariantIndex, parentCreativeId } = state.colorShuffle
+
+        if (!parentCreativeId || shuffleVariants.length === 0) {
+          set((state) => ({
+            colorShuffle: {
+              ...state.colorShuffle,
+              shuffleError: 'No variant selected',
+            },
+          }))
+          return
+        }
+
+        const variant = shuffleVariants[activeVariantIndex]
+
+        set((state) => ({
+          colorShuffle: {
+            ...state.colorShuffle,
+            isSaving: true,
+            shuffleError: null,
+          },
+        }))
+
+        try {
+          const response = await fetch('/api/save-variant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              creativeId: parentCreativeId,
+              variantDataUrl: variant.imageDataUrl,
+              colorMapping: variant.colorMapping,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to save variant')
+          }
+
+          // Update generated image to show the saved variant
+          set((state) => ({
+            generatedImage: data.shuffledImageUrl,
+            colorShuffle: {
+              ...state.colorShuffle,
+              isSaving: false,
+              shuffleError: null,
+            },
+          }))
+        } catch (error) {
+          console.error('[Keep Variant] Error:', error)
+          set((state) => ({
+            colorShuffle: {
+              ...state.colorShuffle,
+              isSaving: false,
+              shuffleError: error instanceof Error ? error.message : 'Unknown error',
+            },
+          }))
+        }
+      },
+
+      resetToOriginal: () => {
+        set((state) => ({
+          colorShuffle: initialColorShuffleState,
+        }))
+      },
+
+      setShuffleError: (error) =>
+        set((state) => ({
+          colorShuffle: {
+            ...state.colorShuffle,
+            shuffleError: error,
+          },
+        })),
+
       resetForm: () =>
         set({
           formData: initialFormData,
@@ -2224,6 +2479,7 @@ export const useCreativeStore = create<CreativeState>()(
           aiDesignSuggestions: initialAIDesignSuggestions,
           dynamicSchema: initialDynamicSchemaState,
           templateResize: initialTemplateResizeState,
+          colorShuffle: initialColorShuffleState,
           generatedImage: null,
           generationError: null,
           generationProgress: 0,
@@ -2280,6 +2536,9 @@ export const useCreativeStore = create<CreativeState>()(
             isResizing: false,
             resizeError: null,
           }
+
+          // Reset color shuffle states (session-only, never persisted)
+          state.colorShuffle = initialColorShuffleState
 
           // Migrate old creatives without useBrandFont (backward compatibility)
           if (state.formData?.designData?.colorConfig) {

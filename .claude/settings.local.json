@@ -282,7 +282,10 @@
       "mcp__memory__read_graph",
       "Skill(event-poster-ultra)",
       "Bash(while read f)",
-      "Bash(done)"
+      "Bash(done)",
+      "Skill(responsive-testing-automation)",
+      "Skill(responsive-testing-automation:*)",
+      "Skill(supabase-expert)"
     ],
     "deny": [],
     "ask": [],

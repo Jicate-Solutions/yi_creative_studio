@@ -158,14 +158,14 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                 {brandLogos.map((logo) => (
                   <div
                     key={logo.id}
-                    className="flex-1 flex items-center justify-center bg-slate-50 rounded-lg p-2 h-12"
+                    className="flex-1 flex items-center justify-center bg-slate-50 rounded-lg p-2 h-24"
                   >
                     {logo.file_url ? (
                       <Image
                         src={logo.file_url}
                         alt={logo.name || 'Logo'}
-                        width={50}
-                        height={32}
+                        width={120}
+                        height={80}
                         className="object-contain max-h-8"
                         unoptimized
                       />
@@ -216,9 +216,9 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                               <Image
                                 src={logo.file_url}
                                 alt=""
-                                width={16}
-                                height={16}
-                                className="object-contain"
+                                width={32}
+                                height={32}
+                                className="object-contain" // removed unoptimized
                                 unoptimized
                               />
                             ) : (
@@ -237,15 +237,15 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                       return logo ? (
                         <div
                           key={logoId}
-                          className="relative flex items-center justify-center bg-slate-50 rounded-lg p-2 h-12 min-w-[60px]"
+                          className="relative flex items-center justify-center bg-slate-50 rounded-lg p-2 h-20 min-w-[80px]"
                           title={logo.name}
                         >
                           {logo.file_url ? (
                             <Image
                               src={logo.file_url}
                               alt={logo.name || 'Logo'}
-                              width={50}
-                              height={32}
+                              width={90}
+                              height={60}
                               className="object-contain max-h-8"
                               unoptimized
                             />
@@ -294,247 +294,247 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
 
           {/* Footer Section (ROW 4) */}
           <div className="rounded-xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-                    <ChevronRight className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-orange-700">
-                    <span className="text-[10px] text-orange-400 mr-1.5 font-normal">ROW 4</span>
-                    Footer Bar
-                  </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+                  <ChevronRight className="h-4 w-4 text-white" />
                 </div>
-                <Switch
-                  checked={footer.enabled}
-                  onCheckedChange={setFooterEnabled}
-                />
+                <span className="text-xs font-bold text-orange-700">
+                  <span className="text-[10px] text-orange-400 mr-1.5 font-normal">ROW 4</span>
+                  Footer Bar
+                </span>
               </div>
+              <Switch
+                checked={footer.enabled}
+                onCheckedChange={setFooterEnabled}
+              />
+            </div>
 
-              {footer.enabled && (
-                <div className="space-y-3 pt-1">
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  {/* FOOTER PRESETS - Save & Load footer configurations */}
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-2.5 border border-orange-200">
+            {footer.enabled && (
+              <div className="space-y-3 pt-1">
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                {/* FOOTER PRESETS - Save & Load footer configurations */}
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-2.5 border border-orange-200">
+                  <div className="flex items-center gap-2">
+                    <Bookmark className="h-3.5 w-3.5 text-orange-600" />
+                    <span className="text-[10px] font-medium text-orange-800">
+                      Footer Presets
+                    </span>
+                    <span className="text-[9px] text-orange-500">
+                      Save & reuse configurations
+                    </span>
+                  </div>
+                  <FooterPresetSelector
+                    onSaveClick={() => setShowSavePresetDialog(true)}
+                  />
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                {/* ZONE 1: Signature Illustration (Left) - NEW v9.0 */}
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                <div className="rounded-lg border border-teal-200 bg-gradient-to-b from-teal-50/50 to-white p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Bookmark className="h-3.5 w-3.5 text-orange-600" />
-                      <span className="text-[10px] font-medium text-orange-800">
-                        Footer Presets
-                      </span>
-                      <span className="text-[9px] text-orange-500">
-                        Save & reuse configurations
-                      </span>
+                      <Paintbrush className="h-3.5 w-3.5 text-teal-600" />
+                      <span className="text-[10px] font-medium text-teal-700">Zone 1 - Signature</span>
                     </div>
-                    <FooterPresetSelector
-                      onSaveClick={() => setShowSavePresetDialog(true)}
+                    <Switch
+                      checked={footer.signature?.enabled ?? false}
+                      onCheckedChange={(enabled) => updateFooterSignature({ enabled })}
                     />
                   </div>
+                  <p className="text-[9px] text-muted-foreground">
+                    Watercolor/sketch landmark illustration (left side)
+                  </p>
 
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  {/* ZONE 1: Signature Illustration (Left) - NEW v9.0 */}
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  <div className="rounded-lg border border-teal-200 bg-gradient-to-b from-teal-50/50 to-white p-2.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Paintbrush className="h-3.5 w-3.5 text-teal-600" />
-                        <span className="text-[10px] font-medium text-teal-700">Zone 1 - Signature</span>
-                      </div>
-                      <Switch
-                        checked={footer.signature?.enabled ?? false}
-                        onCheckedChange={(enabled) => updateFooterSignature({ enabled })}
-                      />
-                    </div>
-                    <p className="text-[9px] text-muted-foreground">
-                      Watercolor/sketch landmark illustration (left side)
-                    </p>
-
-                    {footer.signature?.enabled && (
-                      <div className="space-y-2">
-                        {/* Signature Logo Selector */}
-                        <Select
-                          value={footer.signature.logoId || 'none'}
-                          onValueChange={(value) => setFooterSignatureLogo(value === 'none' ? null : value)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            {footer.signature.logoId ? (
+                  {footer.signature?.enabled && (
+                    <div className="space-y-2">
+                      {/* Signature Logo Selector */}
+                      <Select
+                        value={footer.signature.logoId || 'none'}
+                        onValueChange={(value) => setFooterSignatureLogo(value === 'none' ? null : value)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          {footer.signature.logoId ? (
+                            <div className="flex items-center gap-2">
+                              {logos.find(l => l.id === footer.signature.logoId)?.file_url && (
+                                <Image
+                                  src={logos.find(l => l.id === footer.signature.logoId)!.file_url!}
+                                  alt=""
+                                  width={20}
+                                  height={20}
+                                  className="object-contain"
+                                />
+                              )}
+                              <span className="truncate">{logos.find(l => l.id === footer.signature.logoId)?.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Select signature image</span>
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {logos.map((logo) => (
+                            <SelectItem key={logo.id} value={logo.id}>
                               <div className="flex items-center gap-2">
-                                {logos.find(l => l.id === footer.signature.logoId)?.file_url && (
+                                {logo.file_url && (
                                   <Image
-                                    src={logos.find(l => l.id === footer.signature.logoId)!.file_url!}
+                                    src={logo.file_url}
                                     alt=""
-                                    width={20}
-                                    height={20}
+                                    width={32}
+                                    height={32}
                                     className="object-contain"
                                   />
                                 )}
-                                <span className="truncate">{logos.find(l => l.id === footer.signature.logoId)?.name}</span>
+                                <span className="text-xs">{logo.name}</span>
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground">Select signature image</span>
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {logos.map((logo) => (
-                              <SelectItem key={logo.id} value={logo.id}>
-                                <div className="flex items-center gap-2">
-                                  {logo.file_url && (
-                                    <Image
-                                      src={logo.file_url}
-                                      alt=""
-                                      width={18}
-                                      height={18}
-                                      className="object-contain"
-                                    />
-                                  )}
-                                  <span className="text-xs">{logo.name}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                        {/* Width Slider */}
-                        <div className="flex items-center justify-between gap-3">
-                          <Label className="text-[9px] text-muted-foreground">Width</Label>
-                          <div className="flex items-center gap-2 flex-1">
-                            <Slider
-                              value={[footer.signature.width || 35]}
-                              onValueChange={([value]) => updateFooterSignature({ width: value })}
-                              min={20}
-                              max={50}
-                              step={5}
-                              className="flex-1"
-                            />
-                            <span className="text-[9px] w-8 text-right">{footer.signature.width || 35}%</span>
-                          </div>
+                      {/* Width Slider */}
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-[9px] text-muted-foreground">Width</Label>
+                        <div className="flex items-center gap-2 flex-1">
+                          <Slider
+                            value={[footer.signature.width || 35]}
+                            onValueChange={([value]) => updateFooterSignature({ width: value })}
+                            min={20}
+                            max={50}
+                            step={5}
+                            className="flex-1"
+                          />
+                          <span className="text-[9px] w-8 text-right">{footer.signature.width || 35}%</span>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                {/* ZONE 2: Center Content (Hashtag + Website + Social) */}
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                <div className="rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50/50 to-white p-2.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium text-blue-700">Zone 2 - Center Info</span>
                   </div>
 
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  {/* ZONE 2: Center Content (Hashtag + Website + Social) */}
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  <div className="rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50/50 to-white p-2.5 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium text-blue-700">Zone 2 - Center Info</span>
-                    </div>
-
-                    {/* Hashtag */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                      <Hash className="h-4 w-4 text-green-600 flex-shrink-0" />
-                      <Input
-                        value={footer.hashtag.text}
-                        onChange={(e) => updateFooterHashtag({ text: e.target.value, enabled: true })}
-                        placeholder="#YIERODE"
-                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0 font-bold"
-                      />
-                      <input
-                        type="color"
-                        value={footer.hashtag.color || '#0B6D41'}
-                        onChange={(e) => updateFooterHashtag({ color: e.target.value })}
-                        className="w-5 h-5 rounded border cursor-pointer flex-shrink-0"
-                      />
-                    </div>
-
-                    {/* Website */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                      <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      <Input
-                        value={footer.website.url}
-                        onChange={(e) => updateFooterWebsite({ url: e.target.value, enabled: true })}
-                        placeholder="www.youngindians.net"
-                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
-                      />
-                    </div>
-
-                    {/* Social Handle */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
-                      <Instagram className="h-4 w-4 text-pink-500 flex-shrink-0" />
-                      <AtSign className="h-3 w-3 text-slate-400 -ml-1" />
-                      <Input
-                        value={footer.website.socialHandle || ''}
-                        onChange={(e) => updateFooterWebsite({ socialHandle: e.target.value })}
-                        placeholder="yi.erode"
-                        className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
-                      />
-                    </div>
+                  {/* Hashtag */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                    <Hash className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <Input
+                      value={footer.hashtag.text}
+                      onChange={(e) => updateFooterHashtag({ text: e.target.value, enabled: true })}
+                      placeholder="#YIERODE"
+                      className="h-7 text-xs border-0 p-0 focus-visible:ring-0 font-bold"
+                    />
+                    <input
+                      type="color"
+                      value={footer.hashtag.color || '#0B6D41'}
+                      onChange={(e) => updateFooterHashtag({ color: e.target.value })}
+                      className="w-5 h-5 rounded border cursor-pointer flex-shrink-0"
+                    />
                   </div>
 
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  {/* ZONE 3: Digital Partner (Right) */}
-                  {/* ═══════════════════════════════════════════════════════════════ */}
-                  <div className="rounded-lg border border-orange-200 bg-gradient-to-b from-orange-50/50 to-white p-2.5 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Handshake className="h-3.5 w-3.5 text-orange-500" />
-                      <span className="text-[10px] font-medium text-orange-700">Zone 3 - Digital Partner</span>
-                    </div>
-
-                    {/* Partner Logo Selector */}
-                    <Select
-                      value={footer.digitalPartner.logoId || ''}
-                      onValueChange={setFooterPartnerLogo}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        {footer.digitalPartner.logoId ? (
-                          <div className="flex items-center gap-2">
-                            {logos.find(l => l.id === footer.digitalPartner.logoId)?.file_url && (
-                              <Image
-                                src={logos.find(l => l.id === footer.digitalPartner.logoId)!.file_url!}
-                                alt=""
-                                width={18}
-                                height={18}
-                                className="object-contain"
-                              />
-                            )}
-                            <span className="truncate">{logos.find(l => l.id === footer.digitalPartner.logoId)?.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">Select partner logo</span>
-                        )}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {logos.map((logo) => (
-                          <SelectItem key={logo.id} value={logo.id}>
-                            <div className="flex items-center gap-2">
-                              {logo.file_url ? (
-                                <Image
-                                  src={logo.file_url}
-                                  alt=""
-                                  width={16}
-                                  height={16}
-                                  className="object-contain"
-                                  unoptimized
-                                />
-                              ) : (
-                                <ImageIcon className="h-4 w-4 text-slate-300" />
-                              )}
-                              <span className="text-xs truncate max-w-[100px]">{logo.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {/* Website */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                    <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    <Input
+                      value={footer.website.url}
+                      onChange={(e) => updateFooterWebsite({ url: e.target.value, enabled: true })}
+                      placeholder="www.youngindians.net"
+                      className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
+                    />
                   </div>
 
-                  {/* Footer Color */}
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-white border">
-                    <span className="text-xs text-slate-600">Bar Color</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={footer.background.color}
-                        onChange={(e) => updateFooterBackground({ color: e.target.value })}
-                        className="w-7 h-7 rounded border cursor-pointer"
-                      />
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {footer.background.color}
-                      </span>
-                    </div>
+                  {/* Social Handle */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-white border">
+                    <Instagram className="h-4 w-4 text-pink-500 flex-shrink-0" />
+                    <AtSign className="h-3 w-3 text-slate-400 -ml-1" />
+                    <Input
+                      value={footer.website.socialHandle || ''}
+                      onChange={(e) => updateFooterWebsite({ socialHandle: e.target.value })}
+                      placeholder="yi.erode"
+                      className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
+                    />
                   </div>
                 </div>
-              )}
+
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                {/* ZONE 3: Digital Partner (Right) */}
+                {/* ═══════════════════════════════════════════════════════════════ */}
+                <div className="rounded-lg border border-orange-200 bg-gradient-to-b from-orange-50/50 to-white p-2.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Handshake className="h-3.5 w-3.5 text-orange-500" />
+                    <span className="text-[10px] font-medium text-orange-700">Zone 3 - Digital Partner</span>
+                  </div>
+
+                  {/* Partner Logo Selector */}
+                  <Select
+                    value={footer.digitalPartner.logoId || ''}
+                    onValueChange={setFooterPartnerLogo}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      {footer.digitalPartner.logoId ? (
+                        <div className="flex items-center gap-2">
+                          {logos.find(l => l.id === footer.digitalPartner.logoId)?.file_url && (
+                            <Image
+                              src={logos.find(l => l.id === footer.digitalPartner.logoId)!.file_url!}
+                              alt=""
+                              width={18}
+                              height={18}
+                              className="object-contain"
+                            />
+                          )}
+                          <span className="truncate">{logos.find(l => l.id === footer.digitalPartner.logoId)?.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Select partner logo</span>
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {logos.map((logo) => (
+                        <SelectItem key={logo.id} value={logo.id}>
+                          <div className="flex items-center gap-2">
+                            {logo.file_url ? (
+                              <Image
+                                src={logo.file_url}
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                                unoptimized
+                              />
+                            ) : (
+                              <ImageIcon className="h-4 w-4 text-slate-300" />
+                            )}
+                            <span className="text-xs truncate max-w-[100px]">{logo.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Footer Color */}
+                <div className="flex items-center justify-between p-2 rounded-lg bg-white border">
+                  <span className="text-xs text-slate-600">Bar Color</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={footer.background.color}
+                      onChange={(e) => updateFooterBackground({ color: e.target.value })}
+                      className="w-7 h-7 rounded border cursor-pointer"
+                    />
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {footer.background.color}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

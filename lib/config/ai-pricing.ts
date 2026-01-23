@@ -336,6 +336,7 @@ export type RequestType =
   | 'typography_suggestion'
   | 'speaker_layout_analysis'
   | 'multi_format_layout_analysis'
+  | 'color_analysis'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   design_intelligence: 'Design Intelligence',
@@ -353,4 +354,5 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   typography_suggestion: 'Typography Suggestion',
   speaker_layout_analysis: 'Speaker Layout Analysis',
   multi_format_layout_analysis: 'Multi-Format Layout Analysis',
+  color_analysis: 'Color Analysis',
 }

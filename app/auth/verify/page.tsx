@@ -23,20 +23,20 @@ export default function VerifyPage() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4 px-4 sm:px-6">
+        <CardContent className="space-y-5 px-4 sm:px-6">
           <div className="bg-muted/50 rounded-lg p-3 sm:p-4 text-sm text-muted-foreground">
             <p>
               Didn&apos;t receive the email? Check your spam folder or try signing up again.
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Button asChild variant="outline">
+          <div className="flex flex-col gap-3">
+            <Button asChild variant="outline" className="h-11">
               <Link href={ROUTES.signup}>
                 Try again
               </Link>
             </Button>
-            <Button asChild variant="ghost">
+            <Button asChild variant="ghost" className="h-11">
               <Link href={ROUTES.login}>
                 Back to login
               </Link>

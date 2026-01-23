@@ -639,10 +639,10 @@ export const COLOR_PALETTES = {
 export type ColorPaletteId = keyof typeof COLOR_PALETTES
 
 export const DEFAULT_COLOR_CONFIG: ColorConfig = {
-  useBrandColors: true, // Default to using brand colors
-  useBrandFont: true, // Default to using brand font (backward compatible)
-  selectedPalette: null,
-  customColors: null,
+  useBrandColors: false, // Changed to false to enable Color Shuffle by default (v24.10)
+  useBrandFont: false, // Changed to false for consistency (allows custom fonts)
+  selectedPalette: 'blue_cyan', // Set default palette for Color Shuffle support (valid palette ID)
+  customColors: null, // Will be populated from selectedPalette during generation
 }
 
 // NEW v3.10: Color resolution types (re-exported from resolve-color-config for convenience)

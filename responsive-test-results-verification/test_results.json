@@ -1,0 +1,1087 @@
+{
+  "timestamp": "2026-01-23T11:11:28.134493",
+  "base_url": "http://localhost:3000",
+  "total_pages": 33,
+  "total_devices": 4,
+  "total_tests": 132,
+  "pages": {
+    "/": {
+      "iPhone SE": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [
+          {
+            "type": "elements_outside_viewport",
+            "message": "Elements extending beyond viewport: div.absolute, div.flex-shrink-0, span.text-sm...",
+            "severity": "high"
+          },
+          {
+            "type": "tiny_text",
+            "message": "Text smaller than 12px found: 10.0px",
+            "severity": "medium"
+          },
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\home_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [
+          {
+            "type": "elements_outside_viewport",
+            "message": "Elements extending beyond viewport: div.absolute, div.flex-shrink-0, span.text-sm...",
+            "severity": "high"
+          },
+          {
+            "type": "tiny_text",
+            "message": "Text smaller than 12px found: 10.0px",
+            "severity": "medium"
+          },
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\home_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [
+          {
+            "type": "elements_outside_viewport",
+            "message": "Elements extending beyond viewport: div.absolute, div.flex-shrink-0, span.text-sm...",
+            "severity": "high"
+          },
+          {
+            "type": "tiny_text",
+            "message": "Text smaller than 12px found: 10.0px",
+            "severity": "medium"
+          },
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\home_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [
+          {
+            "type": "elements_outside_viewport",
+            "message": "Elements extending beyond viewport: div.absolute, div.flex-shrink-0, span.text-sm...",
+            "severity": "high"
+          },
+          {
+            "type": "tiny_text",
+            "message": "Text smaller than 12px found: 10.0px",
+            "severity": "medium"
+          },
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\home_360x800.png"
+      }
+    },
+    "/(dashboard)/bulk": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_bulk_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_bulk_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_bulk_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_bulk_360x800.png"
+      }
+    },
+    "/(dashboard)/create": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_create_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_create_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_create_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_create_360x800.png"
+      }
+    },
+    "/(dashboard)/dashboard": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_dashboard_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_dashboard_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_dashboard_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_dashboard_360x800.png"
+      }
+    },
+    "/(dashboard)/gallery": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_gallery_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_gallery_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_gallery_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_gallery_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/admin/credits": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_admin_credits_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_admin_credits_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_admin_credits_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_admin_credits_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/analytics": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/analytics/costs": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_costs_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_costs_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_costs_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_costs_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/analytics/feedback": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_feedback_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_feedback_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_feedback_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_feedback_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/analytics/learning": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_learning_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_learning_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_learning_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_analytics_learning_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/billing": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_billing_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_billing_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_billing_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_billing_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/brand": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_brand_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_brand_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_brand_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_brand_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/knowledge-patches": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_knowledge-patches_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_knowledge-patches_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_knowledge-patches_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_knowledge-patches_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/logos": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_logos_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_logos_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_logos_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_logos_360x800.png"
+      }
+    },
+    "/(dashboard)/settings/team": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_team_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_team_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_team_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_settings_team_360x800.png"
+      }
+    },
+    "/(dashboard)/templates": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_templates_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_templates_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_templates_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(dashboard)_templates_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/analytics": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_analytics_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_analytics_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_analytics_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_analytics_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/audit": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_audit_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_audit_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_audit_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_audit_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/billing": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_billing_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_billing_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_billing_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_billing_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/brand-assets": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_brand-assets_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_brand-assets_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_brand-assets_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_brand-assets_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/credits": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/credits-platform": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits-platform_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits-platform_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits-platform_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_credits-platform_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/organizations": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_organizations_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_organizations_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_organizations_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_organizations_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/settings": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_settings_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_settings_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_settings_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_settings_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/subscriptions": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_subscriptions_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_subscriptions_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_subscriptions_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_subscriptions_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/teams": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_teams_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_teams_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_teams_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_teams_360x800.png"
+      }
+    },
+    "/(super-admin)/super-admin/users": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_users_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_users_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_users_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\(super-admin)_super-admin_users_360x800.png"
+      }
+    },
+    "/auth/error": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\auth_error_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\auth_error_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\auth_error_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\auth_error_360x800.png"
+      }
+    },
+    "/auth/login": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\auth_login_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\auth_login_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\auth_login_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\auth_login_360x800.png"
+      }
+    },
+    "/auth/signup": {
+      "iPhone SE": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\auth_signup_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\auth_signup_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\auth_signup_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\auth_signup_360x800.png"
+      }
+    },
+    "/auth/verify": {
+      "iPhone SE": {
+        "status": "issues_found",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [
+          {
+            "type": "overlapping_elements",
+            "message": "Interactive elements are overlapping",
+            "severity": "high"
+          }
+        ],
+        "screenshot": "screenshots\\auth_verify_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\auth_verify_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\auth_verify_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\auth_verify_360x800.png"
+      }
+    },
+    "/onboarding": {
+      "iPhone SE": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "375x667",
+        "issues": [],
+        "screenshot": "screenshots\\onboarding_375x667.png"
+      },
+      "iPhone 12/13/14": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "390x844",
+        "issues": [],
+        "screenshot": "screenshots\\onboarding_390x844.png"
+      },
+      "iPhone 14 Pro Max": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "430x932",
+        "issues": [],
+        "screenshot": "screenshots\\onboarding_430x932.png"
+      },
+      "Samsung Galaxy S20": {
+        "status": "passed",
+        "device_category": "mobile",
+        "viewport": "360x800",
+        "issues": [],
+        "screenshot": "screenshots\\onboarding_360x800.png"
+      }
+    }
+  }
+}

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
 import { TopNav } from './top-nav'
 import { CommandMenu } from '@/components/ui/command-menu'
-import { MobileNav } from './mobile-nav'
+import { BottomNavbar } from '@/components/BottomNav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
@@ -73,7 +73,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
           <Sidebar />
 
           {/* Mobile Navigation */}
-          <MobileNav />
+          <BottomNavbar />
 
           {/* Main Content Area */}
           <div className={cn(
@@ -98,7 +98,8 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
               createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
               !createModeActive && 'p-2 sm:p-3 md:p-3',
               // Add padding for mobile bottom navigation (not in create mode)
-              !createModeActive && 'pb-20 md:pb-6',
+              // pb-24 = 96px to account for nav height (56px) + safe area + extra buffer
+              !createModeActive && 'pb-24 md:pb-6',
               className
             )}>
               {children}

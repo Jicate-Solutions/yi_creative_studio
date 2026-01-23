@@ -849,20 +849,20 @@ export function buildInitiativeColorContext(
   const adjustedLuminance = calculateLuminance(adjustedRgb)
   const isLightText = adjustedLuminance > 0.5
 
-  // v24.2: SIMPLIFIED - No mention of "initiative text" to prevent AI rendering it
-  // Just specify background tone requirement without explaining WHY
+  // v24.10: SIMPLIFIED - No mention of "initiative text" to prevent AI rendering it
+  // Header zone is now 0-40% (unified zones)
   if (isLightText) {
     // Light overlay text needs dark background
     return `
-UPPER HEADER BACKGROUND TONE (24%-38% zone):
-Use a DARK background tone (deep blues, navy, charcoal, dark greens) in this transition area.
+UPPER HEADER BACKGROUND TONE (0%-40% zone):
+Use a DARK background tone (deep blues, navy, charcoal, dark greens) in this header area.
 DO NOT generate any text or visual elements here - only background.
     `.trim()
   } else {
     // Dark overlay text needs light background
     return `
-UPPER HEADER BACKGROUND TONE (24%-38% zone):
-Use a LIGHT background tone (whites, creams, soft pastels, light grays) in this transition area.
+UPPER HEADER BACKGROUND TONE (0%-40% zone):
+Use a LIGHT background tone (whites, creams, soft pastels, light grays) in this header area.
 DO NOT generate any text or visual elements here - only background.
     `.trim()
   }

@@ -4,19 +4,22 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   // Define public routes that don't require authentication
   // Check this FIRST to potentially skip the Supabase call entirely for public routes
-  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback']
+  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback', '/onboarding']
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname === route ||
     request.nextUrl.pathname.startsWith('/join/') ||
     request.nextUrl.pathname.startsWith('/auth/')
   )
+  // Join routes need auth session refresh but shouldn't redirect to login (page handles it)
+  const isJoinRoute = request.nextUrl.pathname.startsWith('/join/')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
   // For public routes (non-auth pages), skip auth check entirely for faster response
   // Auth pages still need the check to redirect logged-in users
   // API routes MUST continue to session refresh (don't early return)
+  // Join routes need session refresh to check if user is authenticated (page handles redirect)
   const isAuthPage = request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup'
-  if (isPublicRoute && !isAuthPage && !isApiRoute) {
+  if (isPublicRoute && !isAuthPage && !isApiRoute && !isJoinRoute) {
     return NextResponse.next({ request })
   }
 

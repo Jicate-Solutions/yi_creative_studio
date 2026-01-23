@@ -567,107 +567,100 @@ export function buildEventPosterPrompt(
   const headerReservePercent = options.logoStripZoneCoordinates?.headerReservePercent || 18
   const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
 
-  // v24.1: CENTER ZONE STRATEGY (38%-80%)
+  // v24.10: UNIFIED ZONE STRATEGY (40%-70%)
   // All text content MUST be placed within the center zone to prevent header/footer overlap
-  // Zone Layout:
-  // - Header: 0-24% (logo strip - Yi, ONE, CII logos)
-  // - Buffer: 24-38% (transition zone - decorative elements only)
-  // - Content: 38-80% (ALL text - headline, tagline, date, venue, speakers)
-  // - Buffer: 80-82% (transition zone)
-  // - Footer: 82-100% (footer bar - hashtag, website, partner)
-  const CONTENT_START = 38  // 38% from top - ALL text starts here
-  const CONTENT_END = 80    // 80% from top - ALL text ends here
-  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 42% available for text
+  // Zone Layout (same for Flash and Pro models):
+  // - Header: 0-40% (FORBIDDEN - no text, reserved for branding/logos)
+  // - Content: 40-70% (ALL text - headline, tagline, date, venue, speakers)
+  // - Footer: 70-100% (FORBIDDEN - no text, reserved for footer bar)
+  const CONTENT_START = 40  // 40% from top - ALL text starts here
+  const CONTENT_END = 70    // 70% from top - ALL text ends here
+  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 30% available for text
 
   // Override calculated header start with center zone start
   const headerStartPercent = CONTENT_START
 
-  console.log('[Event Poster v24.1] CENTER ZONE STRATEGY:', {
+  console.log('[Event Poster v24.10] UNIFIED ZONE STRATEGY:', {
     contentStart: `${CONTENT_START}%`,
     contentEnd: `${CONTENT_END}%`,
     centerZoneHeight: `${CENTER_ZONE_HEIGHT}%`,
-    headerLogoZone: '0% - 24%',
-    footerBarZone: '82% - 100%',
-    reasoning: 'Single clear instruction to Gemini - all text in center zone'
+    headerZone: '0% - 40% (FORBIDDEN)',
+    footerZone: '70% - 100% (FORBIDDEN)',
+    reasoning: 'v24.10 Unified zones - same for Flash and Pro models'
   })
 
-  // v24.1: Simplified text zones - all within 38%-80%
+  // v24.10: Simplified text zones - all within 40%-70% (30% total)
   // Calculate speaker zone height based on speaker count
   const speakerZoneHeight = speakers.length > 0 ?
-    (speakers.length > 2 ? 12 : 8) : 0 // Adjusted for center zone
+    (speakers.length > 2 ? 8 : 6) : 0 // Compressed for 30% zone
 
-  // Distribute text proportionally within center zone (38-80%)
+  // v24.10: Distribute text proportionally within center zone (40-70%)
+  // 30% total height = need tighter spacing
   const textZones = {
     header: { start: 0, end: headerReservePercent },
-    headline: { start: CONTENT_START, end: CONTENT_START + 8 },          // 38-46%
-    tagline: { start: CONTENT_START + 9, end: CONTENT_START + 14 },      // 47-52%
-    dateVenue: { start: CONTENT_START + 16, end: CONTENT_START + 24 },   // 54-62%
-    speakers: { start: CONTENT_START + 26, end: CONTENT_START + 36 },    // 64-74%
-    additionalDetails: { start: CONTENT_START + 36, end: CONTENT_END - 2 }, // 74-78%
-    buffer: { start: CONTENT_END, end: 100 - footerReservePercent },     // 80-82%
-    footer: { start: 100 - footerReservePercent, end: 100 }              // 82-100%
+    headline: { start: CONTENT_START, end: CONTENT_START + 6 },          // 40-46%
+    tagline: { start: CONTENT_START + 7, end: CONTENT_START + 11 },      // 47-51%
+    dateVenue: { start: CONTENT_START + 12, end: CONTENT_START + 18 },   // 52-58%
+    speakers: { start: CONTENT_START + 19, end: CONTENT_START + 25 },    // 59-65%
+    additionalDetails: { start: CONTENT_START + 26, end: CONTENT_END - 2 }, // 66-68%
+    buffer: { start: CONTENT_END, end: CONTENT_END },                    // No buffer needed
+    footer: { start: CONTENT_END, end: 100 }                             // 70-100% (FORBIDDEN)
   }
 
-  console.log('[Event Poster v24.1] Center Zone Text Distribution:', {
+  console.log('[Event Poster v24.10] Center Zone Text Distribution:', {
     contentZone: `${CONTENT_START}% - ${CONTENT_END}%`,
     headline: `${textZones.headline.start}% - ${textZones.headline.end}%`,
     tagline: `${textZones.tagline.start}% - ${textZones.tagline.end}%`,
     dateVenue: `${textZones.dateVenue.start}% - ${textZones.dateVenue.end}%`,
     speakers: `${textZones.speakers.start}% - ${textZones.speakers.end}%`,
-    footer: `${100 - footerReservePercent}% - 100%`
+    footerZone: `${CONTENT_END}% - 100% (FORBIDDEN)`
   })
 
-  // v24.1: PIXEL-BASED CENTER ZONE POSITIONING
+  // v24.10: PIXEL-BASED UNIFIED ZONE POSITIONING
   // Gemini cannot parse XML percentages - use exact pixel coordinates
   const CANVAS_HEIGHT = 1440; // Event poster height
   const CANVAS_WIDTH = 1080;
 
-  // v24.1: Pixel zones based on CENTER ZONE STRATEGY (38%-80%)
+  // v24.10: Pixel zones based on UNIFIED ZONE STRATEGY (40%-70%)
   const pixelZones = {
-    // Header logo zone (0-24%)
-    headerLogoEnd: Math.floor(CANVAS_HEIGHT * 0.24),  // 346px
-    // Upper buffer zone (24-38%)
-    contentStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 547px for 38%
-    // Content zone boundaries (38-80%)
-    headlineStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 547px
-    headlineEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 8) / 100)),  // 662px
-    dateVenueStart: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 16) / 100)),  // 778px
-    dateVenueEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 24) / 100)),  // 893px
-    contentEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1152px for 80%
-    // Footer zone (82-100%)
-    footerStart: Math.floor(CANVAS_HEIGHT * ((100 - footerReservePercent) / 100)),  // 1181px for 82%
+    // Header zone (0-40%) - FORBIDDEN
+    headerEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px for 40%
+    // Content zone boundaries (40-70%)
+    contentStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px for 40%
+    headlineStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px
+    headlineEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 6) / 100)),  // 662px
+    dateVenueStart: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 12) / 100)),  // 749px
+    dateVenueEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 18) / 100)),  // 835px
+    contentEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1008px for 70%
+    // Footer zone (70-100%) - FORBIDDEN
+    footerStart: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1008px for 70%
     footerEnd: CANVAS_HEIGHT
   };
 
-  console.log('[Event Poster v24.1] CENTER ZONE PIXEL POSITIONS:', {
-    headerLogoZone: `0px - ${pixelZones.headerLogoEnd}px (0-24%)`,
-    contentZone: `${pixelZones.contentStart}px - ${pixelZones.contentEnd}px (38-80%)`,
+  console.log('[Event Poster v24.10] UNIFIED ZONE PIXEL POSITIONS:', {
+    headerZone: `0px - ${pixelZones.headerEnd}px (0-40% FORBIDDEN)`,
+    contentZone: `${pixelZones.contentStart}px - ${pixelZones.contentEnd}px (40-70%)`,
     headlineZone: `${pixelZones.headlineStart}px - ${pixelZones.headlineEnd}px`,
     dateVenueZone: `${pixelZones.dateVenueStart}px - ${pixelZones.dateVenueEnd}px`,
-    footerBarZone: `${pixelZones.footerStart}px - ${pixelZones.footerEnd}px`,
+    footerZone: `${pixelZones.footerStart}px - ${pixelZones.footerEnd}px (70-100% FORBIDDEN)`,
     canvasHeight: `${CANVAS_HEIGHT}px`
   });
 
-  // v23.0: REMOVED buildSpatialLayoutXML function - replaced with pixel-based prose instructions
-  // Gemini cannot parse XML structure, so we now use absolute pixel coordinates in natural language
-
-  // v24.1: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
-  // This is the PRIMARY defense layer with 90-95% success rate in preventing text-logo overlaps
-  // Updated to use CENTER ZONE STRATEGY (38%-80%) - content starts at contentStart, ends at contentEnd
-  // v24.7: Now model-aware - Pro model gets STRICTER enforcement than Flash
+  // v24.10: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // This is the PRIMARY defense layer with unified 40%-70% content zone for both models
   const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
     CANVAS_WIDTH,
     CANVAS_HEIGHT,
-    pixelZones.contentStart, // headerHeight - content zone starts at 38% (547px)
+    pixelZones.contentStart, // headerHeight - content zone starts at 40% (576px)
     CANVAS_HEIGHT - pixelZones.footerStart, // footerHeight
-    CONTENT_START, // headerPercent - now 38%
-    footerReservePercent, // footerPercent
-    options.engine // v24.7: Pass engine for model-aware zone enforcement
+    CONTENT_START, // headerPercent - now 40%
+    100 - CONTENT_END, // footerPercent - now 30% (100 - 70)
+    options.engine // v24.10: Pass engine (both use same zones now)
   )
 
-  console.log('[Event Poster v24.7] LAYER 1:', options.engine === 'yi_craft'
-    ? 'Pro model STRICT spatial constraints'
-    : 'Flash model standard constraints'
+  console.log('[Event Poster v24.10] LAYER 1:', options.engine === 'yi_craft'
+    ? 'Pro model STRICT spatial constraints (40%-70%)'
+    : 'Flash model spatial constraints (40%-70%)'
   )
 
   // NEW v3.4: Build forbidden zones for strict logo-text overlap prevention

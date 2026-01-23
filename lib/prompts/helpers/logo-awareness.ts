@@ -128,8 +128,8 @@ export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
     )
   }
 
-  // General composition guidance - focus on CENTER for content
-  lines.push('Place the event title and all text content in the CENTER portion of the image (between 38% and 80% from top).')
+  // v24.10: General composition guidance - focus on CENTER for content (unified 40%-70% zone)
+  lines.push('Place the event title and all text content in the CENTER portion of the image (between 40% and 70% from top).')
 
   return lines.join(' ')
 }
