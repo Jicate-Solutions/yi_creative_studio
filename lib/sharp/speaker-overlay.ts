@@ -70,16 +70,19 @@ function calculateYPosition(
   headerHeight: number = 0,  // v20.7: Header zone height to prevent overlap with logo bar
   footerHeight: number = 0   // v20.7: Footer zone height to prevent overlap with footer bar
 ): number {
-  // Percentages define where photo CENTER should be
+  // v24.11: Percentages define where photo CENTER should be
+  // REMAPPED to fit within 40%-70% content zone (avoiding header/footer logo bars)
+  // Previous values: top=15%, upper=30%, middle=50%, lower=65%, bottom=80%
+  // These caused overlap with header (0-40%) and footer (70-100%) zones
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
-    'top': 0.15,      // Center at 15% from top
-    'upper': 0.30,    // Center at 30% from top
-    'middle': 0.50,   // Center at 50% (exact middle)
-    'lower': 0.65,    // Center at 65% from top
-    'bottom': 0.80,   // Center at 80% from top
+    'top': 0.45,      // Center at 45% - just below header zone boundary (40%)
+    'upper': 0.52,    // Center at 52% - upper portion of content zone
+    'middle': 0.55,   // Center at 55% - center of content zone (40-70%)
+    'lower': 0.62,    // Center at 62% - lower portion of content zone
+    'bottom': 0.68,   // Center at 68% - just above footer zone boundary (70%)
   }
 
-  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.65
+  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.62  // v24.11: Default to 62% (lower position)
   const baseY = Math.floor(imageHeight * percentage)
 
   // v20.7: CRITICAL - minY must account for header zone to prevent overlap with logo bar
@@ -843,6 +846,150 @@ async function removeBackgroundByColor(
 }
 
 // ============================================================
+// SPEAKER CARD WITH TEXT (v24.16)
+// ============================================================
+
+/**
+ * Create a grouped speaker card with photo + name + designation
+ * Renders text below the photo as a single composite unit for true visual grouping
+ *
+ * Layout:
+ * ┌─────────────────────┐
+ * │   ┌───────────┐     │
+ * │   │   Photo   │     │  <- Circular photo with shadow
+ * │   └───────────┘     │
+ * │    Speaker Name     │  <- Bold text, centered below photo
+ * │    Designation      │  <- Regular text, centered below name
+ * └─────────────────────┘
+ *
+ * @param config - Configuration for the speaker card
+ * @returns Promise<{ buffer: Buffer; width: number; height: number }> - Card buffer with dimensions
+ */
+async function createSpeakerCardBuffer(config: {
+  photoBuffer: Buffer
+  speakerName: string
+  speakerDesignation?: string
+  photoSize: number  // Total photo size including shadow/border
+  textConfig: {
+    nameColor: string
+    nameFontSize: number
+    designationColor: string
+    designationFontSize: number
+  }
+  gap: number  // Gap between photo and text
+}): Promise<{ buffer: Buffer; width: number; height: number }> {
+  const { photoBuffer, speakerName, speakerDesignation, photoSize, textConfig, gap } = config
+
+  // Import text-to-path utility for font-independent text rendering
+  const { textToPath, getTextWidth, getFontMetrics } = await import('./text-to-path')
+
+  // Calculate text dimensions
+  const nameFontWeight = 'bold' as const
+  const designationFontWeight = 'regular' as const
+  const fontFamily = 'Poppins'
+
+  const nameWidth = getTextWidth(speakerName, fontFamily, textConfig.nameFontSize, nameFontWeight)
+  const nameMetrics = getFontMetrics(fontFamily, textConfig.nameFontSize, nameFontWeight)
+
+  let designationWidth = 0
+  let designationMetrics = { lineHeight: 0, ascender: 0 }
+  if (speakerDesignation) {
+    designationWidth = getTextWidth(speakerDesignation, fontFamily, textConfig.designationFontSize, designationFontWeight)
+    designationMetrics = getFontMetrics(fontFamily, textConfig.designationFontSize, designationFontWeight)
+  }
+
+  // Calculate card dimensions
+  const padding = 20  // Horizontal padding on each side
+  const bottomPadding = 10  // Bottom padding
+  const textGap = 4  // Gap between name and designation
+
+  // CRITICAL: Sharp requires integer dimensions - use Math.ceil to ensure we have enough space
+  const cardWidth = Math.ceil(Math.max(photoSize, nameWidth + padding * 2, designationWidth + padding * 2))
+  const textBlockHeight = Math.ceil(nameMetrics.lineHeight + (speakerDesignation ? designationMetrics.lineHeight + textGap : 0))
+  const cardHeight = Math.ceil(photoSize + gap + textBlockHeight + bottomPadding)
+
+  // Calculate text positions (centered horizontally)
+  const textCenterX = cardWidth / 2
+  const nameY = photoSize + gap + nameMetrics.ascender
+  const designationY = nameY + nameMetrics.lineHeight + textGap
+
+  // Generate SVG paths for text
+  const namePath = textToPath(speakerName, {
+    fontFamily,
+    fontSize: textConfig.nameFontSize,
+    fontWeight: nameFontWeight,
+    x: textCenterX,
+    y: nameY,
+    fill: textConfig.nameColor,
+    textAnchor: 'middle',
+  })
+
+  const designationPath = speakerDesignation
+    ? textToPath(speakerDesignation, {
+        fontFamily,
+        fontSize: textConfig.designationFontSize,
+        fontWeight: designationFontWeight,
+        x: textCenterX,
+        y: designationY,
+        fill: textConfig.designationColor,
+        textAnchor: 'middle',
+      })
+    : ''
+
+  // Validate dimensions before creating Sharp buffers
+  if (cardWidth <= 0 || cardHeight <= 0 || !Number.isFinite(cardWidth) || !Number.isFinite(cardHeight)) {
+    console.error(`[Speaker Card v24.16] Invalid dimensions: ${cardWidth}x${cardHeight}`)
+    throw new Error(`Invalid card dimensions: ${cardWidth}x${cardHeight}`)
+  }
+
+  console.log(`[Speaker Card v24.16] Card dimensions: ${cardWidth}x${cardHeight}px, photo: ${photoSize}px`)
+
+  // Create SVG containing just the text
+  const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${cardWidth}" height="${cardHeight}" xmlns="http://www.w3.org/2000/svg">
+  ${namePath}
+  ${designationPath}
+</svg>`
+
+  // Render text SVG to buffer
+  const textBuffer = await sharp(Buffer.from(textSvg))
+    .png()
+    .toBuffer()
+
+  // Calculate photo position (centered horizontally on the card)
+  const photoX = Math.floor((cardWidth - photoSize) / 2)
+
+  // Create transparent canvas and composite photo + text
+  const cardBuffer = await sharp({
+    create: {
+      width: cardWidth,
+      height: cardHeight,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 }  // Transparent background
+    }
+  })
+    .composite([
+      {
+        input: photoBuffer,
+        top: 0,
+        left: photoX,
+      },
+      {
+        input: textBuffer,
+        top: 0,
+        left: 0,
+      }
+    ])
+    .png()
+    .toBuffer()
+
+  console.log(`[Speaker Card v24.16] Created speaker card: ${cardWidth}x${cardHeight}px`)
+  console.log(`[Speaker Card v24.16] Speaker: "${speakerName}"${speakerDesignation ? ` - "${speakerDesignation}"` : ''}`)
+
+  return { buffer: cardBuffer, width: cardWidth, height: cardHeight }
+}
+
+// ============================================================
 // MULTI-SPEAKER SUPPORT (NEW v5.0)
 // ============================================================
 
@@ -876,17 +1023,17 @@ function calculateAnchorPosition(config: {
       break
   }
 
-  // Calculate Y based on vertical position
-  // Use percentages to place photo group at the right vertical position
+  // v24.11: Calculate Y based on vertical position
+  // REMAPPED to fit within 40%-70% content zone (avoiding header/footer logo bars)
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
-    'top': 0.15,
-    'upper': 0.30,
-    'middle': 0.50,
-    'lower': 0.65,
-    'bottom': 0.80,
+    'top': 0.45,      // Center at 45% - just below header zone boundary (40%)
+    'upper': 0.52,    // Center at 52% - upper portion of content zone
+    'middle': 0.55,   // Center at 55% - center of content zone (40-70%)
+    'lower': 0.62,    // Center at 62% - lower portion of content zone
+    'bottom': 0.68,   // Center at 68% - just above footer zone boundary (70%)
   }
 
-  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.65
+  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.62  // v24.11: Default to 62%
   const baseY = Math.floor(imageHeight * percentage)
 
   // Center the block at the target Y position
@@ -1023,6 +1170,8 @@ export function calculateMultiSpeakerPositions(config: {
 /**
  * Overlay multiple speaker photos onto base image
  * Uses shared settings with dynamic positioning based on layout strategy AND user position settings
+ *
+ * v24.16: Added textConfig support for grouped speaker cards (photo + name + designation)
  */
 export async function overlayMultipleSpeakerPhotos(config: {
   baseImageBuffer: Buffer
@@ -1034,6 +1183,14 @@ export async function overlayMultipleSpeakerPhotos(config: {
     shadow: boolean
     position?: PhotoPosition
     verticalPosition?: PhotoVerticalPosition
+    // v24.16: Text configuration for grouped speaker cards
+    textConfig?: {
+      showText?: boolean  // true = render text with photo, false = photo only
+      nameColor?: string
+      nameFontSize?: number
+      designationColor?: string
+      designationFontSize?: number
+    }
   }
   layoutMode: LayoutMode
   layoutStrategy?: LayoutStrategy
@@ -1248,6 +1405,12 @@ export async function overlayMultipleSpeakerPhotos(config: {
 
   console.log(`[Speaker Overlay] Using position: ${sharedSettings.position || 'center'}, vertical: ${sharedSettings.verticalPosition || 'lower'}`)
 
+  // v24.16: Check if we should render text with photos
+  const shouldShowText = sharedSettings.textConfig?.showText !== false
+  if (shouldShowText) {
+    console.log('[Speaker Overlay v24.16] Text rendering ENABLED - creating speaker cards with name/designation')
+  }
+
   // Prepare all speaker photos in parallel
   const preparedPhotos = await Promise.all(
     speakers
@@ -1268,6 +1431,37 @@ export async function overlayMultipleSpeakerPhotos(config: {
 
           const photoBuffer = await prepareSpeakerPhoto(speaker.photoUrl!, tempConfig)
 
+          // v24.16: Create speaker card with text if enabled and speaker has a name
+          if (shouldShowText && speaker.name) {
+            // Calculate photo size with effects (shadow, border, glow)
+            const shouldAddShadow = sharedSettings.shadow !== false
+            const shadowPadding = shouldAddShadow ? 18 : 0
+            const glowPadding = shouldAddShadow ? 12 : 0
+            const borderWidth = sharedSettings.border?.width || 3
+            const totalPhotoSize = sharedSettings.size + borderWidth * 2 + shadowPadding * 2 + glowPadding * 2
+
+            const cardResult = await createSpeakerCardBuffer({
+              photoBuffer,
+              speakerName: speaker.name,
+              speakerDesignation: speaker.designation,
+              photoSize: totalPhotoSize,
+              textConfig: {
+                nameColor: sharedSettings.textConfig?.nameColor || '#FFFFFF',
+                nameFontSize: sharedSettings.textConfig?.nameFontSize || 24,
+                designationColor: sharedSettings.textConfig?.designationColor || '#D0D0D0',
+                designationFontSize: sharedSettings.textConfig?.designationFontSize || 18,
+              },
+              gap: 12,  // 12px gap between photo and text
+            })
+
+            return {
+              buffer: cardResult.buffer,
+              position: positions[index],
+              cardWidth: cardResult.width,
+              cardHeight: cardResult.height,
+            }
+          }
+
           // v6.6: Position already calculated with effectivePhotoSize by calculateMultiSpeakerPositions()
           // No additional shadow adjustment needed here - the position accounts for shadow padding
           return {
@@ -1285,6 +1479,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
   const validPhotos = preparedPhotos.filter(p => p !== null) as Array<{
     buffer: Buffer
     position: { x: number; y: number }
+    cardWidth?: number   // v24.16: Card width (when text enabled)
+    cardHeight?: number  // v24.16: Card height (when text enabled)
   }>
 
   if (validPhotos.length === 0) {
@@ -1456,6 +1652,15 @@ export async function processImageWithSpeakerPhoto(
         shadow: normalized.shadow,
         position: normalized.position,
         verticalPosition: normalized.verticalPosition,
+        // v24.16: Enable grouped speaker cards with text
+        // Text is rendered alongside photo in Sharp (not by Gemini)
+        textConfig: {
+          showText: true,
+          nameColor: '#FFFFFF',
+          nameFontSize: 24,
+          designationColor: '#D0D0D0',
+          designationFontSize: 18,
+        },
       },
       layoutMode: normalized.layoutMode || 'auto',
       layoutStrategy: normalized.layoutStrategy,
@@ -1567,14 +1772,45 @@ export async function processImageWithMultiSpeakerLayout(
         continue
       }
 
-      // Fetch speaker photo
-      const photoResponse = await fetch(speaker.photoUrl)
-      if (!photoResponse.ok) {
-        console.error(`[Multi-Speaker Layout] Failed to fetch photo for speaker ${i + 1}`)
+      // v24.14: Support both data URLs and HTTP URLs (like single-speaker does)
+      let photoBuffer: Buffer
+
+      if (speaker.photoUrl.startsWith('data:')) {
+        // Handle data URL (base64 encoded) - this is how frontend stores photos
+        const base64Data = speaker.photoUrl.split(',')[1]
+        if (!base64Data) {
+          console.error(`[Multi-Speaker Layout] Invalid data URL for speaker ${i + 1}: missing base64 data`)
+          continue
+        }
+        photoBuffer = Buffer.from(base64Data, 'base64')
+        console.log(`[Multi-Speaker Layout] Speaker ${i + 1}: Loaded from data URL (${photoBuffer.length} bytes)`)
+      } else if (speaker.photoUrl.startsWith('http')) {
+        // Handle HTTP URL
+        const photoResponse = await fetch(speaker.photoUrl)
+        if (!photoResponse.ok) {
+          console.error(`[Multi-Speaker Layout] Failed to fetch photo for speaker ${i + 1}: HTTP ${photoResponse.status}`)
+          continue
+        }
+
+        // Validate Content-Type
+        const contentType = photoResponse.headers.get('content-type')
+        if (contentType && !contentType.startsWith('image/')) {
+          console.error(`[Multi-Speaker Layout] Invalid content type for speaker ${i + 1}: ${contentType}`)
+          continue
+        }
+
+        photoBuffer = Buffer.from(await photoResponse.arrayBuffer())
+        console.log(`[Multi-Speaker Layout] Speaker ${i + 1}: Loaded from URL (${photoBuffer.length} bytes)`)
+      } else {
+        console.error(`[Multi-Speaker Layout] Unsupported photo URL format for speaker ${i + 1}: ${speaker.photoUrl.substring(0, 50)}...`)
         continue
       }
 
-      const photoBuffer = Buffer.from(await photoResponse.arrayBuffer())
+      // Validate buffer is not empty
+      if (photoBuffer.length === 0) {
+        console.error(`[Multi-Speaker Layout] Empty photo buffer for speaker ${i + 1}`)
+        continue
+      }
 
       // Process speaker photo with circular mask and border
       const processedPhoto = await sharp(photoBuffer)

@@ -1,9 +1,9 @@
-'use client';
+'use client'
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { BottomNavSubmenuProps } from './types';
-import { usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion'
+import { cn } from '@/lib/utils'
+import { BottomNavSubmenuProps } from './types'
+import { usePathname } from 'next/navigation'
 
 // Fast spring for container
 const containerSpring = {
@@ -11,21 +11,14 @@ const containerSpring = {
   stiffness: 500,
   damping: 35,
   mass: 0.8
-};
-
-// Quick exit transition
-const exitTransition = {
-  type: 'tween' as const,
-  duration: 0.15,
-  ease: [0.4, 0, 1, 1] as const
-};
+}
 
 export function BottomNavSubmenu({
   items,
   isOpen,
   onItemClick
 }: BottomNavSubmenuProps) {
-  const pathname = usePathname();
+  const pathname = usePathname()
 
   return (
     <AnimatePresence mode="wait">
@@ -58,8 +51,8 @@ export function BottomNavSubmenu({
           >
             <div className="grid grid-cols-3 gap-2">
               {items.map((item, index) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                const Icon = item.icon;
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                const Icon = item.icon
 
                 return (
                   <motion.button
@@ -74,7 +67,7 @@ export function BottomNavSubmenu({
                       type: 'spring',
                       stiffness: 500,
                       damping: 25,
-                      delay: index * 0.02 // Faster stagger
+                      delay: index * 0.02
                     }}
                     whileTap={{ scale: 0.95 }}
                     whileHover={{ scale: 1.02, backgroundColor: 'var(--accent)' }}
@@ -113,12 +106,12 @@ export function BottomNavSubmenu({
                       </span>
                     )}
                   </motion.button>
-                );
+                )
               })}
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
-  );
+  )
 }

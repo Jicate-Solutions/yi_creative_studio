@@ -9,13 +9,14 @@ import { EnhancedStripSettings } from './enhanced-strip-settings'
 import { EnhancedStripCanvas } from './enhanced-strip-canvas'
 
 /**
- * Simplified Logo Step - v3 (Restored Sticky Layout)
- * Shows:
+ * Logo Step - v26.0 (Restored Production Layout + Drag-and-Drop)
+ *
+ * Layout: 2-column grid
  * 1. Preview (left column) - Live preview of the 4-row strip
- * 2. 4-Row Strip Settings (right column) - Configuration options
+ * 2. 4-Row Strip Settings (right column) - Configuration with drag-and-drop reordering
  *
  * Logo Library section removed - logos auto-detected from library
- * Old tabs (Appearance, Placement) backed up in logo-step.backup.tsx
+ * Drag-and-drop for ROW 2 (Program Logos) is handled in EnhancedStripSettings
  */
 export function LogoStep() {
   const { logos, isLoading } = useLogos()
@@ -55,19 +56,17 @@ export function LogoStep() {
 
       {/* Main Layout: Two Column on Desktop - Preview Left, Settings Right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Preview (Larger & Contained) */}
+        {/* Left Column: Preview (Larger) */}
         <div className="lg:col-span-1 space-y-4">
-          <Card className="sticky top-4 max-h-[calc(100vh-200px)] flex flex-col">
-            <CardHeader className="pb-3 flex-shrink-0">
+          <Card className="sticky top-4">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Live Preview</CardTitle>
               <CardDescription className="text-xs">
                 How your logo strip will appear on the poster
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto custom-scrollbar p-4 flex justify-center bg-slate-50/50 rounded-b-xl border-t">
-              <div className="w-full max-w-md">
-                <EnhancedStripCanvas className="transform scale-90 origin-top" />
-              </div>
+            <CardContent>
+              <EnhancedStripCanvas className="scale-100 origin-top" />
             </CardContent>
           </Card>
         </div>

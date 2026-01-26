@@ -117,22 +117,22 @@ export default function LogoManagementPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Logo Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Logo Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Upload and manage logos for your brand creatives
           </p>
         </div>
         {isReady && isAdmin && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setFolderUploadOpen(true)}>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setFolderUploadOpen(true)} className="flex-1 sm:flex-none">
               <FolderOpen className="h-4 w-4 mr-2" />
               Upload Folder
             </Button>
             <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2 flex-1 sm:flex-none">
                   <Plus className="h-4 w-4" />
                   Upload Logo
                 </Button>
@@ -277,23 +277,23 @@ export default function LogoManagementPage() {
                   <h2 className="text-lg font-semibold">{label}</h2>
                   <p className="text-sm text-muted-foreground">{description}</p>
                 </div>
-                <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+                <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
                   {categoryLogos.map((logo) => (
                     <Card key={logo.id} className="group relative overflow-hidden">
-                      <div className="aspect-square p-4 flex items-center justify-center bg-muted/30">
+                      <div className="aspect-square p-2 sm:p-4 flex items-center justify-center bg-muted/30">
                         <img
                           src={logo.thumbnail_url || logo.file_url}
                           alt={logo.name}
                           className="max-w-full max-h-full object-contain"
                         />
                       </div>
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="truncate">
-                            <p className="text-sm font-medium truncate">{logo.name}</p>
+                      <CardContent className="p-2 sm:p-3">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium truncate">{logo.name}</p>
                             {logo.is_default && (
-                              <Badge variant="secondary" className="text-xs">
-                                <Star className="h-3 w-3 mr-1" />
+                              <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 sm:px-2">
+                                <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
                                 Default
                               </Badge>
                             )}
@@ -301,8 +301,8 @@ export default function LogoManagementPage() {
                           {isReady && isAdmin && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="h-4 w-4" />
+                                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                                  <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">

@@ -1077,8 +1077,13 @@ export function DynamicDetailsForm({
                           const { formData } = useCreativeStore.getState()
                           const currentSpeakers = formData?.designData?.customization?.speakerPhoto?.speakers || []
 
+                          const updatedSpeakers = currentSpeakers.filter(s => s.id !== speakerId)
+                          // Auto-disable when all speakers with photos are removed
+                          const hasAnyPhoto = updatedSpeakers.some(s => s.photoUrl)
+
                           onSpeakerPhotoChange?.({
-                            speakers: currentSpeakers.filter(s => s.id !== speakerId)
+                            speakers: updatedSpeakers,
+                            enabled: hasAnyPhoto
                           })
                         }}
                         onUpdateSpeaker={(speakerId, updates) => {
@@ -1086,10 +1091,17 @@ export function DynamicDetailsForm({
                           const { formData } = useCreativeStore.getState()
                           const currentSpeakers = formData?.designData?.customization?.speakerPhoto?.speakers || []
 
+                          const updatedSpeakers = currentSpeakers.map(s =>
+                            s.id === speakerId ? { ...s, ...updates } : s
+                          )
+
+                          // Auto-enable speaker photos when a photo is uploaded
+                          const hasAnyPhoto = updatedSpeakers.some(s => s.photoUrl)
+
                           onSpeakerPhotoChange?.({
-                            speakers: currentSpeakers.map(s =>
-                              s.id === speakerId ? { ...s, ...updates } : s
-                            )
+                            speakers: updatedSpeakers,
+                            // Auto-enable when photo is added, auto-disable when all photos removed
+                            enabled: hasAnyPhoto
                           })
                         }}
                         onUpdateSettings={(settings) => {

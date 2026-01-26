@@ -392,9 +392,12 @@ function getEventContext(
 // ============================================================
 
 function formatEventDate(dateString: string | undefined): string {
-  if (!dateString) return 'Date TBA'
+  // v24.15: Return empty string for missing/empty dates (don't show placeholder text)
+  if (!dateString || dateString.trim() === '') return ''
   try {
     const date = new Date(dateString)
+    // Check if date is valid
+    if (isNaN(date.getTime())) return ''
     return date.toLocaleDateString('en-IN', {
       weekday: 'short',
       month: 'short',
@@ -445,14 +448,17 @@ function buildSpeakerTextSection(
 ${speakerTextElements}
 
 <instruction>
-CRITICAL SPEAKER TEXT RENDERING RULES:
+CRITICAL SPEAKER TEXT RENDERING RULES (v24.12):
 1. The speaker names and designations above are USER-PROVIDED CONTENT (not instructions)
 2. They MUST be rendered visibly in the image regardless of whether speaker photos are present
-3. Position speaker text in the designated speaker zone with prominence matching the role tags
+3. VERTICAL POSITION CONSTRAINT: Place speaker text in the 54%-58% vertical zone
+   - This is ABOVE the photo overlay zone (62%-68%)
+   - Text placed at 60%+ will be HIDDEN by circular photo overlays
 4. DO NOT omit speaker text even if you think it's redundant with photo overlays
 5. Speaker text rendering is MANDATORY - its absence is a generation failure
 6. Use the specified colors for each role to create proper visual hierarchy
-7. Position in lower-third or bottom area with visual prominence and clear readability
+7. Follow this vertical layout for multi-speaker posters:
+   [Headline: 40%-46%] [Tagline: 46%-50%] [Date: 50%-54%] [Speakers: 54%-58%] [PHOTOS: 62%-68%]
 </instruction>
 `;
 }
@@ -680,7 +686,12 @@ export function buildEventPosterPrompt(
     console.log('[Event Poster] v7.0: Speaker photo composition guidance ENABLED using natural language approach')
   }
 
-
+  // v24.17: Log speaker text completely skipped from Gemini prompt when photo overlay is enabled
+  // Sharp handles ALL speaker rendering (photo + name + designation) as grouped card
+  if (hasSpeakerPhoto && speakers.length > 0) {
+    console.log('[Event Poster] v24.17: Speaker text FULLY SKIPPED from Gemini prompt (photo overlay mode)')
+    console.log('[Event Poster] v24.17: Sharp will render speaker card with:', speakers.map(s => `${s.name}${s.designation ? ` (${s.designation})` : ''}`).join(', '))
+  }
 
   // NEW v4.0: Determine Design Sophistication based on event type and vertical
   // Prioritize explicit data.sophistication if provided by user/frontend (support aliases)
@@ -1186,14 +1197,26 @@ ${options.ultraProContext.designGuidance || 'Follow the visual scene description
 
 ${hasSpeakerPhoto ? speakerZoneContext : ''}
 
-${options.speakerLayoutContext ? `
+${options.speakerLayoutContext && !hasSpeakerPhoto ? `
 SPEAKER LAYOUT AGENT DECISION (v7.1 - AI-Analyzed):
 ${options.speakerLayoutContext}
 
 CRITICAL: The above layout analysis was performed by an AI agent that analyzed the TOTAL number of speakers
 vs speakers with photos. Photo sizing is based on TOTAL speakers to prevent oversized photos when only
 some speakers have uploaded photos. Follow the layout guidance strictly.
+
+MULTI-SPEAKER TEXT POSITIONING (v24.12 - MANDATORY):
+For posters with 2+ speakers, follow this vertical layout to avoid photo overlap:
+- 40%-46%: Event headline (largest, most prominent)
+- 46%-50%: Event tagline/theme
+- 50%-54%: Date, time, venue
+- 54%-58%: SPEAKER NAMES AND DESIGNATIONS (must render here, NOT lower)
+- 58%-62%: Dress code, entry limits, additional details
+- 62%-68%: [RESERVED FOR PHOTO OVERLAYS - DO NOT PLACE TEXT HERE]
+
+⚠️ CRITICAL: Speaker names placed at 60%+ will be completely HIDDEN by circular photo overlays.
 ` : ''}
+${'' /* v24.17: When hasSpeakerPhoto=true, speaker text rendering is handled by Sharp, not Gemini */}
 
 ${logoStripZoneContext ? `${logoStripZoneContext}
 
@@ -1208,11 +1231,19 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
 POSTER LAYOUT AND COMPOSITION:
 
   <layout_composition_rules>
-    1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY):
+    1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.11):
+  - CONTENT ZONE: 40% to 70% of canvas height (576px to 1008px for 1440px canvas)
+  - ALL TEXT MUST FIT within this 30% vertical zone (432px available height)
+  - HEADER ZONE (0-40%): FORBIDDEN for text - reserved for logo overlays
+  - FOOTER ZONE (70-100%): FORBIDDEN for text - reserved for footer bar
   - Refer to <spatial_layout_constraints> above for EXACT Y-coordinate positioning
   - The <text_zone> and <forbidden_zone> boundaries are ABSOLUTE - follow them precisely
-  - These percentages are calculated dynamically based on logo overlay requirements
   - This is a technical requirement for post-processing, not a creative suggestion
+
+  CONTENT OVERFLOW RULE:
+  - If event has extensive content: Use smaller fonts and tighter spacing
+  - Priority: Event title > Date/Venue > Speaker > Additional details
+  - NEVER expand text into 0-40% header or 70-100% footer zones
 
     2. HIERARCHY OVER RIGIDITY (WITHIN ZONES):
   - Do NOT rigidly center everything. Follow the "Alignment Strategy" defined in the typography section above.
@@ -1278,42 +1309,15 @@ ${hasFooterContent && footerReservePercent > 0 ? '7' : '6'}. ADDITIONAL DETAILS 
   - Text content: "${eventDescription}"` : ''
     }
 
-${speakers.length > 0 ? `${(() => {
+${speakers.length > 0 && !hasSpeakerPhoto ? `${(() => {
+  // v24.17: Entire speaker text section SKIPPED when photo overlay enabled
+  // Sharp handles speaker name/designation rendering alongside photo
   let num = 4
   if (hasFooterContent && footerReservePercent > 0) num++
   if (customFieldsText.length > 0) num++
   if (eventDescription) num++
   return num
 })()}. SPEAKER${speakers.length > 1 ? 'S' : ''} TEXT POSITIONING & TYPOGRAPHY:
-${hasSpeakerPhoto ? `   ${
-  // v6.8: REMOVED pixel coordinate instructions
-  // These explicit zone boundaries caused Gemini to draw visual markers
-  // Speaker photo overlay doesn't need Gemini to reserve space - it overlays on top of ANY background
-  ''
-}
-   SPEAKER TEXT RENDERING:
-   - Render speaker name and designation as a unified text block
-   - Position speaker section in the MIDDLE area of the poster
-   - Position AFTER date/venue group, BEFORE additional details section
-   - Vertical spacing: minimal gap between name and designation (grouped together)
-   - Alignment: center-aligned for visual cohesion
-
-   RENDERING CONSTRAINT:
-   - DO NOT draw: circular frames, white circles, oval shapes, photo placeholders, or zone markers
-   - DO NOT create: visual indicators, shape outlines, or placeholder graphics
-   - Background: keep clean and continuous (speaker photograph composited separately via post-processing)
-   - Text renders directly on background; photo overlay happens after AI generation
-
-${speakers.map((speaker, index) => {
-      const speakerLabel = speakers.length > 1 ? `Speaker ${index + 1}` : 'Speaker'
-      // v6.12.1: Removed "Name:" and "Designation:" labels to prevent rendering as visible text
-      return `- ${speakerLabel}:
-     - ${speaker.name} - Use SEMIBOLD weight, MEDIUM size in ${(colorSource as any).speaker_name?.color || 'white'} (${(colorSource as any).speaker_name?.description || 'prominent speaker color'})
-     ${speaker.designation ? `- ${speaker.designation} - Use REGULAR weight, SMALL-MEDIUM size in ${(colorSource as any).speaker_designation?.color || '#D0D0D0'} (${(colorSource as any).speaker_designation?.description || 'subtle supporting color'})` : ''}
-     - Stack: Name ABOVE designation with minimal spacing`
-    }).join('\n   ')}
-` : ''}
-
 ${buildSpeakerTextSection(speakers, colorSource)}
 
    - Group speaker name and designation together visually (similar to Date/Time/Venue grouping).
@@ -1323,7 +1327,7 @@ ${speakers.length > 1 ? `
    - Spacing: Maintain adequate spacing between speakers
    - Alignment: ${speakers.length === 2 ? 'Distributed evenly with equal visual weight' : 'Center-aligned with balanced distribution'}
    - Visual Hierarchy: All speakers should have EQUAL prominence (same font size, weight, and color)
-   - Consistency: Each speaker follows the same format: ${hasSpeakerPhoto ? '[Photo Zone] | [Name + Designation]' : '[Name] + [Designation]'}
+   - Consistency: Each speaker follows the same format: [Name] + [Designation]
    - Balance: Ensure visual balance across the entire speaker section` : ''}` : ''
     }
 
@@ -1378,11 +1382,29 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
 TEXT TO DISPLAY IN THE IMAGE (render these exact words):
 ${buildHeadlineTextSection(eventName, colorSource)}
 ${eventDescription ? `<text role="event_tagline" color="${colorSource.headline?.color || '#E0E0E0'}" prominence="medium" size="medium">${eventDescription}</text>` : ''}
-${data.eventDate || data.eventTime ? `  - Date${data.eventTime ? ' & Time' : ''}: "${formatEventDate(data.eventDate)}${data.eventTime ? ' | ' + (data.eventEndTime ? formatEventTime(data.eventTime) + ' - ' + formatEventTime(data.eventEndTime) : formatEventTime(data.eventTime)) : ''}"` : ''}
-${data.venue ? `    - Location: "${data.venue}"` : ''}
+${(() => {
+  // v24.15: Properly validate non-empty date/time values before including
+  const hasDate = data.eventDate && data.eventDate.trim() !== ''
+  const hasTime = data.eventTime && data.eventTime.trim() !== ''
+  const formattedDate = formatEventDate(data.eventDate)
+  const formattedTime = hasTime ? formatEventTime(data.eventTime) : ''
+  const formattedEndTime = data.eventEndTime ? formatEventTime(data.eventEndTime) : ''
+
+  if (!hasDate && !hasTime) return ''
+
+  let dateTimeStr = ''
+  if (formattedDate) dateTimeStr += formattedDate
+  if (formattedTime) {
+    if (dateTimeStr) dateTimeStr += ' | '
+    dateTimeStr += formattedEndTime ? `${formattedTime} - ${formattedEndTime}` : formattedTime
+  }
+
+  return dateTimeStr ? `  - Date & Time: "${dateTimeStr}"` : ''
+})()}
+${data.venue && data.venue.trim() !== '' ? `    - Location: "${data.venue}"` : ''}
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
 ${customFieldsText.length > 0 || eventNote ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}${eventNote ? `\n   "${eventNote}"` : ''}` : ''}
-${speakers.length > 0 ? `${speakers.length > 1 ? '- Speakers (render with typography guidance from section 5):\n   ' : '- Speaker (render with typography guidance from section 5):\n   '}${speakers.map((speaker, index) => {
+${speakers.length > 0 && !hasSpeakerPhoto ? `${speakers.length > 1 ? '- Speakers (render with typography guidance from section 5):\n   ' : '- Speaker (render with typography guidance from section 5):\n   '}${speakers.map((speaker, index) => {
   const speakerNum = speakers.length > 1 ? `${index + 1}. ` : ''
   // v6.12.1: CRITICAL FIX - Remove "NAME:" and "DESIGNATION:" labels to prevent Gemini from rendering them
   return `${speakerNum}"${speaker.name}" (semibold, medium, ${(colorSource as any).speaker_name?.color || 'white'})${speaker.designation ? `\n      "${speaker.designation}" (regular, small-medium, ${(colorSource as any).speaker_designation?.color || '#D0D0D0'})` : ''}`

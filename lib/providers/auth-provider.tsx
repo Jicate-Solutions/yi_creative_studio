@@ -293,10 +293,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Default auth context for SSR/pre-hydration - prevents throwing during server rendering
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  session: null,
+  profile: null,
+  isLoading: true,
+  isAuthenticated: false,
+  currentOrganization: null,
+  initialized: false,
+  signOut: async () => {},
+  refreshSession: async () => {},
+}
+
 export function useAuth() {
   const context = useContext(AuthContext)
+  // Return default context during SSR or before AuthProvider is mounted
+  // This prevents "useAuth must be used within AuthProvider" errors during SSR
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    return defaultAuthContext
   }
   return context
 }

@@ -305,6 +305,7 @@ interface CreativeState {
   setEnhanced4RowEnabled: (enabled: boolean) => void
   setEnhanced4RowVersion: (version: '4-row' | '4-row-split') => void
   updateInitiativeText: (config: Partial<InitiativeTextConfig>) => void
+  applyInitiativePreset: (preset: { config: InitiativeTextConfig; name: string }) => void
   updatePartnerLabel: (config: Partial<PartnerLabelConfig>) => void
   addVerticalLogo4Row: (logoId: string) => void // max 6 enforcement
   removeVerticalLogo4Row: (logoId: string) => void
@@ -1049,6 +1050,24 @@ export const useCreativeStore = create<CreativeState>()(
                 initiative: {
                   ...state.formData.enhanced4RowStrip.rows.initiative,
                   ...config,
+                },
+              },
+            },
+          },
+        })),
+
+      // Initiative Preset - apply a saved initiative/chapter name configuration
+      applyInitiativePreset: (preset) =>
+        set((state) => ({
+          formData: {
+            ...state.formData,
+            enhanced4RowStrip: {
+              ...state.formData.enhanced4RowStrip,
+              rows: {
+                ...state.formData.enhanced4RowStrip.rows,
+                initiative: {
+                  ...preset.config,
+                  enabled: true, // Ensure initiative row is enabled when preset is applied
                 },
               },
             },

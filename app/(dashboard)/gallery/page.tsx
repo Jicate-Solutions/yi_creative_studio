@@ -333,11 +333,11 @@ export default function GalleryPage() {
           />
         </div>
         {/* Filter controls - Horizontal scroll on mobile */}
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
           <Select value={verticalFilter} onValueChange={setVerticalFilter}>
-            <SelectTrigger className="w-[160px] flex-shrink-0">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by vertical" />
+            <SelectTrigger className="h-9 w-[140px] flex-shrink-0 text-sm">
+              <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
+              <SelectValue placeholder="All Verticals" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Verticals</SelectItem>
@@ -350,18 +350,19 @@ export default function GalleryPage() {
           </Select>
           <Button
             variant={favoritesOnly ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setFavoritesOnly(!favoritesOnly)}
-            className="gap-2 flex-shrink-0"
+            className="h-9 px-4 gap-2 flex-shrink-0 text-sm"
           >
-            <Star className={`h-4 w-4 ${favoritesOnly ? 'fill-current' : ''}`} />
+            <Star className={`h-4 w-4 flex-shrink-0 ${favoritesOnly ? 'fill-current' : ''}`} />
             Favorites
           </Button>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'oldest')}>
-            <SelectTrigger className="w-[140px] flex-shrink-0">
+            <SelectTrigger className="h-9 w-[130px] flex-shrink-0 text-sm">
               {sortBy === 'newest' ? (
-                <SortDesc className="h-4 w-4 mr-2" />
+                <SortDesc className="h-4 w-4 mr-2 flex-shrink-0" />
               ) : (
-                <SortAsc className="h-4 w-4 mr-2" />
+                <SortAsc className="h-4 w-4 mr-2 flex-shrink-0" />
               )}
               <SelectValue />
             </SelectTrigger>

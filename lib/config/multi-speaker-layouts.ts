@@ -73,25 +73,29 @@ type LayoutKey =
 // ============================================================
 
 // Default text zones (used when no adjustment needed)
-// v20.11: Updated with aggressive safe zones (36% start, 74% end)
+// v24.12: Text zones adjusted to END BEFORE photo zone starts (photos at ~62%-68%)
+// Speaker text must end by 58% to avoid being hidden by photo overlays
+// Previous v24.11 had speakers at 60-66% which overlapped with photos at 65%
 const DEFAULT_TEXT_ZONES: TextZoneAdjustments = {
-  headline: { start: 36, end: 44 },
-  tagline: { start: 44, end: 50 },
-  dateVenue: { start: 50, end: 58 },
-  speakers: { start: 60, end: 68 },
-  additionalDetails: { start: 70, end: 74 }
+  headline: { start: 40, end: 46 },           // Compact headline zone
+  tagline: { start: 46, end: 50 },            // Compact tagline zone
+  dateVenue: { start: 50, end: 54 },          // Date/venue info
+  speakers: { start: 54, end: 58 },           // Speaker names ABOVE photo zone (CRITICAL)
+  additionalDetails: { start: 58, end: 62 }   // Details in gap before photos (62-68% = photo zone)
 }
 
 // Photo size multipliers (percentage of canvas width)
+// v24.14: Updated for ~180px target on 1080px canvas
 const SIZE_MULTIPLIERS: Record<PhotoSizePreset, number> = {
-  small: 0.20,  // 20% of canvas width
-  medium: 0.30, // 30% of canvas width
-  large: 0.40   // 40% of canvas width
+  small: 0.12,  // 12% of canvas width (~130px on 1080px)
+  medium: 0.17, // 17% of canvas width (~184px on 1080px) - target 180px
+  large: 0.22   // 22% of canvas width (~238px on 1080px)
 }
 
-// Reserved zones (percentages from top)
-const HEADER_ZONE_END = 15    // 0-15% reserved for logos
-const FOOTER_ZONE_START = 85  // 85-100% reserved for footer
+// v24.11: Reserved zones aligned with content zone (40%-70%)
+// Previous v20.11 used 15%/85% which allowed photos in header/footer areas
+const HEADER_ZONE_END = 40    // 0-40% reserved (content zone starts at 40%)
+const FOOTER_ZONE_START = 70  // 70-100% reserved (content zone ends at 70%)
 
 // ============================================================
 // LAYOUT TEMPLATES
@@ -102,53 +106,58 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
   // PORTRAIT LAYOUTS (4:5, 3:4)
   // ========================================
 
+  // v24.15: Pushed photos down to 72% to avoid text overlap (180px photos + 36px shadow = 216px total)
+  // Photo center at 72% = 1037px, top edge at 929px (64.5%), bottom at 1145px (79.5%)
+  // Text zones now have clear separation ending at 62%
   'portrait-2': {
     positions: [
-      { xPercent: 25, yPercent: 70, shape: 'circle', zIndex: 10 }, // Bottom-left
-      { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right
+      { xPercent: 25, yPercent: 72, shape: 'circle', zIndex: 10 }, // Bottom-left
+      { xPercent: 75, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 43 }, // Start at 36% (aggressive safe zone)
-      tagline: { start: 44, end: 49 },
-      dateVenue: { start: 50, end: 58 },
-      speakers: { start: 60, end: 68 },
-      additionalDetails: { start: 70, end: 74 } // End at 74% (8% buffer before 82%)
+      headline: { start: 40, end: 47 },           // Headline zone
+      tagline: { start: 47, end: 52 },            // Tagline zone
+      dateVenue: { start: 52, end: 57 },          // Date/venue info
+      speakers: { start: 57, end: 62 },           // Speaker names ABOVE photos (clear gap before 64.5%)
+      additionalDetails: { start: 62, end: 64 }   // Small gap before photos start at 64.5%
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements and focal points in the middle region where the headline and key message live. The left and right edges benefit from understated elegance—use flowing gradients, gentle color transitions, and visual breathing room rather than dense patterns or intricate details. This balanced approach creates professional sophistication while maintaining dynamic visual interest.',
     isRecommended: true
   },
 
+  // v24.15: Pushed photos down to 72-74% to avoid text overlap
   'portrait-3': {
     positions: [
-      { xPercent: 18, yPercent: 68, shape: 'circle', zIndex: 10 }, // Bottom-left (adjusted up)
-      { xPercent: 50, yPercent: 70, shape: 'circle', zIndex: 10 }, // Bottom-center (adjusted up)
-      { xPercent: 82, yPercent: 68, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
+      { xPercent: 18, yPercent: 72, shape: 'circle', zIndex: 10 }, // Bottom-left
+      { xPercent: 50, yPercent: 74, shape: 'circle', zIndex: 10 }, // Bottom-center (slightly lower)
+      { xPercent: 82, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 42 }, // Start at 36%
-      tagline: { start: 42, end: 48 },
-      dateVenue: { start: 48, end: 56 },
-      speakers: { start: 58, end: 66 },
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 46 },           // Headline zone
+      tagline: { start: 46, end: 50 },            // Tagline zone
+      dateVenue: { start: 50, end: 55 },          // Date/venue info
+      speakers: { start: 55, end: 60 },           // Speaker names ABOVE photos
+      additionalDetails: { start: 60, end: 64 }   // Details before photo zone
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Concentrate the primary visual elements, decorative details, and rich patterns in the upper and central regions (the first 55% of the canvas from top). The lower third should embrace elegant simplicity—think smooth color gradients, subtle atmospheric transitions, and visual breathing room. This creates a natural focal hierarchy that guides attention to the headline while maintaining professional polish throughout.',
     isRecommended: false,
     warningMessage: '3 speakers in portrait format may feel cramped. Consider landscape (16:9) for better spacing.'
   },
 
+  // v24.15: 4-speaker portrait - pushed rows down to avoid text overlap
   'portrait-4': {
     positions: [
-      { xPercent: 25, yPercent: 58, shape: 'circle', zIndex: 10 }, // Top-left (adjusted up)
-      { xPercent: 75, yPercent: 58, shape: 'circle', zIndex: 10 }, // Top-right (adjusted up)
-      { xPercent: 25, yPercent: 73, shape: 'circle', zIndex: 10 }, // Bottom-left (adjusted up)
-      { xPercent: 75, yPercent: 73, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
+      { xPercent: 25, yPercent: 56, shape: 'circle', zIndex: 10 }, // Top-left row
+      { xPercent: 75, yPercent: 56, shape: 'circle', zIndex: 10 }, // Top-right row
+      { xPercent: 25, yPercent: 74, shape: 'circle', zIndex: 10 }, // Bottom-left row
+      { xPercent: 75, yPercent: 74, shape: 'circle', zIndex: 10 }  // Bottom-right row
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 41 }, // Start at 36%
-      tagline: { start: 41, end: 46 },
-      dateVenue: { start: 46, end: 52 },
-      speakers: { start: 64, end: 70 },
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 45 },           // Headline (ends before photos at 48%)
+      tagline: { start: 45, end: 48 },            // Tagline
+      dateVenue: { start: 62, end: 66 },          // Between photo rows (after 56% row, before 74% row)
+      speakers: { start: 48, end: 52 },           // Speaker names (ends before first photo row)
+      additionalDetails: { start: 66, end: 70 }   // After bottom photos start
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Build visual richness in the upper region (first 45% from top) where the headline commands attention. The middle and lower sections, as well as all edges and corners, should maintain elegant simplicity with smooth gradients and atmospheric transitions. This creates breathing room across the extended vertical canvas.',
     isRecommended: false,
@@ -159,52 +168,55 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
   // SQUARE LAYOUTS (1:1)
   // ========================================
 
+  // v24.15: Pushed photos down to 72% to avoid text overlap
   'square-2': {
     positions: [
-      { xPercent: 25, yPercent: 70, shape: 'circle', zIndex: 10 }, // Bottom-left (adjusted up)
-      { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
+      { xPercent: 25, yPercent: 72, shape: 'circle', zIndex: 10 }, // Bottom-left
+      { xPercent: 75, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 44 }, // Start at 36%
-      tagline: { start: 44, end: 50 },
-      dateVenue: { start: 50, end: 58 },
-      speakers: { start: 60, end: 68 },
-      additionalDetails: { start: 70, end: 74 } // End at 74%
+      headline: { start: 40, end: 47 },           // Headline zone
+      tagline: { start: 47, end: 52 },            // Tagline zone
+      dateVenue: { start: 52, end: 57 },          // Date/venue info
+      speakers: { start: 57, end: 62 },           // Speaker names ABOVE photos
+      additionalDetails: { start: 62, end: 64 }   // Small gap before photos
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements in the upper and middle regions. The bottom edge and corners benefit from understated elegance—flowing gradients and gentle color transitions that create visual breathing room while maintaining balanced composition.',
     isRecommended: true
   },
 
+  // v24.15: 3-speaker square - triangular layout pushed down
   'square-3': {
     positions: [
-      { xPercent: 50, yPercent: 32, shape: 'circle', zIndex: 10 }, // Top-center
-      { xPercent: 25, yPercent: 70, shape: 'circle', zIndex: 10 }, // Bottom-left (adjusted up)
-      { xPercent: 75, yPercent: 70, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
+      { xPercent: 50, yPercent: 52, shape: 'circle', zIndex: 10 }, // Top-center (pushed down from 45%)
+      { xPercent: 25, yPercent: 72, shape: 'circle', zIndex: 10 }, // Bottom-left (pushed down from 65%)
+      { xPercent: 75, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right
     ],
     textZoneAdjustments: {
-      headline: { start: 48, end: 56 }, // Moved to MIDDLE (between top and bottom photos)
-      tagline: { start: 56, end: 61 },
-      dateVenue: { start: 61, end: 66 },
-      speakers: { start: 72, end: 74 }, // Pushed to bottom, end at 74%
-      additionalDetails: { start: 36, end: 43 } // Moved to after aggressive safe zone
+      headline: { start: 40, end: 46 },           // Above top photo
+      tagline: { start: 57, end: 61 },            // Between photo rows
+      dateVenue: { start: 61, end: 64 },          // Between photo rows
+      speakers: { start: 64, end: 68 },           // Between rows
+      additionalDetails: { start: 46, end: 50 }   // Above top photo
     },
-    compositionGuidance: 'COMPOSITION PHILOSOPHY: Create visual interest through a triangular composition. The top-center and bottom corners benefit from elegant simplicity—smooth gradients and subtle atmospheric transitions. The middle horizontal band (45-70% from top) should concentrate the headline and key messages, creating a natural visual flow.',
+    compositionGuidance: 'COMPOSITION PHILOSOPHY: Create visual interest through a triangular composition. The top-center and bottom corners benefit from elegant simplicity—smooth gradients and subtle atmospheric transitions. The middle horizontal band should concentrate the headline and key messages, creating a natural visual flow.',
     isRecommended: true
   },
 
+  // v24.15: 4-speaker square - 2x2 grid pushed down
   'square-4': {
     positions: [
-      { xPercent: 25, yPercent: 45, shape: 'circle', zIndex: 10 }, // Top-left
-      { xPercent: 75, yPercent: 45, shape: 'circle', zIndex: 10 }, // Top-right
-      { xPercent: 25, yPercent: 72, shape: 'circle', zIndex: 10 }, // Bottom-left (adjusted up)
-      { xPercent: 75, yPercent: 72, shape: 'circle', zIndex: 10 }  // Bottom-right (adjusted up)
+      { xPercent: 25, yPercent: 54, shape: 'circle', zIndex: 10 }, // Top-left row
+      { xPercent: 75, yPercent: 54, shape: 'circle', zIndex: 10 }, // Top-right row
+      { xPercent: 25, yPercent: 74, shape: 'circle', zIndex: 10 }, // Bottom-left row
+      { xPercent: 75, yPercent: 74, shape: 'circle', zIndex: 10 }  // Bottom-right row
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 41 }, // Start at 36%
-      tagline: { start: 41, end: 46 },
-      dateVenue: { start: 46, end: 52 },
-      speakers: { start: 60, end: 68 }, // Between top and bottom rows
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 46 },           // Above top photo row
+      tagline: { start: 46, end: 50 },            // Above photos
+      dateVenue: { start: 60, end: 64 },          // Between photo rows
+      speakers: { start: 64, end: 68 },           // Between rows
+      additionalDetails: { start: 68, end: 72 }   // Between rows (tight)
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Emphasize visual richness in the center region (between the top and bottom photo rows) where the headline lives. The corners and outer edges should maintain elegant simplicity with smooth gradients and subtle color transitions that frame the composition. This 2×2 arrangement creates natural breathing room at the periphery.',
     isRecommended: true
@@ -214,52 +226,58 @@ const LAYOUT_TEMPLATES: Record<LayoutKey, LayoutTemplate> = {
   // LANDSCAPE LAYOUTS (16:9)
   // ========================================
 
+  // v24.15: Landscape 2-speaker - photos at sides pushed down to account for shadow padding
+  // Photos at 65% vertical (center point), with ~18px shadow padding = top edge at ~57%
   'landscape-2': {
     positions: [
-      { xPercent: 20, yPercent: 55, shape: 'circle', zIndex: 10 }, // Left side (adjusted up)
-      { xPercent: 80, yPercent: 55, shape: 'circle', zIndex: 10 }  // Right side (adjusted up)
+      { xPercent: 20, yPercent: 65, shape: 'circle', zIndex: 10 }, // Left side
+      { xPercent: 80, yPercent: 65, shape: 'circle', zIndex: 10 }  // Right side
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 44 }, // Start at 36%
-      tagline: { start: 44, end: 50 },
-      dateVenue: { start: 50, end: 56 },
-      speakers: { start: 68, end: 72 }, // Below photos
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 46 },           // Upper content zone
+      tagline: { start: 46, end: 50 },            // Compact tagline
+      dateVenue: { start: 50, end: 54 },          // Above photo zone
+      speakers: { start: 54, end: 58 },           // Speaker names ABOVE photos (top edge ~57%)
+      additionalDetails: { start: 73, end: 78 }   // Below photos
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Center the main visual elements and focal points across the horizontal expanse. The left and right side margins benefit from understated elegance—flowing gradients and gentle color transitions that create visual breathing room while maintaining professional sophistication across the wide canvas.',
     isRecommended: true
   },
 
+  // v24.15: Landscape 3-speaker - photos pushed down to 68% to account for shadow padding
+  // Photos at 68% vertical (center point), with ~18px shadow = top edge at ~60%
   'landscape-3': {
     positions: [
-      { xPercent: 20, yPercent: 58, shape: 'circle', zIndex: 10 }, // Left (adjusted up)
-      { xPercent: 50, yPercent: 58, shape: 'circle', zIndex: 10 }, // Center (adjusted up)
-      { xPercent: 80, yPercent: 58, shape: 'circle', zIndex: 10 }  // Right (adjusted up)
+      { xPercent: 20, yPercent: 68, shape: 'circle', zIndex: 10 }, // Left
+      { xPercent: 50, yPercent: 68, shape: 'circle', zIndex: 10 }, // Center
+      { xPercent: 80, yPercent: 68, shape: 'circle', zIndex: 10 }  // Right
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 43 }, // Start at 36%
-      tagline: { start: 43, end: 48 },
-      dateVenue: { start: 48, end: 54 },
-      speakers: { start: 68, end: 72 }, // Below photos
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 46 },           // Compact headline
+      tagline: { start: 46, end: 50 },            // Compact tagline
+      dateVenue: { start: 50, end: 54 },          // Above photos
+      speakers: { start: 54, end: 58 },           // Speaker names ABOVE photos (top edge ~60%)
+      additionalDetails: { start: 76, end: 80 }   // Below photos
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Build visual richness in the upper region where the headline and message command attention. The side margins and lower edge benefit from understated elegance—let them breathe with flowing gradients, gentle color transitions, and atmospheric simplicity. This creates professional balance across the horizontal canvas while maintaining dynamic composition.',
     isRecommended: true
   },
 
+  // v24.15: Landscape 4-speaker - photos pushed down to 68% to account for shadow padding
+  // Photos at 68% vertical (center point), with ~18px shadow = top edge at ~60%
   'landscape-4': {
     positions: [
-      { xPercent: 15, yPercent: 58, shape: 'circle', zIndex: 10 }, // Far left (adjusted up)
-      { xPercent: 38, yPercent: 58, shape: 'circle', zIndex: 10 }, // Center-left (adjusted up)
-      { xPercent: 62, yPercent: 58, shape: 'circle', zIndex: 10 }, // Center-right (adjusted up)
-      { xPercent: 85, yPercent: 58, shape: 'circle', zIndex: 10 }  // Far right (adjusted up)
+      { xPercent: 15, yPercent: 68, shape: 'circle', zIndex: 10 }, // Far left
+      { xPercent: 38, yPercent: 68, shape: 'circle', zIndex: 10 }, // Center-left
+      { xPercent: 62, yPercent: 68, shape: 'circle', zIndex: 10 }, // Center-right
+      { xPercent: 85, yPercent: 68, shape: 'circle', zIndex: 10 }  // Far right
     ],
     textZoneAdjustments: {
-      headline: { start: 36, end: 42 }, // Start at 36%
-      tagline: { start: 42, end: 47 },
-      dateVenue: { start: 47, end: 53 },
-      speakers: { start: 68, end: 72 }, // Below photos
-      additionalDetails: { start: 72, end: 74 } // End at 74%
+      headline: { start: 40, end: 46 },           // Compact headline
+      tagline: { start: 46, end: 50 },            // Compact tagline
+      dateVenue: { start: 50, end: 54 },          // Above photos
+      speakers: { start: 54, end: 58 },           // Speaker names ABOVE photos (top edge ~60%)
+      additionalDetails: { start: 76, end: 80 }   // Below photos
     },
     compositionGuidance: 'COMPOSITION PHILOSOPHY: Concentrate primary visual elements in the upper-center region. The side margins and lower edge should embrace elegant simplicity with smooth gradients and subtle atmospheric transitions. This horizontal distribution creates natural breathing room at the periphery while maintaining visual balance across the wide canvas.',
     isRecommended: true
@@ -631,13 +649,16 @@ export function calculateOptimalPhotoSize(context: PhotoSizeContext): number {
   } = context
 
   // STEP 1: Baseline size from speaker count
+  // v24.14: Updated to ~180px target per user request
+  // For 1080px canvas: 0.17 = 184px, close to target 180px
+  // Photos are positioned at 62%-68%, sized for good visibility with speaker details
   const basePercentages = {
-    1: 0.40, // Single speaker: large (40%)
-    2: 0.32, // Two speakers: medium-large (32%)
-    3: 0.24, // Three speakers: small-medium (24%)
-    4: 0.20, // Four speakers: small (20%)
+    1: 0.25, // Single speaker: 25% (~270px on 1080px)
+    2: 0.17, // Two speakers: 17% (~184px on 1080px) - target ~180px
+    3: 0.14, // Three speakers: 14% (~151px on 1080px)
+    4: 0.12, // Four speakers: 12% (~130px on 1080px)
   }
-  const basePercent = basePercentages[speakerCount as keyof typeof basePercentages] || 0.20
+  const basePercent = basePercentages[speakerCount as keyof typeof basePercentages] || 0.15
 
   // STEP 2: Aspect ratio multiplier
   // Portrait formats (4:5, 3:4) have less width → smaller photos
@@ -665,9 +686,10 @@ export function calculateOptimalPhotoSize(context: PhotoSizeContext): number {
   const sophisticationMultiplier = sophisticationMultipliers[sophistication]
 
   // STEP 4: Speaker hierarchy multiplier
-  // Primary/featured speaker (index 0) can be 20% larger
+  // v24.12: Reduced hierarchy bonus to 10% (from 20%) to keep photos smaller
+  // Primary/featured speaker (index 0) can be 10% larger
   // Supporting speakers (index 1+) use base size
-  const hierarchyMultiplier = speakerIndex === 0 && speakerCount >= 2 ? 1.20 : 1.0
+  const hierarchyMultiplier = speakerIndex === 0 && speakerCount >= 2 ? 1.10 : 1.0
 
   // STEP 5: Vertical space constraint
   // If canvas is very tall (like 4:5), reduce size to prevent vertical overlap
@@ -689,10 +711,11 @@ export function calculateOptimalPhotoSize(context: PhotoSizeContext): number {
   )
 
   // STEP 7: Safety clamps
-  // Minimum: 15% of canvas width (too small = unreadable)
-  // Maximum: 45% of canvas width (too large = overlap)
-  const minSize = Math.round(canvasWidth * 0.15)
-  const maxSize = Math.round(canvasWidth * 0.45)
+  // v24.14: Updated for ~180px target on 1080px canvas
+  // Minimum: 10% of canvas width (~108px on 1080px)
+  // Maximum: 25% of canvas width (~270px on 1080px)
+  const minSize = Math.round(canvasWidth * 0.10)
+  const maxSize = Math.round(canvasWidth * 0.25)
 
   const finalSize = Math.max(minSize, Math.min(maxSize, calculatedSize))
 
@@ -715,44 +738,47 @@ export function calculateOptimalPhotoSize(context: PhotoSizeContext): number {
 /**
  * Get recommended photo size for speaker count (LEGACY - Simple Version)
  *
+ * v24.12: Sizes reduced to prevent text overlap
  * IMPORTANT: Photo size affects spacing between photos.
- * - 2 speakers: 'medium' (30%) or 'large' (40%) work well
- * - 3 speakers: 'small' (20%) or 'medium' (30%) recommended
- * - 4 speakers: 'small' (20%) required to prevent overlap
+ * - 2 speakers: 'medium' (22%) recommended
+ * - 3 speakers: 'small' (15%) recommended
+ * - 4 speakers: 'small' (15%) required to prevent overlap
  *
  * NOTE: Consider using calculateOptimalPhotoSize() for AI-driven sizing
  */
 export function getRecommendedPhotoSize(speakerCount: number): PhotoSizePreset {
   if (speakerCount <= 2) {
-    return 'medium' // 30% - good balance
+    return 'medium' // 22% - good balance (v24.12: reduced from 30%)
   }
   if (speakerCount === 3) {
-    return 'small' // 20% - prevents overlap in tight layouts
+    return 'small' // 15% - prevents overlap in tight layouts (v24.12: reduced from 20%)
   }
   return 'small' // 4+ speakers always need small
 }
 
 /**
  * Convert PhotoSizePreset to percentage (for backward compatibility)
+ * v24.14: Updated for ~180px target on 1080px canvas
  */
 export function photoSizeToPercent(size: PhotoSizePreset): number {
   const percentages = {
-    small: 0.20,
-    medium: 0.30,
-    large: 0.40,
+    small: 0.12,   // v24.14: 12% (~130px on 1080px)
+    medium: 0.17,  // v24.14: 17% (~184px on 1080px) - target 180px
+    large: 0.22,   // v24.14: 22% (~238px on 1080px)
   }
   return percentages[size]
 }
 
 /**
  * Convert pixel size to PhotoSizePreset (nearest match)
+ * v24.14: Adjusted thresholds for ~180px target on 1080px canvas
  */
 export function pixelSizeToPreset(pixelSize: number, canvasWidth: number): PhotoSizePreset {
   const percent = pixelSize / canvasWidth
 
-  if (percent <= 0.25) return 'small' // 0-25%
-  if (percent <= 0.35) return 'medium' // 25-35%
-  return 'large' // 35%+
+  if (percent <= 0.14) return 'small'  // 0-14% (~151px on 1080px)
+  if (percent <= 0.19) return 'medium' // 14-19% (~205px on 1080px)
+  return 'large' // 19%+ (~205px+ on 1080px)
 }
 
 // ============================================================

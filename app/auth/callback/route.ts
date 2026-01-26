@@ -4,14 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/onboarding'
+  const next = searchParams.get('next')
 
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Check if user has any organizations
+      // If there's a 'next' parameter, redirect there (e.g., /join/YTFHDX)
+      if (next) {
+        return NextResponse.redirect(`${origin}${next}`)
+      }
+
+      // Otherwise, check if user has any organizations
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {

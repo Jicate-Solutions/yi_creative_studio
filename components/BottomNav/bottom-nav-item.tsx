@@ -1,29 +1,29 @@
-'use client';
+'use client'
 
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { BottomNavItemProps } from './types';
+import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
+import { BottomNavItemProps } from './types'
 
 // Fast spring for snappy interactions
 const tapSpring = {
   type: 'spring' as const,
   stiffness: 600,
   damping: 25
-};
+}
 
 // Smooth spring for icon animations
 const iconSpring = {
   type: 'spring' as const,
   stiffness: 500,
   damping: 20
-};
+}
 
 // Very fast spring for indicator
 const indicatorSpring = {
   type: 'spring' as const,
   stiffness: 600,
   damping: 30
-};
+}
 
 export function BottomNavItem({
   id,
@@ -101,5 +101,5 @@ export function BottomNavItem({
         />
       )}
     </motion.button>
-  );
+  )
 }

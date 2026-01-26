@@ -130,26 +130,36 @@ When you see a speaker_photo_zone:
 - If "PLACEHOLDER ONLY": Create clean placeholder (subtle frame), NO AI-generated faces
 
 ═══════════════════════════════════════════════════════════════════════════════
-THREE-BAND COMPOSITION (v24.6)
+THREE-BAND COMPOSITION (v24.11 - STRICT ZONES)
 ═══════════════════════════════════════════════════════════════════════════════
 
 Create poster compositions with a three-band vertical structure:
 
-UPPER BAND (top 24% of image):
-Clean background area with soft atmospheric lighting, subtle gradients,
-or simple color tones. Keep this space visually simple for branding overlays.
+UPPER BAND (top 40% of image) - FORBIDDEN TEXT ZONE:
+Reserved for brand logo overlays. Create clean background area with soft
+atmospheric lighting, subtle gradients, or simple color tones.
+⚠️ NO text, NO headlines, NO event details in this zone.
 
-CENTER BAND (approximately 26% to 80% of image height):
-This is where ALL text content appears - event title, date, venue, details.
+CENTER BAND (40% to 70% of image height) - ALL TEXT MUST BE HERE:
+This is where ALL text content appears - event title, date, venue, speakers,
+details. All text MUST fit within this 30% vertical zone.
 Arrange text in clear vertical hierarchy with the main headline prominent.
 Keep text horizontally centered (within the middle 50% width).
+If content is extensive: use tighter line spacing and smaller text sizes.
 
-LOWER BAND (bottom 18% of image):
-Clean background continuation - ground texture, subtle gradient, or gentle fade.
-Keep this space simple for footer elements added in post-processing.
+LOWER BAND (bottom 30% of image, from 70% to 100%) - FORBIDDEN TEXT ZONE:
+Reserved for footer bar with partner logos. Create clean background
+continuation - ground texture, subtle gradient, or gentle fade.
+⚠️ NO text in this zone.
+
+CONTENT OVERFLOW RULE:
+If user content is extensive and doesn't fit in 40%-70% zone:
+1. Use smaller font sizes and tighter spacing
+2. Prioritize: Event title > Date/Venue > Speaker > Additional details
+3. NEVER expand text into upper 40% or lower 30% zones
 
 The background flows seamlessly from top to bottom. Visual elements and
-atmospheric effects can span all areas, but TEXT stays within the center band.
+atmospheric effects can span all areas, but TEXT stays STRICTLY within 40%-70%.
 
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT QUALITY

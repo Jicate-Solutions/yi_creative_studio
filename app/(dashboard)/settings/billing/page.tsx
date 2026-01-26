@@ -174,7 +174,7 @@ export default function BillingPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Billing & Credits</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Billing & Usage</h1>
         <p className="text-muted-foreground">
           Manage your credit balance and view transaction history
         </p>

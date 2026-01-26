@@ -14,14 +14,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Users, AlertCircle, ArrowRight, KeyRound } from 'lucide-react'
+import { Loader2, AlertCircle, ArrowRight, KeyRound } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 import Link from 'next/link'
-
-interface Organization {
-  id: string
-  name: string
-}
 
 export default function JoinWithCodePage() {
   const router = useRouter()
@@ -30,13 +25,10 @@ export default function JoinWithCodePage() {
   const supabase = useMemo(() => createClient(), [])
 
   const [isLoading, setIsLoading] = useState(true)
-  const [isJoining, setIsJoining] = useState(false)
-  const [organization, setOrganization] = useState<Organization | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [manualCode, setManualCode] = useState('')
 
-  // Check auth and fetch organization
+  // Check auth, fetch organization, and auto-join
   useEffect(() => {
     async function init() {
       setIsLoading(true)
@@ -44,7 +36,6 @@ export default function JoinWithCodePage() {
 
       // Check authentication
       const { data: { user } } = await supabase.auth.getUser()
-      setIsAuthenticated(!!user)
 
       if (!user) {
         // Redirect to login with return URL
@@ -81,47 +72,31 @@ export default function JoinWithCodePage() {
         return
       }
 
-      setOrganization(org)
-      setIsLoading(false)
+      // Auto-join the organization
+      const { error: memberError } = await supabase
+        .from('organization_members')
+        .insert({
+          organization_id: org.id,
+          user_id: user.id,
+          role: 'viewer',
+        })
+
+      if (memberError) {
+        setError('Failed to join organization. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      // Success - redirect to dashboard
+      toast.success(`Welcome to ${org.name}!`)
+      router.push(ROUTES.dashboard)
+      router.refresh()
     }
 
     if (code) {
       init()
     }
   }, [code, supabase, router])
-
-  async function handleJoin() {
-    if (!organization) return
-
-    setIsJoining(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      toast.error('Please sign in first')
-      router.push(ROUTES.login)
-      return
-    }
-
-    // Add user as viewer
-    const { error: memberError } = await supabase
-      .from('organization_members')
-      .insert({
-        organization_id: organization.id,
-        user_id: user.id,
-        role: 'viewer',
-      })
-
-    setIsJoining(false)
-
-    if (memberError) {
-      toast.error('Failed to join organization. Please try again.')
-      return
-    }
-
-    toast.success(`Welcome to ${organization.name}!`)
-    router.push(ROUTES.dashboard)
-    router.refresh()
-  }
 
   function handleManualCodeSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -130,21 +105,22 @@ export default function JoinWithCodePage() {
     }
   }
 
-  // Loading state
+  // Loading state - shown while auto-joining
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
+            <Logo size="lg" className="mb-6" />
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Loading invitation...</p>
+            <p className="text-muted-foreground">Joining organization...</p>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  // Error state - invalid code
+  // Error state - invalid code or join failed
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
@@ -155,9 +131,12 @@ export default function JoinWithCodePage() {
                 <AlertCircle className="h-8 w-8 text-destructive" />
               </div>
             </div>
-            <CardTitle className="text-xl">Invalid Invite Link</CardTitle>
+            <CardTitle className="text-xl">Unable to Join</CardTitle>
             <CardDescription>
-              The invite code &quot;{code}&quot; is invalid or has expired.
+              {error === 'Invalid or expired invite code'
+                ? `The invite code "${code}" is invalid or has expired.`
+                : error
+              }
             </CardDescription>
           </CardHeader>
 
@@ -207,62 +186,6 @@ export default function JoinWithCodePage() {
     )
   }
 
-  // Success state - show organization and join button
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <Logo size="lg" />
-          </div>
-          <CardTitle className="text-2xl">Join {organization?.name}</CardTitle>
-          <CardDescription>
-            You&apos;ve been invited to join this organization
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Organization info */}
-          <div className="p-4 rounded-lg bg-muted/50 border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">{organization?.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  You&apos;ll join as a Viewer
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Join button */}
-          <Button
-            onClick={handleJoin}
-            className="w-full gradient-yi"
-            size="lg"
-            disabled={isJoining}
-          >
-            {isJoining ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Users className="h-4 w-4 mr-2" />
-            )}
-            Join Organization
-          </Button>
-
-          {/* Alternative action */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Not the right organization?{' '}
-              <Link href={ROUTES.onboarding} className="text-primary hover:underline">
-                Enter a different code
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  // This should not be reached - either loading, error, or redirected
+  return null
 }

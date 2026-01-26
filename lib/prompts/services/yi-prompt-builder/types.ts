@@ -91,7 +91,11 @@ export interface LogoAwarenessContext {
 export interface SpeakerPhotoConfig {
   enabled: boolean
   position?: 'left' | 'right' | 'center'
+  /** v24.12: Vertical position for speaker photo overlay */
+  verticalPosition?: 'top' | 'upper' | 'middle' | 'lower' | 'bottom'
   size?: 'small' | 'medium' | 'large'
+  /** v24.11: Numeric size in pixels from slider (100-400px) - takes precedence over categorical size */
+  numericSize?: number
   shape?: 'circle' | 'rounded' | 'square'
   /**
    * Indicates if user has uploaded their own photo

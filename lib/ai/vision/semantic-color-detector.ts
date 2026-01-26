@@ -69,15 +69,31 @@ const DOWNSAMPLE_WIDTH = 540 // 4x smaller for cost optimization
 const DOWNSAMPLE_HEIGHT = 720
 const CACHE_TTL_DAYS = 7
 
-const VISION_PROMPT = `You are analyzing an event poster (1080x1440px) to identify color zones for intelligent recoloring.
+const VISION_PROMPT = `You are analyzing an event poster (1080x1440px) to identify color zones for comprehensive intelligent recoloring.
 
-CRITICAL: Analyze ONLY pixels between Y: ${Math.round(1440 * CONTENT_ZONE_TOP_PERCENT / 100)}px - ${Math.round(1440 * CONTENT_ZONE_BOTTOM_PERCENT / 100)}px (${CONTENT_ZONE_TOP_PERCENT}%-${CONTENT_ZONE_BOTTOM_PERCENT}% of canvas).
-IGNORE: Top ${CONTENT_ZONE_TOP_PERCENT}% and bottom ${100 - CONTENT_ZONE_BOTTOM_PERCENT}% (logo bars with transparent overlays).
+ANALYZE ENTIRE CANVAS (0%-100%):
+- Header area (top 0%-40%): May contain logos and header text
+- Content area (middle 40%-70%): Main content, headlines, body text
+- Footer area (bottom 70%-100%): Footer text, sponsors, contact info
 
-DETECT:
+DETECT ALL COLORS ACROSS ENTIRE IMAGE:
 1. **Background zones** (>20% coverage, solid/gradient)
-2. **Text zones** (readable text areas - headlines, body text, captions)
-3. **Accent zones** (decorative elements, shapes, icons, borders)
+   - Identify primary background colors and gradients
+   - Include background colors in header and footer areas
+
+2. **Text zones** (ALL readable text areas - CRITICAL)
+   - MUST identify text in header (top 40% of image)
+   - MUST identify text in content area (middle 40%-70%)
+   - MUST identify text in footer (bottom 30% of image)
+   - Include ALL font colors: white, black, colored text, light gray, dark gray
+   - Detect even if text coverage is <5%
+   - Include small text, captions, labels
+
+3. **Accent zones** (decorative elements - include small elements)
+   - Borders, icons, shapes, patterns
+   - Include elements even if <5% coverage
+   - Look for: decorative lines, shapes, icons, badges
+   - Capture subtle accent colors
 
 For each zone, identify:
 - Dominant color (hex code)
@@ -122,12 +138,15 @@ RESPONSE FORMAT (JSON only, no markdown):
   "reasoning": "Clear color separation with distinct background, text, and accent zones. High confidence in all detections."
 }
 
-IMPORTANT:
+CRITICAL REQUIREMENTS:
 - Return ONLY valid JSON (no markdown, no code blocks)
-- Include 1-4 zones (at least background, ideally text and accent too)
+- Include 2-6 zones (MUST include background and text zones at minimum)
+- DO NOT skip text in headers/footers - they are critical for recoloring
+- Detect ALL visible text colors regardless of contrast or coverage
+- Include subtle accent colors even if small coverage (<5%)
 - Hex colors must start with #
-- Coverage should sum to approximately 100%
-- Detection quality: "high" if clear separation, "medium" if some ambiguity, "low" if very complex`
+- Coverage percentages are relative to full canvas (0%-100%)
+- Detection quality: "high" if clear separation with all text detected, "medium" if some ambiguity, "low" if very complex`
 
 // ============================================================
 // MAIN FUNCTION

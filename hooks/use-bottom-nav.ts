@@ -1,11 +1,11 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { BottomNavState, ActivePageInfo } from '@/components/BottomNav/types';
+import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import { BottomNavState, ActivePageInfo } from '@/components/BottomNav/types'
 
 // Extended state type to include hydration tracking
 interface BottomNavStateExtended extends BottomNavState {
-  _hasHydrated: boolean;
-  setHasHydrated: (state: boolean) => void;
+  _hasHydrated: boolean
+  setHasHydrated: (state: boolean) => void
 }
 
 export const useBottomNav = create<BottomNavStateExtended>()(
@@ -14,10 +14,10 @@ export const useBottomNav = create<BottomNavStateExtended>()(
       activeNavId: null,
       isExpanded: false,
       isMoreMenuOpen: false,
-      isMinimized: false,  // Always show full navbar - never minimized
+      isMinimized: false,
       activePage: null,
       selectedSubItem: null,
-      _hasHydrated: false,  // Track hydration status
+      _hasHydrated: false,
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
@@ -78,34 +78,32 @@ export const useBottomNav = create<BottomNavStateExtended>()(
           activeNavId: null,
           isExpanded: false,
           isMoreMenuOpen: false,
-          isMinimized: true,
+          isMinimized: false,
           activePage: null,
           selectedSubItem: null
         })
     }),
     {
-      name: 'bottom-nav-storage',
+      name: 'yi-bottom-nav-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         selectedSubItem: state.selectedSubItem,
         isMinimized: state.isMinimized,
-        // Only persist serializable parts of activePage (icon is a component, not serializable)
+        // Only persist serializable parts (icon is not serializable)
         activePage: state.activePage ? {
           href: state.activePage.href,
           label: state.activePage.label,
           groupLabel: state.activePage.groupLabel
         } : null
       }),
-      // Track when hydration completes
       onRehydrateStorage: () => (state) => {
-        // Set hydration complete flag
-        state?.setHasHydrated(true);
+        state?.setHasHydrated(true)
       }
     }
   )
-);
+)
 
 // Helper hook to wait for hydration
 export const useBottomNavHydration = () => {
-  return useBottomNav((state) => state._hasHydrated);
-};
+  return useBottomNav((state) => state._hasHydrated)
+}

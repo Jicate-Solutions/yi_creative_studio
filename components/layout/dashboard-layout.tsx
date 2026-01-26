@@ -1,17 +1,15 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
-import { TopNav } from './top-nav'
-import { CommandMenu } from '@/components/ui/command-menu'
-import { BottomNavbar } from '@/components/BottomNav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { SimulationBanner } from '@/components/rbac'
 import { OfflineBanner } from '@/components/ui/offline-banner'
 import ImpersonationBanner from '@/components/super-admin/ImpersonationBanner'
-import { FloatingActionButton } from '@/components/ui/floating-action-button'
+import { AnimatedBackground } from '@/components/ui/animated-background'
+import { BottomNavbar } from '@/components/BottomNav'
 import { useAuthStore } from '@/stores/auth-store'
 import { useUIStore } from '@/stores/ui-store'
 import type { UserProfile, Organization, OrganizationMember } from '@/types/database.types'
@@ -66,18 +64,18 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
     <RoleProvider>
       <TooltipProvider>
         <div className={cn(
-          "relative flex bg-yi text-foreground dark:text-white",
+          "relative flex w-full text-foreground dark:text-white",
           createModeActive ? "h-screen overflow-hidden" : "min-h-screen"
         )}>
+          {/* Animated Background - Only show when not in create mode */}
+          {!createModeActive && <AnimatedBackground />}
+
           {/* Sidebar - Desktop */}
           <Sidebar />
 
-          {/* Mobile Navigation */}
-          <BottomNavbar />
-
           {/* Main Content Area */}
           <div className={cn(
-            "flex flex-1 flex-col",
+            "flex flex-1 flex-col w-full",
             // Add margin for fixed sidebar on desktop (when not in create/analytics mode)
             !createModeActive && !analyticsModeActive && sidebarOpen && (sidebarCollapsed ? "md:ml-16" : "md:ml-64")
           )}>
@@ -97,9 +95,8 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
               'flex-1',
               createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
               !createModeActive && 'p-2 sm:p-3 md:p-3',
-              // Add padding for mobile bottom navigation (not in create mode)
-              // pb-24 = 96px to account for nav height (56px) + safe area + extra buffer
-              !createModeActive && 'pb-24 md:pb-6',
+              // Add bottom padding for mobile navbar (64px navbar + safe area)
+              !createModeActive && 'pb-20 md:pb-6',
               className
             )}>
               {children}
@@ -116,8 +113,8 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             )}
           </div>
 
-          {/* Floating Action Button */}
-          <FloatingActionButton />
+          {/* Mobile Bottom Navigation */}
+          <BottomNavbar />
         </div>
       </TooltipProvider>
     </RoleProvider>

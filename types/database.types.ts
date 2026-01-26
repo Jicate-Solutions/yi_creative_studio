@@ -646,6 +646,50 @@ export type Database = {
           },
         ]
       }
+      initiative_presets: {
+        Row: {
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "initiative_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generation_lineage: {
         Row: {
           ab_experiment_id: string | null
@@ -2246,6 +2290,10 @@ export type Database = {
       }
       check_user_is_org_member: {
         Args: { p_org_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      check_user_membership_exists: {
+        Args: { p_organization_id: string; p_user_id: string }
         Returns: boolean
       }
       cleanup_expired_color_cache: { Args: never; Returns: number }

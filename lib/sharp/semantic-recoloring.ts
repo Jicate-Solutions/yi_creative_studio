@@ -36,7 +36,10 @@ export interface ContentZoneBounds {
 export interface RecolorOptions {
   colorMappings: ColorMapping[]
   contentZone: ContentZoneBounds
-  toleranceThreshold?: number // Color matching tolerance (0-255, default: 30)
+  toleranceThreshold?: number // Color matching tolerance (0-255, default: 70)
+  fullCanvas?: boolean // Override zone restriction (default: true) - recolor entire canvas
+  logoMask?: Array<{ topPixel: number; bottomPixel: number }> // Logo strip regions to exclude from recoloring
+  adaptiveTolerance?: boolean // Enable adaptive tolerance scaling based on confidence (default: true)
 }
 
 export interface RecolorResult {
@@ -49,7 +52,7 @@ export interface RecolorResult {
 // CONSTANTS
 // ============================================================
 
-const DEFAULT_TOLERANCE = 30 // RGB distance threshold for color matching
+const DEFAULT_TOLERANCE = 70 // RGB distance threshold - increased to catch anti-aliased text pixels (distance up to ~46)
 const POSTER_WIDTH = 1080
 const POSTER_HEIGHT = 1440
 
@@ -71,6 +74,7 @@ export async function recolorImage(
   const startTime = Date.now()
 
   const tolerance = options.toleranceThreshold || DEFAULT_TOLERANCE
+  const useFullCanvas = options.fullCanvas ?? true // Default to full canvas recoloring
 
   // Get image metadata
   const metadata = await sharp(imageBuffer).metadata()
@@ -78,15 +82,17 @@ export async function recolorImage(
   const height = metadata.height || POSTER_HEIGHT
 
   // Calculate content zone pixel bounds
-  const topPixel = Math.round(height * (options.contentZone.topPercent / 100))
-  const bottomPixel = Math.round(height * (options.contentZone.bottomPercent / 100))
+  const topPixel = useFullCanvas ? 0 : Math.round(height * (options.contentZone.topPercent / 100))
+  const bottomPixel = useFullCanvas ? height : Math.round(height * (options.contentZone.bottomPercent / 100))
   const zoneHeight = bottomPixel - topPixel
 
   console.log('[Semantic Recolor] Content zone:', {
     topPixel,
     bottomPixel,
     zoneHeight,
-    percentage: `${options.contentZone.topPercent}%-${options.contentZone.bottomPercent}%`
+    percentage: useFullCanvas ? '0%-100% (full canvas)' : `${options.contentZone.topPercent}%-${options.contentZone.bottomPercent}%`,
+    fullCanvas: useFullCanvas,
+    logoMaskRegions: options.logoMask?.length || 0
   })
 
   // Extract content zone
@@ -106,7 +112,10 @@ export async function recolorImage(
     width,
     zoneHeight,
     options.colorMappings,
-    tolerance
+    tolerance,
+    topPixel, // Pass offset for logo mask calculation
+    options.logoMask,
+    options.adaptiveTolerance ?? true
   )
 
   // Convert transformed buffer back to image
@@ -154,13 +163,17 @@ export async function recolorImage(
 /**
  * Transform pixels using HSL hue-shifting
  * This is where the magic happens - we shift hue while preserving saturation and lightness
+ * Includes gray color handling and logo masking
  */
 function transformPixels(
   buffer: Buffer,
   width: number,
   height: number,
   mappings: ColorMapping[],
-  tolerance: number
+  baseTolerance: number,
+  zoneTopPixel: number = 0, // Offset for logo mask calculation
+  logoMask?: Array<{ topPixel: number; bottomPixel: number }>,
+  adaptiveTolerance: boolean = true
 ): {
   transformedBuffer: Buffer
   pixelsChanged: number
@@ -168,16 +181,21 @@ function transformPixels(
   const pixels = new Uint8ClampedArray(buffer)
   let pixelsChanged = 0
 
-  // Pre-calculate target hues for each mapping
+  // Pre-calculate target hues and colors for each mapping
   const mappingData = mappings.map(mapping => {
     const fromRgb = hexToRgb(mapping.fromColor)
+    const toRgb = hexToRgb(mapping.toColor)
     const toHsl = hexToHsl(mapping.toColor)
 
     return {
       fromRgb,
+      toRgb,
       toHue: toHsl.h,
+      toHsl,
+      toColor: mapping.toColor,
       preserveContrast: mapping.preserveContrast,
-      zone: mapping.zone
+      zone: mapping.zone,
+      confidence: mapping.confidence // For adaptive tolerance
     }
   })
 
@@ -193,11 +211,36 @@ function transformPixels(
       continue
     }
 
-    // Find best matching color mapping
+    // Calculate pixel position for logo masking
+    const pixelIndex = i / 4
+    const y = Math.floor(pixelIndex / width) + zoneTopPixel // Absolute Y position
+
+    // Skip pixels in logo strip regions
+    if (logoMask) {
+      const inLogoStrip = logoMask.some(region => y >= region.topPixel && y < region.bottomPixel)
+      if (inLogoStrip) {
+        continue
+      }
+    }
+
+    // Find best matching color mapping with adaptive tolerance
     let bestMatch = null
     let bestDistance = Infinity
 
     for (const mapping of mappingData) {
+      // Calculate tolerance for this mapping
+      let tolerance = baseTolerance
+
+      // Apply adaptive tolerance based on confidence
+      if (adaptiveTolerance && mapping.confidence) {
+        // Low confidence → increase tolerance (more permissive)
+        // High confidence → use base tolerance (more selective)
+        const confidenceValue = parseFloat(mapping.confidence)
+        if (!isNaN(confidenceValue)) {
+          tolerance = baseTolerance + (50 * (1 - confidenceValue))
+        }
+      }
+
       const distance = colorDistance(
         { r, g, b },
         mapping.fromRgb
@@ -213,21 +256,49 @@ function transformPixels(
     if (bestMatch) {
       const currentHsl = rgbToHsl(r, g, b)
 
-      // Shift hue to target, but preserve saturation and lightness
-      // This is KEY for gradient preservation
-      const newHsl: HSL = {
-        h: bestMatch.toHue,
-        s: currentHsl.s,
-        l: currentHsl.l
-      }
+      // Check if this is a gray/desaturated color (saturation < 15%)
+      const isGrayColor = currentHsl.s < 15
 
-      // For text zones, optionally adjust lightness for contrast
-      if (bestMatch.preserveContrast && bestMatch.zone === 'text') {
-        // Keep text light/dark polarity
-        if (currentHsl.l > 50 && newHsl.l < 50) {
-          newHsl.l = Math.max(80, newHsl.l)
-        } else if (currentHsl.l < 50 && newHsl.l > 50) {
-          newHsl.l = Math.min(20, newHsl.l)
+      let newHsl: HSL
+
+      if (isGrayColor) {
+        // Gray colors can't be hue-shifted effectively
+        // Strategy: Add saturation and blend lightness with target
+
+        // Calculate lightness ratio (how light/dark is this gray)
+        const lightnessRatio = currentHsl.l / 100 // 0.0 (black) to 1.0 (white)
+
+        newHsl = {
+          h: bestMatch.toHsl.h, // Use target hue
+          s: Math.max(bestMatch.toHsl.s * 0.8, 25), // Add saturation (at least 25%)
+          l: bestMatch.toHsl.l * (0.4 + lightnessRatio * 0.6) // Blend: 40% target + 60% scaled by gray position
+        }
+
+        // For very dark grays (L < 20), use darker version
+        if (currentHsl.l < 20) {
+          newHsl.l = Math.min(newHsl.l, 30)
+        }
+        // For very light grays (L > 80), use lighter version
+        else if (currentHsl.l > 80) {
+          newHsl.l = Math.max(newHsl.l, 70)
+        }
+      } else {
+        // Normal colors: Shift hue, preserve saturation and lightness
+        // This is KEY for gradient preservation
+        newHsl = {
+          h: bestMatch.toHue,
+          s: currentHsl.s,
+          l: currentHsl.l
+        }
+
+        // For text zones, optionally adjust lightness for contrast
+        if (bestMatch.preserveContrast && bestMatch.zone === 'text') {
+          // Keep text light/dark polarity
+          if (currentHsl.l > 50 && newHsl.l < 50) {
+            newHsl.l = Math.max(80, newHsl.l)
+          } else if (currentHsl.l < 50 && newHsl.l > 50) {
+            newHsl.l = Math.min(20, newHsl.l)
+          }
         }
       }
 
@@ -287,7 +358,13 @@ export async function recolorImageBatch(
     mappings: ColorMapping[]
     combinationIndex: number
   }>,
-  contentZone: ContentZoneBounds
+  contentZone: ContentZoneBounds,
+  options?: {
+    fullCanvas?: boolean
+    logoMask?: Array<{ topPixel: number; bottomPixel: number }>
+    adaptiveTolerance?: boolean
+    toleranceThreshold?: number
+  }
 ): Promise<Array<{
   buffer: Buffer
   thumbnail: Buffer
@@ -302,7 +379,11 @@ export async function recolorImageBatch(
 
       const recolorResult = await recolorImage(imageBuffer, {
         colorMappings: combination.mappings,
-        contentZone
+        contentZone,
+        fullCanvas: options?.fullCanvas,
+        logoMask: options?.logoMask,
+        adaptiveTolerance: options?.adaptiveTolerance,
+        toleranceThreshold: options?.toleranceThreshold
       })
 
       const thumbnail = await generateThumbnail(recolorResult.buffer)

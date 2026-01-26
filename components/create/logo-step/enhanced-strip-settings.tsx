@@ -24,11 +24,32 @@ import {
   Instagram,
   AtSign,
   Bookmark,
+  GripVertical,
 } from 'lucide-react'
 import { useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { toast } from 'sonner'
 import { FooterPresetSelector } from '@/components/create/footer-preset-selector'
 import { SaveFooterPresetDialog } from '@/components/create/save-footer-preset-dialog'
 import { VerticalPresetSelector } from '@/components/create/vertical-preset-selector'
+import { InitiativePresetSelector } from '@/components/create/initiative-preset-selector'
+import { SaveInitiativePresetDialog } from '@/components/create/save-initiative-preset-dialog'
 import { SaveVerticalPresetDialog } from '@/components/create/save-vertical-preset-dialog'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
@@ -36,6 +57,78 @@ import { detectLogoType, LOGO_TYPE_CONFIGS } from '@/lib/config/logo-locks'
 
 interface EnhancedStripSettingsProps {
   className?: string
+}
+
+// Sortable Logo Component for ROW 2 drag-and-drop
+interface SortableLogoProps {
+  logoId: string
+  logo: { id: string; name: string | null; file_url: string | null }
+  onRemove: (logoId: string) => void
+}
+
+function SortableLogo({ logoId, logo, onRemove }: SortableLogoProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: logoId })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'relative flex items-center justify-center bg-slate-50 rounded-lg p-2 h-20 min-w-[80px] transition-all group',
+        isDragging && 'ring-2 ring-primary shadow-lg'
+      )}
+      title={logo.name || 'Logo'}
+    >
+      {/* Drag Handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="absolute top-1 left-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 cursor-grab active:cursor-grabbing transition-opacity"
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-3 w-3 text-slate-400" />
+      </button>
+
+      {/* Logo Image */}
+      {logo.file_url ? (
+        <Image
+          src={logo.file_url}
+          alt={logo.name || 'Logo'}
+          width={90}
+          height={60}
+          className="object-contain max-h-8"
+          unoptimized
+        />
+      ) : (
+        <span className="text-[8px] text-slate-400 truncate">{logo.name}</span>
+      )}
+
+      {/* Remove button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(logoId)
+        }}
+        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+    </div>
+  )
 }
 
 export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps) {
@@ -54,6 +147,7 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
     addVerticalLogo4Row,
     removeVerticalLogo4Row,
     set4RowVerticalEnabled,
+    reorderVerticalLogos4Row,
     // v9.0: Zone 1 signature actions
     updateFooterSignature,
     setFooterSignatureLogo,
@@ -65,6 +159,35 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
   // Preset dialog states
   const [showSavePresetDialog, setShowSavePresetDialog] = useState(false)
   const [showSaveVerticalPresetDialog, setShowSaveVerticalPresetDialog] = useState(false)
+  const [showSaveInitiativePresetDialog, setShowSaveInitiativePresetDialog] = useState(false)
+
+  // Drag-and-drop sensors for ROW 2
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 5px movement required before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle drag end for ROW 2 (Program Logos)
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = enhanced4Row.rows.vertical.logoIds.indexOf(active.id as string)
+      const newIndex = enhanced4Row.rows.vertical.logoIds.indexOf(over.id as string)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(enhanced4Row.rows.vertical.logoIds, oldIndex, newIndex)
+        reorderVerticalLogos4Row(newOrder)
+        toast.success('Logo order updated')
+      }
+    }
+  }
 
   const enhanced4Row = formData.enhanced4RowStrip
   const footer = enhanced4Row.footer
@@ -231,40 +354,36 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
                   </SelectContent>
                 </Select>
                 {enhanced4Row.rows.vertical.logoIds.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {enhanced4Row.rows.vertical.logoIds.map(logoId => {
-                      const logo = logos.find(l => l.id === logoId)
-                      return logo ? (
-                        <div
-                          key={logoId}
-                          className="relative flex items-center justify-center bg-slate-50 rounded-lg p-2 h-20 min-w-[80px]"
-                          title={logo.name}
-                        >
-                          {logo.file_url ? (
-                            <Image
-                              src={logo.file_url}
-                              alt={logo.name || 'Logo'}
-                              width={90}
-                              height={60}
-                              className="object-contain max-h-8"
-                              unoptimized
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={enhanced4Row.rows.vertical.logoIds}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
+                          const logo = logos.find(l => l.id === logoId)
+                          return logo ? (
+                            <SortableLogo
+                              key={logoId}
+                              logoId={logoId}
+                              logo={logo}
+                              onRemove={removeVerticalLogo4Row}
                             />
-                          ) : (
-                            <span className="text-[8px] text-slate-400 truncate">{logo.name}</span>
-                          )}
-                          <button
-                            onClick={() => removeVerticalLogo4Row(logoId)}
-                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      ) : null
-                    })}
-                  </div>
+                          ) : null
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
                 <p className="text-[10px] text-slate-400">
                   {enhanced4Row.rows.vertical.logoIds.length}/6 logos selected
+                  {enhanced4Row.rows.vertical.logoIds.length > 1 && (
+                    <span className="ml-2 text-primary">• Drag to reorder</span>
+                  )}
                 </p>
               </div>
             )}
@@ -283,12 +402,27 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
               />
             </div>
             {enhanced4Row.rows.initiative.enabled && (
-              <Input
-                value={enhanced4Row.rows.initiative.text}
-                onChange={(e) => updateInitiativeText({ text: e.target.value })}
-                placeholder="Yi Erode Initiative"
-                className="h-9 text-sm"
-              />
+              <div className="space-y-2">
+                {/* Preset Selector */}
+                <div className="flex items-center justify-between bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-2 border border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <Bookmark className="h-3.5 w-3.5 text-slate-600" />
+                    <span className="text-[10px] font-medium text-slate-700">
+                      Saved Texts
+                    </span>
+                  </div>
+                  <InitiativePresetSelector
+                    onSaveClick={() => setShowSaveInitiativePresetDialog(true)}
+                  />
+                </div>
+                {/* Text Input */}
+                <Input
+                  value={enhanced4Row.rows.initiative.text}
+                  onChange={(e) => updateInitiativeText({ text: e.target.value })}
+                  placeholder="Yi Erode Initiative"
+                  className="h-9 text-sm"
+                />
+              </div>
             )}
           </div>
 
@@ -549,6 +683,12 @@ export function EnhancedStripSettings({ className }: EnhancedStripSettingsProps)
       <SaveVerticalPresetDialog
         open={showSaveVerticalPresetDialog}
         onOpenChange={setShowSaveVerticalPresetDialog}
+      />
+
+      {/* Initiative/Chapter Name Preset Save Dialog */}
+      <SaveInitiativePresetDialog
+        open={showSaveInitiativePresetDialog}
+        onOpenChange={setShowSaveInitiativePresetDialog}
       />
     </div>
   )

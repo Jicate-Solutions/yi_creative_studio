@@ -1,99 +1,163 @@
-import { LucideIcon, LayoutDashboard, Sparkles, Images, Library, Layers,
-         Palette, Image as ImageIcon, Users, CreditCard, BarChart3, Coins } from 'lucide-react';
-import { ROUTES } from '@/lib/config/constants';
+import { LucideIcon } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Sparkles,
+  Images,
+  Library,
+  Layers,
+  Palette,
+  Image as ImageIcon,
+  Users,
+  CreditCard,
+  BarChart3,
+  Coins,
+  Settings,
+} from 'lucide-react'
+import { ROUTES } from '@/lib/config/constants'
 
-export interface MobileNavMenuItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  active: boolean;
-  submenus: Array<{ href: string; label: string; active: boolean }>;
+export interface MobileNavItem {
+  href: string
+  label: string
+  icon: LucideIcon
+  adminOnly?: boolean
+  superAdminOnly?: boolean
 }
 
 export interface MobileNavGroup {
-  groupLabel: string;
-  menus: MobileNavMenuItem[];
+  id: string
+  groupLabel: string
+  icon: LucideIcon
+  menus: MobileNavItem[]
 }
 
-export function getMobileNavPages(
-  pathname: string,
-  canManage: boolean = false,
-  isSuperAdmin: boolean = false
+/**
+ * Mobile navigation configuration for Yi CreativeStudio
+ * Returns navigation groups based on user role
+ */
+export function getMobileNavConfig(
+  isAdmin: boolean,
+  isSuperAdmin: boolean
 ): MobileNavGroup[] {
-  const isActive = (href: string) => {
-    if (href === ROUTES.dashboard) return pathname === href;
-    return pathname === href || pathname.startsWith(href + '/');
-  };
-
-  // First 4 groups = primary navbar items
-  const primaryGroups: MobileNavGroup[] = [
+  const groups: MobileNavGroup[] = [
+    // Primary navigation (first 4 groups show in bottom bar)
     {
-      groupLabel: 'Dashboard',
-      menus: [{ href: ROUTES.dashboard, label: 'Dashboard', icon: LayoutDashboard,
-                active: isActive(ROUTES.dashboard), submenus: [] }]
-    },
-    {
-      groupLabel: 'Create',
-      menus: [{ href: ROUTES.create, label: 'Create', icon: Sparkles,
-                active: isActive(ROUTES.create), submenus: [] }]
-    },
-    {
-      groupLabel: 'Gallery',
-      menus: [{ href: ROUTES.gallery, label: 'Gallery', icon: Images,
-                active: isActive(ROUTES.gallery), submenus: [] }]
-    },
-    {
-      groupLabel: 'Templates',
-      menus: [{ href: ROUTES.templates, label: 'Templates', icon: Library,
-                active: isActive(ROUTES.templates), submenus: [] }]
-    }
-  ];
-
-  // Groups 5+ = More menu
-  const secondaryGroups: MobileNavGroup[] = [
-    {
-      groupLabel: 'Bulk Generate',
-      menus: [{ href: ROUTES.bulk, label: 'Bulk Generate', icon: Layers,
-                active: isActive(ROUTES.bulk), submenus: [] }]
-    }
-  ];
-
-  // Admin settings
-  const adminGroups: MobileNavGroup[] = canManage ? [
-    {
-      groupLabel: 'Settings',
+      id: 'dashboard',
+      groupLabel: 'Home',
+      icon: LayoutDashboard,
       menus: [
-        { href: ROUTES.brandConfig, label: 'Brand Config', icon: Palette,
-          active: isActive(ROUTES.brandConfig), submenus: [] },
-        { href: ROUTES.logoManagement, label: 'Logo Management', icon: ImageIcon,
-          active: isActive(ROUTES.logoManagement), submenus: [] },
-        { href: ROUTES.team, label: 'Team', icon: Users,
-          active: isActive(ROUTES.team), submenus: [] },
-        { href: ROUTES.billing, label: 'Billing', icon: CreditCard,
-          active: isActive(ROUTES.billing), submenus: [] },
-        { href: ROUTES.analytics, label: 'Analytics', icon: BarChart3,
-          active: isActive(ROUTES.analytics),
-          submenus: [
-            { href: ROUTES.analyticsCosts, label: 'Cost Analysis',
-              active: isActive(ROUTES.analyticsCosts) },
-            { href: ROUTES.analyticsFeedback, label: 'Feedback',
-              active: isActive(ROUTES.analyticsFeedback) },
-            { href: ROUTES.analyticsLearning, label: 'Learning',
-              active: isActive(ROUTES.analyticsLearning) }
-          ]
-        }
-      ]
-    }
-  ] : [];
-
-  // Super admin
-  const superAdminGroups: MobileNavGroup[] = isSuperAdmin ? [
+        {
+          href: ROUTES.dashboard,
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+        },
+      ],
+    },
     {
-      groupLabel: 'Administration',
-      menus: [{ href: ROUTES.adminCredits, label: 'Admin Credits', icon: Coins,
-                active: isActive(ROUTES.adminCredits), submenus: [] }]
-    }
-  ] : [];
+      id: 'create',
+      groupLabel: 'Create',
+      icon: Sparkles,
+      menus: [
+        {
+          href: ROUTES.create,
+          label: 'Create',
+          icon: Sparkles,
+        },
+        {
+          href: ROUTES.bulk,
+          label: 'Bulk Generate',
+          icon: Layers,
+        },
+      ],
+    },
+    {
+      id: 'gallery',
+      groupLabel: 'Gallery',
+      icon: Images,
+      menus: [
+        {
+          href: ROUTES.gallery,
+          label: 'Gallery',
+          icon: Images,
+        },
+      ],
+    },
+    {
+      id: 'templates',
+      groupLabel: 'Templates',
+      icon: Library,
+      menus: [
+        {
+          href: ROUTES.templates,
+          label: 'Templates',
+          icon: Library,
+        },
+      ],
+    },
+  ]
 
-  return [...primaryGroups, ...secondaryGroups, ...adminGroups, ...superAdminGroups];
+  // Admin-only settings group (appears in More menu)
+  if (isAdmin) {
+    const settingsMenus: MobileNavItem[] = [
+      {
+        href: ROUTES.brandConfig,
+        label: 'Brand Config',
+        icon: Palette,
+        adminOnly: true,
+      },
+      {
+        href: ROUTES.logoManagement,
+        label: 'Logo Management',
+        icon: ImageIcon,
+        adminOnly: true,
+      },
+      {
+        href: ROUTES.analytics,
+        label: 'Analytics',
+        icon: BarChart3,
+        adminOnly: true,
+      },
+      {
+        href: ROUTES.team,
+        label: 'Team',
+        icon: Users,
+        adminOnly: true,
+      },
+      {
+        href: ROUTES.billing,
+        label: 'Billing',
+        icon: CreditCard,
+        adminOnly: true,
+      },
+    ]
+
+    // Add super admin credits if applicable
+    if (isSuperAdmin) {
+      settingsMenus.push({
+        href: ROUTES.adminCredits,
+        label: 'Admin Credits',
+        icon: Coins,
+        superAdminOnly: true,
+      })
+    }
+
+    groups.push({
+      id: 'settings',
+      groupLabel: 'Settings',
+      icon: Settings,
+      menus: settingsMenus,
+    })
+  }
+
+  return groups
+}
+
+/**
+ * Icon mapping for menu groups (used by More menu)
+ */
+export const GROUP_ICONS: Record<string, LucideIcon> = {
+  'Home': LayoutDashboard,
+  'Create': Sparkles,
+  'Gallery': Images,
+  'Templates': Library,
+  'Settings': Settings,
 }

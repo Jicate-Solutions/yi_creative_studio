@@ -312,13 +312,13 @@ export default function LandingPage() {
               <span className="text-xs font-bold uppercase tracking-wider text-primary">AI-Powered Brand Creative Generation</span>
             </div>
 
-            <h1 className="text-[clamp(2.5rem,6vw,5rem)] mb-6 text-slate-900 dark:text-white leading-[0.9] tracking-tight font-bold">
+            <h1 className="text-[clamp(2rem,5vw,4rem)] mb-6 text-slate-900 dark:text-white leading-[0.9] tracking-tight font-bold">
               Create{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-gradient-flow">
                 Brilliance
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-slate-600 dark:text-white/80 mb-10 max-w-xl font-medium leading-relaxed">
+            <p className="text-base md:text-lg text-slate-600 dark:text-white/80 mb-8 max-w-lg font-medium leading-relaxed">
               Generate professional event posters, social posts, and marketing materials in 30 seconds. Perfect brand compliance. No design skills required.
             </p>
             <div className="flex flex-col items-center lg:items-start gap-6">
@@ -424,10 +424,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-20 flex flex-col md:flex-row items-end justify-between gap-12">
             <div className="max-w-2xl">
-              <h2 className="text-yi-bold text-4xl md:text-6xl mb-8 uppercase leading-none text-slate-900 dark:text-white">
+              <h2 className="text-yi-bold text-3xl md:text-4xl mb-6 uppercase leading-none text-slate-900 dark:text-white">
                 CREATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">PROFESSIONAL</span><br />CREATIVES IN <span className="text-secondary">30 SECONDS</span>
               </h2>
-              <p className="text-xl text-slate-600 dark:text-white/70 font-semibold tracking-tight">Simple 3-step workflow. Brand consistency guaranteed.</p>
+              <p className="text-lg text-slate-600 dark:text-white/70 font-semibold tracking-tight">Simple 3-step workflow. Brand consistency guaranteed.</p>
             </div>
             <div className="text-right text-xs font-extrabold uppercase tracking-[0.2em] sm:tracking-[0.4em] text-slate-400/50 dark:text-white/30 mb-2 whitespace-nowrap">
               01 // CORE ARCHITECTURE
@@ -452,8 +452,8 @@ export default function LandingPage() {
                     </div>
                     <span className="text-4xl font-extrabold text-muted-foreground/40 dark:text-white/40">{item.step}</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">{item.title}</h3>
-                  <p className="text-sm text-slate-700 dark:text-white/85 font-medium">{item.desc}</p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">{item.title}</h3>
+                  <p className="text-sm text-slate-700 dark:text-white/85 font-medium leading-relaxed">{item.desc}</p>
                 </div>
               </Link>
             ))}
@@ -470,8 +470,8 @@ export default function LandingPage() {
                 <div className="inline-block mb-4 py-2 px-4 rounded-full bg-primary/20 border border-primary/40">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-primary">120x Faster</span>
                 </div>
-                <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-6 uppercase tracking-tight">30-Second Generation</h3>
-                <p className="text-xl text-slate-700 dark:text-white/90 font-semibold leading-relaxed max-w-lg mb-12">
+                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">30-Second Generation</h3>
+                <p className="text-base text-slate-700 dark:text-white/90 font-semibold leading-relaxed max-w-lg mb-8">
                   What takes 2 hours in Canva takes 30 seconds here. AI handles design, you handle impact. Perfect for last-minute campaigns.
                 </p>
                 <div className="mt-auto pt-8 border-t border-slate-200/30 dark:border-white/5 flex items-center justify-between">
@@ -494,8 +494,8 @@ export default function LandingPage() {
                 <div className="inline-block mb-4 py-2 px-4 rounded-full bg-secondary/20 border border-secondary/40">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-secondary">70+ Chapters Aligned</span>
                 </div>
-                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-6 uppercase tracking-tight">100% On-Brand,<br />Always</h3>
-                <p className="text-lg text-slate-700 dark:text-white/90 font-semibold leading-relaxed mb-12">
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">100% On-Brand,<br />Always</h3>
+                <p className="text-sm text-slate-700 dark:text-white/90 font-semibold leading-relaxed mb-8">
                   Logo positions locked. Brand colors enforced. Guidelines automated. From Chennai to Chandigarh, pixel-perfect consistency.
                 </p>
                 <div className="mt-auto p-6 rounded-3xl bg-slate-100/60 dark:bg-black/40 border border-slate-200/40 dark:border-white/10 overflow-hidden relative">
@@ -520,8 +520,8 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-xl bg-slate-200/40 dark:bg-white/5 flex items-center justify-center mb-8">
                   <Palette className="h-5 w-5 text-primary" />
                 </div>
-                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Every Format You Need</h3>
-                <p className="text-sm text-slate-700 dark:text-white/90 font-semibold leading-relaxed">
+                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Every Format You Need</h3>
+                <p className="text-base text-slate-700 dark:text-white/90 font-semibold leading-relaxed">
                   Event posters • Instagram stories • LinkedIn posts • Certificates • Flyers. 30+ templates, one platform.
                 </p>
               </div>
@@ -534,8 +534,8 @@ export default function LandingPage() {
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mb-8">
                   <Clock className="h-5 w-5 text-foreground dark:text-white" />
                 </div>
-                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Smart for Every Initiative</h3>
-                <p className="text-sm text-slate-700 dark:text-white/90 font-semibold leading-relaxed">
+                <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-4 uppercase tracking-tight">Smart for Every Initiative</h3>
+                <p className="text-base text-slate-700 dark:text-white/90 font-semibold leading-relaxed">
                   Masoom feels warm and family-friendly. Road Safety uses high-visibility colors. Each vertical gets context-aware design.
                 </p>
               </div>
@@ -548,10 +548,10 @@ export default function LandingPage() {
       <section className="py-20 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-5xl md:text-7xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white mb-6">
+            <h2 className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white mb-4">
               LOVED BY <span className="text-primary">70+ CHAPTERS.</span>
             </h2>
-            <p className="text-xl text-slate-700 dark:text-white/80 font-semibold">Real results from Yi chapters across India</p>
+            <p className="text-lg text-slate-700 dark:text-white/80 font-semibold">Real results from Yi chapters across India</p>
           </div>
 
           <div className="overflow-x-auto scrollbar-hide pb-8">
@@ -594,8 +594,8 @@ export default function LandingPage() {
                   timeSaved: 120
                 }
               ].map((testimonial, i) => (
-                <div key={i} className="min-w-[400px] max-w-[400px] glass-card p-8 rounded-3xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2">
-                  <p className="text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed">"{testimonial.quote}"</p>
+                <div key={i} className="min-w-[300px] sm:min-w-[400px] max-w-[400px] glass-card p-6 sm:p-8 rounded-3xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 snap-center">
+                  <p className="text-base sm:text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed">"{testimonial.quote}"</p>
 
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-xs font-bold text-primary">
@@ -629,10 +629,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-20 mb-20">
             <div className="flex-1">
-              <h2 className="text-yi-bold text-5xl md:text-7xl mb-12 uppercase leading-[0.85] tracking-tighter text-slate-900 dark:text-white">
+              <h2 className="text-yi-bold text-3xl md:text-5xl mb-8 uppercase leading-[0.85] tracking-tighter text-slate-900 dark:text-white">
                 ONE PLATFORM, <br /><span className="text-secondary">30+ FORMATS</span>
               </h2>
-              <p className="text-2xl text-slate-700 dark:text-white/80 font-semibold max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
+              <p className="text-lg text-slate-700 dark:text-white/80 font-semibold max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
             </div>
             <div className="w-full lg:w-1/3 aspect-[4/5] rounded-[4rem] overflow-hidden relative group shadow-2xl border border-slate-200/50 dark:border-white/10">
               <img src="/images/yi-brand-showcase.png" alt="Yi Platform - 30+ Creative Formats" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2000ms]" />
@@ -680,11 +680,11 @@ export default function LandingPage() {
       < section className="py-20 px-6 sm:px-8 text-center relative overflow-hidden" >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[160px] -z-10" />
         <div className="max-w-4xl mx-auto relative z-10">
-          <h2 className="text-yi-bold text-5xl md:text-7xl mb-12 leading-none tracking-tighter uppercase text-slate-900 dark:text-white">
+          <h2 className="text-yi-bold text-4xl md:text-6xl mb-8 leading-none tracking-tighter uppercase text-slate-900 dark:text-white">
             READY TO <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">GENERATE?</span>
           </h2>
-          <p className="text-xl md:text-2xl text-slate-700 dark:text-white/80 mb-12 font-semibold max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-slate-700 dark:text-white/80 mb-10 font-semibold max-w-xl mx-auto">
             Join 70+ chapters already delivering brand excellence with Yi CreativeStudio.
           </p>
           <div className="flex flex-wrap justify-center gap-6 mb-16">
@@ -695,8 +695,8 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-          <Link href={ROUTES.signup}>
-            <Button size="lg" className="h-20 px-16 rounded-[2rem] btn-primary text-lg font-extrabold uppercase tracking-[0.2em] shadow-2xl hover:scale-105 transition-transform">
+          <Link href={ROUTES.signup} className="w-full sm:w-auto">
+            <Button size="lg" className="h-16 sm:h-20 px-8 sm:px-16 w-full sm:w-auto rounded-[2rem] btn-primary text-base sm:text-lg font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-2xl hover:scale-105 transition-transform">
               Join the studio now
             </Button>
           </Link>

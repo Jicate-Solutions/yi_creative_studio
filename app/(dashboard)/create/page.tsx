@@ -10,7 +10,7 @@ import { useEventSuggestions } from '@/hooks/use-event-suggestions'
 import { useSSEGeneration } from '@/hooks/use-sse-generation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
-import type { TablesInsert, Json } from '@/types/database.types'
+import type { TablesInsert, Json, TemplateImage } from '@/types/database.types'
 
 // Brand config type for type safety
 interface BrandConfig {
@@ -386,6 +386,25 @@ export default function CreatePage() {
     selectFormat(format.id)
     setStep(2)
   }, [selectFormat])
+
+  // Handle mode change - auto advance to step 4 (Logos) when "From Scratch" is selected
+  const handleModeChange = useCallback((mode: CreationMode) => {
+    setCreationMode(mode)
+    if (mode === 'scratch') {
+      // "From Scratch" selected - advance to Logos step immediately
+      setStep(4)
+    }
+    // For "template" mode, user needs to select a template first (handled by handleTemplateSelect)
+  }, [setCreationMode])
+
+  // Handle template selection - auto advance to step 4 (Logos) when template is selected
+  const handleTemplateSelect = useCallback((template: TemplateImage | null) => {
+    selectTemplate(template)
+    if (template) {
+      // Template selected - advance to Logos step
+      setStep(4)
+    }
+  }, [selectTemplate])
 
   // AI Suggestions hook
   const {
@@ -1395,7 +1414,7 @@ export default function CreatePage() {
                   <div className="space-y-8">
                     <ModeSelector
                       mode={formData.creationMode}
-                      onModeChange={setCreationMode}
+                      onModeChange={handleModeChange}
                     />
 
                     {/* Template Selection - Show immediately if template mode is selected */}
@@ -1415,7 +1434,7 @@ export default function CreatePage() {
                             <TemplateSelector
                               verticalId={selectedVertical.id}
                               verticalName={selectedVertical.name}
-                              onSelect={selectTemplate}
+                              onSelect={handleTemplateSelect}
                               selectedTemplate={selectedTemplate}
                               selectedFormat={selectedFormat}
                               verticals={verticals}

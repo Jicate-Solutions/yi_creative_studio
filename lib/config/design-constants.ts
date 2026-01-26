@@ -478,7 +478,7 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
 
     // SHARED photo settings
     shape: 'circle',        // Circular mask applied, no solid background
-    size: 320,              // v6.11: Reduced to 320px (30% of 1080px width) for better balance
+    size: 180,              // v24.14: 180px per user request for better visibility
     border: {
       width: 0,             // v6.9.1: DISABLED - Border is deprecated and incompatible with shadow (causes Sharp dimension error)
       color: '#FFFFFF',     // Border feature replaced by drop shadow in v6.0 Phase 5

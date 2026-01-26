@@ -36,6 +36,7 @@ export interface ColorMapping {
   zone: 'background' | 'text' | 'accent'
   preserveContrast: boolean // If true, adjust lightness to maintain readability
   description: string
+  confidence?: string // Detection confidence from semantic analysis (0-1 as string)
 }
 
 export interface ColorCombination {
@@ -91,7 +92,8 @@ export function generateColorCombinations(
         toColor: strategy.background,
         zone: 'background',
         preserveContrast: false,
-        description: `Background: ${zone.description}`
+        description: `Background: ${zone.description}`,
+        confidence: zone.confidence?.toString()
       })
     }
 
@@ -108,7 +110,8 @@ export function generateColorCombinations(
         toColor: textColor,
         zone: 'text',
         preserveContrast: true,
-        description: `Text: ${zone.description}`
+        description: `Text: ${zone.description}`,
+        confidence: zone.confidence?.toString()
       })
     }
 
@@ -119,7 +122,8 @@ export function generateColorCombinations(
         toColor: strategy.accent,
         zone: 'accent',
         preserveContrast: false,
-        description: `Accent: ${zone.description}`
+        description: `Accent: ${zone.description}`,
+        confidence: zone.confidence?.toString()
       })
     }
 

@@ -57,6 +57,12 @@ interface GenerateSummaryCardProps {
           enabled?: boolean
           photoUrl?: string
           shape?: string
+          speakers?: Array<{
+            id: string
+            name: string
+            designation?: string
+            photoUrl?: string
+          }>
         }
       }
     }
@@ -471,8 +477,42 @@ export function GenerateSummaryCard({
       {/* Form Field Sections */}
       {sections.map((section) => {
         const fieldIds = (sectionFields[section.id] as string[]) || []
-        const hasValues = fieldIds.some((id) => getFieldValue(formData.formData, id))
         const aiCount = aiCountBySection[section.id] || 0
+
+        // Special handling for speaker section - data is in designData, not formData
+        if (section.id === 'speaker') {
+          const speakers = formData.designData?.customization?.speakerPhoto?.speakers || []
+          const hasSpeakers = speakers.length > 0
+
+          return (
+            <SummarySection
+              key={section.id}
+              title={section.title}
+              icon={User}
+              aiCount={0}
+              isEmpty={!hasSpeakers}
+              defaultOpen={section.defaultExpanded}
+            >
+              {speakers.map((speaker, index) => (
+                <div key={speaker.id || index} className="px-2 py-1.5 space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Speaker {index + 1}</span>
+                    {speaker.photoUrl && (
+                      <Badge variant="outline" className="text-[10px]">Has Photo</Badge>
+                    )}
+                  </div>
+                  <div className="text-sm font-medium">{speaker.name || '(No name)'}</div>
+                  {speaker.designation && (
+                    <div className="text-xs text-muted-foreground">{speaker.designation}</div>
+                  )}
+                </div>
+              ))}
+            </SummarySection>
+          )
+        }
+
+        // Regular section handling
+        const hasValues = fieldIds.some((id) => getFieldValue(formData.formData, id))
 
         return (
           <SummarySection
@@ -553,19 +593,37 @@ export function GenerateSummaryCard({
         ))}
       </SummarySection>
 
-      {/* Speaker Photo Section */}
+      {/* Speaker Photo Section - Display photos from multi-speaker array */}
       <SummarySection
-        title="Speaker Photo"
+        title="Speaker Photos"
         icon={User}
-        isEmpty={!speakerPhoto?.enabled || !speakerPhoto?.photoUrl}
-        defaultOpen={false}
+        isEmpty={!speakerPhoto?.enabled || !speakerPhoto?.speakers?.some(s => s.photoUrl)}
+        defaultOpen={speakerPhoto?.speakers?.some(s => s.photoUrl)}
       >
-        {speakerPhoto?.enabled && speakerPhoto?.photoUrl && (
-          <SpeakerPhotoThumbnail
-            photoUrl={speakerPhoto.photoUrl}
-            shape={speakerPhoto.shape}
-          />
-        )}
+        {speakerPhoto?.enabled && speakerPhoto?.speakers?.filter(s => s.photoUrl).map((speaker, index) => (
+          <div key={speaker.id || index} className="flex items-center gap-2 rounded-md px-2 py-1.5 bg-muted/30">
+            <div
+              className={cn(
+                'relative h-10 w-10 shrink-0 overflow-hidden border bg-white',
+                speakerPhoto.shape === 'circle' ? 'rounded-full' : speakerPhoto.shape === 'rounded' ? 'rounded-lg' : 'rounded'
+              )}
+            >
+              <Image
+                src={speaker.photoUrl!}
+                alt={speaker.name || `Speaker ${index + 1}`}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium">{speaker.name || `Speaker ${index + 1}`}</p>
+              {speaker.designation && (
+                <p className="truncate text-[10px] text-muted-foreground">{speaker.designation}</p>
+              )}
+            </div>
+          </div>
+        ))}
       </SummarySection>
 
       {/* Inline Edit Modal */}

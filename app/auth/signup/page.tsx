@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -43,11 +43,37 @@ const benefits = [
   'High-resolution downloads',
 ]
 
+// Wrapper for Suspense boundary (useSearchParams requires it)
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupLoading />}>
+      <SignupContent />
+    </Suspense>
+  )
+}
+
+function SignupLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function SignupContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+
+  // Get redirect URL from search params (e.g., /join/YTFHDX)
+  const redirectTo = searchParams.get('redirectTo')
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -62,6 +88,11 @@ export default function SignupPage() {
   async function onSubmit(data: SignupForm) {
     setIsLoading(true)
 
+    // Pass the redirectTo as the 'next' param in the callback URL
+    const callbackUrl = redirectTo
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+      : `${window.location.origin}/auth/callback`
+
     const { error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -69,7 +100,7 @@ export default function SignupPage() {
         data: {
           full_name: data.fullName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: callbackUrl,
       },
     })
 
@@ -87,10 +118,15 @@ export default function SignupPage() {
   async function signUpWithGoogle() {
     setIsGoogleLoading(true)
 
+    // Pass the redirectTo as the 'next' param in the callback URL
+    const callbackUrl = redirectTo
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+      : `${window.location.origin}/auth/callback`
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     })
 

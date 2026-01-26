@@ -138,7 +138,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
       {/* v18.3: Full width with even spacing to match backend Sharp rendering */}
       {brandLogos.length > 0 && (
         <div className="w-full rounded-t-none rounded-b-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 border-t-0 px-4 py-1">
-          <div className="flex items-center justify-evenly">  {/* v18.3: space-evenly alignment to match backend */}
+          <div className="flex items-center justify-evenly">
             {brandLogos.map((logo) => (
               <div key={logo.id} className="h-[130px] flex items-center">
                 {logo.file_url && (
@@ -158,21 +158,21 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
       )}
 
       {/* ROW 2: Floating Card with Rounded Corners (Program/Vertical Logos) */}
-      {/* v18.4: Responsive grid with flex-wrap for many logos */}
-      {/* v19.0: Increased logo size from 50px to 75px height for better visibility */}
+      {/* v26.6: 2px gap between logos, centered, with shrink support */}
       {enhanced4Row.rows.vertical.enabled && enhanced4Row.rows.vertical.logoIds.length > 0 && (
-        <div className="w-full rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-2 py-1">
-          <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
+        <div className="w-full rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow duration-300 border border-slate-200 px-4 py-1 overflow-hidden">
+          <div className="flex items-center justify-center gap-[2px]">
             {enhanced4Row.rows.vertical.logoIds.map((logoId) => {
               const logo = logos.find(l => l.id === logoId)
               return logo?.file_url ? (
-                <div key={logoId} className="h-[90px] flex items-center shrink-0">
+                <div key={logoId} className="h-[70px] flex items-center flex-shrink min-w-0">
                   <Image
                     src={logo.file_url}
                     alt={logo.name || ''}
-                    width={140}
-                    height={85}
-                    className="object-contain"
+                    width={120}
+                    height={65}
+                    className="object-contain max-h-full"
+                    style={{ maxWidth: `${Math.min(120, 400 / enhanced4Row.rows.vertical.logoIds.length)}px` }}
                     unoptimized
                   />
                 </div>
@@ -353,37 +353,37 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                 style={{ width: `${zoneWidths.zone3Width}%` }}
               >
                 {footer.digitalPartner.enabled && partnerLogo?.file_url && (
-                <div className="flex flex-col items-center justify-center gap-0.5 text-center">
-                  {/* "Digital Partner" Label - Bold uppercase for visibility */}
-                  <span
-                    className="text-[9px] uppercase tracking-wider whitespace-nowrap font-bold"
-                    style={{ color: footer.digitalPartner.labelColor || '#374151' }}
-                  >
-                    {footer.digitalPartner.labelText}
-                  </span>
-
-                  {/* Partner Logo */}
-                  <div className="flex items-center justify-center">
-                    <Image
-                      src={partnerLogo.file_url}
-                      alt={partnerLogo.name || 'Partner'}
-                      width={60}
-                      height={40}
-                      className="object-contain"
-                      unoptimized
-                    />
-                  </div>
-
-                  {/* Agency Name/Link */}
-                  {footer.digitalPartner.agencyName && (
+                  <div className="flex flex-col items-center justify-center gap-0.5 text-center">
+                    {/* "Digital Partner" Label - Bold uppercase for visibility */}
                     <span
-                      className="text-[6px] truncate max-w-full"
-                      style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
+                      className="text-[9px] uppercase tracking-wider whitespace-nowrap font-bold"
+                      style={{ color: footer.digitalPartner.labelColor || '#374151' }}
                     >
-                      {footer.digitalPartner.agencyName}
+                      {footer.digitalPartner.labelText}
                     </span>
-                  )}
-                </div>
+
+                    {/* Partner Logo */}
+                    <div className="flex items-center justify-center">
+                      <Image
+                        src={partnerLogo.file_url}
+                        alt={partnerLogo.name || 'Partner'}
+                        width={60}
+                        height={40}
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+
+                    {/* Agency Name/Link */}
+                    {footer.digitalPartner.agencyName && (
+                      <span
+                        className="text-[6px] truncate max-w-full"
+                        style={{ color: footer.digitalPartner.labelColor || '#9CA3AF' }}
+                      >
+                        {footer.digitalPartner.agencyName}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             )}

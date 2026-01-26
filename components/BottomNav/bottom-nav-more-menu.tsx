@@ -1,21 +1,21 @@
-'use client';
+'use client'
 
-import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { BottomNavMoreMenuProps } from './types';
+import { usePathname } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
+import { BottomNavMoreMenuProps } from './types'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle
-} from '@/components/ui/sheet';
+} from '@/components/ui/sheet'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger
-} from '@/components/ui/accordion';
+} from '@/components/ui/accordion'
 
 export function BottomNavMoreMenu({
   groups,
@@ -23,12 +23,12 @@ export function BottomNavMoreMenu({
   onClose,
   onItemClick
 }: BottomNavMoreMenuProps) {
-  const pathname = usePathname();
+  const pathname = usePathname()
 
   const handleItemClick = (href: string) => {
-    onItemClick(href);
-    onClose();
-  };
+    onItemClick(href)
+    onClose()
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -56,11 +56,11 @@ export function BottomNavMoreMenu({
 
           <Accordion type="multiple" className="w-full" defaultValue={groups.map(g => g.id)}>
             {groups.map((group) => {
-              const GroupIcon = group.icon;
+              const GroupIcon = group.icon
               const hasActiveItem = group.menus.some(
                 (item) =>
                   pathname === item.href || pathname.startsWith(item.href + '/')
-              );
+              )
 
               return (
                 <AccordionItem
@@ -102,8 +102,8 @@ export function BottomNavMoreMenu({
                       {group.menus.map((item, index) => {
                         const isActive =
                           pathname === item.href ||
-                          pathname.startsWith(item.href + '/');
-                        const Icon = item.icon;
+                          pathname.startsWith(item.href + '/')
+                        const Icon = item.icon
 
                         return (
                           <motion.button
@@ -138,16 +138,16 @@ export function BottomNavMoreMenu({
                               {item.label}
                             </span>
                           </motion.button>
-                        );
+                        )
                       })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              );
+              )
             })}
           </Accordion>
         </div>
       </SheetContent>
     </Sheet>
-  );
+  )
 }

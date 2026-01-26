@@ -57,21 +57,21 @@ export function QuickCreateHub() {
     return (
         <div className="h-full glass-card rounded-3xl p-6 relative overflow-hidden group flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-foreground font-semibold">Creation Hub</h3>
-                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" asChild>
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="text-foreground font-semibold text-lg tracking-tight">Creation Hub</h3>
+                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" asChild>
                     <Link href={ROUTES.templates}>
                         Customize
                     </Link>
                 </Button>
             </div>
 
-            <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
+            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
                 {CREATIVE_TOOLS.filter(t => t.id !== 'more').map((tool, index) => (
                     <Link
                         key={tool.id}
                         href={tool.href}
-                        className="group relative h-full"
+                        className="group/card relative h-full"
                         onMouseEnter={() => setHoveredId(tool.id)}
                         onMouseLeave={() => setHoveredId(null)}
                     >
@@ -80,26 +80,28 @@ export function QuickCreateHub() {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.4, delay: 0.1 * index }}
                             className={cn(
-                                "h-full rounded-2xl overflow-hidden relative flex flex-col justify-between p-4 transition-all duration-300",
-                                "bg-background/50 border border-border hover:bg-background hover:scale-[1.02] hover:border-primary/30",
-                                "shadow-sm hover:shadow-lg",
-                                hoveredId === tool.id ? "z-10 ring-2 ring-primary/20" : ""
+                                "h-full rounded-2xl overflow-hidden relative flex flex-col justify-between p-5 transition-all duration-300",
+                                "bg-white/60 dark:bg-white/5 border border-black/[0.04] dark:border-white/[0.06]",
+                                "hover:bg-white dark:hover:bg-white/10 hover:scale-[1.02]",
+                                "shadow-sm hover:shadow-xl hover:shadow-black/[0.08]",
+                                hoveredId === tool.id ? "z-10 border-primary/20 dark:border-primary/30" : ""
                             )}
                         >
                             {/* Icon & Label Top */}
                             <div className="flex items-start justify-between">
                                 <div className={cn(
-                                    "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                                    "bg-muted border border-border group-hover:bg-primary/10 group-hover:border-primary/20",
+                                    "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300",
+                                    "bg-gradient-to-br from-muted/80 to-muted/40 border border-black/[0.04] dark:border-white/[0.08]",
+                                    "group-hover/card:from-primary/15 group-hover/card:to-primary/5 group-hover/card:border-primary/20",
                                 )}>
                                     <tool.icon className={cn(
-                                        "w-5 h-5 transition-colors",
+                                        "w-5 h-5 transition-colors duration-300",
                                         hoveredId === tool.id ? "text-primary" : "text-muted-foreground"
                                     )} />
                                 </div>
                                 <div className={cn(
-                                    "w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity -translate-y-2 group-hover:translate-y-0 duration-300",
-                                    "bg-primary text-primary-foreground"
+                                    "w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-300 -translate-y-2 group-hover/card:translate-y-0",
+                                    "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                                 )}>
                                     <Plus className="w-4 h-4" />
                                 </div>
@@ -108,33 +110,33 @@ export function QuickCreateHub() {
                             {/* Label Bottom */}
                             <div className="mt-4">
                                 <h4 className={cn(
-                                    "font-medium text-sm transition-colors",
+                                    "font-semibold text-sm tracking-tight transition-colors duration-300",
                                     hoveredId === tool.id ? "text-primary" : "text-foreground"
                                 )}>
                                     {tool.label}
                                 </h4>
-                                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                     Create new {tool.label.toLowerCase()}
                                 </p>
                             </div>
 
                             {/* Background Gradient Effect */}
                             <div className={cn(
-                                "absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none",
+                                "absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl",
                                 hoveredId === tool.id ? "opacity-100" : ""
                             )}
                                 style={{
-                                    background: `radial-gradient(circle at top right, transparent 20%, ${tool.color.replace('bg-', 'var(--color-').replace('500', '500)15')} 100%)`
+                                    background: `radial-gradient(circle at top right, transparent 20%, ${tool.color.replace('bg-', 'var(--color-').replace('500', '500)12')} 100%)`
                                 }}
                             />
                         </motion.div>
                     </Link>
                 ))}
                 {/* View All Card */}
-                <Link href={ROUTES.templates} className="group relative h-full col-span-2 md:col-span-2">
-                    <div className="h-full rounded-2xl border border-dashed border-border bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-center gap-2">
-                        <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">View All Templates</span>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                <Link href={ROUTES.templates} className="group/all relative h-full col-span-2 md:col-span-2">
+                    <div className="h-full min-h-[56px] rounded-2xl border border-dashed border-black/[0.08] dark:border-white/[0.08] bg-muted/30 hover:bg-muted/50 hover:border-primary/30 transition-all duration-300 flex items-center justify-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground group-hover/all:text-foreground transition-colors">View All Templates</span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover/all:translate-x-1 group-hover/all:text-primary transition-all duration-300" />
                     </div>
                 </Link>
             </div>

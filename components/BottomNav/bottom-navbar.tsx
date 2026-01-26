@@ -1,132 +1,33 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Home,
-  MoreHorizontal,
-  GraduationCap,
-  CalendarClock,
-  FileText,
-  Users,
-  Building,
-  ClipboardCheck,
-  Package,
-  Bell,
-  Settings,
-  TabletSmartphone,
-  LucideIcon
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useBottomNav, useBottomNavHydration } from '@/hooks/use-bottom-nav';
-import { getMobileNavPages } from '@/lib/mobile-nav-config';
-import { useAuthStore } from '@/stores/auth-store';
-import { useUIStore } from '@/stores/ui-store';
-import { BottomNavItem } from './bottom-nav-item';
-import { BottomNavSubmenu } from './bottom-nav-submenu';
-import { BottomNavMoreMenu } from './bottom-nav-more-menu';
-import { BottomNavMinimized } from './bottom-nav-minimized';
-import { BottomNavGroup, FlatMenuItem, ActivePageInfo } from './types';
-
-// Icon mapping for menu groups
-const GROUP_ICONS: Record<string, LucideIcon> = {
-  'Dashboard': Home,
-  'Create': Home,
-  'Gallery': Home,
-  'Templates': Home,
-  'Bulk Generate': Home,
-  'Settings': Settings,
-  'Administration': Bell,
-  // Fallbacks from original
-  'Overview': Home,
-  'User Management': Users,
-  'Applications': TabletSmartphone,
-  'Organization Management': Building,
-  'System': Settings
-};
-
-// Routes that are parent-only (no actual page, only submenus)
-const PARENT_ONLY_ROUTES = new Set([
-  '/billing/categories'
-]);
-
-// Routes that should redirect to dashboard
-const REDIRECT_ROUTES: Record<string, string> = {
-  '/': '/dashboard'
-};
-
-// Flatten menu items including submenus, excluding parent-only routes
-function flattenMenuItems(
-  menus: Array<{
-    href: string;
-    label: string;
-    icon: LucideIcon;
-    active: boolean;
-    submenus: Array<{ href: string; label: string; active: boolean }>;
-  }>
-): FlatMenuItem[] {
-  const seenHrefs = new Set<string>();
-
-  return menus.flatMap((menu) => {
-    const items: FlatMenuItem[] = [];
-    const parentHref = REDIRECT_ROUTES[menu.href] || menu.href;
-
-    if (menu.submenus.length === 0) {
-      if (!seenHrefs.has(parentHref)) {
-        seenHrefs.add(parentHref);
-        items.push({
-          href: parentHref,
-          label: menu.label,
-          icon: menu.icon,
-          active: menu.active
-        });
-      }
-    } else {
-      if (!PARENT_ONLY_ROUTES.has(menu.href) && !seenHrefs.has(parentHref)) {
-        const parentIsDifferent = !menu.submenus.some(sub => sub.href === parentHref);
-        if (parentIsDifferent) {
-          seenHrefs.add(parentHref);
-          items.push({
-            href: parentHref,
-            label: menu.label,
-            icon: menu.icon,
-            active: menu.active
-          });
-        }
-      }
-
-      menu.submenus.forEach((sub) => {
-        const subHref = REDIRECT_ROUTES[sub.href] || sub.href;
-        if (!seenHrefs.has(subHref)) {
-          seenHrefs.add(subHref);
-          items.push({
-            href: subHref,
-            label: sub.label,
-            icon: menu.icon,
-            active: sub.active
-          });
-        }
-      });
-    }
-
-    return items;
-  });
-}
+import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { MoreHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { useBottomNav, useBottomNavHydration } from '@/hooks/use-bottom-nav'
+import { useAuthStore } from '@/stores/auth-store'
+import { useUIStore } from '@/stores/ui-store'
+import { getMobileNavConfig } from '@/lib/mobile-nav-config'
+import { BottomNavItem } from './bottom-nav-item'
+import { BottomNavSubmenu } from './bottom-nav-submenu'
+import { BottomNavMoreMenu } from './bottom-nav-more-menu'
+import { BottomNavGroup, FlatMenuItem, ActivePageInfo } from './types'
 
 export function BottomNavbar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const isMobile = useIsMobile();
-  const hasInitialized = useRef(false);
-  const hasHydrated = useBottomNavHydration();
+  const pathname = usePathname()
+  const router = useRouter()
+  const isMobile = useIsMobile()
+  const hasInitialized = useRef(false)
+  const hasHydrated = useBottomNavHydration()
 
-  // Yi-specific auth
-  const { canManage, checkSuperAdmin } = useAuthStore();
-  const { createModeActive } = useUIStore();
-  const isAdmin = canManage();
-  const isSuperAdmin = checkSuperAdmin();
+  // Get auth state for role-based navigation
+  const { canManage, checkSuperAdmin } = useAuthStore()
+  const { createModeActive, analyticsModeActive } = useUIStore()
+
+  const isAdmin = canManage()
+  const isSuperAdmin = checkSuperAdmin()
 
   const {
     activeNavId,
@@ -140,53 +41,49 @@ export function BottomNavbar() {
     setMoreMenuOpen,
     setMinimized,
     setActivePage
-  } = useBottomNav();
+  } = useBottomNav()
 
-  // Get filtered pages based on role
-  const filteredPages = useMemo(() => {
-    return getMobileNavPages(pathname, isAdmin, isSuperAdmin);
-  }, [pathname, isAdmin, isSuperAdmin]);
-
-  // Transform filtered pages into bottom nav groups
+  // Get navigation groups based on user role
   const allNavGroups = useMemo((): BottomNavGroup[] => {
-    return filteredPages
-      .filter((group) => group.menus.length > 0)
-      .map((group) => ({
-        id: group.groupLabel?.toLowerCase().replace(/\s+/g, '-') || 'default',
-        groupLabel: group.groupLabel || 'Menu',
-        icon: GROUP_ICONS[group.groupLabel || ''] || Home,
-        menus: flattenMenuItems(group.menus)
-      }));
-  }, [filteredPages]);
+    const config = getMobileNavConfig(isAdmin, isSuperAdmin)
+    return config.map((group) => ({
+      id: group.id,
+      groupLabel: group.groupLabel,
+      icon: group.icon,
+      menus: group.menus.map((item) => ({
+        href: item.href,
+        label: item.label,
+        icon: item.icon,
+        active: pathname === item.href || pathname.startsWith(item.href + '/')
+      }))
+    }))
+  }, [pathname, isAdmin, isSuperAdmin])
 
   // Primary nav groups (first 4)
   const primaryNavGroups = useMemo(() => {
-    return allNavGroups.slice(0, 4);
-  }, [allNavGroups]);
+    return allNavGroups.slice(0, 4)
+  }, [allNavGroups])
 
   // Remaining groups for "More" menu
   const moreNavGroups = useMemo(() => {
-    return allNavGroups.slice(4);
-  }, [allNavGroups]);
+    return allNavGroups.slice(4)
+  }, [allNavGroups])
 
   // Find the group that contains the current pathname
   const currentActiveGroup = useMemo(() => {
-    // Search all groups for a matching menu item
     for (const group of allNavGroups) {
       for (const menu of group.menus) {
-        // Exact match or starts with (for nested routes)
         if (pathname === menu.href || pathname.startsWith(menu.href + '/')) {
-          return group;
+          return group
         }
       }
     }
-    // Default to first group if no match found
-    return allNavGroups[0] || null;
-  }, [pathname, allNavGroups]);
+    return allNavGroups[0] || null
+  }, [pathname, allNavGroups])
 
   // Find the active page info based on current pathname
   const currentActivePage = useMemo((): ActivePageInfo | null => {
-    if (!currentActiveGroup) return null;
+    if (!currentActiveGroup) return null
 
     for (const menu of currentActiveGroup.menus) {
       if (pathname === menu.href || pathname.startsWith(menu.href + '/')) {
@@ -195,145 +92,121 @@ export function BottomNavbar() {
           label: menu.label,
           icon: menu.icon,
           groupLabel: currentActiveGroup.groupLabel
-        };
+        }
       }
     }
-    return null;
-  }, [pathname, currentActiveGroup]);
+    return null
+  }, [pathname, currentActiveGroup])
 
   // Determine the effective active nav ID
   const effectiveActiveNavId = useMemo(() => {
-    // When submenu is expanded, respect user's manual selection
-    // This allows clicking different groups to show their submenus
     if (isExpanded && activeNavId) {
-      return activeNavId;
+      return activeNavId
     }
-    // When collapsed (or no selection), use pathname-based detection
     if (currentActiveGroup) {
-      return currentActiveGroup.id;
+      return currentActiveGroup.id
     }
-    // Fallback to stored activeNavId
-    return activeNavId;
-  }, [currentActiveGroup, activeNavId, isExpanded]);
+    return activeNavId
+  }, [currentActiveGroup, activeNavId, isExpanded])
 
-  // Current active submenu items - based on effective active nav
+  // Current active submenu items
   const activeSubmenus = useMemo(() => {
     if (effectiveActiveNavId) {
-      const selectedGroup = allNavGroups.find((g) => g.id === effectiveActiveNavId);
+      const selectedGroup = allNavGroups.find((g) => g.id === effectiveActiveNavId)
       if (selectedGroup) {
-        return selectedGroup.menus;
+        return selectedGroup.menus
       }
     }
-    // Fallback to current pathname's group
-    return currentActiveGroup?.menus || [];
-  }, [effectiveActiveNavId, allNavGroups, currentActiveGroup]);
+    return currentActiveGroup?.menus || []
+  }, [effectiveActiveNavId, allNavGroups, currentActiveGroup])
 
-  // Update active page IMMEDIATELY when currentActivePage changes (before paint)
+  // Update active page when pathname changes
   useLayoutEffect(() => {
     if (currentActivePage) {
-      setActivePage(currentActivePage);
+      setActivePage(currentActivePage)
 
-      // On first initialization, ensure we're NOT minimized
       if (!hasInitialized.current) {
-        hasInitialized.current = true;
-        // Always keep full navbar visible - never minimize
-        setMinimized(false);
+        hasInitialized.current = true
+        setMinimized(false)
       }
     }
-  }, [currentActivePage, setActivePage, setMinimized]);
+  }, [currentActivePage, setActivePage, setMinimized])
 
-  // Sync activeNavId with pathname when it changes (but not while user is browsing)
+  // Sync activeNavId with pathname
   useEffect(() => {
-    // Only sync when not expanded - don't override user's manual selection while browsing
     if (!isExpanded && currentActiveGroup && currentActiveGroup.id !== activeNavId) {
-      setActiveNav(currentActiveGroup.id);
+      setActiveNav(currentActiveGroup.id)
     }
-  }, [currentActiveGroup, activeNavId, setActiveNav, isExpanded]);
+  }, [currentActiveGroup, activeNavId, setActiveNav, isExpanded])
 
-  // Handle nav item click - simplified toggle logic with atomic state update
+  // Handle nav item click
   const handleNavClick = useCallback(
     (groupId: string) => {
-      // If submenu is open and showing THIS group's items, close it
       if (isExpanded && activeNavId === groupId) {
-        setExpanded(false);
-        setMoreMenuOpen(false);
+        setExpanded(false)
+        setMoreMenuOpen(false)
       } else {
-        // Otherwise, switch to this group's submenu (atomic update)
-        switchToNav(groupId);
+        switchToNav(groupId)
       }
     },
     [activeNavId, isExpanded, switchToNav, setExpanded, setMoreMenuOpen]
-  );
+  )
 
-  // Handle submenu item click - navigate and close submenu
+  // Handle submenu item click
   const handleSubmenuClick = useCallback(
     (href: string) => {
-      router.push(href);
-      setExpanded(false);
-      // Don't minimize - keep full navbar visible
+      router.push(href)
+      setExpanded(false)
     },
     [router, setExpanded]
-  );
+  )
 
-  // Handle "More" menu open - close submenu first
+  // Handle "More" menu toggle
   const handleMoreClick = useCallback(() => {
-    setExpanded(false); // Close any open submenu first
-    setMoreMenuOpen(!isMoreMenuOpen); // Toggle More menu
-  }, [setMoreMenuOpen, setExpanded, isMoreMenuOpen]);
+    setExpanded(false)
+    setMoreMenuOpen(!isMoreMenuOpen)
+  }, [setMoreMenuOpen, setExpanded, isMoreMenuOpen])
 
-  // Handle click on More menu item - navigate and close menu
+  // Handle More menu item click
   const handleMoreItemClick = useCallback(
     (href: string) => {
-      router.push(href);
-      setMoreMenuOpen(false);
-      // Don't minimize - keep full navbar visible
+      router.push(href)
+      setMoreMenuOpen(false)
     },
     [router, setMoreMenuOpen]
-  );
-
-  // Handle expand from minimized state (no longer used, but kept for compatibility)
-  const handleExpandFromMinimized = useCallback(() => {
-    // Set the active nav to the current group based on pathname
-    if (currentActiveGroup) {
-      setActiveNav(currentActiveGroup.id);
-    }
-    setMinimized(false);
-    setExpanded(false);
-  }, [setMinimized, setExpanded, setActiveNav, currentActiveGroup]);
+  )
 
   // Close submenu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.target as HTMLElement
       if (!target.closest('[data-bottom-nav]')) {
-        setExpanded(false);
+        setExpanded(false)
       }
-    };
+    }
 
     if (isExpanded) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [isExpanded, setExpanded]);
+  }, [isExpanded, setExpanded])
 
-  // Wait for Zustand store to hydrate before rendering
-  // This prevents flash of incorrect state
+  // Wait for hydration
   if (!hasHydrated) {
-    return null;
+    return null
   }
 
-  // Hide during create mode (create page has own footer nav)
-  if (createModeActive) {
-    return null;
+  // Don't render on desktop or when in create/analytics mode
+  if (!isMobile || createModeActive || analyticsModeActive) {
+    return null
   }
 
   // Don't render if no groups available
-  if (primaryNavGroups.length === 0) return null;
+  if (primaryNavGroups.length === 0) return null
 
-  // Always show full navbar - never minimized
   return (
     <>
-      {/* Backdrop when submenu expanded - only for submenu, not More menu */}
+      {/* Backdrop when submenu expanded */}
       <AnimatePresence>
         {isExpanded && !isMoreMenuOpen && (
           <motion.div
@@ -341,15 +214,15 @@ export function BottomNavbar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}
-            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-[75] lg:hidden"
+            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-[75] md:hidden"
             onClick={() => {
-              setExpanded(false);
+              setExpanded(false)
             }}
           />
         )}
       </AnimatePresence>
 
-      {/* Full bottom navigation - always visible on mobile */}
+      {/* Bottom navigation */}
       <motion.nav
         data-bottom-nav
         initial={{ y: 80, opacity: 0 }}
@@ -363,8 +236,7 @@ export function BottomNavbar() {
         }}
         className={cn(
           'fixed bottom-0 left-0 right-0 z-[80]',
-          // Hide on desktop when sidebar is visible (lg+)
-          'lg:hidden',
+          'md:hidden',
           'bg-background border-t border-border',
           'shadow-[0_-4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)]'
         )}
@@ -416,5 +288,5 @@ export function BottomNavbar() {
         onItemClick={handleMoreItemClick}
       />
     </>
-  );
+  )
 }

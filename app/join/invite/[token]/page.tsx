@@ -148,15 +148,14 @@ export default function JoinWithInvitePage() {
         return
       }
 
-      // Check if already a member
-      const { data: existingMember } = await supabase
-        .from('organization_members')
-        .select('id')
-        .eq('organization_id', invite.organization_id)
-        .eq('user_id', user.id)
-        .single()
+      // Check if already a member (using RPC to bypass RLS)
+      const { data: isMember } = await supabase
+        .rpc('check_user_membership_exists', {
+          p_organization_id: invite.organization_id,
+          p_user_id: user.id
+        })
 
-      if (existingMember) {
+      if (isMember) {
         toast.info(`You're already a member of ${org.name}`)
         router.push(ROUTES.dashboard)
         return

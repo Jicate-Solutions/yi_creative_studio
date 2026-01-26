@@ -1349,11 +1349,10 @@ export async function POST(request: NextRequest) {
           ) ? {
             enabled: true,
             position: (originalSpeakerPhotoConfig.position || 'left') as 'left' | 'right' | 'center',
-            size: (
-              originalSpeakerPhotoConfig.size
-                ? (originalSpeakerPhotoConfig.size <= 80 ? 'small' : originalSpeakerPhotoConfig.size <= 100 ? 'medium' : 'large')
-                : 'large'
-            ) as 'small' | 'medium' | 'large',
+            // v24.12: Pass vertical position to prompt builder for text zone calculation
+            verticalPosition: (originalSpeakerPhotoConfig.verticalPosition || 'bottom') as 'top' | 'upper' | 'middle' | 'lower' | 'bottom',
+            // v24.11: Use numeric size directly from slider (100-400px) instead of categorical conversion
+            numericSize: originalSpeakerPhotoConfig.size || 380,
             shape: (originalSpeakerPhotoConfig.shape || 'circle') as 'circle' | 'rounded' | 'square',
             hasUserPhoto: true,  // Always true now since we only send config when photo exists
             // Multi-speaker context
@@ -1485,11 +1484,10 @@ export async function POST(request: NextRequest) {
         // v6.5.2: Added explicit width/height checks to prevent undefined property access
         // v20.2: speakerPhotoZoneCoordinates now declared at function scope (line 204)
         if (buildOptions.speakerPhotoConfig && originalSpeakerPhotoConfig && selectedFormat?.width && selectedFormat?.height) {
-          // v6.9: Updated to match design spec (25-40% of poster width)
-          // For 1080px width: small=26%, medium=30%, large=35%
-          // This provides proper visual prominence for speaker photos
-          const photoSizeMap = { small: 280, medium: 320, large: 380 }
-          let photoSize = (buildOptions.speakerPhotoConfig.size && photoSizeMap[buildOptions.speakerPhotoConfig.size as keyof typeof photoSizeMap]) || 100
+          // v24.11: Use numeric size directly from slider (100-400px)
+          // Previous categorical mapping (small/medium/large) caused all values >100 to become 380px
+          let photoSize = (buildOptions.speakerPhotoConfig as { numericSize?: number }).numericSize || originalSpeakerPhotoConfig.size || 380
+          console.log(`[Generate v24.11] Speaker photo size from slider: ${photoSize}px`)
           const borderWidth = originalSpeakerPhotoConfig.border?.width || 0
 
           // v20.8: CRITICAL FIX - Scale photo size based on TOTAL speakers, not just count with photos

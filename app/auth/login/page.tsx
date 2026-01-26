@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -21,8 +21,9 @@ import {
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Loader2, Mail } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
+import { Suspense } from 'react'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -31,11 +32,37 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
+// Wrapper for Suspense boundary (useSearchParams requires it)
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
+  )
+}
+
+function LoginLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+
+  // Get redirect URL from search params (e.g., /join/YTFHDX)
+  const redirectTo = searchParams.get('redirectTo')
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -61,17 +88,23 @@ export default function LoginPage() {
     }
 
     toast.success('Welcome back!')
-    router.push(ROUTES.dashboard)
+    // Use redirectTo if provided, otherwise go to dashboard
+    router.push(redirectTo || ROUTES.dashboard)
     router.refresh()
   }
 
   async function signInWithGoogle() {
     setIsGoogleLoading(true)
 
+    // Pass the redirectTo as the 'next' param in the callback URL
+    const callbackUrl = redirectTo
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+      : `${window.location.origin}/auth/callback`
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     })
 

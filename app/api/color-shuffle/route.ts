@@ -172,14 +172,34 @@ export async function POST(request: NextRequest) {
     }
     const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
 
+    // Calculate logo mask regions to exclude from recoloring
+    const hasLogos = (creative.form_data as any)?.logos?.length > 0
+    const logoMask = hasLogos ? [
+      { topPixel: 0, bottomPixel: 90 },        // Header strip (brand logos - 90px tall)
+      { topPixel: 90, bottomPixel: 160 },      // Second strip (vertical logos - 70px tall)
+      { topPixel: 1390, bottomPixel: 1440 }    // Footer strip (initiative logos - 50px tall)
+    ] : undefined
+
+    console.log('[Color Shuffle API] Logo masking:', {
+      enabled: !!logoMask,
+      regions: logoMask?.length || 0
+    })
+
     // Recolor image with all combinations (parallel)
+    // Uses full canvas recoloring with increased tolerance for better text coverage
     const recolorResults = await recolorImageBatch(
       imageBuffer,
       combinations.map(c => ({
         mappings: c.mappings,
         combinationIndex: c.combinationIndex
       })),
-      analysisResult.contentZoneBounds
+      analysisResult.contentZoneBounds,
+      {
+        fullCanvas: true,              // Recolor entire canvas (0%-100%)
+        logoMask,                       // Exclude logo strips if present
+        adaptiveTolerance: true,        // Scale tolerance by detection confidence
+        toleranceThreshold: 70          // Increased to catch anti-aliased text
+      }
     )
 
     // Convert to base64 data URLs for frontend

@@ -1,7 +1,7 @@
 # Mobile Bottom Navbar - Quick Start Guide
 
 ## 🎯 Goal
-Implement the exact same bottom navbar pattern from MyJKKN in your Next.js application with:
+Implement the exact same bottom navbar pattern from MyJKKN in your Next.js 15+ application with:
 - 3-column icon grid for submenus
 - Accordion-based More menu with all groups expanded by default
 - Smooth animations and state persistence

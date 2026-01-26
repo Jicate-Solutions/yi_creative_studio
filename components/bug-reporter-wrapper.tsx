@@ -27,39 +27,42 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
         safeAreaBottom = parseInt(computedValue || '0', 10)
       }
 
-      // Button positioning: multiple selectors for SDK flexibility
+      // Button positioning: specific selectors for bug-reporter SDK only
+      // Avoid broad selectors that could affect other fixed buttons
       const buttonSelectors = [
+        '.bug-reporter-sdk.bug-reporter-floating-btn',
+        'button.bug-reporter-floating-btn',
         '[data-bug-reporter-button]',
-        'button[class*="bug-reporter"]',
-        'button[aria-label*="bug" i]',
-        'button[aria-label*="report" i]',
-        'body > div > button[style*="position: fixed"]', // Aggressive for inline styles
+        '#bug-reporter-button',
+        '.bug-reporter-button',
       ]
 
       for (const selector of buttonSelectors) {
         const btn = document.querySelector(selector) as HTMLElement
         if (btn) {
-          // Apply responsive positioning
+          // Apply responsive positioning with setProperty for !important
           if (isMobile) {
-            // Mobile: Position above bottom nav (80px base + safe area)
-            btn.style.bottom = `${80 + safeAreaBottom}px`
-            btn.style.right = '16px'
+            // Mobile: Position above bottom nav, LEFT side (opposite of FAB)
+            // Bottom nav is 64px + safe area, add 8px padding
+            btn.style.setProperty('bottom', `${80 + safeAreaBottom}px`, 'important')
+            btn.style.setProperty('left', '16px', 'important')
+            btn.style.setProperty('right', 'auto', 'important')
           } else {
-            // Desktop: Standard position (no nav visible at lg:)
-            btn.style.bottom = '20px'
-            btn.style.right = '20px'
+            // Desktop: Standard position LEFT side (opposite of other floating elements)
+            btn.style.setProperty('bottom', '20px', 'important')
+            btn.style.setProperty('left', '20px', 'important')
+            btn.style.setProperty('right', 'auto', 'important')
           }
 
           // Z-index: Above bottom nav (z-80), below More menu (z-90)
-          btn.style.zIndex = '85'
-          btn.style.left = 'auto'
-          btn.style.position = 'fixed'
-          btn.style.pointerEvents = 'auto'
+          btn.style.setProperty('z-index', '85', 'important')
+          btn.style.setProperty('position', 'fixed', 'important')
+          btn.style.setProperty('pointer-events', 'auto', 'important')
 
           // Touch optimization for mobile
-          btn.style.minWidth = '48px'
-          btn.style.minHeight = '48px'
-          btn.style.touchAction = 'manipulation'
+          btn.style.setProperty('min-width', '48px', 'important')
+          btn.style.setProperty('min-height', '48px', 'important')
+          btn.style.setProperty('touch-action', 'manipulation', 'important')
           // @ts-ignore - webkit property not in TS types
           btn.style.webkitTapHighlightColor = 'transparent'
 
@@ -106,13 +109,16 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
   return (
     <>
       <style jsx global>{`
-        /* Bug Reporter Button - Mobile Positioning */
+        /* Bug Reporter Button - Mobile Positioning (LEFT SIDE, opposite of FAB) */
+        /* Only target specific bug-reporter SDK elements */
+        .bug-reporter-sdk.bug-reporter-floating-btn,
+        button.bug-reporter-floating-btn,
         [data-bug-reporter-button],
-        button[class*="bug-reporter"],
-        button[aria-label*="bug" i],
-        button[aria-label*="report" i] {
+        #bug-reporter-button,
+        .bug-reporter-button {
           bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
-          right: 16px !important;
+          left: 16px !important;
+          right: auto !important;
           z-index: 85 !important;
           min-width: 48px !important;
           min-height: 48px !important;
@@ -122,31 +128,22 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
           pointer-events: auto !important;
         }
 
-        /* Aggressive selector for SDK inline styles */
-        body > div > button[style*="position: fixed"],
-        body > button[style*="position: fixed"] {
-          bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
-          z-index: 85 !important;
-        }
-
         /* Desktop Override - Matches bottom nav lg:hidden breakpoint (1024px) */
         @media (min-width: 1024px) {
+          .bug-reporter-sdk.bug-reporter-floating-btn,
+          button.bug-reporter-floating-btn,
           [data-bug-reporter-button],
-          button[class*="bug-reporter"],
-          button[aria-label*="bug" i],
-          button[aria-label*="report" i],
-          body > div > button[style*="position: fixed"],
-          body > button[style*="position: fixed"] {
+          #bug-reporter-button,
+          .bug-reporter-button {
             bottom: 20px !important;
-            right: 20px !important;
+            left: 20px !important;
+            right: auto !important;
           }
         }
 
         /* Bug Reporter Modal - Z-Index */
         [data-bug-reporter-modal],
-        div[class*="bug-reporter-modal"],
-        div[aria-label*="bug" i][role="dialog"],
-        div[aria-label*="report" i][role="dialog"] {
+        div[class*="bug-reporter-modal"] {
           z-index: 87 !important;
         }
 

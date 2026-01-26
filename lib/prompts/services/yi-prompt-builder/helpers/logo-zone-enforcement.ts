@@ -226,13 +226,30 @@ The image uses a three-band vertical structure for professional poster layout.
 UPPER BAND (0% to ${UNIFIED_HEADER_ZONE_PERCENT}% from top):
 Keep this area clean with simple background only. Solid colors, subtle gradients, or soft atmospheric lighting work best. This space accommodates branding elements added in post-processing. NO TEXT in this zone.
 
-CENTER BAND (${contentStartPercent}% to ${contentEndPercent}% from top):
-All text content belongs here - the main title, event details, date, time, and venue information. This is the primary content area with ${contentHeightPercent}% of the total height available for text.
+CENTER BAND (${contentStartPercent}% to ${contentEndPercent}% from top) - ALL TEXT MUST FIT HERE:
+All text content belongs here - the main title, event details, date, time, venue, speakers, and additional information. This is the primary content area with ${contentHeightPercent}% of the total height available for text.
 
 Text hierarchy within center band:
 • Main headline: Position around ${contentStartPercent + 2}% from top
 • Supporting text: Distribute between ${contentStartPercent + 5}% and ${contentEndPercent - 5}%
 • Keep text horizontally centered (25% to 75% width range)
+
+CONTENT DENSITY MANAGEMENT (when content is extensive):
+All text MUST still fit within ${contentStartPercent}%-${contentEndPercent}% zone:
+
+Essential text (always visible, prominent size):
+• Event headline (largest text)
+• Date, Time, Venue
+
+Supporting text (smaller size, tighter spacing if needed):
+• Speaker names and designations
+• Dress code, entry limits, additional details
+
+Fitting strategy:
+• Extensive content: Use tighter line spacing, smaller supporting text
+• Minimal content: Use generous spacing, larger text
+• NEVER expand into 0-${contentStartPercent}% header or ${contentEndPercent}-100% footer
+• If still too much content: Omit lowest-priority details
 
 LOWER BAND (${UNIFIED_FOOTER_ZONE_PERCENT}% to 100% from top):
 Reserve this area for footer elements. Keep it clean with simple background continuation - ground texture, subtle gradient, or gentle fade. NO TEXT in this zone.
@@ -329,6 +346,28 @@ ALLOWED CONTENT ZONE (${contentStartY}px - ${contentEndY}px / ${contentStartPerc
 ✅ Date/time/venue between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.2)}px-${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px
 ✅ Additional details between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px-${contentEndY}px
 ✅ ALL text elements MUST fit within this ${contentEndY - contentStartY}px tall zone
+
+════════════════════════════════════════════════════════════════════════
+CONTENT OVERFLOW HANDLING (MANDATORY)
+════════════════════════════════════════════════════════════════════════
+When event has extensive content (speakers, dress code, entry limits, etc.):
+
+PRIORITY 1 - ESSENTIAL (always visible, larger size):
+• Event headline/title
+• Date, Time, Venue
+
+PRIORITY 2 - SUPPORTING (smaller size, tighter spacing):
+• Speaker names and designations
+• Dress code, entry limits
+• Additional details
+
+⚠️ FITTING RULES:
+• COMPRESS text with tighter spacing to fit in ${contentEndY - contentStartY}px zone
+• Use SMALLER fonts for supporting details when content is extensive
+• NEVER expand into header (0-${proHeaderHeight}px) or footer (${proFooterStartY}-${canvasHeight}px)
+• If content STILL doesn't fit: Omit lowest-priority details
+
+❌ FORBIDDEN: Placing ANY text outside ${contentStartY}px-${contentEndY}px range
 
 ════════════════════════════════════════════════════════════════════════
 FORBIDDEN FOOTER ZONE (${proFooterStartY}px - ${canvasHeight}px / ${footerStartPercent}% - 100%)

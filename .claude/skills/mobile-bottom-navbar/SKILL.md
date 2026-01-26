@@ -1,13 +1,22 @@
 ---
 name: mobile-bottom-navbar
-description: Standardized mobile bottom navigation implementation for internal Next.js applications. Provides role-based filtering, smooth animations, persistent state, and submenu expansion with accordion-based More menu. Supports Next.js 14+ with App Router, TypeScript, Zustand state management, and Framer Motion animations. Includes complete ready-to-use components with icon grid layouts, comprehensive documentation, and customization guides.
+description: Standardized mobile bottom navigation implementation for internal Next.js applications. Provides role-based filtering, smooth animations, persistent state, and submenu expansion with accordion-based More menu. Supports Next.js 15+ with App Router, TypeScript, Zustand state management, and Framer Motion animations. Includes complete ready-to-use components with icon grid layouts, comprehensive documentation, and customization guides.
+triggers:
+  - mobile nav
+  - bottom navbar
+  - mobile navigation
+  - add mobile nav
+  - create bottom bar
+  - mobile bottom navigation
+  - bottom navigation bar
+  - mobile menu
 ---
 
 # Mobile Bottom Navbar
 
 ## Overview
 
-This skill provides a complete, production-ready mobile bottom navigation system for Next.js 14+ applications with App Router. The implementation features:
+This skill provides a complete, production-ready mobile bottom navigation system for Next.js 15+ applications with App Router. The implementation features:
 - **3-Column Icon Grid Layouts** for submenus and More menu
 - **Accordion-Based More Menu** with collapsible group sections
 - **Submenu Dropdown** appearing above the navbar
@@ -94,13 +103,20 @@ This skill provides a complete, production-ready mobile bottom navigation system
 ### When to Use This Skill
 
 Use this skill when:
-- Implementing mobile navigation for Next.js 14+ App Router applications
+- Implementing mobile navigation for Next.js 15+ App Router applications
 - Needing role-based or permission-based navigation filtering
 - Building internal applications with consistent navigation patterns
 - Requiring persistent navigation state across sessions
 - Supporting iOS devices with safe area insets
 - Wanting smooth, professional animations without performance issues
 - **Need accordion-style More menu with icon grid submenus**
+
+### Auto-Trigger Keywords
+
+This skill automatically activates when you mention:
+- "mobile nav", "mobile navigation", "mobile bottom navigation"
+- "bottom navbar", "bottom navigation bar", "bottom bar"
+- "add mobile nav", "create bottom bar", "implement mobile menu"
 
 ## Quick Start
 

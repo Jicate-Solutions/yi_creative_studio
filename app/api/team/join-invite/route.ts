@@ -117,15 +117,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 9. Check if user is already a member
-  const { data: existingMembership } = await supabase
-    .from('organization_members')
-    .select('id')
-    .eq('organization_id', invite.organization_id)
-    .eq('user_id', user.id)
-    .single()
+  // 9. Check if user is already a member (using RPC to bypass RLS)
+  const { data: isMember } = await supabase
+    .rpc('check_user_membership_exists', {
+      p_organization_id: invite.organization_id,
+      p_user_id: user.id
+    })
 
-  if (existingMembership) {
+  if (isMember) {
     return NextResponse.json(
       {
         error: 'You are already a member of this organization',

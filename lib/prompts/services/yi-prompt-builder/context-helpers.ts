@@ -655,32 +655,18 @@ export function buildSpeakerPhotoZoneContext(
 export function buildSpeakerPhotoCompositionGuidance(
   config?: SpeakerPhotoConfig
 ): string {
-  // Only provide guidance when user has uploaded a photo
-  if (!config?.enabled || !config.hasUserPhoto) return ''
-
-  const position = config.position || 'left'
-  const speakerCount = config.speakerCount || 1
-  const isSingleSpeaker = config.isSingleSpeaker !== false
-
-  // Position-specific composition guidance (positive framing)
-  const compositionGuidance: Record<string, string> = {
-    left: 'Concentrate the main visual elements (decorative items, imagery, patterns) toward the center and right side. The left edge benefits from simplicity - use flowing gradients or subtle color transitions that create breathing room.',
-    right: 'Focus the primary visual elements (decorative items, imagery, patterns) toward the center and left side. The right edge works best with gentle gradients or understated backgrounds that provide visual balance.',
-    'bottom-left': 'Position the most intricate visual elements (decorative items, imagery, patterns) in the upper and right portions. The lower-left corner embraces minimalism - let it flow with simple color transitions or soft gradients that complement the overall composition.',
-    'bottom-right': 'Center the detailed visual elements (decorative items, imagery, patterns) in the upper and left areas. The lower-right corner should maintain visual simplicity - use gentle color flows or subtle backgrounds that support the design without competing for attention.',
-    center: 'Build visual interest around the edges and upper portions of the design. The center region benefits from an uncluttered aesthetic - let it breathe with elegant simplicity, using smooth color transitions that draw the eye naturally.',
-  }
-
-  // Multiple speakers: more general guidance
-  if (!isSingleSpeaker && speakerCount > 1) {
-    if (position === 'left' || position === 'right') {
-      return `COMPOSITION PHILOSOPHY: Direct the viewer's attention toward the center of the design where your primary message lives. The ${position} edge should complement this focus with understated elegance - think flowing gradients, gentle color transitions, and visual breathing room rather than dense patterns or intricate details. This balanced approach creates professional sophistication.`
-    }
-    return `COMPOSITION PHILOSOPHY: Emphasize visual richness in the central region while allowing the peripheral areas to remain elegantly simple. Use smooth color transitions and subtle gradients at the edges to frame the core message without visual competition. This creates natural flow and professional polish.`
-  }
-
-  // Single speaker: specific guidance based on position
-  return `COMPOSITION PHILOSOPHY: ${compositionGuidance[position] || compositionGuidance['left']} This asymmetric approach creates dynamic visual interest while maintaining professional balance.`
+  // v24.14: Return NOTHING - Gemini should NOT know about speaker photos
+  //
+  // ROOT CAUSE: Any mention of "photo", "zone", "circle", "area" in prompts
+  // triggers Gemini to VISUALIZE these elements as gray circles/placeholders.
+  //
+  // SOLUTION: Speaker photos are handled ENTIRELY by Sharp post-processing.
+  // Gemini generates the poster without any knowledge of speaker photos.
+  // Sharp overlays the actual speaker photo afterwards.
+  //
+  // This eliminates the "gray circle placeholder" problem where Gemini
+  // would draw placeholder circles that conflict with actual photo overlays.
+  return ''
 }
 
 // ============================================================
