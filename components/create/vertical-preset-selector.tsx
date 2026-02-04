@@ -80,25 +80,25 @@ export function VerticalPresetSelector({ onSaveClick, className }: VerticalPrese
         size="sm"
         onClick={onSaveClick}
         disabled={currentLogoIds.length === 0}
-        className={cn('gap-1.5 h-7 text-xs', className)}
+        className={cn('gap-1 h-5 px-1.5 text-[8px]', className)}
       >
-        <Bookmark className="h-3 w-3" />
+        <Bookmark className="h-2.5 w-2.5" />
         Save
       </Button>
     )
   }
 
   return (
-    <div className={cn('flex items-center gap-1.5', className)}>
+    <div className={cn('flex items-center gap-1', className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" disabled={isLoading}>
-            <Bookmark className="h-3 w-3" />
+          <Button variant="outline" size="sm" className="gap-1 h-5 px-1.5 text-[8px]" disabled={isLoading}>
+            <Bookmark className="h-2.5 w-2.5" />
             <span className="hidden sm:inline">Presets</span>
-            <Badge variant="secondary" className="ml-0.5 px-1 py-0 text-[10px]">
+            <Badge variant="secondary" className="ml-0.5 px-1 py-0 text-[8px]">
               {presets.length}
             </Badge>
-            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+            <ChevronDown className="h-2 w-2 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">

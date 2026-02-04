@@ -176,8 +176,8 @@ ${iconicImagery.map((el, i) => `  ${i + 1}. ${el}`).join('\n')}`
       ? `DESIGN STRATEGY: IMMERSIVE RICHNESS
 - FULL CANVAS: These elements should define the visual atmosphere of the entire design
 - MULTIPLE LAYERS: Combine elements at different opacities and scales for visual depth
-- DYNAMIC: Let elements create visual flow and movement across the poster
-- AMBIENT ATMOSPHERE: Include subtle high-end textures like "fine architectural grain," "photographic noise," or "minimalist geometric stripes" to fill the voids and add premium depth`
+- DYNAMIC: Create energy through color transitions, organic shapes, and depth WITHOUT lines or dividers
+- AMBIENT ATMOSPHERE: Include subtle high-end textures like "fine architectural grain," "photographic noise," or "subtle textured patterns (paper grain, fabric texture, fine noise)" to fill the voids and add premium depth`
       : `DESIGN STRATEGY: BALANCED ELEGANCE
 - VISUAL HARMONY: Elements support the design without overwhelming it
 - LAYERED DEPTH: Use 2-3 opacity layers for visual interest

@@ -1,0 +1,130 @@
+/**
+ * Google Calendar Polling Sync Cron
+ *
+ * GET /api/cron/google-calendar-polling-sync
+ *
+ * Fallback polling sync for connections that haven't synced recently.
+ * Catches any events missed by push notifications.
+ * Should be run hourly via Vercel Cron.
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import {
+  getConnectionsNeedingSync,
+  syncEvents,
+} from '@/lib/services/google-calendar'
+import { createClient } from '@/lib/supabase/server'
+
+const CRON_SECRET = process.env.CRON_SECRET
+
+export async function GET(request: NextRequest) {
+  try {
+    // Verify cron secret
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = authHeader?.replace('Bearer ', '')
+
+    if (CRON_SECRET && cronSecret !== CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const startTime = Date.now()
+    let synced = 0
+    let errors = 0
+    let totalEventsAdded = 0
+    let totalEventsUpdated = 0
+    let totalEventsDeleted = 0
+    const errorDetails: string[] = []
+
+    // Get connections that need syncing
+    const connections = await getConnectionsNeedingSync()
+
+    console.log(`Found ${connections.length} connections needing sync`)
+
+    // Sync each connection
+    for (const connection of connections) {
+      try {
+        const result = await syncEvents(connection, false)
+
+        if (result.success) {
+          synced++
+          totalEventsAdded += result.eventsAdded
+          totalEventsUpdated += result.eventsUpdated
+          totalEventsDeleted += result.eventsDeleted
+          console.log(
+            `Synced org ${connection.organization_id}: +${result.eventsAdded} ~${result.eventsUpdated} -${result.eventsDeleted}`
+          )
+        } else {
+          errors++
+          errorDetails.push(
+            `Org ${connection.organization_id}: ${result.error}`
+          )
+        }
+      } catch (error) {
+        errors++
+        const message =
+          error instanceof Error ? error.message : 'Unknown error'
+        errorDetails.push(
+          `Org ${connection.organization_id}: ${message}`
+        )
+        console.error(
+          `Failed to sync org ${connection.organization_id}:`,
+          error
+        )
+      }
+    }
+
+    // Log summary
+    // TODO: Regenerate Supabase types to include google_calendar_push_logs table
+    // const supabase = await createClient()
+    // await supabase.from('google_calendar_push_logs').insert({
+    //   event_type: 'sync_triggered',
+    //   success: errors === 0,
+    //   events_added: totalEventsAdded,
+    //   events_updated: totalEventsUpdated,
+    //   events_deleted: totalEventsDeleted,
+    //   error_message:
+    //     errors > 0
+    //       ? `${errors} syncs failed: ${errorDetails.join('; ')}`
+    //       : null,
+    //   response_payload: {
+    //     total: connections.length,
+    //     synced,
+    //     errors,
+    //     events: {
+    //       added: totalEventsAdded,
+    //       updated: totalEventsUpdated,
+    //       deleted: totalEventsDeleted,
+    //     },
+    //   },
+    //   duration_ms: Date.now() - startTime,
+    // })
+
+    return NextResponse.json({
+      success: true,
+      total: connections.length,
+      synced,
+      errors,
+      events: {
+        added: totalEventsAdded,
+        updated: totalEventsUpdated,
+        deleted: totalEventsDeleted,
+      },
+      duration_ms: Date.now() - startTime,
+    })
+  } catch (error) {
+    console.error('Polling sync cron error:', error)
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Polling sync failed',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// Vercel Cron configuration
+export const dynamic = 'force-dynamic'
+export const maxDuration = 300 // 5 minutes for syncing multiple orgs

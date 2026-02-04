@@ -1,0 +1,134 @@
+/**
+ * Google Calendar Webhook
+ *
+ * POST /api/google-calendar/webhook
+ *
+ * Receives push notifications from Google Calendar.
+ * This endpoint must return 200 quickly to acknowledge receipt.
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { verifyPushChannelToken } from '@/lib/services/google-calendar/token-manager'
+import { syncEvents, getConnectionById } from '@/lib/services/google-calendar'
+import { GoogleResourceState } from '@/types/google-calendar.types'
+
+export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+
+  try {
+    // Extract headers from Google
+    const channelId = request.headers.get('x-goog-channel-id')
+    const channelToken = request.headers.get('x-goog-channel-token')
+    const resourceId = request.headers.get('x-goog-resource-id')
+    const resourceState = request.headers.get(
+      'x-goog-resource-state'
+    ) as GoogleResourceState
+    const messageNumber = request.headers.get('x-goog-message-number')
+
+    // Validate required headers
+    if (!channelId || !resourceId || !resourceState) {
+      console.warn('Missing required headers in webhook')
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    // Verify channel token
+    let organizationId: string | null = null
+    if (channelToken) {
+      organizationId = await verifyPushChannelToken(channelToken)
+    }
+
+    // Create supabase client for logging
+    const supabase = await createClient()
+
+    // Find the connection by channel ID
+    const { data: connection, error: connError } = await supabase
+      .from('google_calendar_connections')
+      .select('*')
+      .eq('push_channel_id', channelId)
+      .single()
+
+    if (connError || !connection) {
+      console.warn(`Unknown channel ID: ${channelId}`)
+      // Log the unknown webhook
+      // TODO: Regenerate Supabase types to include google_calendar_push_logs table
+      // await supabase.from('google_calendar_push_logs').insert({
+      //   event_type: 'push_received',
+      //   channel_id: channelId,
+      //   resource_id: resourceId,
+      //   resource_state: resourceState,
+      //   message_number: messageNumber,
+      //   success: false,
+      //   error_message: 'Unknown channel ID',
+      //   request_headers: {
+      //     'x-goog-channel-id': channelId,
+      //     'x-goog-resource-state': resourceState,
+      //   },
+      //   duration_ms: Date.now() - startTime,
+      // })
+
+      // Still return 200 to prevent Google from retrying
+      return NextResponse.json({ received: true })
+    }
+
+    // Log the push notification
+    // TODO: Regenerate Supabase types to include google_calendar_push_logs table
+    // await supabase.from('google_calendar_push_logs').insert({
+    //   connection_id: connection.id,
+    //   organization_id: connection.organization_id,
+    //   event_type: 'push_received',
+    //   channel_id: channelId,
+    //   resource_id: resourceId,
+    //   resource_state: resourceState,
+    //   message_number: messageNumber,
+    //   success: true,
+    //   request_headers: {
+    //     'x-goog-channel-id': channelId,
+    //     'x-goog-resource-state': resourceState,
+    //     'x-goog-message-number': messageNumber,
+    //   },
+    // })
+
+    // Handle different resource states
+    if (resourceState === 'sync') {
+      // Initial sync notification - just acknowledge
+      console.log(`Sync notification for channel ${channelId}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // For 'exists', 'update', or 'delete' - trigger incremental sync
+    // Do this async to respond quickly to Google
+    syncEvents(connection, false)
+      .then(result => {
+        console.log(
+          `Webhook sync completed: +${result.eventsAdded} ~${result.eventsUpdated} -${result.eventsDeleted}`
+        )
+      })
+      .catch(err => {
+        console.error('Webhook sync failed:', err)
+      })
+
+    return NextResponse.json({ received: true })
+  } catch (error) {
+    console.error('Webhook error:', error)
+    // Still return 200 to prevent Google from retrying
+    return NextResponse.json({ received: true })
+  }
+}
+
+// GET endpoint for health check / documentation
+export async function GET() {
+  return NextResponse.json({
+    status: 'ok',
+    endpoint: 'Google Calendar Webhook Receiver',
+    description: 'Receives push notifications from Google Calendar API',
+    headers: {
+      required: [
+        'x-goog-channel-id',
+        'x-goog-resource-id',
+        'x-goog-resource-state',
+      ],
+      optional: ['x-goog-channel-token', 'x-goog-message-number'],
+    },
+  })
+}

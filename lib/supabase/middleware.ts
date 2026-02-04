@@ -16,10 +16,12 @@ export async function updateSession(request: NextRequest) {
 
   // For public routes (non-auth pages), skip auth check entirely for faster response
   // Auth pages still need the check to redirect logged-in users
+  // Landing page (/) needs check to redirect logged-in users to dashboard
   // API routes MUST continue to session refresh (don't early return)
   // Join routes need session refresh to check if user is authenticated (page handles redirect)
   const isAuthPage = request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup'
-  if (isPublicRoute && !isAuthPage && !isApiRoute && !isJoinRoute) {
+  const isLandingPage = request.nextUrl.pathname === '/'
+  if (isPublicRoute && !isAuthPage && !isLandingPage && !isApiRoute && !isJoinRoute) {
     return NextResponse.next({ request })
   }
 
@@ -70,8 +72,8 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse
   }
 
-  // Redirect authenticated users away from auth pages
-  if (user && (request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup')) {
+  // Redirect authenticated users away from auth pages AND landing page
+  if (user && (request.nextUrl.pathname === '/auth/login' || request.nextUrl.pathname === '/auth/signup' || request.nextUrl.pathname === '/')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     const redirectResponse = NextResponse.redirect(url)

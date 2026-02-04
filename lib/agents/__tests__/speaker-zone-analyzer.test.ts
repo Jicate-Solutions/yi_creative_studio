@@ -49,7 +49,7 @@ describe('Speaker Zone Analyzer', () => {
           ],
           layoutMode: 'auto',
           size: 200,
-          spacing: 20,
+          spacing: 40,  // v24.27: 40px matches exclusion zone calculation
         } as SpeakerPhotoCustomization,
         formatDimensions: DEFAULT_DIMENSIONS,
       })
@@ -78,7 +78,7 @@ describe('Speaker Zone Analyzer', () => {
           ],
           layoutMode: 'auto',
           size: 200,
-          spacing: 20,
+          spacing: 40,  // v24.27: 40px matches exclusion zone calculation
         } as SpeakerPhotoCustomization,
         formatDimensions: DEFAULT_DIMENSIONS,
       })

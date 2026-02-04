@@ -582,7 +582,7 @@ export function GenerateSummaryCard({
         title={`Logos (${logoData.length} placed)`}
         icon={ImageIcon}
         isEmpty={logoData.length === 0}
-        defaultOpen={logoData.length > 0}
+        defaultOpen={false}
       >
         {logoData.map(({ placement, logo }) => (
           <LogoThumbnail

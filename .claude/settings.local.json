@@ -301,11 +301,25 @@
       "Bash(\"/c/Users/Admin/.local/bin/uvx.exe\" browser-use open https://example.com --headed)",
       "Bash(\"/c/Users/Admin/.local/bin/uvx.exe\" playwright install chromium)",
       "Bash(\"/c/Users/Admin/.local/bin/browser-use.exe\" open https://example.com)",
-      "Bash(.ts \")"
+      "Bash(.ts \")",
+      "Bash(if exist \".next\\\\lock\" del \".next\\\\lock\")",
+      "Bash(if exist .next rd /s /q .next)",
+      "Bash(if exist \"node_modules\\\\.cache\" rd /s /q \"node_modules\\\\.cache\")",
+      "Bash(if exist .next rmdir /s /q .next)",
+      "Skill(prd-generator)",
+      "Skill(prd-generator:*)",
+      "Skill(mobile-bottom-navbar)",
+      "Skill(mobile-bottom-navbar:*)",
+      "Bash(del \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\components\\\\layout\\\\mobile-bottom-nav.tsx\")",
+      "Bash(move:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": [],
-    "defaultMode": "plan"
+    "defaultMode": "plan",
+    "additionalDirectories": [
+      "c:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio"
+    ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

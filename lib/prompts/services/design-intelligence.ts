@@ -12,6 +12,14 @@ export type { DesignBrief, DesignContextForPrompt } from './yi-prompt-builder/ty
 import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { EventProfile } from './event-understanding'
 import { safeJsonParse } from '@/lib/utils/json-repair'
+
+// v1.0: Import AI Event Context Analyzer for global event understanding
+import {
+  analyzeEventContext,
+  shouldUseAIEventAnalysis,
+  type EventFormData,
+  type AIEventContext,
+} from '@/lib/ai/event-context-analyzer'
 import {
   GoogleGenerativeAI,
   HarmCategory,
@@ -22,6 +30,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import {
   generateFallbackContext,
   validateDesignContext,
+  mergeAIContextWithPreset,
+  type AIEventAnalysis,
 } from './yi-prompt-builder/context-helpers'
 import { getTemperatureConfig } from './prompt-optimization/config'
 import {
@@ -38,7 +48,21 @@ import {
 } from './content-element-mapper'
 
 // v6.0 Phase 2: Color personality for dynamic background generation
-import { analyzeColorPersonality } from '../helpers/color-personality'
+// v25.0: Import FormalityLevel for formal event handling
+import { analyzeColorPersonality, type FormalityLevel } from '../helpers/color-personality'
+
+// v25.1: Import content density analyzer for sparse content background enrichment
+import {
+  analyzeContentDensity,
+  buildContentDensityGuidance,
+  type ContentDensityAnalysis,
+} from '../helpers/content-density-analyzer'
+
+// v26.0: Import storytelling fusion for cohesive visual narratives
+import {
+  fuseStorytellingContext,
+  type StorytellingOutput,
+} from './storytelling-fusion'
 
 // ============================================================
 // PROMPT BUILDERS (Locally Defined)
@@ -76,6 +100,27 @@ ${getFormatSpecificGuidance(input.formatId, input.formatName)}
 
 function buildCreativeBriefPrompt(input: BriefAnalysisInput): string {
   return ''
+}
+
+/**
+ * v26.0: Determines if storytelling fusion should be used for this format
+ *
+ * Storytelling fusion creates cohesive visual narratives for formats where storytelling matters.
+ * Certificates, business cards, and other non-narrative formats use traditional deduplication.
+ *
+ * @param formatId - The creative format ID
+ * @returns true if storytelling fusion should be enabled
+ */
+function shouldUseStorytellingFusion(formatId?: string): boolean {
+  const storytellingFormats = [
+    'event_poster',
+    'flyer',
+    'instagram_post',
+    'linkedin_post',
+    'facebook_post',
+    'invitation'
+  ]
+  return storytellingFormats.includes(formatId || '')
 }
 
 /**
@@ -212,6 +257,33 @@ If you use ANY of these, the design will be REJECTED:
 ❌ Simple handshake icons for networking
 ❌ Plain laurel wreaths without creativity
 
+=== REGIONAL CHARACTER REQUIREMENTS (MANDATORY - YOUNG INDIANS PLATFORM) ===
+
+CRITICAL: This is an Indian organization platform (Young Indians / Yi). ALL human representations MUST be Indian characters.
+
+When generating ANY of the following, they MUST have Indian ethnicity and features:
+- Silhouettes of people → Indian body types and attire silhouettes
+- Audience members → Indian crowd with diverse South Asian representation
+- Participants, students, professionals → Indian individuals
+- Performers, dancers, musicians → Indian performers
+- Hands, figures, or human forms → Indian skin tones
+- Group gatherings or crowds → Diverse Indian crowd (various ages, genders)
+- Stylized portraits or illustrations → Indian facial features
+
+VISUAL CUES TO INCLUDE (where appropriate):
+- South Asian facial features
+- Indian attire: kurta, sari, western-casual, formal Indian business wear
+- Diverse Indian skin tones (fair to dark brown spectrum)
+- Cultural elements like bindis, traditional jewelry (where contextually appropriate)
+
+ABSOLUTELY FORBIDDEN:
+❌ Western/Caucasian default characters
+❌ Blonde hair or European features as default
+❌ Generic "diverse stock photo" crowd without Indian representation
+❌ Light-skinned European silhouettes
+
+This applies to ALL formats: event posters, flyers, social media, certificates.
+
 === CREATIVITY REQUIREMENT ===
 If your FIRST idea matches any banned pattern, IMMEDIATELY reject it and think deeper.
 Ask yourself: "What visual metaphor would SURPRISE and DELIGHT the viewer?"
@@ -230,7 +302,8 @@ YOU MUST BE BOLD. BE UNEXPECTED. BE MEMORABLE.
 // ============================================================
 
 // Model configuration
-const GEMINI_MODEL = 'gemini-2.0-flash-exp' // Best for creative reasoning
+// v25.0: Updated from deprecated gemini-2.0-flash-exp to gemini-2.5-flash
+const GEMINI_MODEL = 'gemini-2.5-flash' // Best for creative reasoning
 const CLAUDE_MODEL = 'claude-haiku-4-5' // Ultra-smart fallback
 
 // ============================================================
@@ -457,7 +530,7 @@ Design content flow that tells the story:
       ** Medical / Health **: Humanist sans - serif, trust blue(#007AFF), healing green, pulse line motifs
         ** Cultural / Traditional **: Elegant serifs, rich golds, deep maroons, traditional motifs, ornate borders
           ** Corporate / Business **: Professional sans - serif, corporate blue, charcoal, subtle geometric grids
-            ** Education / Academic **: Scholarly serifs, academic navy, wisdom gold, laurel wreaths
+            ** Education / Academic **: Scholarly serifs, academic navy, wisdom gold, geometric frames, academic crests
               ** Entertainment / Party **: Bold display fonts, vibrant multi - color, confetti, sparkles, energetic lines
                 ** Environment / Sustainability **: Clean slab serifs, deep forest green(#0B3D2E), stone textures, refined leaf motifs
                   ** Fun Activity / Kids **: ROUNDED sans - serif(Nunito, Quicksand) or playful display, bright primary colors, soft shapes
@@ -837,9 +910,49 @@ export async function generateDesignContext(
     elementsCount: contentElements.elements.length
   })
 
-  // v6.13: Apply deduplication if Event Understanding is available
-  // Prevents compounding bias where same visuals come from both sources
-  if (eventProfile && eventProfile.visualAssociations) {
+  // NEW: Declare aiEventContext early so storytelling fusion can use it
+  let aiEventContext: AIEventContext | null = null
+
+  // v26.0: STORYTELLING FUSION (replaces deduplication)
+  // Unifies Event Understanding, AI Context, and Content Mapper into cohesive narrative
+  let storytellingContext: StorytellingOutput | undefined
+
+  if (shouldUseStorytellingFusion(input.formatId)) {
+    console.log('[Design Intelligence] 🎭 Storytelling Fusion ENABLED')
+
+    try {
+      storytellingContext = await fuseStorytellingContext({
+        eventProfile,
+        aiEventContext,
+        contentElements,
+        eventName: input.eventName || '',
+        eventDescription: input.details || input.additionalContext,
+        formatId: input.formatId || ''
+      })
+
+      // Override contentElements with cohesive story elements
+      contentElements = {
+        elements: [
+          storytellingContext.cohesiveElements.primaryElement,
+          ...storytellingContext.cohesiveElements.supportingElements
+        ],
+        backgrounds: storytellingContext.cohesiveElements.atmosphericElements,
+        decorativeAccents: [],
+        matchedCategories: ['storytelling_fusion']
+      }
+
+      console.log('[Design Intelligence] ✅ Storytelling Fusion complete:', {
+        narrative: storytellingContext.visualNarrative,
+        confidence: storytellingContext.narrativeConfidence
+      })
+    } catch (error) {
+      console.error('[Design Intelligence] ⚠️ Storytelling Fusion failed, falling back to deduplication:', error)
+      // Fall through to deduplication logic below
+    }
+  }
+
+  // v6.13: Fallback to deduplication for non-storytelling formats or if fusion fails
+  if (!storytellingContext && eventProfile && eventProfile.visualAssociations) {
     const allEventVisuals = [
       ...eventProfile.visualAssociations.primary,
       ...eventProfile.visualAssociations.secondary,
@@ -856,7 +969,7 @@ export async function generateDesignContext(
       elements: deduplicatedElements
     }
 
-    console.log('[Design Intelligence] ✅ Deduplication applied - combined Event Understanding + Content Mapper without repetition')
+    console.log('[Design Intelligence] ✅ Deduplication applied (fallback or non-storytelling format)')
   }
 
   // ============================================================
@@ -894,6 +1007,56 @@ export async function generateDesignContext(
   }
   console.log('[Design Intelligence] ❌ Cache MISS - Calling LLM')
 
+  // ============================================================
+  // v1.0: AI EVENT CONTEXT ANALYSIS (GLOBAL EVENT UNDERSTANDING)
+  // ============================================================
+  // NEW: Use Claude Sonnet to analyze event context from ALL form data
+  // This replaces hardcoded keyword detection with intelligent AI analysis
+  if (shouldUseAIEventAnalysis()) {
+    try {
+      console.log('[Design Intelligence] 🤖 AI Event Analysis: Starting comprehensive context analysis')
+
+      // Build form data from the design brief
+      const formData: EventFormData = {
+        eventName: input.eventName || '',
+        eventDescription: input.details || input.additionalContext,
+        venue: input.venue,
+        date: input.date,
+        time: input.time,
+        speakers: input.guestName ? [{
+          name: input.guestName,
+          designation: input.guestDesignation,
+        }] : [],
+        organizationName: input.organizationName,
+        verticalName: input.verticalName,
+        initiativeText: input.initiativeText,
+        theme: input.theme,
+        style: input.style,
+        targetAudience: input.targetAudience,
+      }
+
+      aiEventContext = await analyzeEventContext(formData)
+
+      console.log('[Design Intelligence] ✅ AI Event Analysis Complete')
+      console.log(`[Design Intelligence]   → Matched Preset: ${aiEventContext.matchedPreset} (${(aiEventContext.presetConfidence * 100).toFixed(0)}% confidence)`)
+      console.log(`[Design Intelligence]   → Custom Enhancements: ${aiEventContext.customEnhancements.length}`)
+      console.log(`[Design Intelligence]   → Key Visuals: ${aiEventContext.keyVisuals.length}`)
+      console.log(`[Design Intelligence]   → Reasoning: ${aiEventContext.reasoning}`)
+
+      // v24.14: AI Event Context ALWAYS enriches Design Intelligence (no fast path)
+      // Both AI systems work together for maximum creativity
+      if (aiEventContext.presetConfidence >= 0.5) {
+        console.log('[Design Intelligence] 🤖 AI Event Context will enrich Design Intelligence analysis')
+        console.log(`[Design Intelligence]   → Confidence: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%`)
+        console.log(`[Design Intelligence]   → Will inject AI insights into Design Intelligence prompt`)
+        // Continue to inject AI context into prompt (existing logic at line 1022)
+      }
+    } catch (error) {
+      console.error('[Design Intelligence] ⚠️ AI Event Analysis failed:', error)
+      // Continue with normal flow if AI analysis fails
+    }
+  }
+
   // Attempt generation loop
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -903,9 +1066,181 @@ export async function generateDesignContext(
       // v6.0: Inject creativity enhancements
       prompt += buildCreativityEnhancementSection(uniquenessSeed, creativityDirective, contentElements)
 
+      // v1.0: Inject AI Event Context Analysis results (if available)
+      if (aiEventContext && aiEventContext.presetConfidence >= 0.5) {
+        const aiContextBrief = `
+
+========================================
+🤖 AI EVENT CONTEXT ANALYSIS (v1.0 - GLOBAL UNDERSTANDING):
+========================================
+
+An AI analyzer has comprehensively analyzed ALL form data for this event.
+You MUST incorporate these insights into your design context.
+
+MATCHED EVENT CATEGORY: ${aiEventContext.matchedPreset || 'None'}
+CONFIDENCE: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%
+
+AI REASONING:
+${aiEventContext.reasoning}
+
+CUSTOM ENHANCEMENTS (MUST INCLUDE):
+${aiEventContext.customEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+
+KEY VISUAL ELEMENTS (PRIORITIZE THESE):
+${aiEventContext.keyVisuals.map((kv, i) => `${i + 1}. ${kv}`).join('\n')}
+
+VISUAL DIRECTION:
+${aiEventContext.visualDirection}
+
+MOOD & ATMOSPHERE:
+${aiEventContext.moodAtmosphere}
+
+COLOR GUIDANCE:
+${aiEventContext.colorGuidance}
+
+⚠️ CRITICAL: The AI has analyzed the COMPLETE event context (name, description, venue, speakers, etc.)
+These insights are based on COMPREHENSIVE understanding, not just keywords.
+Your design context MUST reflect these AI-identified themes and enhancements.
+
+`
+        prompt += aiContextBrief
+        console.log('[Design Intelligence] 🤖 AI Event Context injected into prompt')
+      }
+
+      // v24.12.3: EVENT DOMAIN ENFORCEMENT - Visuals MUST match event content, not presets
+      // This ensures "Faculty Development Programme" gets educational visuals, not tech visuals
+      const eventDomainInstruction = `
+
+========================================
+⚠️ CRITICAL - EVENT DOMAIN ENFORCEMENT (v24.12.3):
+========================================
+
+BEFORE generating any visual elements, you MUST:
+
+1. ANALYZE THE EVENT NAME: "${input.eventName}"
+   - What is this event LITERALLY about?
+   - What DOMAIN does it belong to?
+
+2. DOMAIN DETECTION (based on event name keywords):
+   - Words like "Faculty", "Development", "Training", "Workshop", "Learning", "Education", "Academic", "Programme", "Seminar", "College", "University" → EDUCATION/ACADEMIC domain
+   - Words like "Blood", "Health", "Medical", "Hospital", "Donation", "Wellness", "Doctor", "Care" → HEALTH/MEDICAL domain
+   - Words like "Tech", "AI", "Digital", "Software", "Hackathon", "Code", "Data", "Innovation" → TECHNOLOGY domain
+   - Words like "Business", "Corporate", "Meeting", "Conference", "Summit", "Leadership" → CORPORATE domain
+
+3. MATCH VISUALS TO DETECTED DOMAIN:
+   - EDUCATION domain → Books, graduation caps, classrooms, knowledge growth, academic settings, learning metaphors, intellectual imagery
+   - HEALTH domain → Medical symbols, healthcare imagery, wellness visuals, caring hands
+   - TECHNOLOGY domain → Digital interfaces, neural networks, data streams, futuristic elements
+   - CORPORATE domain → Professional settings, business environments, geometric patterns
+
+4. ❌ FORBIDDEN VISUAL MISMATCH:
+   - Do NOT generate tech/AI visuals (neural networks, data interfaces, futuristic tech) for EDUCATION domain events
+   - Do NOT generate education visuals for TECHNOLOGY domain events
+   - The domain is determined by EVENT NAME CONTENT, NOT by color palette, NOT by theme preset
+
+EVENT: "${input.eventName}"
+→ DETECT THE DOMAIN FROM THIS NAME AND MATCH ALL VISUALS ACCORDINGLY.
+
+`
+      prompt += eventDomainInstruction
+      console.log('[Design Intelligence v24.12.3] ✅ Event domain enforcement added for: "${input.eventName}"')
+
+      // v24.12.4: PREMIUM PROFESSIONAL BACKGROUND enhancement
+      const premiumBackgroundInstruction = `
+
+========================================
+🎨 PREMIUM PROFESSIONAL BACKGROUND (v24.12.4)
+========================================
+
+ALL posters MUST have PROFESSIONAL, IMMERSIVE backgrounds:
+
+MANDATORY BACKGROUND QUALITIES:
+1. DEPTH & DIMENSION: Multiple visual layers (foreground, midground, background)
+2. RICH TEXTURES: Subtle grain, gradient meshes, atmospheric effects
+3. VISUAL SOPHISTICATION: High-end design aesthetics, not generic flat backgrounds
+4. DYNAMIC COMPOSITION: Organic shapes, color transitions, and depth layers for engaging visuals WITHOUT lines
+5. PROFESSIONAL POLISH: Google AI Studio quality - refined, polished, premium feel
+
+BACKGROUND RENDERING REQUIREMENTS:
+- Create FULL-BLEED immersive designs that fill the entire canvas
+- Use LAYERED visual elements (particles, shapes, gradients, light effects)
+- Include ATMOSPHERIC depth (subtle bokeh, light rays, environmental cues)
+- Apply PREMIUM textures (fine grain, subtle noise, professional finish)
+- Ensure VISUAL RICHNESS even in "clean" areas
+
+AVOID AT ALL COSTS:
+❌ Plain solid color backgrounds
+❌ Simple two-tone gradients
+❌ Generic minimalist designs
+❌ Empty/blank negative space
+❌ "Template-looking" backgrounds
+
+GOAL: Every poster should look like a PREMIUM, PROFESSIONALLY DESIGNED piece.
+The background should feel IMMERSIVE and VISUALLY ENGAGING.
+
+`
+      prompt += premiumBackgroundInstruction
+      console.log('[Design Intelligence v24.12.4] ✅ Premium background enhancement added')
+
+      // v24.12.5: COLOR BRIGHTNESS PROTECTION
+      // Problem: Design Intelligence was generating "darker edges" language causing Gemini to render colors too dark
+      // Solution: Explicitly forbid darkening language and require brightness preservation
+      const colorBrightnessProtection = `
+
+========================================
+🎨 COLOR BRIGHTNESS PROTECTION (v24.12.5)
+========================================
+
+⚠️ CRITICAL: DO NOT DARKEN USER COLORS
+
+The user selected these specific colors:
+- Primary: ${resolvedColors?.primaryColor || 'N/A'}
+- Secondary: ${resolvedColors?.secondaryColor || 'N/A'}
+- Accent: ${resolvedColors?.accentColor || 'N/A'}
+
+FORBIDDEN DARKENING LANGUAGE - NEVER USE:
+❌ "darker edges"
+❌ "mysterious darkness"
+❌ "shadowy atmosphere"
+❌ "deep black"
+❌ "transitions to darkness"
+❌ "fading to black"
+❌ "darker, mysterious"
+❌ "dark corners"
+❌ "shadowy edges"
+❌ "darkening gradient"
+
+REQUIRED BRIGHTNESS PRESERVATION:
+✅ Keep background brightness CONSISTENT with user colors
+✅ If user selected medium-brightness colors (like #6366F1), background should be MEDIUM brightness
+✅ Use "soft transitions" NOT "dark transitions"
+✅ Use "lighter edges" or "glowing edges" NOT "darker edges"
+✅ Gradients should stay within the SAME brightness range as user colors
+✅ Use "luminous", "bright", "vivid" descriptors for medium/light colors
+
+COLOR BRIGHTNESS RULE:
+- If user color hex starts with 6-9 or A-F in first digit → MEDIUM/BRIGHT color → background must stay MEDIUM/BRIGHT
+- If user color hex starts with 0-5 in first digit → DARK color → background can be dark
+- Example: #6366F1 starts with "6" → MEDIUM brightness → DO NOT darken to near-black
+
+BACKGROUND SETTING LANGUAGE:
+INSTEAD OF: "The background slowly transitions from a brighter center towards darker, mysterious edges"
+USE: "The background features a cohesive gradient maintaining the color's natural brightness throughout"
+
+INSTEAD OF: "Deep shadowy corners fade into darkness"
+USE: "Soft glowing transitions create depth while preserving color vibrancy"
+
+GOAL: The final poster should MATCH the user's selected color brightness.
+Dark renderings of medium-brightness colors = DESIGN FAILURE.
+
+`
+      prompt += colorBrightnessProtection
+      console.log('[Design Intelligence v24.12.5] ✅ Color brightness protection added')
+
       // v6.0 Phase 2: Inject color brief for color-aware backgrounds
+      // v25.0: Pass formality to suppress botanical elements for formal events
       if (resolvedColors && resolvedColors.source !== 'fallback') {
-        const colorPersonality = analyzeColorPersonality(resolvedColors.primaryColor)
+        const colorPersonality = analyzeColorPersonality(resolvedColors.primaryColor, eventProfile?.formality)
 
         const colorBrief = `
 
@@ -918,30 +1253,37 @@ Secondary Color: ${resolvedColors.secondaryColor}
 Accent Color: ${resolvedColors.accentColor}
 Color Source: ${resolvedColors.source}
 
-COLOR PERSONALITY ANALYSIS:
+COLOR PERSONALITY ANALYSIS (v24.12 - COLOR AS COLOR ONLY):
 - Mood: ${colorPersonality.mood}
-- Visual Elements: ${colorPersonality.visualElements.join(', ')}
 - Background Style: ${colorPersonality.backgroundStyle}
-- Lighting: ${colorPersonality.lightingStyle}
 
-CRITICAL COLOR RULES (NON-NEGOTIABLE):
-1. The backgroundSetting MUST reflect this color's emotional personality (${colorPersonality.name})
-2. DO NOT use generic descriptions like "professional gradient" or "modern background"
-3. THINK: What story does ${resolvedColors.primaryColor} tell for this event?
-4. Examples of color-driven backgrounds:
-   - Deep green (#1c9924) → "Living forest environment with organic flowing forms and botanical patterns, bio-luminescent nodes"
-   - Vibrant orange (#FF6B35) → "High-energy environment with explosive radial patterns, motion blur effects, kinetic energy lines"
-   - Purple (#8B00FF) → "Premium elegant atmosphere with flowing curves, mystical patterns, sophisticated depth"
-5. Background MUST harmonize with ${colorPersonality.mood} atmosphere
-6. Visual elements SHOULD include: ${colorPersonality.visualElements.slice(0, 3).join(', ')}
-7. Lighting style SHOULD be: ${colorPersonality.lightingStyle}
+⚠️⚠️⚠️ CRITICAL COLOR RULES - v24.12 UPDATE ⚠️⚠️⚠️
 
-DEPTH LAYERS (Apply to backgroundSetting):
-- Foreground: ${colorPersonality.depthLayers.foreground}
-- Midground: ${colorPersonality.depthLayers.midground}
-- Background: ${colorPersonality.depthLayers.background}
+COLOR = COLOR ONLY, NOT THEME TRIGGER:
+- Green color does NOT mean "nature/trees/leaves/botanical"
+- Orange color does NOT mean "energy/explosion/fire"
+- Blue color does NOT mean "ocean/water/sky"
+- Purple color does NOT mean "mystical/galaxy/magic"
 
-⚠️ CRITICAL: User selected these colors intentionally. The background MUST feel like it was designed FOR this color palette, not just colored in afterward.
+USE COLORS AS:
+✅ Background gradients and color washes
+✅ Accent highlights and glows
+✅ Text color coordination
+✅ Ambient lighting color
+✅ Geometric shape fills
+
+DO NOT use colors to infer:
+❌ Thematic visual elements (trees for green, waves for blue)
+❌ Nature imagery based on color
+❌ Environment settings based on color alone
+
+VISUAL ELEMENTS COME FROM EVENT DETAILS ONLY:
+- Tech event → circuit patterns, digital elements
+- Music event → musical instruments, sound waves
+- Business event → professional geometric shapes
+- The EVENT TYPE determines visual elements, NOT the color
+
+⚠️ CRITICAL: User selected these colors for AESTHETIC purposes. Apply colors to the design without forcing thematic elements based on color hue.
 `
         prompt += colorBrief
         console.log(`[Design Intelligence] 🎨 Injected color personality: ${colorPersonality.name} (${resolvedColors.source})`)
@@ -996,8 +1338,119 @@ CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
         prompt += eventBrief
         console.log(`[Design Intelligence] 🎯 Injected Event Understanding: ${eventProfile.selectedConcept} (confidence: ${eventProfile.confidence})`)
         console.log(`[Design Intelligence] Primary visuals: ${eventProfile.visualAssociations.primary.slice(0, 3).join(', ')}`)
+
+        // v24.12.7: UNIVERSAL BOTANICAL PROHIBITION - applies to ALL formality levels
+        // This prevents Design Intelligence from generating leaves/trees/botanical for any event
+        // (unless the event is specifically about nature/gardening/environment)
+        const universalBotanicalProhibition = `
+
+========================================
+🚫 BOTANICAL PROHIBITION (v24.12.7 - APPLIES TO ALL EVENTS)
+========================================
+
+CRITICAL: Do NOT generate botanical/nature visual elements unless the event is SPECIFICALLY about:
+- Gardening, agriculture, or farming
+- Environmental/sustainability activism (where plants ARE the theme)
+- Nature/outdoor activities (camping, hiking, etc.)
+
+FOR ALL OTHER EVENTS (INCLUDING ACADEMIC/EDUCATIONAL):
+❌ NO leaves, laurels, or leaf patterns
+❌ NO trees, branches, or roots
+❌ NO botanical patterns or plant motifs
+❌ NO "growth" metaphors using plants (use stairs, arrows, graphs instead)
+❌ NO "organic" or "nature-inspired" decorative elements
+
+INSTEAD USE FOR PROFESSIONAL/ACADEMIC EVENTS:
+✅ Geometric shapes (hexagons, circles, grids)
+✅ Abstract light rays and gradients
+✅ Modern architectural elements
+✅ Clean lines and professional patterns
+✅ Achievement symbols (stars, crests, badges)
+✅ Ascending stairs or steps (NOT botanical paths)
+
+REASON: User selected GREEN as a COLOR preference, not as a nature THEME.
+Academic events should use PROFESSIONAL geometric elements, not nature metaphors.
+`
+        prompt += universalBotanicalProhibition
+        console.log('[Design Intelligence] v24.12.7: 🚫 Universal botanical prohibition added')
+
+        // v25.0: Add formality-aware guidelines for premium/exclusive events
+        // This suppresses metaphorical/botanical output in favor of literal professional imagery
+        if (eventProfile.formality === 'premium' || eventProfile.formality === 'exclusive') {
+          const formalityBrief = `
+
+========================================
+🎯 FORMAL EVENT MODE (v25.0 - LITERAL IMAGERY REQUIRED)
+========================================
+
+EVENT FORMALITY: ${eventProfile.formality.toUpperCase()}
+
+⚠️ CRITICAL OVERRIDE FOR FORMAL EVENTS:
+
+This is a PREMIUM/EXCLUSIVE formal event. The AI must generate LITERAL, PROFESSIONAL imagery
+rather than creative metaphors or botanical/nature-based concepts.
+
+MANDATORY GUIDELINES:
+
+1. PRIORITIZE LITERAL IMAGERY over metaphorical concepts
+   - For MoU signing: Show actual documents, pens, handshakes, conference settings
+   - For seminars: Show professional presentation environments, microphones, audience
+   - For ceremonies: Show podiums, stages, ribbons, official proceedings
+
+2. ABSOLUTELY AVOID (These will be REJECTED):
+   ❌ "Gardens of potential" or "forests of growth"
+   ❌ "Ascending botanical paths" or "leaf-shaped stairways"
+   ❌ Nature metaphors (trees, flowers, leaves, vines) unless directly event-related
+   ❌ Abstract conceptual representations
+   ❌ Whimsical or playful interpretations
+
+3. PREFERRED IMAGERY for formal events:
+   ✅ Elegant conference rooms with premium lighting
+   ✅ Formal documents being signed with quality pens
+   ✅ Professional handshakes in sophisticated settings
+   ✅ Podiums with microphones in well-lit venues
+   ✅ Executive boardroom atmospheres
+   ✅ Clean, minimal professional backgrounds
+
+4. COLOR APPLICATION:
+   - Colors should be ELEGANT and RESTRAINED
+   - Use colors as subtle accents, not overwhelming themes
+   - Professional tones: navy, charcoal, burgundy, forest green (as accent, NOT botanical)
+
+5. TYPOGRAPHY & LAYOUT:
+   - Clean, professional sans-serif fonts
+   - Formal hierarchy (no playful arrangements)
+   - Sophisticated, corporate aesthetics
+
+REASON: Events like "${input.eventName}" require institutional gravitas and professional credibility,
+NOT creative metaphors that undermine the event's formal nature.
+`
+          prompt += formalityBrief
+          console.log(`[Design Intelligence] v25.0: 🎩 FORMAL EVENT MODE ACTIVATED - Literal imagery required (formality: ${eventProfile.formality})`)
+        }
       } else if (eventProfile) {
         console.log(`[Design Intelligence] ⚠️ Event Understanding available but confidence too low (${eventProfile.confidence}) - skipping injection`)
+      }
+
+      // v25.1: Analyze content density and inject background enrichment guidance
+      // When content is sparse (short event name, no description), generate richer backgrounds
+      const contentDensityAnalysis = analyzeContentDensity({
+        eventName: input.eventName,
+        eventDescription: input.details || input.additionalContext,  // DesignBrief uses 'details' for description
+        speakers: input.guestName ? [{ name: input.guestName, designation: input.guestDesignation }] : [],
+        venue: input.venue,
+      })
+
+      if (contentDensityAnalysis.shouldEnrichBackground) {
+        const contentDensityBrief = buildContentDensityGuidance(contentDensityAnalysis)
+        if (contentDensityBrief) {
+          prompt += '\n\n' + contentDensityBrief
+          console.log(`[Design Intelligence] v25.1: 🎨 SPARSE CONTENT DETECTED - Background enrichment active`)
+          console.log(`[Design Intelligence] Content density: ${contentDensityAnalysis.density} (${contentDensityAnalysis.totalChars} chars, ${contentDensityAnalysis.wordCount} words)`)
+          console.log(`[Design Intelligence] Background complexity: ${contentDensityAnalysis.backgroundComplexity}`)
+        }
+      } else {
+        console.log(`[Design Intelligence] v25.1: Content density normal (${contentDensityAnalysis.density}) - standard background`)
       }
 
       // Add strict enforcement on retry
@@ -1007,9 +1460,11 @@ CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
       }
 
       // Stage 2: Call LLM (Gemini preferred, Claude fallback)
+      // v25.0: Pass formality for temperature adjustment
+      const currentFormality = eventProfile?.formality
       let llmResponse: LLMResponse
       try {
-        llmResponse = await callGemini(prompt, input.formatId) // v5.3: Pass formatId for temperature config
+        llmResponse = await callGemini(prompt, input.formatId, currentFormality) // v25.0: Pass formality for temperature config
       } catch (e) {
         console.warn(`[Design Intelligence] Gemini failed (Attempt ${attempt}), falling back to Claude`, e)
         llmResponse = await callClaude(prompt)
@@ -1069,7 +1524,10 @@ CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
 
       // Stage 5: Return Enriched Context (Success)
       return {
-        context: designContext,
+        context: {
+          ...designContext,
+          storytellingContext, // v26.0: Add storytelling fusion result
+        },
         usage: {
           model: llmResponse.model,
           provider: llmResponse.model.includes('claude') ? 'claude' : 'gemini',
@@ -1114,20 +1572,39 @@ CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
 // HELPERS
 // ============================================================
 
-async function callGemini(prompt: string, formatId?: string): Promise<LLMResponse> {
+async function callGemini(
+  prompt: string,
+  formatId?: string,
+  formality?: 'casual' | 'professional' | 'premium' | 'exclusive'
+): Promise<LLMResponse> {
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Missing Gemini API Key')
 
   // Get format-specific temperature config (v5.3)
   const tempConfig = getTemperatureConfig(formatId || 'event_poster')
 
+  // v25.0: Adjust temperature based on event formality
+  // Premium/exclusive events need lower temperature for literal, predictable output
+  let temperature = tempConfig.designIntelligence
+  let topP = tempConfig.topP
+
+  if (formality === 'premium' || formality === 'exclusive') {
+    temperature = 0.7  // Conservative for formal events
+    topP = 0.90        // More focused sampling
+    console.log(`[Design Intelligence] v25.0: 🎛️ Temperature reduced to ${temperature} for ${formality} event (was ${tempConfig.designIntelligence})`)
+  } else if (formality === 'professional') {
+    temperature = Math.min(tempConfig.designIntelligence, 1.0) // Cap at 1.0 for professional
+    topP = Math.min(tempConfig.topP, 0.95)
+    console.log(`[Design Intelligence] v25.0: 🎛️ Temperature adjusted to ${temperature} for professional event`)
+  }
+
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
     generationConfig: {
-      temperature: tempConfig.designIntelligence, // v5.3: Variable temp for creative variation (1.4 for creative formats)
+      temperature, // v25.0: Now formality-aware (lower for premium events)
       topK: 40,
-      topP: tempConfig.topP, // v5.3: Variable topP (0.98 for creative)
+      topP, // v25.0: Now formality-aware
       maxOutputTokens: 4096, // v3.6: Increased for deeper reasoning
       responseMimeType: 'application/json', // v3.6: Native JSON Mode!
     },

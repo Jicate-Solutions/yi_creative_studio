@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -77,6 +77,35 @@ export function MultiSpeakerInput({
   )
   const [settingsExpanded, setSettingsExpanded] = useState(false)
 
+  // Track previous speaker IDs to detect newly added speakers
+  const prevSpeakerIdsRef = useRef<Set<string>>(new Set(speakers.map(s => s.id)))
+
+  // Auto-expand newly added speakers and cleanup removed speakers
+  useEffect(() => {
+    const currentIds = new Set(speakers.map(s => s.id))
+    const prevIds = prevSpeakerIdsRef.current
+
+    // Find new speaker IDs (in current but not in previous)
+    const newIds = speakers.filter(s => !prevIds.has(s.id)).map(s => s.id)
+
+    // Find removed speaker IDs (in previous but not in current)
+    const removedIds = [...prevIds].filter(id => !currentIds.has(id))
+
+    if (newIds.length > 0 || removedIds.length > 0) {
+      setExpandedSpeakers(prev => {
+        const updated = new Set(prev)
+        // Add new speakers
+        newIds.forEach(id => updated.add(id))
+        // Remove deleted speakers from expanded set
+        removedIds.forEach(id => updated.delete(id))
+        return updated
+      })
+    }
+
+    // Update the ref for next comparison
+    prevSpeakerIdsRef.current = currentIds
+  }, [speakers])
+
   const toggleSpeaker = (speakerId: string) => {
     const newExpanded = new Set(expandedSpeakers)
     if (newExpanded.has(speakerId)) {
@@ -89,15 +118,7 @@ export function MultiSpeakerInput({
 
   const handleAddSpeaker = () => {
     onAddSpeaker()
-    // Auto-expand the new speaker (it will be added at the end)
-    setTimeout(() => {
-      if (speakers.length > 0) {
-        const newSpeakerId = speakers[speakers.length - 1]?.id
-        if (newSpeakerId) {
-          setExpandedSpeakers(new Set([...expandedSpeakers, newSpeakerId]))
-        }
-      }
-    }, 100)
+    // New speaker will be auto-expanded via useEffect below
   }
 
   const handlePhotoUpload = async (speakerId: string, file: File) => {

@@ -185,6 +185,12 @@ export function useSSEGeneration(options: UseSSEGenerationOptions = {}) {
 
     console.log('[SSE Client] Event:', stage, status, progress)
 
+    // Track callbacks to call AFTER state update (prevent setState-in-render error)
+    let completionCallback: (() => void) | null = null
+    let stageCompleteCallback: (() => void) | null = null
+    let errorCallback: (() => void) | null = null
+    let progressCallback: (() => void) | null = null
+
     setState(prev => {
       const newState = { ...prev }
 
@@ -210,12 +216,12 @@ export function useSSEGeneration(options: UseSSEGenerationOptions = {}) {
           newState.isGenerating = false
           newState.completedAt = Date.now()
 
-          // Call completion callback
-          options.onComplete?.(data as UploadData)
+          // Schedule completion callback to run AFTER setState
+          completionCallback = () => options.onComplete?.(data as UploadData)
         }
 
-        // Call stage completion callback
-        options.onStageComplete?.(stage, data)
+        // Schedule stage completion callback to run AFTER setState
+        stageCompleteCallback = () => options.onStageComplete?.(stage, data)
       }
 
       // Handle errors
@@ -224,16 +230,23 @@ export function useSSEGeneration(options: UseSSEGenerationOptions = {}) {
         newState.isGenerating = false
         newState.completedAt = Date.now()
 
-        options.onError?.(error)
+        // Schedule error callback to run AFTER setState
+        errorCallback = () => options.onError?.(error)
       }
 
-      // Call progress callback
+      // Schedule progress callback to run AFTER setState
       if (status === 'in_progress' || status === 'complete') {
-        options.onProgress?.(progress, stage)
+        progressCallback = () => options.onProgress?.(progress, stage)
       }
 
       return newState
     })
+
+    // Call callbacks AFTER setState completes (outside render cycle)
+    ;(completionCallback as (() => void) | null)?.()
+    ;(stageCompleteCallback as (() => void) | null)?.()
+    ;(errorCallback as (() => void) | null)?.()
+    ;(progressCallback as (() => void) | null)?.()
   }, [options])
 
   /**

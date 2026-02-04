@@ -217,47 +217,70 @@ export function buildPixelPreciseSpatialConstraints(
     footerZone: `${unifiedFooterStartY}-${canvasHeight}px (${UNIFIED_FOOTER_ZONE_PERCENT}-100%)`,
   })
 
-  // v24.10: Return PERCENTAGE-ONLY constraints with unified zones
+  // v24.14: INVISIBLE GUIDELINES approach with concrete visual analogies
+  // Reframed from "three areas" to "single canvas + invisible text positioning rule"
   return `
-COMPOSITION LAYOUT GUIDE:
+VISUAL COMPOSITION - SINGLE CANVAS CONCEPT:
 
-The image uses a three-band vertical structure for professional poster layout.
+Design ONE continuous visual that spans the entire canvas (0% to 100%) without interruption.
+Think of it as a single photograph, gradient, or artistic scene - NOT as separate sections.
 
-UPPER BAND (0% to ${UNIFIED_HEADER_ZONE_PERCENT}% from top):
-Keep this area clean with simple background only. Solid colors, subtle gradients, or soft atmospheric lighting work best. This space accommodates branding elements added in post-processing. NO TEXT in this zone.
+VISUAL ANALOGIES (concrete examples of "single canvas"):
+• A sunset gradient: Deep orange at top → warm yellow in middle → pink at bottom (ONE continuous gradient, no bands)
+• A studio photograph: Professional photography backdrop that flows seamlessly from top to bottom
+• An oil painting: A single artistic composition painted across the entire canvas
+• A skyscape: Blue sky gradually transitioning to horizon (ONE unified scene)
+• An atmospheric scene: Misty forest or urban landscape that spans the full frame
 
-CENTER BAND (${contentStartPercent}% to ${contentEndPercent}% from top) - ALL TEXT MUST FIT HERE:
-All text content belongs here - the main title, event details, date, time, venue, speakers, and additional information. This is the primary content area with ${contentHeightPercent}% of the total height available for text.
+Key principle: These examples show backgrounds with NO horizontal dividing lines or section breaks.
 
-Text hierarchy within center band:
+AVOID (per Gemini documentation - list unwanted elements):
+horizontal lines, section dividers, band separators, stripe patterns, visible zones, segmented backgrounds, border lines between areas, gradient bands that create divisions
+
+INVISIBLE TEXT PLACEMENT RULE:
+This is purely a TEXT POSITIONING guideline - NOT a visual division. The background design itself remains continuous.
+
+All text content positions in the vertical center region (${contentStartPercent}% to ${contentEndPercent}% from top).
+This is an INVISIBLE rule - imagine placing text stickers on a painting. The painting underneath stays unified.
+
+Example visualization:
+• Imagine painting a blue gradient from dark blue (top) to light blue (bottom) across the ENTIRE canvas (0-100%)
+• The gradient flows seamlessly without any breaks
+• Now place text stickers ONLY in the middle region (${contentStartPercent}-${contentEndPercent}%)
+• The blue gradient UNDERNEATH remains ONE continuous flow from 0% to 100%
+
+TEXT-FREE REGIONS (background continues naturally):
+• Top ${UNIFIED_HEADER_ZONE_PERCENT}%: Continue the same visual design (no text overlay). Simple, clean background.
+• Bottom ${100 - UNIFIED_FOOTER_ZONE_PERCENT}%: Continue the same visual design (no text overlay). Natural fade or ground texture.
+
+TEXT POSITIONING WITHIN ${contentStartPercent}-${contentEndPercent}% REGION:
+All text elements position here - headlines, details, speakers, date, time, venue.
+Available height: ${contentHeightPercent}% of total canvas.
+
+Text hierarchy:
 • Main headline: Position around ${contentStartPercent + 2}% from top
 • Supporting text: Distribute between ${contentStartPercent + 5}% and ${contentEndPercent - 5}%
 • Keep text horizontally centered (25% to 75% width range)
 
-CONTENT DENSITY MANAGEMENT (when content is extensive):
-All text MUST still fit within ${contentStartPercent}%-${contentEndPercent}% zone:
+CONTENT DENSITY HANDLING:
+When extensive content (many speakers, details):
+• Use tighter line spacing, smaller supporting text sizes
+• Prioritize: Event name, date, time, venue (larger). Speaker names, details (smaller).
+• ALL text must fit within ${contentStartPercent}-${contentEndPercent}% vertical range
+• If still overflowing: Omit lowest-priority details
 
-Essential text (always visible, prominent size):
-• Event headline (largest text)
-• Date, Time, Venue
+CRITICAL - SINGLE CANVAS VISUALIZATION:
+Imagine you're creating a single piece of art (gradient/sky/atmospheric scene/etc.) that fills the entire canvas from edge to edge.
+This art has NO horizontal divisions or band separations - it's ONE unified visual.
 
-Supporting text (smaller size, tighter spacing if needed):
-• Speaker names and designations
-• Dress code, entry limits, additional details
+Now imagine placing text stickers ONLY in the middle vertical region (${contentStartPercent}-${contentEndPercent}%).
+The artwork underneath remains ONE continuous piece from 0% to 100%.
+The text stickers are positioned in the middle - they DON'T change the background, which stays unified.
 
-Fitting strategy:
-• Extensive content: Use tighter line spacing, smaller supporting text
-• Minimal content: Use generous spacing, larger text
-• NEVER expand into 0-${contentStartPercent}% header or ${contentEndPercent}-100% footer
-• If still too much content: Omit lowest-priority details
-
-LOWER BAND (${UNIFIED_FOOTER_ZONE_PERCENT}% to 100% from top):
-Reserve this area for footer elements. Keep it clean with simple background continuation - ground texture, subtle gradient, or gentle fade. NO TEXT in this zone.
-
-SEAMLESS TRANSITIONS:
-The background flows naturally from top to bottom without visible horizontal bands or stripes. Colors and textures transition smoothly across all three areas while maintaining the clean spaces needed for branding.
-
-Remember: Text stays within the ${contentStartPercent}%-${contentEndPercent}% vertical range. Upper and lower areas remain text-free for overlay compatibility.
+This is the EXACT approach you must take:
+1. Design one continuous background visual (like the examples: sunset gradient, studio photo, oil painting, skyscape)
+2. Position text in the middle region (invisible guideline)
+3. Top and bottom: The SAME background continues seamlessly (no text overlay, but same visual flow)
 `
 }
 
@@ -317,39 +340,38 @@ function buildProModelSpatialConstraints(
     footerZone: `${proFooterStartY}-${canvasHeight}px (${footerStartPercent}-100%)`,
   })
 
+  // v24.14: Pro model with INVISIBLE GUIDELINES approach (NO divider lines) + visual analogies
   return `
-⚠️⚠️⚠️ CRITICAL TEXT PLACEMENT RULE - READ FIRST ⚠️⚠️⚠️
-ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
-ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
+SEAMLESS FULL-CANVAS DESIGN REQUIREMENT:
+Create ONE continuous, flowing background from top to bottom - like a single photograph or painting.
+
+VISUAL ANALOGIES (concrete examples):
+• A sunset gradient: Deep orange at top → warm yellow in middle → pink at bottom (ONE continuous gradient, no bands)
+• A studio photograph: Professional photography backdrop that flows seamlessly from top to bottom
+• An oil painting: A single artistic composition painted across the entire canvas
+• A skyscape: Blue sky gradually transitioning to horizon (ONE unified scene)
+• An atmospheric scene: Misty forest or urban landscape that spans the full frame
+
+AVOID (per Gemini documentation - list unwanted elements):
+horizontal lines, section dividers, band separators, stripe patterns, visible zones, segmented backgrounds, border lines between areas, gradient bands that create divisions
+
+CRITICAL TEXT PLACEMENT RULE (INVISIBLE GUIDELINE):
 ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
 
 Canvas: ${canvasWidth}px × ${canvasHeight}px
 
-════════════════════════════════════════════════════════════════════════
-FORBIDDEN HEADER ZONE (0px - ${proHeaderHeight}px / 0% - ${PRO_HEADER_ZONE_PERCENT}%)
-════════════════════════════════════════════════════════════════════════
-❌ NO event titles in header
-❌ NO "Infographic" or "Info" text in header
-❌ NO "Overview" or "About" labels in header
-❌ NO captions or descriptions in header
-❌ NO text of ANY kind in header
-✅ ONLY simple backgrounds: sky, gradients, clouds, solid colors
-
-DO NOT place text above ${contentStartY}px.
-DO NOT place text above ${contentStartY}px.
+TOP REGION (0px - ${proHeaderHeight}px / 0% - ${PRO_HEADER_ZONE_PERCENT}%):
+Keep this area clear of text. Design flows naturally from the top edge. No text in this region.
+Suitable elements: sky, gradients, clouds, solid colors, atmospheric lighting.
 DO NOT place text above ${contentStartY}px.
 
-════════════════════════════════════════════════════════════════════════
-ALLOWED CONTENT ZONE (${contentStartY}px - ${contentEndY}px / ${contentStartPercent}% - ${contentEndPercent}%)
-════════════════════════════════════════════════════════════════════════
+CONTENT REGION (${contentStartY}px - ${contentEndY}px / ${contentStartPercent}% - ${contentEndPercent}%):
 ✅ Event title starts at ${contentStartY}px (${contentStartPercent}% from top)
 ✅ Date/time/venue between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.2)}px-${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px
 ✅ Additional details between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px-${contentEndY}px
-✅ ALL text elements MUST fit within this ${contentEndY - contentStartY}px tall zone
+✅ ALL text elements MUST fit within this ${contentEndY - contentStartY}px tall area
 
-════════════════════════════════════════════════════════════════════════
-CONTENT OVERFLOW HANDLING (MANDATORY)
-════════════════════════════════════════════════════════════════════════
+CONTENT OVERFLOW HANDLING:
 When event has extensive content (speakers, dress code, entry limits, etc.):
 
 PRIORITY 1 - ESSENTIAL (always visible, larger size):
@@ -361,51 +383,35 @@ PRIORITY 2 - SUPPORTING (smaller size, tighter spacing):
 • Dress code, entry limits
 • Additional details
 
-⚠️ FITTING RULES:
-• COMPRESS text with tighter spacing to fit in ${contentEndY - contentStartY}px zone
+FITTING RULES:
+• COMPRESS text with tighter spacing to fit in ${contentEndY - contentStartY}px area
 • Use SMALLER fonts for supporting details when content is extensive
-• NEVER expand into header (0-${proHeaderHeight}px) or footer (${proFooterStartY}-${canvasHeight}px)
+• NEVER expand into top region (0-${proHeaderHeight}px) or bottom region (${proFooterStartY}-${canvasHeight}px)
 • If content STILL doesn't fit: Omit lowest-priority details
 
-❌ FORBIDDEN: Placing ANY text outside ${contentStartY}px-${contentEndY}px range
-
-════════════════════════════════════════════════════════════════════════
-FORBIDDEN FOOTER ZONE (${proFooterStartY}px - ${canvasHeight}px / ${footerStartPercent}% - 100%)
-════════════════════════════════════════════════════════════════════════
-❌ NO event details in footer
-❌ NO venue information in footer
-❌ NO dress code or additional info in footer
-❌ NO text of ANY kind in footer
-✅ ONLY simple backgrounds: ground textures, gradients, subtle fade
-
-DO NOT place text below ${contentEndY}px.
-DO NOT place text below ${contentEndY}px.
+BOTTOM REGION (${proFooterStartY}px - ${canvasHeight}px / ${footerStartPercent}% - 100%):
+Keep this area clear of text. Continue the background naturally - seamless flow from content area.
+Suitable elements: ground textures, gradients, subtle fade.
 DO NOT place text below ${contentEndY}px.
 
-════════════════════════════════════════════════════════════════════════
-PRE-RENDER VERIFICATION CHECKLIST
-════════════════════════════════════════════════════════════════════════
-Before generating, verify EVERY text element:
-□ Is the TOP edge of event title BELOW ${contentStartY}px? (REQUIRED: YES)
-□ Is ALL text ABOVE ${contentEndY}px? (REQUIRED: YES)
-□ Is header zone (0-${proHeaderHeight}px) completely text-free? (REQUIRED: YES)
-□ Is footer zone (${proFooterStartY}-${canvasHeight}px) completely text-free? (REQUIRED: YES)
+PRE-RENDER VERIFICATION:
+Before generating, verify EVERY text element fits within ${contentStartY}-${contentEndY}px range.
+Top and bottom regions must be TEXT-FREE for overlay compatibility.
 
-IF ANY CHECK FAILS → MOVE TEXT INTO ${contentStartY}-${contentEndY}px RANGE
+WORD BLOCKLIST FOR TOP REGION:
+These words belong in content region, NOT in top region: "Infographic", "Info", "Overview", "About", "Summary", descriptive labels.
 
-════════════════════════════════════════════════════════════════════════
-WORD BLOCKLIST FOR HEADER ZONE
-════════════════════════════════════════════════════════════════════════
-NEVER render these words above ${contentStartY}px:
-- "Infographic"
-- "Info"
-- "Overview"
-- "About"
-- "Summary"
-- Any descriptive labels
+CRITICAL - SINGLE CANVAS VISUALIZATION:
+Imagine you're creating a single piece of art (gradient/sky/atmospheric scene/etc.) that fills the entire canvas from edge to edge.
+This art has NO horizontal divisions or band separations - it's ONE unified visual.
 
-These words belong INSIDE the content zone (${contentStartY}-${contentEndY}px), NOT in header.
+Now imagine placing text stickers ONLY in the middle vertical region (${contentStartY}-${contentEndY}px).
+The artwork underneath remains ONE continuous piece from 0px to ${canvasHeight}px.
+The text stickers are positioned in the middle - they DON'T change the background, which stays unified.
 
-FINAL REMINDER: Text zone is ${contentStartPercent}%-${contentEndPercent}%. Header (0-${PRO_HEADER_ZONE_PERCENT}%) and footer (${footerStartPercent}%-100%) must be TEXT-FREE.
+This is the EXACT approach you must take:
+1. Design one continuous background visual (like the examples: sunset gradient, studio photo, oil painting, skyscape)
+2. Position text in the middle region (invisible guideline)
+3. Top and bottom: The SAME background continues seamlessly (no text overlay, but same visual flow)
 `
 }

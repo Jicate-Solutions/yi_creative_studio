@@ -1,0 +1,120 @@
+/**
+ * Super Admin API: Create Event Source
+ * POST /api/super-admin/webhooks/sources/create
+ *
+ * Creates a new event source with auto-generated webhook secret
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+import { logSuperAdminAction } from '@/lib/services/audit-service'
+import crypto from 'crypto'
+
+interface CreateEventSourceBody {
+  name: string
+  source_app_id: string
+  organization_id: string
+  description?: string
+  is_active?: boolean
+}
+
+export async function POST(request: NextRequest) {
+  return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
+    try {
+      // Using 'as any' because event_sources table is not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      const body: CreateEventSourceBody = await req.json()
+
+      // Validate required fields
+      if (!body.name || !body.source_app_id || !body.organization_id) {
+        return NextResponse.json(
+          { error: 'Missing required fields: name, source_app_id, organization_id' },
+          { status: 400 }
+        )
+      }
+
+      // Validate organization exists
+      const { data: org, error: orgError } = await adminClient
+        .from('organizations')
+        .select('id, name')
+        .eq('id', body.organization_id)
+        .single()
+
+      if (orgError || !org) {
+        return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      }
+
+      // Check for duplicate source_app_id for this organization
+      const { data: existing } = await client
+        .from('event_sources')
+        .select('id')
+        .eq('organization_id', body.organization_id)
+        .eq('source_app_id', body.source_app_id)
+        .single()
+
+      if (existing) {
+        return NextResponse.json(
+          { error: `Event source with app ID "${body.source_app_id}" already exists for this organization` },
+          { status: 409 }
+        )
+      }
+
+      // Generate secure webhook secret
+      const webhookSecret = crypto.randomBytes(32).toString('hex')
+
+      // Create event source
+      const { data: source, error: createError } = await client
+        .from('event_sources')
+        .insert({
+          name: body.name,
+          source_name: body.name, // Required NOT NULL column in original schema
+          source_app_id: body.source_app_id,
+          organization_id: body.organization_id,
+          description: body.description || null,
+          is_active: body.is_active ?? true,
+          webhook_secret: webhookSecret,
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('[super-admin] Failed to create event source:', createError)
+        return NextResponse.json({ error: 'Failed to create event source', details: createError.message }, { status: 500 })
+      }
+
+      // Log the action
+      await logSuperAdminAction({
+        super_admin_id: superAdmin.id,
+        action: 'webhook:source:create',
+        resource_type: 'event_source',
+        resource_id: source.id,
+        target_organization_id: body.organization_id,
+        changes: {
+          after: {
+            name: body.name,
+            source_app_id: body.source_app_id,
+            is_active: body.is_active ?? true,
+          },
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        source: {
+          ...source,
+          // Return full secret only on creation
+          webhook_secret: webhookSecret,
+        },
+        message: 'Event source created successfully. Save the webhook secret - it will not be shown again.',
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception creating event source:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}

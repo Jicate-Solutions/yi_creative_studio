@@ -1,0 +1,46 @@
+/**
+ * Super Admin API: Get Webhook Log Detail
+ * GET /api/super-admin/webhooks/logs/[id]
+ *
+ * Returns full webhook log details including payloads
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    try {
+      // Using 'as any' because webhook_logs table is not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: log, error } = await (adminClient as any)
+        .from('webhook_logs')
+        .select(
+          `
+          *,
+          organization:organizations(id, name),
+          event_source:event_sources(id, name, source_app_id)
+        `
+        )
+        .eq('id', id)
+        .single()
+
+      if (error || !log) {
+        return NextResponse.json({ error: 'Webhook log not found' }, { status: 404 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        log,
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception fetching webhook log:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}

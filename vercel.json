@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/google-calendar-channel-renewal",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/google-calendar-polling-sync",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

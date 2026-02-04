@@ -22,6 +22,7 @@ import {
   DollarSign,
   Crown,
   Menu,
+  Webhook,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,11 @@ const navItems = [
     name: 'Audit Logs',
     href: '/super-admin/audit',
     icon: FileText,
+  },
+  {
+    name: 'Webhooks',
+    href: '/super-admin/webhooks',
+    icon: Webhook,
   },
   {
     name: 'Settings',

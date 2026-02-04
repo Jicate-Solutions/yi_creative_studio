@@ -1,0 +1,228 @@
+/**
+ * Super Admin API: Event Source CRUD
+ * GET/PUT/DELETE /api/super-admin/webhooks/sources/[id]
+ *
+ * Manages individual event sources
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+import { logSuperAdminAction } from '@/lib/services/audit-service'
+
+interface UpdateEventSourceBody {
+  name?: string
+  description?: string
+  is_active?: boolean
+}
+
+// GET - Fetch single event source
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    try {
+      // Using 'as any' because event_sources table is not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      const { data: source, error } = await client
+        .from('event_sources')
+        .select(
+          `
+          *,
+          organization:organizations(id, name)
+        `
+        )
+        .eq('id', id)
+        .single()
+
+      if (error || !source) {
+        return NextResponse.json({ error: 'Event source not found' }, { status: 404 })
+      }
+
+      // Mask webhook secret
+      const maskedSource = {
+        ...source,
+        webhook_secret: source.webhook_secret ? `${source.webhook_secret.substring(0, 8)}${'*'.repeat(24)}` : null,
+        webhook_secret_preview: source.webhook_secret ? source.webhook_secret.substring(0, 8) : null,
+      }
+
+      return NextResponse.json({
+        success: true,
+        source: maskedSource,
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception fetching event source:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}
+
+// PUT - Update event source
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
+    try {
+      // Using 'as any' because event_sources table is not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      const body: UpdateEventSourceBody = await req.json()
+
+      // Fetch existing source for audit log
+      const { data: existingSource, error: fetchError } = await client
+        .from('event_sources')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (fetchError || !existingSource) {
+        return NextResponse.json({ error: 'Event source not found' }, { status: 404 })
+      }
+
+      // Build update object (only include provided fields)
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      }
+
+      if (body.name !== undefined) {
+        updateData.name = body.name
+        updateData.source_name = body.name // Keep source_name in sync
+      }
+      if (body.description !== undefined) updateData.description = body.description
+      if (body.is_active !== undefined) updateData.is_active = body.is_active
+
+      // Update event source
+      const { data: updatedSource, error: updateError } = await client
+        .from('event_sources')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('[super-admin] Failed to update event source:', updateError)
+        return NextResponse.json({ error: 'Failed to update event source', details: updateError.message }, { status: 500 })
+      }
+
+      // Log the action
+      await logSuperAdminAction({
+        super_admin_id: superAdmin.id,
+        action: 'webhook:source:update',
+        resource_type: 'event_source',
+        resource_id: id,
+        target_organization_id: existingSource.organization_id,
+        changes: {
+          before: {
+            name: existingSource.name,
+            description: existingSource.description,
+            is_active: existingSource.is_active,
+          },
+          after: {
+            name: updatedSource.name,
+            description: updatedSource.description,
+            is_active: updatedSource.is_active,
+          },
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        source: {
+          ...updatedSource,
+          webhook_secret: updatedSource.webhook_secret
+            ? `${updatedSource.webhook_secret.substring(0, 8)}${'*'.repeat(24)}`
+            : null,
+        },
+        message: 'Event source updated successfully',
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception updating event source:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}
+
+// DELETE - Delete event source
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
+    try {
+      // Using 'as any' because these tables are not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      // Fetch existing source for audit log
+      const { data: existingSource, error: fetchError } = await client
+        .from('event_sources')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (fetchError || !existingSource) {
+        return NextResponse.json({ error: 'Event source not found' }, { status: 404 })
+      }
+
+      // Check for associated synced events
+      const { count: eventCount } = await client
+        .from('synced_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('source_app_id', existingSource.source_app_id)
+        .eq('organization_id', existingSource.organization_id)
+
+      if (eventCount && eventCount > 0) {
+        return NextResponse.json(
+          {
+            error: 'Cannot delete event source with synced events',
+            details: `This source has ${eventCount} synced events. Delete them first or deactivate the source instead.`,
+          },
+          { status: 409 }
+        )
+      }
+
+      // Delete event source
+      const { error: deleteError } = await client.from('event_sources').delete().eq('id', id)
+
+      if (deleteError) {
+        console.error('[super-admin] Failed to delete event source:', deleteError)
+        return NextResponse.json({ error: 'Failed to delete event source', details: deleteError.message }, { status: 500 })
+      }
+
+      // Log the action
+      await logSuperAdminAction({
+        super_admin_id: superAdmin.id,
+        action: 'webhook:source:delete',
+        resource_type: 'event_source',
+        resource_id: id,
+        target_organization_id: existingSource.organization_id,
+        changes: {
+          before: {
+            name: existingSource.name,
+            source_app_id: existingSource.source_app_id,
+            is_active: existingSource.is_active,
+          },
+          after: null,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Event source deleted successfully',
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception deleting event source:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}

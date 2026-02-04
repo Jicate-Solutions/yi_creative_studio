@@ -67,7 +67,7 @@ export async function analyzeImage(
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     // Build the prompt
     const expectedElementsText = request.expectedElements
@@ -152,7 +152,7 @@ export async function analyzeImage(
       flagForReview: analysisResult.flagForReview,
       reviewReasons: analysisResult.reviewReasons,
       reviewCompleted: false,
-      modelUsed: 'gemini-2.0-flash-exp',
+      modelUsed: 'gemini-2.5-flash',
       processingTimeMs,
       rawResponse: analysisResult,
       createdAt: new Date().toISOString(),
@@ -241,7 +241,7 @@ export async function quickQualityCheck(imageUrl: string): Promise<{
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const quickPrompt = `Quick quality check. Rate 0-100 and list any MAJOR issues only.
 Response format: {"score": <0-100>, "majorIssues": ["issue1", "issue2"]}`

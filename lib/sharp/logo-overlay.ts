@@ -43,14 +43,15 @@ export interface AdaptiveRowHeights {
 // REASON: User wants AI-generated blue gradient visible through logo overlays
 //         NOT opaque white bars, NOT semi-transparent (0.92), TRANSPARENT!
 //
-// APPROVED TRANSPARENCY VALUES (v24.6):
-// - Row 1 (Brand Logos):     alpha: 0.1  (nearly transparent - Gemini header shows)
-// - Row 2 (Vertical Logos):  alpha: 0    (fully transparent - blue gradient visible)
-// - Row 3 (Initiative Text): alpha: 0.85 (semi-transparent - text readability maintained)
+// APPROVED TRANSPARENCY VALUES (v24.12.2):
+// - Row 1 (Brand Logos):     alpha: 0.05  (very transparent - Gemini header shows)
+// - Row 2 (Vertical Logos):  alpha: 0     (fully transparent - blue gradient visible)
+// - Row 3 (Initiative Text): alpha: 0.7   (more transparent - better visual flow)
 //
 // HISTORY:
 // - v24.5: Changed to alpha: 0.92 (semi-transparent) → User rejected (too opaque)
 // - v24.6: Changed to alpha: 0.1/0/0.85 → User approved (Gemini shows through)
+// - v24.12.2: Changed to alpha: 0.05/0/0.7 → More transparency for full-canvas visual flow
 //
 // If you're considering changing these values:
 // 1. Read doc/v24.6-full-canvas-restoration.md
@@ -59,16 +60,22 @@ export interface AdaptiveRowHeights {
 // ============================================================================
 
 /**
- * LOGO BAR TRANSPARENCY VALUES (v24.6)
+ * LOGO BAR TRANSPARENCY VALUES (v24.12.2)
  *
  * These values control how much of Gemini's header/footer design shows through logo bars.
  * Lower alpha = more transparent = more Gemini design visible
  *
  * ⚠️ DO NOT INCREASE THESE VALUES - User specifically wants transparent overlays
+ *
+ * v24.12.2: Increased transparency to let Gemini's full-canvas visual elements flow through
+ * - Goal: Remove visible horizontal lines at header/content and content/footer boundaries
+ * - Gemini now generates visual elements edge-to-edge (0% to 100%)
+ * - Logo bars should blend seamlessly with underlying design
  */
-const LOGO_BAR_ALPHA_ROW1_BRAND = 0.1      // Nearly transparent (Gemini header shows)
+const LOGO_BAR_ALPHA_ROW1_BRAND = 0.05     // v24.12.2: More transparent (was 0.1) - Gemini header design shows through
 const LOGO_BAR_ALPHA_ROW2_VERTICAL = 0     // Fully transparent (blue gradient visible)
-const LOGO_BAR_ALPHA_ROW3_INITIATIVE = 0.85 // Semi-transparent (text readable)
+const LOGO_BAR_ALPHA_ROW3_INITIATIVE = 0.7 // v24.12.2: More transparent (was 0.85) - better visual flow
+const LOGO_BAR_ALPHA_ROW4_FOOTER = 0.7     // v24.13: Same as initiative row - centered card, not full-width bar
 
 // Logo position grid (18 positions - 6 columns × 3 rows) - matches lib/config/constants.ts
 export type LogoPosition =
@@ -2513,9 +2520,9 @@ export async function createEnhanced4RowFooterStrip(
   const zoneGaps = 10     // v16.8: 5px gap between each zone (2 gaps × 5px = 10px total)
   const contentWidth = zone1Width + zone2Width + zone3Width + zonePadding + zoneGaps
   const minCardWidth = 320
-  const maxCardWidth = imageWidth * 0.95
+  const maxCardWidth = imageWidth * 0.75  // v24.13: Reduced from 0.95 to match header card width (centered card, not full-width bar)
 
-  // v16.5: Dynamic width (fit-to-content), min 320px, max 95% of image
+  // v24.13: Dynamic width (fit-to-content), min 320px, max 75% of image (centered card like Row 2/3)
   // CRITICAL: Must be integer for Sharp - floating point values cause "Expected valid width" error
   const stripWidth = Math.floor(Math.min(maxCardWidth, Math.max(minCardWidth, contentWidth)))
   const stripLeft = Math.floor((imageWidth - stripWidth) / 2)  // Center horizontally
@@ -2533,8 +2540,9 @@ export async function createEnhanced4RowFooterStrip(
     },
   }).png().toBuffer()
 
-  // Get background color for SVG rendering
-  const bgColor = hexToSharpBackground(background.color, background.opacity)
+  // v24.13: Use consistent alpha (same as initiative row) for footer background
+  // This creates a centered card with semi-transparent white background, not a full-width opaque bar
+  const bgColor = { r: 255, g: 255, b: 255, alpha: LOGO_BAR_ALPHA_ROW4_FOOTER }
 
   // v16.5: Skip old shape mask - use direct SVG background with rounded top corners
   // Apply shape mask if not rectangle (legacy support)

@@ -282,6 +282,9 @@ export async function generateEventUnderstanding(
       throw new Error('Invalid event profile structure')
     }
 
+    // v25.0: Override formality for premium/formal events based on keywords
+    eventProfile.formality = overrideFormalityIfNeeded(input.eventName, eventProfile.formality)
+
     // Track API usage (only if userId and organizationId are provided)
     if (options?.userId && options?.organizationId) {
       await trackApiUsage({
@@ -378,6 +381,47 @@ export function generateFallbackEventProfile(input: EventUnderstandingInput): Ev
     selectedConcept: 'Professional Event Theme',
     confidence: 0.5
   }
+}
+
+// ============================================================================
+// Premium Event Keywords (v25.0 - Formality Override)
+// ============================================================================
+
+/**
+ * Keywords that indicate formal/premium events where literal imagery is preferred
+ * over creative metaphors. When detected, formality is boosted to 'premium'.
+ */
+const PREMIUM_EVENT_KEYWORDS = [
+  'mou', 'signing', 'ceremony', 'inauguration', 'launch',
+  'ribbon cutting', 'foundation', 'dedication', 'unveiling',
+  'agreement', 'partnership', 'collaboration', 'memorandum',
+  'groundbreaking', 'commencement', 'convocation', 'summit',
+  'award', 'felicitation', 'recognition', 'investiture'
+]
+
+/**
+ * Check if event name contains premium/formal keywords
+ * Used to override formality to 'premium' for literal imagery
+ */
+export function detectPremiumFormality(eventName: string): boolean {
+  const eventNameLower = eventName.toLowerCase()
+  return PREMIUM_EVENT_KEYWORDS.some(keyword => eventNameLower.includes(keyword))
+}
+
+/**
+ * Override formality based on event keywords
+ * Called after AI generates formality to ensure formal events get literal treatment
+ */
+export function overrideFormalityIfNeeded(
+  eventName: string,
+  aiFormality: EventProfile['formality']
+): EventProfile['formality'] {
+  if (detectPremiumFormality(eventName)) {
+    console.log('[Event Understanding] v25.0: Premium keyword detected, overriding formality to "premium"')
+    console.log('[Event Understanding] Original formality:', aiFormality)
+    return 'premium'
+  }
+  return aiFormality
 }
 
 // ============================================================================

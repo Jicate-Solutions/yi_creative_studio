@@ -26,9 +26,23 @@ export interface ColorPersonality {
 }
 
 /**
- * Analyzes a hex color and returns its emotional personality and visual characteristics
+ * v25.0 Formality type for controlling creative vs literal output
  */
-export function analyzeColorPersonality(hex: string): ColorPersonality {
+export type FormalityLevel = 'casual' | 'professional' | 'premium' | 'exclusive'
+
+/**
+ * Analyzes a hex color and returns its emotional personality and visual characteristics
+ *
+ * v25.0: Added optional formality parameter to suppress metaphorical elements for formal events
+ * When formality is 'premium' or 'exclusive', returns professional corporate elements
+ * instead of creative metaphors (e.g., no botanical patterns for green colors)
+ */
+export function analyzeColorPersonality(
+  hex: string,
+  formality?: FormalityLevel
+): ColorPersonality {
+  // v25.0: Check if this is a formal event requiring literal imagery
+  const isFormalEvent = formality === 'premium' || formality === 'exclusive'
   // Normalize hex to uppercase without #
   const normalized = hex.replace('#', '').toUpperCase()
 
@@ -65,28 +79,32 @@ export function analyzeColorPersonality(hex: string): ColorPersonality {
 
   // Determine personality based on hue ranges
 
-  // Green Family (80-160°) - Nature, Growth, Health
+  // Green Family (80-160°) - v24.12.6: COLOR AS COLOR, NOT THEME TRIGGER
+  // GREEN = professional/geometric elements, NOT botanical/nature
   if (hue >= 80 && hue < 160) {
+    // v24.12.6: Return professional elements for ALL events (not just premium/exclusive)
+    // This prevents green color from triggering "trees, leaves, botanical" visual elements
+    console.log('[Color Personality] v24.12.6: Green color detected - using professional elements (no botanical)')
     return {
-      name: 'Nature/Growth',
-      mood: 'organic',
-      primaryMood: 'organic',
-      secondaryMood: 'calming',
+      name: 'Fresh/Professional',
+      mood: 'professional',
+      primaryMood: 'professional',
+      secondaryMood: 'trustworthy',
       energyLevel: 'medium',
       visualElements: [
-        'flowing organic forms',
-        'botanical patterns',
-        'leaf silhouettes',
-        'growth metaphors (seedlings, vines)',
-        'natural textures',
-        'eco-friendly symbols'
+        'clean geometric shapes',
+        'professional gradients',
+        'modern architectural elements',
+        'structured grid patterns',
+        'elegant line work',
+        'contemporary design aesthetics'
       ],
-      backgroundStyle: 'Organic flowing environment with natural depth - think living forest atmosphere, bio-luminescent nodes, or sustainable ecosystem visuals',
-      lightingStyle: 'Soft natural daylight filtering through canopy, gentle bio-luminescence',
+      backgroundStyle: 'Professional modern environment with elegant depth - clean gradients, sophisticated compositions, premium finish',
+      lightingStyle: 'Professional studio lighting, clean ambient glow, elegant rim lighting',
       depthLayers: {
-        foreground: 'Gentle leaf silhouettes or organic patterns (10-20% opacity)',
-        midground: 'Text content with natural framing elements',
-        background: 'Deep atmospheric nature scene - forest depth, botanical garden, or eco-system'
+        foreground: 'Subtle geometric overlays or professional patterns (10-15% opacity)',
+        midground: 'Text content with clean professional framing',
+        background: 'Modern professional atmospheric depth - clean, sophisticated, premium'
       }
     }
   }

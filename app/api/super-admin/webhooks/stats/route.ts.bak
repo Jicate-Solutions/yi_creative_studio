@@ -1,0 +1,95 @@
+/**
+ * Super Admin API: Webhook Statistics
+ * GET /api/super-admin/webhooks/stats
+ *
+ * Returns dashboard statistics for webhook management
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+
+export async function GET(request: NextRequest) {
+  return superAdminGuard(request, async (req, { adminClient }) => {
+    try {
+      // Using 'as any' because these tables are not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      // Get event sources stats
+      const { data: sources, error: sourcesError } = await client
+        .from('event_sources')
+        .select('id, is_active')
+
+      if (sourcesError) {
+        console.error('[super-admin] Failed to fetch event sources:', sourcesError)
+      }
+
+      const totalSources = sources?.length || 0
+      const activeSources = sources?.filter((s: { is_active: boolean }) => s.is_active).length || 0
+
+      // Get synced events count (last 24h and total)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+      const { count: totalEvents } = await client
+        .from('synced_events')
+        .select('*', { count: 'exact', head: true })
+
+      const { count: recentEvents } = await client
+        .from('synced_events')
+        .select('*', { count: 'exact', head: true })
+        .gte('synced_at', twentyFourHoursAgo)
+
+      // Get webhook logs stats (last 7 days)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: logs, error: logsError } = await client
+        .from('webhook_logs')
+        .select('status')
+        .gte('created_at', sevenDaysAgo)
+
+      let successRate = 100
+      let recentErrors = 0
+
+      if (!logsError && logs && logs.length > 0) {
+        const successCount = logs.filter((l: { status: string }) => l.status === 'success').length
+        const errorCount = logs.filter((l: { status: string }) => l.status === 'error' || l.status === 'validation_error').length
+        successRate = Math.round((successCount / logs.length) * 100)
+        recentErrors = errorCount
+      }
+
+      // Get recent activity
+      const { data: recentLogs } = await client
+        .from('webhook_logs')
+        .select('id, source_app_id, action, status, event_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      return NextResponse.json({
+        success: true,
+        stats: {
+          sources: {
+            total: totalSources,
+            active: activeSources,
+            inactive: totalSources - activeSources,
+          },
+          events: {
+            total: totalEvents || 0,
+            last24h: recentEvents || 0,
+          },
+          logs: {
+            successRate,
+            recentErrors,
+            totalLast7Days: logs?.length || 0,
+          },
+        },
+        recentActivity: recentLogs || [],
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception fetching webhook stats:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}

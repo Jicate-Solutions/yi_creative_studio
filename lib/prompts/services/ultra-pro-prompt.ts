@@ -564,7 +564,8 @@ async function callGemini(
   topP: number = 0.9
 ): Promise<LLMResponse> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
-  const modelName = 'gemini-2.0-flash-exp'
+  // v25.0: Updated from deprecated gemini-2.0-flash-exp
+  const modelName = 'gemini-2.5-flash'
 
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured')

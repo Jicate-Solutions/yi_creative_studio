@@ -11,6 +11,7 @@ import { DEFAULT_DESIGN_DATA, DEFAULT_COLOR_CONFIG, DEFAULT_ENHANCED_4ROW_STRIP,
 import type { TypographySuggestion } from '@/types/typography-suggestions'
 import type { CreativeFormat, CreativeFormatId } from '@/lib/config/creative-formats'
 import { CREATIVE_FORMATS, getFormatById } from '@/lib/config/creative-formats'
+import { resolveFieldId } from '@/lib/config/field-registry'
 import {
   type LogoSizePreset,
   DEFAULT_LOGO_SIZE,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/constants/logoConstants'
 import type { GeneratedSchema, DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import type { LogoPreset } from '@/types/logo-presets'
+import type { ExternalEventMeta, ExternalEventImportState, EventMappingResult, DynamicField } from '@/types/external-event.types'
 
 // Re-export for convenience
 export type { GeneratedSchema, DynamicSchemaField }
@@ -217,6 +219,17 @@ const initialColorShuffleState: ColorShuffleState = {
   parentCreativeId: null,
 }
 
+// External Event Import State (for events fetched from MyJKKN, Yi Connect, etc.)
+const initialExternalEventState: ExternalEventImportState = {
+  isLoading: false,
+  error: null,
+  externalEventMeta: null,
+  previewData: null,
+  hasChanges: false,
+  changedFields: [],
+  dynamicFields: [], // v3.0: Custom fields from external source
+}
+
 interface CreativeState {
   // Available data
   verticals: VerticalPreset[]
@@ -251,6 +264,9 @@ interface CreativeState {
 
   // Color Shuffle state (Canva-style color remixing)
   colorShuffle: ColorShuffleState
+
+  // External Event Import State (for events from MyJKKN, Yi Connect, etc.)
+  externalEventImport: ExternalEventImportState
 
   // Generation state
   isGenerating: boolean
@@ -341,6 +357,16 @@ interface CreativeState {
     size?: LogoSizePreset
     backgroundShape?: LogoBackgroundShape
   }>) => void
+
+  // External Event Import Actions
+  setExternalEventLoading: (loading: boolean) => void
+  setExternalEventError: (error: string | null) => void
+  setExternalEventMeta: (meta: ExternalEventMeta | null) => void
+  setExternalEventPreview: (preview: EventMappingResult | null) => void
+  setExternalEventChanges: (hasChanges: boolean, changedFields: string[]) => void
+  importExternalEvent: (meta: ExternalEventMeta, formData: Record<string, unknown>, mappedFields: string[], dynamicFields?: DynamicField[], formatId?: CreativeFormatId) => void
+  clearExternalEventImport: () => void
+  updateFormFromExternalEvent: (formData: Record<string, unknown>) => void
 
   setGenerating: (generating: boolean) => void
   setGenerationProgress: (progress: number) => void
@@ -487,6 +513,7 @@ export const useCreativeStore = create<CreativeState>()(
       dynamicSchema: initialDynamicSchemaState,
       templateResize: initialTemplateResizeState,
       colorShuffle: initialColorShuffleState,
+      externalEventImport: initialExternalEventState,
       isGenerating: false,
       generationProgress: 0,
       generatedImage: null,
@@ -1590,6 +1617,104 @@ export const useCreativeStore = create<CreativeState>()(
         })
       },
 
+      // External Event Import Actions
+      setExternalEventLoading: (isLoading) =>
+        set((state) => ({
+          externalEventImport: { ...state.externalEventImport, isLoading, error: null },
+        })),
+
+      setExternalEventError: (error) =>
+        set((state) => ({
+          externalEventImport: { ...state.externalEventImport, error, isLoading: false },
+        })),
+
+      setExternalEventMeta: (externalEventMeta) =>
+        set((state) => ({
+          externalEventImport: { ...state.externalEventImport, externalEventMeta },
+        })),
+
+      setExternalEventPreview: (previewData) =>
+        set((state) => ({
+          externalEventImport: { ...state.externalEventImport, previewData },
+        })),
+
+      setExternalEventChanges: (hasChanges, changedFields) =>
+        set((state) => ({
+          externalEventImport: { ...state.externalEventImport, hasChanges, changedFields },
+        })),
+
+      importExternalEvent: (meta, eventFormData, mappedFields, dynamicFields = [], formatId) => {
+        const currentState = get()
+        const currentFormData = currentState.formData
+
+        // v3.1: Build complete updated state in single atomic operation
+        let selectedFormat = currentState.selectedFormat
+        let recentFormats = currentState.recentFormats
+
+        // If formatId provided, update format selection (replaces dual set() calls)
+        if (formatId) {
+          console.log('[Creative Store] ✅ Auto-selecting inferred format:', formatId)
+          const format = getFormatById(formatId)
+          if (format) {
+            selectedFormat = format
+            // Update recent formats (add to front, remove duplicates, limit to max)
+            recentFormats = [formatId, ...recentFormats.filter((id) => id !== formatId)].slice(0, MAX_RECENT_FORMATS)
+          }
+        } else {
+          console.log('[Creative Store] ⚠️ No format inferred (feature flag disabled or inference failed)')
+        }
+
+        // Build updated formData with external event fields merged
+        const updatedFormData = {
+          ...currentFormData,
+          formatId: formatId || currentFormData.formatId, // Use inferred or keep current
+          customDimensions: formatId ? null : currentFormData.customDimensions, // Clear if format set
+          formData: { ...currentFormData.formData, ...eventFormData }, // Merge field data
+          aiFilledFields: [...new Set([...currentFormData.aiFilledFields, ...mappedFields])],
+        }
+
+        // Single atomic store update - fixes state conflict bug
+        set({
+          formData: updatedFormData,
+          selectedFormat: selectedFormat,
+          recentFormats: recentFormats,
+          externalEventImport: {
+            isLoading: false,
+            error: null,
+            externalEventMeta: meta,
+            previewData: null,
+            hasChanges: false,
+            changedFields: [],
+            dynamicFields, // v3.0: Store dynamic fields from external source
+          },
+          // Clear previous generation when importing new event
+          generatedImage: formatId ? null : currentState.generatedImage,
+          generationError: formatId ? null : currentState.generationError,
+        })
+
+        // Debug logging to verify data flow
+        console.log('[Creative Store] Imported event data:', {
+          formatId: updatedFormData.formatId,
+          fieldCount: Object.keys(eventFormData).length,
+          fields: Object.keys(eventFormData),
+          mappedFields: mappedFields,
+          formDataKeys: Object.keys(updatedFormData.formData),
+        })
+      },
+
+      clearExternalEventImport: () =>
+        set({ externalEventImport: initialExternalEventState }),
+
+      updateFormFromExternalEvent: (eventFormData) => {
+        const { formData } = get()
+        set({
+          formData: {
+            ...formData,
+            formData: { ...formData.formData, ...eventFormData },
+          },
+        })
+      },
+
       setGenerating: (isGenerating) => set({ isGenerating }),
 
       setGenerationProgress: (generationProgress) => set({ generationProgress }),
@@ -1626,15 +1751,19 @@ export const useCreativeStore = create<CreativeState>()(
         const suggestion = aiForm.suggestions[field]
 
         if (suggestion?.value) {
+          // v24.10: Resolve alias to canonical field ID (e.g., 'description' -> 'eventDescription')
+          // This ensures AI suggestions are stored under the correct form field key
+          const canonicalFieldId = resolveFieldId(field)
+
           // v22.0: Track AI-filled field (avoid duplicates)
-          const aiFilledFields = formData.aiFilledFields.includes(field)
+          const aiFilledFields = formData.aiFilledFields.includes(canonicalFieldId)
             ? formData.aiFilledFields
-            : [...formData.aiFilledFields, field]
+            : [...formData.aiFilledFields, canonicalFieldId]
 
           set({
             formData: {
               ...formData,
-              formData: { ...formData.formData, [field]: suggestion.value },
+              formData: { ...formData.formData, [canonicalFieldId]: suggestion.value },
               aiFilledFields,
             },
             aiForm: {
@@ -1660,8 +1789,10 @@ export const useCreativeStore = create<CreativeState>()(
 
         Object.entries(aiForm.suggestions).forEach(([field, suggestion]) => {
           if (suggestion?.value) {
-            updates[field] = suggestion.value
-            newAiFields.push(field)
+            // v24.10: Resolve alias to canonical field ID (e.g., 'description' -> 'eventDescription')
+            const canonicalFieldId = resolveFieldId(field)
+            updates[canonicalFieldId] = suggestion.value
+            newAiFields.push(canonicalFieldId)
           }
         })
 
@@ -2499,6 +2630,7 @@ export const useCreativeStore = create<CreativeState>()(
           dynamicSchema: initialDynamicSchemaState,
           templateResize: initialTemplateResizeState,
           colorShuffle: initialColorShuffleState,
+          externalEventImport: initialExternalEventState,
           generatedImage: null,
           generationError: null,
           generationProgress: 0,
@@ -2558,6 +2690,9 @@ export const useCreativeStore = create<CreativeState>()(
 
           // Reset color shuffle states (session-only, never persisted)
           state.colorShuffle = initialColorShuffleState
+
+          // Reset external event import states (session-only, never persisted)
+          state.externalEventImport = initialExternalEventState
 
           // Migrate old creatives without useBrandFont (backward compatibility)
           if (state.formData?.designData?.colorConfig) {

@@ -21,6 +21,12 @@ import { FileText, Sparkles, Check, X, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCreativeStore } from '@/stores/creative-store'
+import { useFieldExtraction } from '@/hooks/use-field-extraction'
+import {
+  SmartPasteToggle,
+  SmartPasteInput,
+  ExtractionPreview,
+} from '@/components/create/smart-paste'
 import {
   getCreativeSchema,
   validateFormData,
@@ -48,6 +54,7 @@ import {
   getDefaultExpandedSections,
   type FormSection as FormSectionType,
 } from '@/lib/config/form-sections'
+import type { DynamicField as ExternalDynamicField } from '@/types/external-event.types'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
 import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
 
@@ -160,6 +167,10 @@ interface DynamicDetailsFormProps {
   speakerPhotoValue?: SpeakerPhotoValue
   /** Callback when speaker photo settings change */
   onSpeakerPhotoChange?: (data: Partial<SpeakerPhotoValue>) => void
+  /** Organization ID for Smart Paste feature */
+  organizationId?: string
+  /** Dynamic fields from external event source (v3.0) */
+  externalDynamicFields?: ExternalDynamicField[]
 }
 
 // ============================================================================
@@ -252,7 +263,7 @@ function DynamicField({
         {showSuggestion && suggestion && !value && (
           <div
             className={cn(
-              'absolute inset-0 pointer-events-none px-3 py-2 text-muted-foreground/50 italic',
+              'absolute inset-0 pointer-events-none px-3 py-2 text-gray-800 italic',
               field.type === 'textarea' ? 'min-h-[80px]' : ''
             )}
           >
@@ -442,10 +453,64 @@ export function DynamicDetailsForm({
   useSections = true, // Enable sections by default
   speakerPhotoValue,
   onSpeakerPhotoChange,
+  organizationId,
+  externalDynamicFields = [],
 }: DynamicDetailsFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const fallbackToastShownRef = useRef(false)
+
+  // Smart Paste state
+  const [smartPasteMode, setSmartPasteMode] = useState(false)
+  const [hasAppliedExtraction, setHasAppliedExtraction] = useState(false)
+
+  // Smart Paste hook - only initialize if organizationId is available
+  const {
+    isExtracting,
+    extractionError,
+    extractionResult,
+    extractFields,
+    applyExtractedFields,
+    applyExtractedSpeakers,
+    clearExtraction,
+    editExtractedField,
+  } = useFieldExtraction({
+    organizationId: organizationId || '',
+  })
+
+  // Get vertical slug from name
+  const verticalSlug = useMemo(() => {
+    if (!verticalName) return undefined
+    return verticalName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  }, [verticalName])
+
+  // Handle extraction
+  const handleExtract = useCallback(async (rawText: string) => {
+    await extractFields(rawText, verticalSlug, formatId || undefined)
+  }, [extractFields, verticalSlug, formatId])
+
+  // Handle apply extracted fields
+  const handleApplyExtraction = useCallback((selectedFieldIds: string[]) => {
+    applyExtractedFields(selectedFieldIds)
+    setSmartPasteMode(false)
+    setHasAppliedExtraction(true)
+    clearExtraction()
+    toast.success('Fields populated from extracted data', {
+      description: `${selectedFieldIds.length} field${selectedFieldIds.length !== 1 ? 's' : ''} applied`,
+    })
+  }, [applyExtractedFields, clearExtraction])
+
+  // Handle apply speakers
+  const handleApplySpeakers = useCallback(() => {
+    applyExtractedSpeakers()
+    toast.success('Speakers added to form')
+  }, [applyExtractedSpeakers])
+
+  // Handle cancel extraction
+  const handleCancelExtraction = useCallback(() => {
+    clearExtraction()
+    setSmartPasteMode(false)
+  }, [clearExtraction])
 
   // Show toast notification when fallback schema is used
   useEffect(() => {
@@ -842,20 +907,53 @@ export function DynamicDetailsForm({
         )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Loading skeleton when generating dynamic fields */}
-        {isDynamicSchemaLoading && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormFieldSkeleton />
-            <FormFieldSkeleton />
-            <div className="md:col-span-2">
-              <Skeleton className="h-4 w-32 mb-2" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-            <FormFieldSkeleton />
-            <FormFieldSkeleton />
-          </div>
+        {/* Smart Paste Toggle - only show when organizationId is available */}
+        {organizationId && !isDynamicSchemaLoading && (
+          <SmartPasteToggle
+            enabled={smartPasteMode}
+            onToggle={setSmartPasteMode}
+            hasExtractedData={hasAppliedExtraction}
+          />
         )}
-        {/* First field with AI trigger button - only show when NOT using sections */}
+
+        {/* Smart Paste Mode Content */}
+        {smartPasteMode && organizationId && (
+          <>
+            {extractionResult ? (
+              <ExtractionPreview
+                result={extractionResult}
+                onApply={handleApplyExtraction}
+                onApplySpeakers={handleApplySpeakers}
+                onCancel={handleCancelExtraction}
+                onEditField={editExtractedField}
+              />
+            ) : (
+              <SmartPasteInput
+                onExtract={handleExtract}
+                isExtracting={isExtracting}
+                error={extractionError}
+              />
+            )}
+          </>
+        )}
+
+        {/* Regular Form Mode - hide when in Smart Paste mode */}
+        {!smartPasteMode && (
+          <>
+            {/* Loading skeleton when generating dynamic fields */}
+            {isDynamicSchemaLoading && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormFieldSkeleton />
+                <FormFieldSkeleton />
+                <div className="md:col-span-2">
+                  <Skeleton className="h-4 w-32 mb-2" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+                <FormFieldSkeleton />
+                <FormFieldSkeleton />
+              </div>
+            )}
+            {/* First field with AI trigger button - only show when NOT using sections */}
         {!isDynamicSchemaLoading && titleField && !useSections && (
           <div className="space-y-2">
             <Label htmlFor={titleField.id}>
@@ -1146,6 +1244,52 @@ export function DynamicDetailsForm({
           )
         )}
 
+        {/* Additional Information - External Dynamic Fields (v3.0) */}
+        {!isDynamicSchemaLoading && externalDynamicFields && externalDynamicFields.length > 0 && (
+          <FormSection
+            sectionId="additional-info"
+            title="Additional Information"
+            icon="Sparkles"
+            description="Custom fields from external event source"
+            defaultExpanded={true}
+            completedFields={externalDynamicFields.filter(f => {
+              const value = formData[f.fieldId]
+              return value && String(value).trim().length > 0
+            }).length}
+            requiredFields={0}
+            totalFields={externalDynamicFields.length}
+            hasErrors={false}
+          >
+            {externalDynamicFields.map((field) => (
+              <div key={field.fieldId} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary">
+                    from {field.source}
+                  </Badge>
+                </div>
+                <DynamicField
+                  field={{
+                    id: field.fieldId,
+                    label: field.inferredLabel,
+                    // Convert dynamic field types to compatible SchemaField types
+                    // 'boolean' and 'number' are not in FieldType, so use 'text'
+                    type: ['boolean', 'number'].includes(field.inferredType) ? 'text' : field.inferredType as 'text' | 'textarea' | 'date' | 'time' | 'select',
+                    required: false,
+                    placeholder: `Enter ${field.inferredLabel.toLowerCase()}`,
+                    suggestable: false,
+                    ...(field.inferredType === 'textarea' && { rows: 3 }),
+                    ...(field.inferredType === 'text' && { maxLength: 200 }),
+                  }}
+                  value={String(formData[field.fieldId] ?? field.value ?? '')}
+                  isLoading={false}
+                  onChange={(value) => handleFieldChange(field.fieldId, value)}
+                  error={errors[field.fieldId]}
+                />
+              </div>
+            ))}
+          </FormSection>
+        )}
+
         {/* Schema badge */}
         {!isDynamicSchemaLoading && (
           <div className="flex justify-end pt-2">
@@ -1165,6 +1309,8 @@ export function DynamicDetailsForm({
               }
             </Badge>
           </div>
+        )}
+          </>
         )}
 
       </CardContent>

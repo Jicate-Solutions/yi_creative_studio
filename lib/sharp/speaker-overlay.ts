@@ -12,9 +12,80 @@ import { normalizeSpeakerConfig, getSpeakerCount } from '@/lib/utils/speaker-mig
 import { findSafePositionWithPreference, findSafeOverlayZoneNearText } from './intelligent-positioning'
 import { detectSpeakerTextPosition } from '@/lib/ai/vision/text-detector'
 import type { MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
+// v24.40: Import shared dimension calculator for consistency with route.ts
+import { calculateSpeakerCardDimensions, getLayoutStrategy as getLayoutStrategyFromDimensions } from './speaker-dimensions'
 
 // Re-export types for use by other modules
 export type { LayoutStrategy }
+
+// ============================================================
+// v24.30: COLOR CONTRAST HELPERS FOR SPEAKER TEXT
+// ============================================================
+
+/**
+ * Calculate relative luminance of a hex color
+ * Based on WCAG 2.0 formula: https://www.w3.org/TR/WCAG20/#relativeluminancedef
+ */
+function getLuminance(hexColor: string): number {
+  // Remove # if present
+  const hex = hexColor.replace('#', '')
+
+  // Parse RGB values
+  const r = parseInt(hex.substring(0, 2), 16) / 255
+  const g = parseInt(hex.substring(2, 4), 16) / 255
+  const b = parseInt(hex.substring(4, 6), 16) / 255
+
+  // Apply gamma correction
+  const R = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4)
+  const G = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4)
+  const B = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4)
+
+  // Calculate luminance
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B
+}
+
+/**
+ * v24.30: Calculate contrast-aware text colors for speaker cards
+ * Chooses dark or light text based on poster background luminance
+ *
+ * @param posterColors - Primary/accent colors from the poster
+ * @returns Object with nameColor and designationColor
+ */
+export function getSpeakerTextColors(posterColors?: { primaryColor?: string; accentColor?: string }): {
+  nameColor: string
+  designationColor: string
+} {
+  // Default: Dark text (works on light backgrounds which are more common)
+  let nameColor = '#1A1A1A'
+  let designationColor = '#4A4A4A'
+
+  if (posterColors?.primaryColor) {
+    try {
+      // Calculate luminance of primary color
+      const luminance = getLuminance(posterColors.primaryColor)
+
+      console.log(`[v24.30 SpeakerTextColors] Primary color: ${posterColors.primaryColor}, Luminance: ${luminance.toFixed(3)}`)
+
+      if (luminance < 0.5) {
+        // Dark background → Use light text
+        nameColor = '#FFFFFF'
+        designationColor = '#E0E0E0'
+        console.log('[v24.30 SpeakerTextColors] Dark background detected → Using light text')
+      } else {
+        // Light background → Use dark text
+        nameColor = '#1A1A1A'
+        designationColor = '#4A4A4A'
+        console.log('[v24.30 SpeakerTextColors] Light background detected → Using dark text')
+      }
+    } catch (error) {
+      console.warn('[v24.30 SpeakerTextColors] Error calculating luminance, using defaults:', error)
+    }
+  } else {
+    console.log('[v24.30 SpeakerTextColors] No poster colors provided, using default dark text')
+  }
+
+  return { nameColor, designationColor }
+}
 
 interface SpeakerOverlayConfig {
   baseImageBuffer: Buffer
@@ -70,19 +141,18 @@ function calculateYPosition(
   headerHeight: number = 0,  // v20.7: Header zone height to prevent overlap with logo bar
   footerHeight: number = 0   // v20.7: Footer zone height to prevent overlap with footer bar
 ): number {
-  // v24.11: Percentages define where photo CENTER should be
-  // REMAPPED to fit within 40%-70% content zone (avoiding header/footer logo bars)
-  // Previous values: top=15%, upper=30%, middle=50%, lower=65%, bottom=80%
-  // These caused overlap with header (0-40%) and footer (70-100%) zones
+  // v24.25: Percentages define where photo CENTER should be
+  // REMAPPED to fit within 42%-62% content zone (avoiding header/footer AND text overlap)
+  // Previous values caused overlap with event details and footer
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
-    'top': 0.45,      // Center at 45% - just below header zone boundary (40%)
-    'upper': 0.52,    // Center at 52% - upper portion of content zone
-    'middle': 0.55,   // Center at 55% - center of content zone (40-70%)
-    'lower': 0.62,    // Center at 62% - lower portion of content zone
-    'bottom': 0.68,   // Center at 68% - just above footer zone boundary (70%)
+    'top': 0.44,      // Center at 44% - upper portion of content zone
+    'upper': 0.48,    // Center at 48% - upper-middle of content zone
+    'middle': 0.52,   // Center at 52% - center of content zone
+    'lower': 0.56,    // Center at 56% - lower-middle of content zone
+    'bottom': 0.70,   // v24.33: Center at 70% - speaker zone 58%-82%
   }
 
-  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.62  // v24.11: Default to 62% (lower position)
+  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.56  // v24.25: Default to 56%
   const baseY = Math.floor(imageHeight * percentage)
 
   // v20.7: CRITICAL - minY must account for header zone to prevent overlap with logo bar
@@ -138,14 +208,15 @@ export function calculateSpeakerPhotoCoordinates(
   leftEdge: number
   rightEdge: number
   photoSize: number  // v20.6: Original photo size (base size, without border/shadow)
+  compactMode?: boolean  // v24.45: Optional compact mode flag for tight zones
 } {
   const padding = 40
   const borderWidth = config.borderWidth || 0
 
   // v6.6 CRITICAL FIX: Include shadow padding to match actual buffer size
-  // Shadow config from addSpeakerPhotoShadow(): { blur: 15, offset: 3 } → padding = 18px per side
+  // v24.42: Fixed - actual shadow uses blur: 22, offset: 8 → padding = 30px per side
   const shouldAddShadow = config.shadow !== false  // Default to true for backward compatibility
-  const shadowPadding = shouldAddShadow ? 18 : 0
+  const shadowPadding = shouldAddShadow ? 30 : 0
   const totalPhotoSize = config.size + borderWidth * 2 + shadowPadding * 2
 
   // v20.7: Extract zone constraints
@@ -714,21 +785,28 @@ async function prepareSpeakerPhoto(
 
   if (shouldAddShadow) {
     // Step 1: Add glow/halo effect (helps photo blend with design)
+    // v24.43: Track glow size for accurate buffer size calculation
+    const glowSize = 12
     processedBuffer = await addPhotoGlow(
       processedBuffer,
       config.size,
       config.shape,
       {
         color: 'rgba(255,255,255,0.4)',  // Subtle white glow
-        size: 12,                        // 12px glow thickness
+        size: glowSize,                  // 12px glow thickness
         blur: 20                         // Soft, diffused glow
       }
     )
 
+    // v24.43: Calculate actual buffer size after glow expansion
+    // Glow adds padding on each side: 180 + 12*2 = 204px
+    const sizeAfterGlow = config.size + glowSize * 2
+
     // Step 1.5: Add thin visible border (v6.11)
+    // v24.43: Pass expanded size (border doesn't add padding, just overlays)
     processedBuffer = await addThinBorder(
       processedBuffer,
-      config.size,
+      sizeAfterGlow,
       config.shape,
       {
         width: 3,           // 3px thin border
@@ -737,10 +815,12 @@ async function prepareSpeakerPhoto(
     )
 
     // Step 2: Add enhanced shadow (v6.11: more visible)
-    // v6.11 enhancement: blur 20→22, opacity 0.7→0.8, offset 6→8 for better visibility
+    // v24.43: CRITICAL FIX - pass actual buffer size (204px), not original config.size (180px)
+    // This ensures shadow canvas is created at correct size: 204 + 30*2 = 264px
+    // Previously passed 180px which created 240px canvas - cropping the 204px buffer!
     processedBuffer = await addSpeakerPhotoShadow(
       processedBuffer,
-      config.size,
+      sizeAfterGlow,        // v24.43: Use 204px, not 180px
       config.shape,
       {
         blur: 22,           // More diffused shadow (v6.11)
@@ -748,7 +828,7 @@ async function prepareSpeakerPhoto(
         offset: { x: 8, y: 8 }  // More depth - 8px offset (v6.11)
       }
     )
-    console.log('[Speaker Photo] Applied glow + border + enhanced shadow (v6.11) for professional integration')
+    console.log(`[v24.43] Shadow applied with correct size: ${sizeAfterGlow}px (original: ${config.size}px)`)
   } else {
     console.log('[Speaker Photo] Shadow disabled - photo will sit directly on AI background')
   }
@@ -883,38 +963,93 @@ async function createSpeakerCardBuffer(config: {
   // Import text-to-path utility for font-independent text rendering
   const { textToPath, getTextWidth, getFontMetrics } = await import('./text-to-path')
 
+  // v24.51: Get consistent card dimensions from shared calculator for even spacing
+  const dims = calculateSpeakerCardDimensions(photoSize, { shadow: true, textEnabled: true })
+  const fixedCardWidth = dims.cardWidth  // Use fixed width for consistent layout
+
+  // v24.52: Smart split designation into role + company for 3-line layout
+  // Strategy 1: Split by comma if present
+  // Strategy 2: No comma but long text → split by words at ~50%
+  // Strategy 3: Short text → keep on single line
+  let displayDesignation = speakerDesignation || ''
+  let displayCompany = ''
+
+  if (displayDesignation.includes(',')) {
+    // Strategy 1: Comma-based split
+    const parts = displayDesignation.split(',').map(s => s.trim())
+    displayDesignation = parts[0] || ''
+    displayCompany = parts.slice(1).join(', ')
+  } else if (displayDesignation.length > 25) {
+    // Strategy 2: Word-based split at midpoint for long text without comma
+    const words = displayDesignation.split(' ')
+    if (words.length >= 3) {
+      const midIndex = Math.ceil(words.length / 2)
+      displayDesignation = words.slice(0, midIndex).join(' ')
+      displayCompany = words.slice(midIndex).join(' ')
+    }
+    // If only 2 words but still long, keep as-is (can't split well)
+  }
+  // Strategy 3: Short text stays on single line (no split needed)
+
   // Calculate text dimensions
+  // v24.30: Speaker name is ALWAYS bold for better visibility and emphasis
   const nameFontWeight = 'bold' as const
   const designationFontWeight = 'regular' as const
   const fontFamily = 'Poppins'
 
-  const nameWidth = getTextWidth(speakerName, fontFamily, textConfig.nameFontSize, nameFontWeight)
   const nameMetrics = getFontMetrics(fontFamily, textConfig.nameFontSize, nameFontWeight)
 
-  let designationWidth = 0
+  // v24.51: Calculate metrics for all 3 lines
+  const hasDesignation = !!displayDesignation
+  const hasCompany = !!displayCompany
+
   let designationMetrics = { lineHeight: 0, ascender: 0 }
-  if (speakerDesignation) {
-    designationWidth = getTextWidth(speakerDesignation, fontFamily, textConfig.designationFontSize, designationFontWeight)
+  if (hasDesignation) {
     designationMetrics = getFontMetrics(fontFamily, textConfig.designationFontSize, designationFontWeight)
+  }
+
+  let companyMetrics = { lineHeight: 0, ascender: 0 }
+  if (hasCompany) {
+    companyMetrics = getFontMetrics(fontFamily, textConfig.designationFontSize, designationFontWeight)
   }
 
   // Calculate card dimensions
   const padding = 20  // Horizontal padding on each side
   const bottomPadding = 10  // Bottom padding
-  const textGap = 4  // Gap between name and designation
+  const textGap = 2  // v24.51: Reduced gap for tighter 3-line layout (was 4)
 
-  // CRITICAL: Sharp requires integer dimensions - use Math.ceil to ensure we have enough space
-  const cardWidth = Math.ceil(Math.max(photoSize, nameWidth + padding * 2, designationWidth + padding * 2))
-  const textBlockHeight = Math.ceil(nameMetrics.lineHeight + (speakerDesignation ? designationMetrics.lineHeight + textGap : 0))
+  // v24.51: Use FIXED card width from shared calculator for consistent centering across all speakers
+  const cardWidth = fixedCardWidth
+
+  // v24.51: Calculate total text height with all 3 lines (no truncation)
+  let textBlockHeight = nameMetrics.lineHeight
+  if (hasDesignation) {
+    textBlockHeight += designationMetrics.lineHeight + textGap
+  }
+  if (hasCompany) {
+    textBlockHeight += companyMetrics.lineHeight + textGap
+  }
+  textBlockHeight = Math.ceil(textBlockHeight)
+
   const cardHeight = Math.ceil(photoSize + gap + textBlockHeight + bottomPadding)
+
+  console.log(`[Speaker Card v24.52] Smart split: "${speakerDesignation}" → designation="${displayDesignation}", company="${displayCompany}"`)
 
   // Calculate text positions (centered horizontally)
   const textCenterX = cardWidth / 2
   const nameY = photoSize + gap + nameMetrics.ascender
-  const designationY = nameY + nameMetrics.lineHeight + textGap
+  const designationY = hasDesignation
+    ? nameY + nameMetrics.lineHeight + textGap
+    : nameY
+  const companyY = hasCompany
+    ? (hasDesignation
+        ? designationY + designationMetrics.lineHeight + textGap
+        : nameY + nameMetrics.lineHeight + textGap)
+    : 0
 
   // Generate SVG paths for text
-  const namePath = textToPath(speakerName, {
+  // v24.51: Use FULL text - no truncation, 3-line layout
+  const namePath = textToPath(speakerName, {  // Full name, no truncation
     fontFamily,
     fontSize: textConfig.nameFontSize,
     fontWeight: nameFontWeight,
@@ -924,8 +1059,8 @@ async function createSpeakerCardBuffer(config: {
     textAnchor: 'middle',
   })
 
-  const designationPath = speakerDesignation
-    ? textToPath(speakerDesignation, {
+  const designationPath = displayDesignation
+    ? textToPath(displayDesignation, {  // Role/Title only
         fontFamily,
         fontSize: textConfig.designationFontSize,
         fontWeight: designationFontWeight,
@@ -936,19 +1071,41 @@ async function createSpeakerCardBuffer(config: {
       })
     : ''
 
+  // v24.51: NEW - Company on line 3
+  const companyPath = displayCompany
+    ? textToPath(displayCompany, {
+        fontFamily,
+        fontSize: textConfig.designationFontSize,
+        fontWeight: designationFontWeight,
+        x: textCenterX,
+        y: companyY,
+        fill: textConfig.designationColor,
+        textAnchor: 'middle',
+      })
+    : ''
+
   // Validate dimensions before creating Sharp buffers
   if (cardWidth <= 0 || cardHeight <= 0 || !Number.isFinite(cardWidth) || !Number.isFinite(cardHeight)) {
-    console.error(`[Speaker Card v24.16] Invalid dimensions: ${cardWidth}x${cardHeight}`)
+    console.error(`[Speaker Card v24.51] Invalid dimensions: ${cardWidth}x${cardHeight}`)
     throw new Error(`Invalid card dimensions: ${cardWidth}x${cardHeight}`)
   }
 
-  console.log(`[Speaker Card v24.16] Card dimensions: ${cardWidth}x${cardHeight}px, photo: ${photoSize}px`)
+  console.log(`[Speaker Card v24.51] Card dimensions: ${cardWidth}x${cardHeight}px, photo: ${photoSize}px`)
 
-  // Create SVG containing just the text
+  // v24.24: Create SVG containing text WITH shadow filter for visibility on any background
+  // v24.51: Added company path for 3-line layout
   const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${cardWidth}" height="${cardHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${namePath}
-  ${designationPath}
+  <defs>
+    <filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.8)"/>
+    </filter>
+  </defs>
+  <g filter="url(#textShadow)">
+    ${namePath}
+    ${designationPath}
+    ${companyPath}
+  </g>
 </svg>`
 
   // Render text SVG to buffer
@@ -1023,17 +1180,19 @@ function calculateAnchorPosition(config: {
       break
   }
 
-  // v24.11: Calculate Y based on vertical position
-  // REMAPPED to fit within 40%-70% content zone (avoiding header/footer logo bars)
+  // v24.25: Calculate Y based on vertical position
+  // REMAPPED to fit within 42%-62% content zone (avoiding header/footer logo bars AND text overlap)
+  // With text enabled, cards are ~337px tall. On 1440px image, that's 23% of height.
+  // Safe zone: 42% to 65% (304px center range for 337px cards)
   const positionPercentages: Record<PhotoVerticalPosition, number> = {
-    'top': 0.45,      // Center at 45% - just below header zone boundary (40%)
-    'upper': 0.52,    // Center at 52% - upper portion of content zone
-    'middle': 0.55,   // Center at 55% - center of content zone (40-70%)
-    'lower': 0.62,    // Center at 62% - lower portion of content zone
-    'bottom': 0.68,   // Center at 68% - just above footer zone boundary (70%)
+    'top': 0.44,      // Center at 44% - upper portion of content zone
+    'upper': 0.48,    // Center at 48% - upper-middle of content zone
+    'middle': 0.52,   // Center at 52% - center of content zone
+    'lower': 0.56,    // Center at 56% - lower-middle of content zone
+    'bottom': 0.70,   // v24.33: Center at 70% - speaker zone 58%-82%
   }
 
-  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.62  // v24.11: Default to 62%
+  const percentage = positionPercentages[verticalPosition || 'lower'] || 0.56  // v24.25: Default to 56%
   const baseY = Math.floor(imageHeight * percentage)
 
   // Center the block at the target Y position
@@ -1057,6 +1216,75 @@ function calculateAnchorPosition(config: {
 }
 
 /**
+ * v24.27: Calculate speaker positions from a pre-determined anchor point
+ * Used when we already know where the block should go (from exclusion zone calculation)
+ *
+ * This ensures Sharp places cards EXACTLY where Gemini was told to avoid,
+ * rather than recalculating positions which may produce different results.
+ */
+function calculateMultiSpeakerPositionsFromAnchor(config: {
+  anchorX: number
+  anchorY: number
+  speakerCount: number
+  layout: LayoutStrategy
+  photoSize: number
+  spacing: number
+  shadow?: boolean
+  textEnabled?: boolean
+}): Array<{ x: number; y: number }> {
+  const {
+    anchorX,
+    anchorY,
+    speakerCount,
+    layout,
+    photoSize,
+    spacing,
+    shadow,
+    textEnabled = true,
+  } = config
+
+  const positions: Array<{ x: number; y: number }> = []
+
+  // v24.40: Use shared dimension calculator for consistency with route.ts
+  const { cardWidth: effectiveCardWidth, cardHeight: effectiveCardHeight } = calculateSpeakerCardDimensions(
+    photoSize,
+    { shadow, textEnabled }
+  )
+
+  console.log(`[v24.40 FromAnchor] Using pre-calculated anchor: (${anchorX}, ${anchorY})`)
+  console.log(`[v24.40 FromAnchor] Card size: ${effectiveCardWidth}x${effectiveCardHeight}px, spacing: ${spacing}px`)
+
+  if (layout === 'side-by-side') {
+    for (let i = 0; i < speakerCount; i++) {
+      positions.push({
+        x: Math.floor(anchorX + i * (effectiveCardWidth + spacing)),
+        y: anchorY,
+      })
+    }
+  } else if (layout === 'stacked') {
+    for (let i = 0; i < speakerCount; i++) {
+      positions.push({
+        x: anchorX,
+        y: Math.floor(anchorY + i * (effectiveCardHeight + spacing)),
+      })
+    }
+  } else {
+    // Grid layout
+    const cols = 2
+    for (let i = 0; i < speakerCount; i++) {
+      const row = Math.floor(i / cols)
+      const col = i % cols
+      positions.push({
+        x: Math.floor(anchorX + col * (effectiveCardWidth + spacing)),
+        y: Math.floor(anchorY + row * (effectiveCardHeight + spacing)),
+      })
+    }
+  }
+
+  return positions
+}
+
+/**
  * Calculate speaker photo positions based on layout strategy AND user position settings
  * Supports 2-10 speakers with different layout modes
  *
@@ -1073,6 +1301,7 @@ export function calculateMultiSpeakerPositions(config: {
   position?: PhotoPosition
   verticalPosition?: PhotoVerticalPosition
   shadow?: boolean  // v6.6: Shadow toggle for accurate block size calculation
+  textEnabled?: boolean  // v24.25: Whether text is rendered with photos (affects card size)
 }): Array<{ x: number; y: number }> {
   const {
     speakerCount,
@@ -1084,32 +1313,35 @@ export function calculateMultiSpeakerPositions(config: {
     position = 'center',
     verticalPosition = 'lower',
     shadow,
+    textEnabled = true,  // v24.25: Default true for grouped speaker cards
   } = config
   const positions: Array<{ x: number; y: number }> = []
   const padding = 40
 
-  // v6.6 CRITICAL FIX: Include shadow padding in block dimensions
-  // Shadow config from addSpeakerPhotoShadow(): { blur: 15, offset: 3 } → padding = 18px per side
-  const shouldAddShadow = shadow !== false  // Default to true for backward compatibility
-  const shadowPadding = shouldAddShadow ? 18 : 0
-  const effectivePhotoSize = photoSize + shadowPadding * 2
+  // v24.40: Use shared dimension calculator for consistency with route.ts
+  const { cardWidth: effectiveCardWidth, cardHeight: effectiveCardHeight, effectivePhotoSize } = calculateSpeakerCardDimensions(
+    photoSize,
+    { shadow, textEnabled }
+  )
 
-  // Calculate block dimensions based on layout (using effective size with shadow)
+  console.log(`[v24.40 Card Sizing] textEnabled=${textEnabled}, effectiveCard=${effectiveCardWidth}x${effectiveCardHeight}px`)
+
+  // Calculate block dimensions based on layout (using effective card size)
   let blockWidth: number
   let blockHeight: number
 
   if (layout === 'side-by-side') {
-    blockWidth = speakerCount * effectivePhotoSize + (speakerCount - 1) * spacing
-    blockHeight = effectivePhotoSize
+    blockWidth = speakerCount * effectiveCardWidth + (speakerCount - 1) * spacing
+    blockHeight = effectiveCardHeight
   } else if (layout === 'stacked') {
-    blockWidth = effectivePhotoSize
-    blockHeight = speakerCount * effectivePhotoSize + (speakerCount - 1) * spacing
+    blockWidth = effectiveCardWidth
+    blockHeight = speakerCount * effectiveCardHeight + (speakerCount - 1) * spacing
   } else {
     // Grid layout
     const cols = 2
     const rows = Math.ceil(speakerCount / cols)
-    blockWidth = cols * effectivePhotoSize + (cols - 1) * spacing
-    blockHeight = rows * effectivePhotoSize + (rows - 1) * spacing
+    blockWidth = cols * effectiveCardWidth + (cols - 1) * spacing
+    blockHeight = rows * effectiveCardHeight + (rows - 1) * spacing
   }
 
   // Get the anchor position based on user settings
@@ -1123,30 +1355,31 @@ export function calculateMultiSpeakerPositions(config: {
     padding,
   })
 
-  // v6.7 DEBUG: Log coordinate calculation for System 2 (Sharp overlay)
-  console.log('[Coord System 2] calculateMultiSpeakerPositions():')
+  // v24.40: Log coordinate calculation for System 2 (Sharp overlay)
+  console.log('[v24.40 Coord System 2] calculateMultiSpeakerPositions():')
   console.log(`  - Input: position=${position}, vertical=${verticalPosition}, photoSize=${photoSize}`)
-  console.log(`  - Shadow: shouldAdd=${shouldAddShadow}, padding=${shadowPadding}px`)
-  console.log(`  - Effective size: ${effectivePhotoSize}px (photoSize + shadow*2)`)
+  console.log(`  - Shadow: enabled=${shadow !== false}`)
+  console.log(`  - Effective size: ${effectivePhotoSize}px (from shared calculator)`)
   console.log(`  - Block dimensions: ${blockWidth}x${blockHeight}`)
   console.log(`  - Image dimensions: ${imageWidth}x${imageHeight}`)
   console.log(`  - Calculated anchor: x=${anchorX}, y=${anchorY}`)
-  console.log(`[Speaker Positions] Anchor at x:${anchorX}, y:${anchorY} for position:${position}, vertical:${verticalPosition}`)
+  console.log(`[v24.40 Speaker Positions] Anchor at x:${anchorX}, y:${anchorY} for position:${position}, vertical:${verticalPosition}`)
 
   if (layout === 'side-by-side') {
-    // Horizontal row - place photos from anchor point
+    // Horizontal row - place cards from anchor point
+    // v24.25: Use effectiveCardWidth for proper spacing with text
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
-        x: Math.floor(anchorX + i * (effectivePhotoSize + spacing)),
+        x: Math.floor(anchorX + i * (effectiveCardWidth + spacing)),
         y: anchorY,
       })
     }
   } else if (layout === 'stacked') {
-    // Vertical stack - place photos from anchor point
+    // Vertical stack - place cards from anchor point
     for (let i = 0; i < speakerCount; i++) {
       positions.push({
         x: anchorX,
-        y: Math.floor(anchorY + i * (effectivePhotoSize + spacing)),
+        y: Math.floor(anchorY + i * (effectiveCardHeight + spacing)),
       })
     }
   } else if (layout === 'grid') {
@@ -1158,13 +1391,125 @@ export function calculateMultiSpeakerPositions(config: {
       const col = i % cols
 
       positions.push({
-        x: Math.floor(anchorX + col * (effectivePhotoSize + spacing)),
-        y: Math.floor(anchorY + row * (effectivePhotoSize + spacing)),
+        x: Math.floor(anchorX + col * (effectiveCardWidth + spacing)),
+        y: Math.floor(anchorY + row * (effectiveCardHeight + spacing)),
       })
     }
   }
 
   return positions
+}
+
+/**
+ * v24.26: Calculate FULL speaker block coordinates for Gemini exclusion zone
+ *
+ * CRITICAL: This must match calculateMultiSpeakerPositions() exactly!
+ * The exclusion zone sent to Gemini must be the SAME size as the actual Sharp overlay.
+ *
+ * Returns coordinates that account for:
+ * - Photo size + border + shadow + glow
+ * - Text dimensions (+90px width, +91px height per card)
+ * - Multi-speaker spacing
+ *
+ * This function solves the coordinate mismatch between:
+ * - System 1 (calculateSpeakerPhotoCoordinates): Single photo, no text dimensions
+ * - System 2 (calculateMultiSpeakerPositions): Multiple cards with text
+ */
+export function calculateMultiSpeakerExclusionZone(config: {
+  speakerCount: number
+  layout: LayoutStrategy
+  imageWidth: number
+  imageHeight: number
+  photoSize: number
+  spacing: number
+  position?: PhotoPosition
+  verticalPosition?: PhotoVerticalPosition
+  shadow?: boolean
+  textEnabled?: boolean
+}): {
+  x: number
+  y: number
+  width: number
+  height: number
+  topEdge: number
+  bottomEdge: number
+  leftEdge: number
+  rightEdge: number
+  photoSize: number  // v24.26: Include photoSize for compatibility with existing interface
+} {
+  const {
+    speakerCount,
+    layout,
+    imageWidth,
+    imageHeight,
+    photoSize,
+    spacing,
+    position = 'center',
+    verticalPosition = 'lower',
+    shadow,
+    textEnabled = true,
+  } = config
+
+  const padding = 40
+  const shouldAddShadow = shadow !== false
+  // v24.42: Fixed - actual shadow uses blur: 22, offset: 8 → padding = 30px per side
+  const shadowPadding = shouldAddShadow ? 30 : 0
+  const glowPadding = shouldAddShadow ? 12 : 0
+  const borderWidth = 3
+
+  // v24.26: MUST match calculateMultiSpeakerPositions() exactly
+  const effectivePhotoSize = photoSize + borderWidth * 2 + shadowPadding * 2 + glowPadding * 2
+  const textWidthBonus = textEnabled ? 90 : 0
+  const effectiveCardWidth = effectivePhotoSize + textWidthBonus
+  const effectiveCardHeight = textEnabled ? effectivePhotoSize + 91 : effectivePhotoSize
+
+  // Calculate block dimensions (same logic as calculateMultiSpeakerPositions)
+  let blockWidth: number
+  let blockHeight: number
+
+  if (layout === 'side-by-side') {
+    blockWidth = speakerCount * effectiveCardWidth + (speakerCount - 1) * spacing
+    blockHeight = effectiveCardHeight
+  } else if (layout === 'stacked') {
+    blockWidth = effectiveCardWidth
+    blockHeight = speakerCount * effectiveCardHeight + (speakerCount - 1) * spacing
+  } else {
+    // Grid layout
+    const cols = 2
+    const rows = Math.ceil(speakerCount / cols)
+    blockWidth = cols * effectiveCardWidth + (cols - 1) * spacing
+    blockHeight = rows * effectiveCardHeight + (rows - 1) * spacing
+  }
+
+  // Get anchor position (same logic as calculateMultiSpeakerPositions)
+  const { anchorX, anchorY } = calculateAnchorPosition({
+    position,
+    verticalPosition,
+    imageWidth,
+    imageHeight,
+    blockWidth,
+    blockHeight,
+    padding,
+  })
+
+  console.log('[v24.26 ExclusionZone] Calculated with text dimensions:')
+  console.log(`  - Speaker count: ${speakerCount}, Layout: ${layout}`)
+  console.log(`  - Card size: ${effectiveCardWidth}x${effectiveCardHeight}px (including text)`)
+  console.log(`  - Block size: ${blockWidth}x${blockHeight}px`)
+  console.log(`  - Anchor: x=${anchorX}, y=${anchorY}`)
+  console.log(`  - Exclusion zone: top=${anchorY}px (${Math.round(anchorY / imageHeight * 100)}%) to bottom=${anchorY + blockHeight}px (${Math.round((anchorY + blockHeight) / imageHeight * 100)}%)`)
+
+  return {
+    x: anchorX,
+    y: anchorY,
+    width: blockWidth,
+    height: blockHeight,
+    topEdge: anchorY,
+    bottomEdge: anchorY + blockHeight,
+    leftEdge: anchorX,
+    rightEdge: anchorX + blockWidth,
+    photoSize,  // v24.26: Return original photoSize for compatibility
+  }
 }
 
 /**
@@ -1203,7 +1548,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
     sharedSettings,
     layoutMode,
     layoutStrategy,
-    spacing = 20,
+    spacing = 40,  // v24.27: Changed from 20 to 40 to match exclusion zone spacing
     preCalculatedCoordinates,  // v20.4: Pre-calculated coordinates to skip AI positioning
   } = config
 
@@ -1228,11 +1573,14 @@ export async function overlayMultipleSpeakerPhotos(config: {
   // v6.14 INTELLIGENT POSITIONING: Analyze image to find safe overlay zones
   let positions: Array<{ x: number; y: number }>
 
-  // v20.6 DEBUG: Log the state of preCalculatedCoordinates check
-  console.log('[Speaker Overlay v20.6] Positioning decision:', {
+  // v24.27 DEBUG: Log the state of preCalculatedCoordinates check (updated to support multi-speaker)
+  console.log('[Speaker Overlay v24.27] Positioning decision:', {
     hasPreCalculatedCoords: !!preCalculatedCoordinates,
     speakersLength: speakers.length,
-    willUsePreCalculated: !!(preCalculatedCoordinates && speakers.length === 1),
+    willUsePreCalculated: !!(preCalculatedCoordinates),  // v24.27: Now supports any speaker count
+    positioningMode: preCalculatedCoordinates
+      ? (speakers.length === 1 ? 'single-pre-calc' : 'multi-pre-calc')
+      : (speakers.length === 1 ? 'single-ai' : 'multi-recalc'),
     coords: preCalculatedCoordinates ? `(${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})` : 'N/A',
     photoSize: preCalculatedCoordinates?.photoSize ?? 'N/A',  // v20.6: Log original photo size
     currentSharedSize: sharedSettings.size,  // v20.6: Log current sharedSettings.size for comparison
@@ -1256,7 +1604,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
   else if (speakers.length === 1) {
     // v6.15: STEP 1 - Detect speaker text position using Gemini Vision
     const shouldAddShadow = sharedSettings.shadow !== false
-    const shadowPadding = shouldAddShadow ? 18 : 0
+    // v24.42: Fixed - actual shadow uses blur: 22, offset: 8 → padding = 30px per side
+    const shadowPadding = shouldAddShadow ? 30 : 0
     const borderWidth = sharedSettings.border?.width || 3
     let totalPhotoSize = sharedSettings.size + borderWidth * 2 + shadowPadding * 2
 
@@ -1311,7 +1660,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
           // v6.17.1 FIX: finalSize is already TOTAL size (includes shadow+border)
           // Extract base size by reversing the calculation
           const borderWidth = sharedSettings.border?.width || 3
-          const shadowPadding = sharedSettings.shadow !== false ? 18 : 0
+          // v24.42: Fixed - actual shadow uses blur: 22, offset: 8 → padding = 30px per side
+          const shadowPadding = sharedSettings.shadow !== false ? 30 : 0
           const baseSize = effectiveSize - borderWidth * 2 - shadowPadding * 2
 
           sharedSettings.size = baseSize  // Update base size
@@ -1388,8 +1738,30 @@ export async function overlayMultipleSpeakerPhotos(config: {
       positions = [{ x: coords.x, y: coords.y }]
       console.log('[Speaker Overlay v6.15] Fallback position: (', coords.x, ',', coords.y, ')')
     }
+  } else if (preCalculatedCoordinates && speakers.length > 1) {
+    // v24.27: Multiple speakers WITH pre-calculated coordinates
+    // Use the anchor from exclusion zone calculation to ensure EXACT match
+    console.log('[Speaker Overlay v24.27] ✅ Using PRE-CALCULATED anchor for multi-speaker')
+    console.log(`[Speaker Overlay v24.27] Anchor from exclusion zone: (${preCalculatedCoordinates.x}, ${preCalculatedCoordinates.y})`)
+
+    // Lock the photo size to match exclusion zone calculation
+    if (preCalculatedCoordinates.photoSize) {
+      console.log(`[Speaker Overlay v24.27] 🔒 Locking photoSize: ${preCalculatedCoordinates.photoSize}px`)
+      sharedSettings.size = preCalculatedCoordinates.photoSize
+    }
+
+    positions = calculateMultiSpeakerPositionsFromAnchor({
+      anchorX: preCalculatedCoordinates.x,
+      anchorY: preCalculatedCoordinates.y,
+      speakerCount: speakers.length,
+      layout: finalLayout,
+      photoSize: sharedSettings.size,
+      spacing,
+      shadow: sharedSettings.shadow,
+      textEnabled: sharedSettings.textConfig?.showText !== false,
+    })
   } else {
-    // Multiple speakers: Use multi-speaker positioning
+    // Multiple speakers: Use multi-speaker positioning (recalculate anchor)
     positions = calculateMultiSpeakerPositions({
       speakerCount: speakers.length,
       layout: finalLayout,
@@ -1400,6 +1772,7 @@ export async function overlayMultipleSpeakerPhotos(config: {
       position: sharedSettings.position,
       verticalPosition: sharedSettings.verticalPosition,
       shadow: sharedSettings.shadow,  // v6.6: Pass shadow config for accurate positioning
+      textEnabled: sharedSettings.textConfig?.showText !== false,  // v24.27: Pass text enabled for correct sizing
     })
   }
 
@@ -1435,7 +1808,8 @@ export async function overlayMultipleSpeakerPhotos(config: {
           if (shouldShowText && speaker.name) {
             // Calculate photo size with effects (shadow, border, glow)
             const shouldAddShadow = sharedSettings.shadow !== false
-            const shadowPadding = shouldAddShadow ? 18 : 0
+            // v24.42: Fixed - actual shadow uses blur: 22, offset: 8 → padding = 30px per side
+            const shadowPadding = shouldAddShadow ? 30 : 0
             const glowPadding = shouldAddShadow ? 12 : 0
             const borderWidth = sharedSettings.border?.width || 3
             const totalPhotoSize = sharedSettings.size + borderWidth * 2 + shadowPadding * 2 + glowPadding * 2
@@ -1445,11 +1819,12 @@ export async function overlayMultipleSpeakerPhotos(config: {
               speakerName: speaker.name,
               speakerDesignation: speaker.designation,
               photoSize: totalPhotoSize,
+              // v24.24: High-contrast defaults with shadow (works on any background)
               textConfig: {
                 nameColor: sharedSettings.textConfig?.nameColor || '#FFFFFF',
-                nameFontSize: sharedSettings.textConfig?.nameFontSize || 24,
-                designationColor: sharedSettings.textConfig?.designationColor || '#D0D0D0',
-                designationFontSize: sharedSettings.textConfig?.designationFontSize || 18,
+                nameFontSize: sharedSettings.textConfig?.nameFontSize || 26,         // v24.20: Larger
+                designationColor: sharedSettings.textConfig?.designationColor || '#E0E0E0',
+                designationFontSize: sharedSettings.textConfig?.designationFontSize || 20,  // v24.20: Larger
               },
               gap: 12,  // 12px gap between photo and text
             })
@@ -1512,8 +1887,11 @@ export async function overlayMultipleSpeakerPhotos(config: {
  */
 export function autoDetectSpeakerLayout(count: number): LayoutStrategy {
   if (count === 1) return 'side-by-side'  // Single speaker (legacy)
-  if (count === 2) return 'side-by-side'  // Left + Right
-  if (count === 3) return 'side-by-side'  // Horizontal row
+  // v24.46: Changed 2 speakers back to 'side-by-side' (horizontal) - now CENTERED below content
+  // v24.39 used 'stacked' because right-side placement caused cropping
+  // v24.46 centers horizontally, so side-by-side works without cropping
+  if (count === 2) return 'side-by-side'  // v24.46: Horizontal side-by-side (centered below content)
+  if (count === 3) return 'stacked'       // Vertical stack
   if (count <= 6) return 'grid'           // 2×2 or 2×3 grid
   return 'grid'                           // Default to grid for 7+
 }
@@ -1573,11 +1951,17 @@ export async function overlaySpeakerPhotoOnImage(config: SpeakerOverlayConfig): 
 /**
  * Process a base64 or data URL image and overlay speaker photo(s)
  * Handles both legacy single-speaker and new multi-speaker formats
+ *
+ * @param imageDataUrl - Base64 or URL of the image to overlay speakers on
+ * @param speakerPhoto - Speaker photo configuration
+ * @param preCalculatedCoordinates - Pre-calculated coordinates to skip AI positioning
+ * @param posterColors - v24.30: Poster colors for contrast-aware text
  */
 export async function processImageWithSpeakerPhoto(
   imageDataUrl: string,
   speakerPhoto: SpeakerPhotoCustomization,
-  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number; photoSize?: number }  // v20.6: Skip AI positioning and use exact size
+  preCalculatedCoordinates?: { x: number; y: number; width: number; height: number; photoSize?: number },  // v20.6: Skip AI positioning and use exact size
+  posterColors?: { primaryColor?: string; accentColor?: string }  // v24.30: Poster colors for contrast-aware text
 ): Promise<string> {
   // Normalize config (handles migration from legacy to new format)
   const normalized = normalizeSpeakerConfig(speakerPhoto)
@@ -1634,13 +2018,31 @@ export async function processImageWithSpeakerPhoto(
       verticalPosition: normalized.verticalPosition,
     })
     // v20.6 DEBUG: Check if preCalculatedCoordinates is being passed
+    // v24.45: Also check for compactMode (photo-only cards for tiny zones)
+    const compactMode = (preCalculatedCoordinates as { compactMode?: boolean })?.compactMode ?? false
     console.log('[Speaker Overlay v20.6] preCalculatedCoordinates received:', preCalculatedCoordinates ? {
       x: preCalculatedCoordinates.x,
       y: preCalculatedCoordinates.y,
       width: preCalculatedCoordinates.width,
       height: preCalculatedCoordinates.height,
       photoSize: preCalculatedCoordinates.photoSize,  // v20.6: Log original photo size
+      compactMode: compactMode,  // v24.45: Photo-only mode
     } : 'UNDEFINED - will use AI positioning')
+    if (compactMode) {
+      console.log('[v24.45] COMPACT MODE: Disabling text (name/designation) for photo-only cards')
+    }
+
+    // v24.41: Use scaled photoSize from preCalculatedCoordinates if available
+    // This ensures speaker cards are rendered at the size calculated by route.ts
+    // to fit within the safe zone (424px height)
+    // CRITICAL: Without this, route.ts calculates scaled coords but overlay uses unscaled 180px!
+    if (preCalculatedCoordinates?.photoSize && preCalculatedCoordinates.photoSize !== normalized.size) {
+      console.log(`[v24.41] Using scaled photoSize: ${preCalculatedCoordinates.photoSize}px (was ${normalized.size}px)`)
+      normalized.size = preCalculatedCoordinates.photoSize
+    }
+
+    // v24.30: Get contrast-aware text colors based on poster background
+    const { nameColor, designationColor } = getSpeakerTextColors(posterColors)
 
     resultBuffer = await overlayMultipleSpeakerPhotos({
       baseImageBuffer: imageBuffer,
@@ -1654,17 +2056,21 @@ export async function processImageWithSpeakerPhoto(
         verticalPosition: normalized.verticalPosition,
         // v24.16: Enable grouped speaker cards with text
         // Text is rendered alongside photo in Sharp (not by Gemini)
+        // v24.30: DYNAMIC contrast-aware colors based on poster background
+        // v24.45: Disable text in compact mode (zone too small for full cards)
         textConfig: {
-          showText: true,
-          nameColor: '#FFFFFF',
-          nameFontSize: 24,
-          designationColor: '#D0D0D0',
-          designationFontSize: 18,
+          showText: !compactMode,           // v24.45: Disable text when zone < 150px
+          nameColor,                       // v24.30: Dynamic based on poster luminance
+          nameFontSize: 26,               // v24.20: Larger for visibility
+          designationColor,                // v24.30: Dynamic based on poster luminance
+          designationFontSize: 20,        // v24.20: Larger for visibility
         },
       },
       layoutMode: normalized.layoutMode || 'auto',
       layoutStrategy: normalized.layoutStrategy,
-      spacing: normalized.spacing || 20,
+      // v24.25: Increased spacing for cards with text (303px width vs 216px photo)
+      // Old: 20px caused cards to overlap. New: 40px gives clear separation
+      spacing: normalized.spacing || 40,
       preCalculatedCoordinates,  // v20.4: Pass pre-calculated coordinates to skip AI positioning
     })
   }

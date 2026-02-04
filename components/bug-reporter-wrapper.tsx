@@ -42,20 +42,20 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
         if (btn) {
           // Apply responsive positioning with setProperty for !important
           if (isMobile) {
-            // Mobile: Position above bottom nav, LEFT side (opposite of FAB)
-            // Bottom nav is 64px + safe area, add 8px padding
-            btn.style.setProperty('bottom', `${80 + safeAreaBottom}px`, 'important')
-            btn.style.setProperty('left', '16px', 'important')
-            btn.style.setProperty('right', 'auto', 'important')
+            // Mobile: Position above bottom nav + action bar, RIGHT side
+            // Bottom nav is 64px + action bar ~56px + safe area, add buffer
+            btn.style.setProperty('bottom', `${140 + safeAreaBottom}px`, 'important')
+            btn.style.setProperty('right', '16px', 'important')
+            btn.style.setProperty('left', 'auto', 'important')
           } else {
-            // Desktop: Standard position LEFT side (opposite of other floating elements)
+            // Desktop: Standard position RIGHT side (away from sidebar)
             btn.style.setProperty('bottom', '20px', 'important')
-            btn.style.setProperty('left', '20px', 'important')
-            btn.style.setProperty('right', 'auto', 'important')
+            btn.style.setProperty('right', '20px', 'important')
+            btn.style.setProperty('left', 'auto', 'important')
           }
 
-          // Z-index: Above bottom nav (z-80), below More menu (z-90)
-          btn.style.setProperty('z-index', '85', 'important')
+          // Z-index: Below bottom nav (z-80) so nav is always clickable
+          btn.style.setProperty('z-index', '70', 'important')
           btn.style.setProperty('position', 'fixed', 'important')
           btn.style.setProperty('pointer-events', 'auto', 'important')
 
@@ -109,17 +109,17 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
   return (
     <>
       <style jsx global>{`
-        /* Bug Reporter Button - Mobile Positioning (LEFT SIDE, opposite of FAB) */
+        /* Bug Reporter Button - Mobile Positioning (RIGHT SIDE, away from sidebar) */
         /* Only target specific bug-reporter SDK elements */
         .bug-reporter-sdk.bug-reporter-floating-btn,
         button.bug-reporter-floating-btn,
         [data-bug-reporter-button],
         #bug-reporter-button,
         .bug-reporter-button {
-          bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
-          left: 16px !important;
-          right: auto !important;
-          z-index: 85 !important;
+          bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+          right: 16px !important;
+          left: auto !important;
+          z-index: 70 !important;
           min-width: 48px !important;
           min-height: 48px !important;
           touch-action: manipulation !important;
@@ -136,8 +136,8 @@ export function BugReporterWrapper({ children }: BugReporterWrapperProps) {
           #bug-reporter-button,
           .bug-reporter-button {
             bottom: 20px !important;
-            left: 20px !important;
-            right: auto !important;
+            right: 20px !important;
+            left: auto !important;
           }
         }
 

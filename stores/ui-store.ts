@@ -35,7 +35,7 @@ interface UIState {
 export const useUIStore = create<UIState>()((set) => ({
   // Initial state
   sidebarOpen: true,
-  sidebarCollapsed: false,
+  sidebarCollapsed: false, // Expanded by default
   createModeActive: false,
   analyticsModeActive: false,
   activeModal: null,

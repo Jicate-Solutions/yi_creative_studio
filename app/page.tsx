@@ -41,10 +41,10 @@ import { CreativeCursor } from '@/components/ui/creative-cursor'
 
 
 const stats = [
-  { value: '~30s', label: 'Gen Time', sublabel: '120x faster than manual' },
-  { value: '15K+', label: 'Creatives', sublabel: 'Generated across India' },
-  { value: '70+', label: 'Chapters', sublabel: 'Chennai to Chandigarh' },
-  { value: '100%', label: 'On-Brand', sublabel: 'Automated compliance' },
+  { value: '~30s', label: 'Gen Time', sublabel: 'Instant creation' },
+  { value: '30+', label: 'Formats', sublabel: 'Posters to certificates' },
+  { value: '100%', label: 'On-Brand', sublabel: 'Perfect compliance' },
+  { value: '24/7', label: 'AI Ready', sublabel: 'Always available' },
 ]
 
 export default function LandingPage() {
@@ -52,12 +52,12 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-yi text-foreground dark:text-white selection:bg-primary selection:text-white overflow-x-hidden">
+    <div ref={containerRef} className="min-h-screen bg-yi text-foreground dark:text-white selection:bg-primary selection:text-white overflow-x-hidden scroll-smooth">
       <CreativeCursor />
       {/* Navigation - Floating Pill */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 w-[92%] sm:w-[85%] max-w-6xl z-50 rounded-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-2xl shadow-primary/5 transition-all duration-300 hover:shadow-primary/10">
-        <div className="px-2 sm:px-2">
-          <div className="flex items-center justify-between h-[4.5rem]">
+      <nav className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-6xl z-50 rounded-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-primary/10 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/15">
+        <div className="px-3 sm:px-4">
+          <div className="flex items-center justify-between h-16 sm:h-[4.5rem]">
             {/* Logo Section */}
             <div className="flex items-center gap-3 pl-2 sm:pl-4">
               <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
@@ -166,218 +166,237 @@ export default function LandingPage() {
           {/* Architectural Card Stack (Now on Left for Impact) */}
           {/* Studio Console: The Professional Workspace (Split Filled Look) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 w-full max-w-[650px] relative mt-16 lg:mt-0 group"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex-1 w-full max-w-[650px] relative mt-16 lg:mt-0"
           >
-            {/* Ambient Back Glow */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-[2.5rem] blur-2xl opacity-40 dark:opacity-20 transition-opacity duration-500 group-hover:opacity-60" />
 
-            {/* The Console Container (Filled Split UI) */}
-            <div className="relative h-[500px] md:h-[600px] bg-slate-950 rounded-[2rem] border border-slate-800/60 shadow-2xl flex overflow-hidden ring-1 ring-white/10">
-
-              {/* Sidebar (Left Strip) */}
-              <div className="w-20 border-r border-white/5 bg-slate-900/50 flex flex-col items-center py-8 gap-6 z-10 hidden sm:flex">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                {/* Nav Items */}
-                <div className="flex flex-col gap-4 w-full px-4">
-                  {[Layout, ImageIcon, Palette, Layers].map((Icon, i) => (
-                    <div key={i} className={`h-10 w-full rounded-lg flex items-center justify-center transition-all cursor-default ${i === 0 ? 'bg-white/10 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-auto w-full px-4">
-                  <div className="h-10 w-full rounded-lg flex items-center justify-center text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all cursor-default">
-                    <div className="w-6 h-6 rounded-full border border-slate-600 bg-slate-800" />
+            {/* The Console Container (Stripe-Clean) */}
+            <div className="relative h-[500px] md:h-[600px] bg-slate-950 rounded-[2rem] border border-slate-800/50 shadow-xl flex flex-col overflow-hidden">
+              {/* Simplified Header (Browser-style) */}
+              <div className="border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-sm">
+                <div className="px-6 py-4 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-300">Yi CreativeStudio</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-slate-400">Live</span>
                   </div>
                 </div>
               </div>
 
-              {/* Main Canvas Area */}
-              <div className="flex-1 relative flex flex-col bg-slate-950/80 backdrop-blur-sm">
+              {/* Console Content - Poster Grid */}
+              <div className="flex-1 relative p-8 overflow-hidden bg-slate-950/90">
+                {/* Background Grid (Subtle) */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
-                {/* Canvas Header */}
-                <div className="h-14 border-b border-white/5 flex items-center justify-between px-3 sm:px-6 z-10 bg-slate-950/50">
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500/20 border border-red-500/50" />
-                      <span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
-                      <span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500/20 border border-green-500/50" />
-                    </div>
-                    <div className="h-4 w-[1px] bg-white/10 mx-1 sm:mx-2 hidden sm:block" />
-                    <span className="text-[10px] sm:text-xs font-mono text-slate-400 hidden sm:block">Project: Yi_Marathon</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="px-2 sm:px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1 sm:gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="hidden sm:inline">Saving...</span>
-                      <span className="sm:hidden">Live</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Canvas Viewport (The "Work") */}
-                <div className="flex-1 relative p-6 flex items-center justify-center overflow-hidden">
-                  {/* Background Grid */}
-                  <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
-
-                  {/* Central Artboard */}
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.4 }}
-                    className="relative w-full h-full max-w-sm aspect-[4/5] bg-slate-900 rounded-xl border border-white/10 shadow-2xl overflow-hidden group/artboard"
-                  >
-                    {/* Image Source */}
-                    <div className="absolute inset-0 bg-[url('/images/yi-hero-creative.png')] bg-cover bg-center opacity-80 transition-transform duration-1000 group-hover/artboard:scale-105" />
-
-                    {/* Scanning Beam (Restored Effect) */}
-                    <motion.div
-                      animate={{ top: ["0%", "100%", "0%"] }}
-                      transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                      className="absolute left-0 right-0 h-[2px] bg-primary z-20 shadow-[0_0_15px_rgba(37,99,235,0.8)]"
-                    >
-                      <div className="absolute bottom-0 w-full h-[80px] bg-gradient-to-t from-primary/10 to-transparent" />
-                    </motion.div>
-
-                    {/* Processing Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950 to-transparent z-10" />
-
-                    {/* Live Prompt Feedback */}
-                    <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6 z-20">
-                      <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-2 sm:p-3">
-                        <div className="flex items-start gap-2 text-xs font-mono text-slate-300">
-                          <span className="text-secondary shrink-0">$</span>
-                          <span className="typing-text line-clamp-2">
-                            Generate marathon runner, Yi branding...
-                            <span className="animate-pulse text-primary">|</span>
-                          </span>
+                {/* 3 Poster Thumbnails Grid */}
+                <div className="relative h-full flex items-center justify-center">
+                  <div className="grid grid-cols-3 gap-4 w-full max-w-lg">
+                    {[
+                      { title: 'Marathon Event', chapter: 'Yi Chennai', img: '/images/showcase/diwali-greeting.png' },
+                      { title: 'Road Safety', chapter: 'Yi Mumbai', img: '/images/showcase/birthday-post.png' },
+                      { title: 'Masoom Initiative', chapter: 'Yi Delhi', img: '/images/showcase/autism-awareness.png' }
+                    ].map((poster, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
+                        className="group cursor-default"
+                      >
+                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-white/10 bg-slate-900 shadow-lg hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+                          <div
+                            className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+                            style={{ backgroundImage: `url('${poster.img}')` }}
+                          />
+                          {/* Subtle Gradient Overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                         </div>
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Floating Tool Panels (Decorations) - Hidden on mobile */}
-                  <motion.div
-                    animate={{ y: [-5, 5, -5] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-10 right-8 w-40 bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-xl z-20 hidden md:block"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-slate-400 uppercase">Properties</span>
-                      <Settings className="w-3 h-3 text-slate-500" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full w-3/4 bg-primary" />
-                      </div>
-                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full w-1/2 bg-secondary" />
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [5, -5, 5] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                    className="absolute bottom-20 left-8 w-32 bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-xl z-20 hidden md:block"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-xs font-bold text-white uppercase">AI Active</span>
-                    </div>
-                    <div className="text-xs text-slate-500 font-mono">
-                      Processing...
-                    </div>
-                  </motion.div>
+                        <div className="mt-2 text-center">
+                          <p className="text-xs font-medium text-slate-400">{poster.chapter}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Trust Indicator (Bottom) */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 1 }}
+                  className="absolute bottom-6 left-1/2 -translate-x-1/2"
+                >
+                  <div className="px-4 py-2 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-slate-400">Last generated: 2 minutes ago</span>
+                  </div>
+                </motion.div>
               </div>
             </div>
           </motion.div>
 
           {/* Text Content (Right Column) */}
           <motion.div
-            initial={{ opacity: 0, x: 80 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 text-center lg:text-left order-1 lg:order-2 lg:pt-8"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="flex-1 text-center lg:text-left order-1 lg:order-2 lg:pt-8 space-y-8"
           >
-            {/* Tagline Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">AI-Powered Brand Creative Generation</span>
-            </div>
+            {/* Trust Badge (Stripe-style) */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-white/[0.05] border border-slate-200/60 dark:border-white/10"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-slate-700 dark:text-white/70">Trusted by 70+ Yi Chapters</span>
+            </motion.div>
 
-            <h1 className="text-[clamp(2rem,5vw,4rem)] mb-6 text-slate-900 dark:text-white leading-[0.9] tracking-tight font-bold">
-              Create{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-gradient-flow">
-                Brilliance
-              </span>
-            </h1>
-            <p className="text-base md:text-lg text-slate-600 dark:text-white/80 mb-8 max-w-lg font-medium leading-relaxed">
-              Generate professional event posters, social posts, and marketing materials in 30 seconds. Perfect brand compliance. No design skills required.
-            </p>
-            <div className="flex flex-col items-center lg:items-start gap-6">
-              {/* CTA Buttons */}
+            {/* Headline (Simplified, No Gradient) */}
+            <motion.h1
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+              className="text-[clamp(2.5rem,5vw,4.5rem)] text-slate-900 dark:text-white leading-[1.1] tracking-tight font-bold"
+            >
+              Create On-Brand Creatives in 30 Seconds
+            </motion.h1>
+
+            {/* Subheadline (One Line) */}
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+              className="text-lg text-slate-600 dark:text-white/70 max-w-lg font-normal leading-relaxed"
+            >
+              AI-powered design for Young Indians chapters. Perfect brand compliance. No design skills required.
+            </motion.p>
+
+            {/* Yi Chapter Logos Strip */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="space-y-3"
+            >
+              <p className="text-xs text-muted-foreground text-center lg:text-left">
+                Trusted by leading Yi chapters
+              </p>
+              <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+                {['Chennai', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Pune'].map((city, i) => (
+                  <motion.div
+                    key={city}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 + i * 0.05 }}
+                    className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-primary/30 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors"
+                  >
+                    <span className="text-sm font-semibold text-slate-700 dark:text-white/70">
+                      Yi {city}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Clean Stats Grid (Stripe-style) */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="inline-flex items-center gap-6 sm:gap-8 py-4 px-6 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]"
+            >
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">200+</div>
+                <div className="text-xs text-muted-foreground mt-1">Active Creators</div>
+              </div>
+              <div className="h-10 w-px bg-slate-200 dark:bg-white/10" />
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">70+</div>
+                <div className="text-xs text-muted-foreground mt-1">Yi Chapters</div>
+              </div>
+              <div className="h-10 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
+              <div className="text-center hidden sm:block">
+                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">15K+</div>
+                <div className="text-xs text-muted-foreground mt-1">Creatives</div>
+              </div>
+            </motion.div>
+
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="flex flex-col items-center lg:items-start gap-4"
+            >
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                 <Link href={ROUTES.signup} className="w-full sm:w-auto">
-                  <Button size="lg" className="h-14 w-full sm:w-auto px-8 rounded-full btn-primary text-sm font-semibold tracking-wide group shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all">
+                  <Button size="lg" className="h-14 w-full sm:w-auto px-8 rounded-full text-sm font-semibold group">
                     Start Creating Free
                     <MoveRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
                 <Link href="#showcase">
-                  <Button variant="outline" size="lg" className="h-14 px-8 rounded-full border-2 border-slate-300 dark:border-white/20 text-slate-700 dark:text-white text-sm font-semibold tracking-wide hover:bg-slate-100 dark:hover:bg-white/5 hover:border-slate-400 dark:hover:border-white/30 transition-all">
+                  <Button variant="outline" size="lg" className="h-14 px-8 rounded-full text-sm font-semibold">
                     Watch Demo
                   </Button>
                 </Link>
               </div>
 
               {/* Supporting Info */}
-              <p className="text-sm text-slate-500 dark:text-white/60 font-medium">
+              <p className="text-sm text-muted-foreground">
                 100 free credits • No credit card required
               </p>
-
-              {/* Social Proof */}
-              <div className="flex items-center gap-4 py-3 px-6 rounded-full bg-slate-100/80 dark:bg-white/[0.05] border border-slate-200/60 dark:border-white/10">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white">
-                      {i}
-                    </div>
-                  ))}
-                </div>
-                <span className="text-sm text-slate-600 dark:text-white/70 font-medium">
-                  Join <span className="font-bold text-slate-900 dark:text-white">200+</span> creators across <span className="font-bold text-slate-900 dark:text-white">70 Yi chapters</span>
-                </span>
-              </div>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
+
+        {/* Scroll Indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        >
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Scroll to explore</span>
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            className="w-6 h-10 rounded-full border-2 border-slate-300 dark:border-white/20 flex items-start justify-center p-2"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Stats Section: System Status */}
-      <section className="border-y border-white/5 glass-subtle relative z-10">
+      <section className="border-y border-slate-200/40 dark:border-white/5 bg-slate-50/30 dark:bg-black/10 relative z-10">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-200/40 dark:divide-white/5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-200/40 dark:bg-white/5">
             {stats.map((stat, index) => (
-              <div key={index} className="py-12 px-6 flex flex-col items-center justify-center text-center group cursor-default hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors">
-                <div className="text-4xl md:text-5xl font-extrabold text-foreground dark:text-white mb-2 tracking-tighter group-hover:scale-110 transition-transform duration-300">
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="py-12 px-6 bg-slate-50/30 dark:bg-black/10 flex flex-col items-center justify-center text-center group cursor-default hover:bg-white dark:hover:bg-white/[0.05] hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="text-4xl md:text-5xl lg:text-6xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-primary to-primary/60 mb-3 tracking-tighter group-hover:scale-110 transition-transform duration-300">
                   {stat.value}
                 </div>
-                <div className="text-xs font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/60 dark:text-white/30 group-hover:text-primary transition-colors">
+                <div className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.2em] text-foreground/70 dark:text-white/70 group-hover:text-primary transition-colors mb-2">
                   {stat.label}
                 </div>
                 {stat.sublabel && (
-                  <div className="text-xs font-medium text-muted-foreground/70 dark:text-white/50 mt-2 max-w-[140px]">
+                  <div className="text-xs font-medium text-muted-foreground leading-relaxed max-w-[160px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     {stat.sublabel}
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -545,17 +564,30 @@ export default function LandingPage() {
       </section >
 
       {/* Testimonials Section */}
-      <section className="py-20 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
+      <section className="py-24 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white mb-4">
+          <div className="text-center mb-16 space-y-4">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white"
+            >
               LOVED BY <span className="text-primary">70+ CHAPTERS.</span>
-            </h2>
-            <p className="text-lg text-slate-700 dark:text-white/80 font-semibold">Real results from Yi chapters across India</p>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-lg text-slate-700 dark:text-white/80 font-semibold"
+            >
+              Real results from Yi chapters across India
+            </motion.p>
           </div>
 
-          <div className="overflow-x-auto scrollbar-hide pb-8">
-            <div className="flex gap-8 min-w-max px-4">
+          <div className="overflow-x-auto scrollbar-hide pb-8 -mx-6 px-6">
+            <div className="flex gap-6 min-w-max">
               {[
                 {
                   quote: "We went from 2 hours per poster to 30 seconds. Our Masoom campaign reached 10x more schools because we could generate materials faster.",
@@ -594,30 +626,39 @@ export default function LandingPage() {
                   timeSaved: 120
                 }
               ].map((testimonial, i) => (
-                <div key={i} className="min-w-[300px] sm:min-w-[400px] max-w-[400px] glass-card p-6 sm:p-8 rounded-3xl hover:border-primary/50 transition-all duration-300 hover:-translate-y-2 snap-center">
-                  <p className="text-base sm:text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed">"{testimonial.quote}"</p>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: 50 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="min-w-[320px] sm:min-w-[420px] max-w-[420px] p-8 rounded-3xl snap-center bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300"
+                >
+                  <p className="text-base sm:text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed font-medium">
+                    "{testimonial.quote}"
+                  </p>
 
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 flex items-center justify-center text-sm font-bold text-primary shadow-md">
                       {testimonial.initials}
                     </div>
                     <div>
-                      <div className="text-foreground dark:text-white font-bold text-sm">{testimonial.name}</div>
-                      <div className="text-foreground/70 dark:text-white/70 text-xs">{testimonial.role} · {testimonial.chapter}</div>
+                      <div className="text-foreground dark:text-white font-bold">{testimonial.name}</div>
+                      <div className="text-muted-foreground text-sm">{testimonial.role} · {testimonial.chapter}</div>
                     </div>
                   </div>
 
-                  <div className="flex gap-6 pt-6 border-t border-slate-200/40 dark:border-white/5">
-                    <div className="text-xs">
-                      <span className="text-primary font-extrabold text-lg">{testimonial.creativesGenerated}</span>
-                      <span className="text-foreground/60 dark:text-white/60 ml-2">creatives</span>
+                  <div className="flex gap-8 pt-6 border-t border-slate-200/40 dark:border-white/10">
+                    <div>
+                      <div className="text-2xl font-extrabold text-primary mb-1">{testimonial.creativesGenerated}</div>
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Creatives</div>
                     </div>
-                    <div className="text-xs">
-                      <span className="text-secondary font-extrabold text-lg">{testimonial.timeSaved}hrs</span>
-                      <span className="text-foreground/60 dark:text-white/60 ml-2">saved</span>
+                    <div>
+                      <div className="text-2xl font-extrabold text-secondary mb-1">{testimonial.timeSaved}hrs</div>
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saved</div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -750,33 +791,129 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="pt-12 pb-12 px-6 sm:px-8 glass-subtle border-t border-white/5" >
+      <footer className="pt-16 pb-12 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-t border-slate-200/40 dark:border-white/5">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12 mb-20 opacity-60">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-200/40 dark:bg-white/5 flex items-center justify-center">
-                <Sparkles className="h-6 w-6 text-foreground dark:text-white" />
+          {/* Footer Content */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            {/* Brand Column */}
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-xl font-extrabold tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
               </div>
-              <span className="text-xl font-extrabold tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md leading-relaxed">
+                AI-powered brand creative generation platform for Young Indians. Generate professional event posters, social posts, and marketing materials in 30 seconds.
+              </p>
+              <div className="flex items-center gap-4">
+                <Link href={ROUTES.signup}>
+                  <Button size="sm" className="rounded-full">
+                    Get Started Free
+                  </Button>
+                </Link>
+                <Link href={ROUTES.login}>
+                  <Button variant="ghost" size="sm" className="rounded-full">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-6 sm:gap-10">
-              <a href="#" className="text-xs font-extrabold uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="text-xs font-extrabold uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Terms</a>
-              <a href="#" className="text-xs font-extrabold uppercase tracking-widest hover:text-foreground dark:hover:text-white transition-colors">Guidelines</a>
+
+            {/* Product Column */}
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-4">Product</h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href={ROUTES.create} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Create
+                  </Link>
+                </li>
+                <li>
+                  <Link href={ROUTES.gallery} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Gallery
+                  </Link>
+                </li>
+                <li>
+                  <Link href={ROUTES.templates} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Templates
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#showcase" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Showcase
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company Column */}
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-4">Company</h3>
+              <ul className="space-y-3">
+                <li>
+                  <a
+                    href="https://www.yi.ngo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    About Yi
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.yi.ngo/contact"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Contact
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.yi.ngo/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.yi.ngo/terms-conditions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Terms of Service
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-8 border-t border-slate-200/40 dark:border-white/5">
-            <p className="text-xs font-bold text-slate-400/60 dark:text-white/35 uppercase tracking-[0.15em] sm:tracking-[0.2em]">
+          {/* Footer Bottom */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-slate-200/40 dark:border-white/10">
+            <p className="text-xs text-muted-foreground text-center md:text-left">
               © {new Date().getFullYear()} Yi CreativeStudio. A CII Yi Initiative.
             </p>
-            <div className="flex items-center gap-4 text-xs font-extrabold text-muted-foreground/50 dark:text-white/40 uppercase tracking-[0.2em] sm:tracking-[0.3em]">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>Powered by</span>
-              <span className="text-foreground dark:text-white font-extrabold italic">Jicate Solutions</span>
+              <a
+                href="https://jicate.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-foreground dark:text-white hover:text-primary transition-colors"
+              >
+                Jicate Solutions
+              </a>
             </div>
           </div>
         </div>
-      </footer >
+      </footer>
     </div >
   )
 }

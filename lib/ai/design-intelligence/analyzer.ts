@@ -36,7 +36,7 @@ export async function analyzeEventTypography(
 
     // Call Claude Haiku
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4.5',
+      model: 'claude-haiku-4-5',
       max_tokens: 600,
       temperature: 0.3, // Lower temperature for more consistent results
       messages: [

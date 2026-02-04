@@ -56,7 +56,8 @@ export async function detectSpeakerTextPosition(
     // Initialize Gemini Vision API
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp'  // Fast multimodal model with vision
+      // v25.0: Updated from deprecated gemini-2.0-flash-exp
+      model: 'gemini-2.5-flash'  // Fast multimodal model with vision
     })
 
     // Convert buffer to base64 for Vision API

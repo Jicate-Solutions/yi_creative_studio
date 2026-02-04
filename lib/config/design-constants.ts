@@ -474,7 +474,7 @@ export const DEFAULT_CUSTOMIZATION: CustomizationData = {
     // NEW: Multi-speaker defaults
     speakers: [],           // Empty array by default
     layoutMode: 'auto',     // Auto-detect layout
-    spacing: 20,            // 20px gap between speakers
+    spacing: 40,            // v24.27: 40px gap between speakers (matches exclusion zone calculation)
 
     // SHARED photo settings
     shape: 'circle',        // Circular mask applied, no solid background
@@ -640,7 +640,7 @@ export type ColorPaletteId = keyof typeof COLOR_PALETTES
 
 export const DEFAULT_COLOR_CONFIG: ColorConfig = {
   useBrandColors: false, // Changed to false to enable Color Shuffle by default (v24.10)
-  useBrandFont: false, // Changed to false for consistency (allows custom fonts)
+  useBrandFont: true, // Default to brand font (Inter) - user can disable to use AI suggestions
   selectedPalette: 'blue_cyan', // Set default palette for Color Shuffle support (valid palette ID)
   customColors: null, // Will be populated from selectedPalette during generation
 }
@@ -1778,7 +1778,7 @@ export interface Enhanced4RowStripMode {
 
 // Default initiative text config
 export const DEFAULT_INITIATIVE_CONFIG: InitiativeTextConfig = {
-  enabled: false,
+  enabled: false, // v24.10: Default OFF - user enables if needed
   text: 'Yi Erode Initiative',
   fontFamily: 'poppins', // v18.1: Changed back to Poppins per user request (was: montserrat)
   fontSize: 30, // v16.13: Increased from 24 to 30 (75% of 40px row, +25% size for prominence)
@@ -1902,7 +1902,7 @@ export interface FooterRowConfig {
 // Zone 2 (Center): Hashtag + Website + Social Bar
 // Zone 3 (Right): Digital Partner
 export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
-  enabled: false,
+  enabled: false,  // Start disabled - user enables when needed
 
   // Zone 1: Signature illustration (left)
   signature: {
@@ -1930,7 +1930,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
 
   // Zone 3: Digital partner (right)
   digitalPartner: {
-    enabled: true,
+    enabled: false,  // Start disabled - user enables when needed
     labelText: 'Digital Partner', // v20.9: Changed back from "Supported By" to "Digital Partner"
     labelColor: '#9CA3AF', // Light grey
     separator: '–',
@@ -1945,7 +1945,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
   textColor: '#374151', // Dark grey for general text
   background: {
     color: '#F9F9F9', // Light grey background for card-style
-    opacity: 100,
+    opacity: 80, // v24.12.2: Reduced from 100 to 80 for better visual flow with Gemini design
     shape: 'rectangle',
     borderRadius: '40px 40px 0 0', // Top-rounded "tab" look
   },
@@ -1958,15 +1958,15 @@ export const DEFAULT_ENHANCED_4ROW_STRIP: Enhanced4RowStripMode = {
   enabled: false,
   version: '4-row-split', // Default to split layout (header + footer)
   rows: {
-    brand: { enabled: true, logoIds: [] },
-    vertical: { enabled: false, logoIds: [] },
+    brand: { enabled: false, logoIds: [] },  // Start disabled - user enables when needed
+    vertical: { enabled: false, logoIds: [] }, // v24.10: Default OFF - user enables if needed
     initiative: DEFAULT_INITIATIVE_CONFIG,
     partner: DEFAULT_PARTNER_CONFIG,
   },
   footer: DEFAULT_FOOTER_CONFIG,
   background: {
     color: '#FFFFFF',
-    opacity: 100,
+    opacity: 80, // v24.12.2: Reduced from 100 to 80 for better visual flow (row-specific alphas override this)
     shape: 'rounded',
   },
   rowSpacing: 3,  // v16.0: Reduced from 8px to 3px for tight row gap per user requirements

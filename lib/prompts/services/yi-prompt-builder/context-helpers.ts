@@ -638,35 +638,57 @@ export function buildSpeakerPhotoZoneContext(
 }
 
 /**
- * v7.0: Natural Language Speaker Photo Composition Guidance
- * NEW APPROACH: Guide composition using design principles instead of spatial prohibitions
+ * v24.32: Speaker Photo Composition Guidance - Reserve 65%-75% Zone
  *
- * KEY INSIGHT: Any mention of "zone", "area", "circle", "forbidden", "do not draw" causes
- * Gemini to visualize those concepts as actual elements in the image.
+ * PREVIOUS APPROACH (v7.0-v24.14): Return empty string to prevent placeholder rendering
+ * PROBLEM: Gemini placed text (date, venue, time) in 52%-65% zone, overlapping speaker cards
  *
- * SOLUTION: Frame safe zones as positive composition guidance:
- * - Focus attention on center/upper areas (pulls Gemini's focus away from corners)
- * - Suggest simplicity in periphery (natural way to say "keep it clean")
- * - Use artistic language ("breathing room", "visual flow") not technical constraints
+ * NEW APPROACH (v24.32): Use PROSE-based composition guidance
+ * - Tell Gemini to keep ALL text above 65% vertical mark
+ * - Reserve 65%-75% for speaker overlays (handled by Sharp)
+ * - Use composition philosophy language (not "zone", "area", "reserved")
+ * - Avoid trigger words that cause Gemini to draw placeholders
  *
- * This prevents Gemini from drawing placeholder circles/frames while still achieving
- * the goal: keeping corners simple for speaker photo overlays.
+ * CRITICAL WORDS TO AVOID (cause Gemini to visualize):
+ * - "photo", "circle", "frame", "placeholder"
+ * - "zone", "area", "region", "section"
+ * - "reserved", "forbidden", "do not draw"
+ *
+ * SAFE WORDS (composition language):
+ * - "content boundary", "text limit", "visual breathing room"
+ * - "background design elements", "composition balance"
  */
 export function buildSpeakerPhotoCompositionGuidance(
   config?: SpeakerPhotoConfig
 ): string {
-  // v24.14: Return NOTHING - Gemini should NOT know about speaker photos
-  //
-  // ROOT CAUSE: Any mention of "photo", "zone", "circle", "area" in prompts
-  // triggers Gemini to VISUALIZE these elements as gray circles/placeholders.
-  //
-  // SOLUTION: Speaker photos are handled ENTIRELY by Sharp post-processing.
-  // Gemini generates the poster without any knowledge of speaker photos.
-  // Sharp overlays the actual speaker photo afterwards.
-  //
-  // This eliminates the "gray circle placeholder" problem where Gemini
-  // would draw placeholder circles that conflict with actual photo overlays.
-  return ''
+  // v24.50: Reserve 60%-90% vertical space for speaker overlays
+  // Only return instructions when speaker photos are enabled
+  if (!config?.enabled) return ''
+
+  console.log('[v24.50 SpeakerComposition] Returning 60% text boundary guidance for Gemini')
+
+  // Use composition philosophy language to guide text placement
+  // WITHOUT mentioning photos, zones, or placeholders
+  // v24.50: Changed from 65% to 60% to give more room for speaker overlays
+  return `
+LOWER CONTENT BOUNDARY (MANDATORY - v24.50):
+All text content (headline, tagline, date, time, venue, additional details) MUST be placed ABOVE the 60% vertical mark (864px).
+The lower 40% of the poster (from 60% to 100%) should contain ONLY background design elements - gradients, shapes, textures.
+Speaker photos will be composited in the 60%-90% zone (864px to 1296px) by post-processing.
+
+TEXT VERTICAL POSITIONING LIMITS:
+- Headlines: 40%-46% (576px-662px)
+- Tagline/Theme: 47%-51% (677px-734px)
+- Date/Time/Venue: 52%-58% (749px-835px)
+- Additional text: 58%-60% MAXIMUM (835px-864px)
+- Below 60% (864px): NO TEXT - reserved for speaker overlays
+
+COMPOSITION RATIONALE:
+- The upper 60% contains all readable content (text, icons, buttons)
+- The lower 40% (60%-90%) is reserved for speaker photo overlays
+- The bottom 10% (90%-100%) is reserved for footer bar
+- This layout ensures NO overlap between Gemini content and Sharp speaker overlays
+`
 }
 
 // ============================================================
@@ -782,10 +804,11 @@ export function buildLogoStripZoneContext(
   // v24.3: CRITICAL - Avoid ALL trigger words that Gemini renders as visible text
   // Words to NEVER use: header, footer, logo, branding, sponsor, contact, partner, zone
   // Instead use neutral spatial descriptions only - describe WHAT to generate, not what to avoid
+  // v24.12.1: Wrap section headers in instruction tags to prevent text leak
   if (headerReservePercent > 0) {
     parts.push(`
-UPPER EDGE COMPOSITION (top ${headerReservePercent}% of canvas):
-The top portion should show only sky, clouds, gradient lighting, or ambient atmosphere.
+<instruction>(DO NOT RENDER) UPPER EDGE GUIDANCE:</instruction>
+The top ${headerReservePercent}% should show only sky, clouds, gradient lighting, or ambient atmosphere.
 This area blends naturally into the main scene - keep it visually simple and open.
 Event title and all text content begins BELOW this upper edge area.
 `)
@@ -793,8 +816,8 @@ Event title and all text content begins BELOW this upper edge area.
 
   if (footerReservePercent > 0 && activeRows.footer) {
     parts.push(`
-LOWER EDGE COMPOSITION (bottom ${footerReservePercent}% of canvas):
-The bottom portion should show only ground, floor, gradient, or ambient atmosphere.
+<instruction>(DO NOT RENDER) LOWER EDGE GUIDANCE:</instruction>
+The bottom ${footerReservePercent}% should show only ground, floor, gradient, or ambient atmosphere.
 This area blends naturally into the main scene - keep it visually simple and open.
 All event information appears ABOVE this lower edge area.
 `)
@@ -1416,6 +1439,68 @@ const EVENT_CONTEXT_PRESETS: Record<string, Partial<DesignContext> & { sophistic
     },
     sophisticationLevel: 'rich'
   },
+  // v24.14: ACADEMIC INAUGURATION - For programme/course/batch/student events
+  academic_inauguration: {
+    corePurpose: "Create a prestigious academic inauguration announcement celebrating the launch of an educational programme and welcoming new scholars into their academic journey",
+    visualElements: [
+      "INDIAN STUDENTS in academic regalia (graduation caps, robes, tassels) - diverse group",
+      "University lecture hall or auditorium with scholarly atmosphere",
+      "Stack of books, scrolls, or academic certificates being presented",
+      "Ceremonial podium with academic crest/seal and microphone",
+      "Indian lamp lighting ceremony with faculty members in academic robes",
+      "Ascending platform/stage with red carpet suggesting elevation",
+      "Laurel wreaths and academic honor symbols",
+      "Warm golden spotlight on stage suggesting enlightenment and knowledge"
+    ],
+    backgroundSetting: "Premium academic ceremonial atmosphere - university auditorium or grand hall with deep institutional colors (forest green, navy, maroon), warm golden lighting suggesting enlightenment, scholarly architectural elements (columns, arches), and an atmosphere of intellectual achievement",
+    iconicImagery: [
+      "Students in academic regalia (caps and gowns)",
+      "Books, scrolls, or certificates",
+      "University/academic setting",
+      "Ceremonial lamp with flame",
+      "Podium with academic crest",
+      "Laurel wreaths"
+    ],
+    colorMood: "Academic prestige - deep institutional green/navy/maroon, warm gold accents for achievement, ivory/cream for scholarly elegance, amber tones suggesting parchment and tradition",
+    designStrategy: "ACADEMIC PRESTIGE - Formal, scholarly design featuring STUDENTS as the central element. Should evoke intellectual achievement, future potential, and the transformative moment of entering advanced education.",
+    decorativeElements: {
+      corners: "Academic laurel wreath motifs or university seal designs",
+      patterns: "Subtle geometric patterns suggesting knowledge and structure",
+      accents: "Golden rays of enlightenment, ceremonial lamp glow, scholarly texture"
+    },
+    sophisticationLevel: 'rich'
+  },
+  // v24.14: GENERAL INAUGURATION - For building/facility/office openings
+  inauguration: {
+    corePurpose: "Create a prestigious ceremonial inauguration announcement celebrating a new beginning, facility opening, or official launch",
+    visualElements: [
+      "Ribbon cutting with oversized ceremonial scissors - dignitaries participating",
+      "Indian lamp lighting ceremony (traditional brass lamp with flame)",
+      "Dignitaries and officials on elevated stage platform",
+      "New building or facility entrance with grand architecture",
+      "Foundation stone unveiling moment",
+      "Ceremonial key handover between officials",
+      "Ascending stage steps with red carpet",
+      "Golden radiant light rays suggesting auspicious beginning"
+    ],
+    backgroundSetting: "Premium ceremonial atmosphere with architectural grandeur, deep institutional colors (forest green, navy, maroon) illuminated by warm golden spotlight, new building facade or entrance, and an ascending visual flow representing achievement",
+    iconicImagery: [
+      "Ribbon cutting ceremony",
+      "Ceremonial lamp or flame",
+      "Building entrance or facade",
+      "Foundation stone",
+      "Ceremonial key",
+      "Stage with dignitaries"
+    ],
+    colorMood: "Prestigious ceremonial - deep institutional green/navy/maroon, warm gold accents, ivory/cream elegance, spotlight warmth",
+    designStrategy: "CEREMONIAL PRESTIGE - Formal, dignified design featuring ribbon cutting and official ceremony elements. Should evoke honor, achievement, and the marking of a significant milestone.",
+    decorativeElements: {
+      corners: "Ornamental archway frames or institutional seal motifs",
+      patterns: "Subtle geometric institutional patterns, ascending diagonal elements",
+      accents: "Golden radiant rays, ceremonial lamp glow, spotlight effects"
+    },
+    sophisticationLevel: 'rich'
+  },
   meetup: {
     corePurpose: "Create a welcoming, approachable meetup announcement that encourages community connection",
     visualElements: [
@@ -1680,6 +1765,19 @@ function detectEventType(title?: string, description?: string, eventType?: strin
   if (combined.includes('meetup') || combined.includes('meet-up') || combined.includes('community')) return 'meetup'
   if (combined.includes('networking') || combined.includes('connect') || combined.includes('mixer')) return 'networking'
 
+  // Ceremonial events - CONTEXT-AWARE (v24.14)
+  // Academic inauguration (programme/course/batch/student-related) - check FIRST
+  if ((combined.includes('inaugur') || combined.includes('induction')) &&
+      (combined.includes('programme') || combined.includes('program') || combined.includes('batch') ||
+       combined.includes('course') || combined.includes('student') || combined.includes('graduate') ||
+       combined.includes('postgraduate') || combined.includes('diploma') || combined.includes('degree'))) {
+    return 'academic_inauguration'
+  }
+  // General inauguration (building, facility, office, or generic)
+  if (combined.includes('inaugur') || combined.includes('convocation') || combined.includes('investiture')) {
+    return 'inauguration'
+  }
+
   // Community events
   if (combined.includes('blood') || combined.includes('donation') || combined.includes('donate')) return 'blood_donation'
   if (combined.includes('health') || combined.includes('medical') || combined.includes('checkup') || combined.includes('wellness')) return 'health_camp'
@@ -1760,6 +1858,10 @@ export function generateFallbackContext(input: BriefAnalysisInput): DesignContex
         return ["Innovative", "Exciting", "Revolutionary", "Premium", "Modern"]
       case 'award_ceremony':
         return ["Prestigious", "Elegant", "Celebratory", "Honored", "Accomplished"]
+      case 'academic_inauguration':
+        return ["Scholarly", "Prestigious", "Academic", "Inspirational", "Distinguished", "Enlightening", "Transformative"]
+      case 'inauguration':
+        return ["Prestigious", "Ceremonial", "Distinguished", "Formal", "Momentous", "Dignified", "Celebratory"]
       case 'meetup':
         return ["Community", "Friendly", "Connected", "Networking", "Casual"]
       case 'networking':
@@ -2026,6 +2128,335 @@ export function resolveColorPriority(options: {
     },
     source: 'event',
     enforcement: 'flexible'
+  }
+}
+
+// ============================================================
+// AI EVENT CONTEXT INTEGRATION (v1.0 - GLOBAL EVENT UNDERSTANDING)
+// ============================================================
+
+/**
+ * AI-analyzed event context from the event-context-analyzer service
+ */
+export interface AIEventAnalysis {
+  /** The best matching preset category from predefined list */
+  matchedPreset: string | null
+  /** Confidence in the preset match (0-1) */
+  presetConfidence: number
+  /** Event-specific visual enhancements that go BEYOND the preset */
+  customEnhancements: string[]
+  /** AI-generated visual direction tailored to this specific event */
+  visualDirection: string
+  /** Recommended color palette based on event context */
+  colorGuidance: string
+  /** Key visual elements to include */
+  keyVisuals: string[]
+  /** Mood/atmosphere description */
+  moodAtmosphere: string
+  /** Short reasoning for the analysis */
+  reasoning: string
+}
+
+/**
+ * Merge AI event analysis with preset-based context
+ *
+ * This function takes AI-analyzed event context and merges it with the
+ * existing preset system, creating an enhanced design context that:
+ * 1. Uses preset as base (for consistency)
+ * 2. Adds AI custom enhancements (for creativity)
+ * 3. Preserves all AI-specific insights
+ *
+ * @param aiAnalysis - AI-analyzed event context from Claude
+ * @param fallbackInput - Fallback input if AI analysis is incomplete
+ * @returns Enhanced design context with AI customizations
+ */
+export function mergeAIContextWithPreset(
+  aiAnalysis: AIEventAnalysis,
+  fallbackInput: {
+    title?: string
+    description?: string
+    theme?: string
+    style?: string
+  }
+): DesignContext {
+  // Get the base preset if AI matched one with sufficient confidence
+  let basePreset: (Partial<DesignContext> & { sophisticationLevel?: string }) | null = null
+  if (aiAnalysis.matchedPreset && aiAnalysis.presetConfidence >= 0.5) {
+    basePreset = EVENT_CONTEXT_PRESETS[aiAnalysis.matchedPreset] || null
+  }
+
+  // If no preset matched, use the fallback generic context
+  if (!basePreset) {
+    console.log('[AI Context Merge] No preset match - using AI-only context')
+    return buildAIOnlyContext(aiAnalysis, fallbackInput)
+  }
+
+  console.log(`[AI Context Merge] Using preset: ${aiAnalysis.matchedPreset} (${(aiAnalysis.presetConfidence * 100).toFixed(0)}% confidence)`)
+  console.log(`[AI Context Merge] Adding ${aiAnalysis.customEnhancements.length} custom enhancements`)
+
+  // Merge preset with AI enhancements
+  const mergedVisualElements = [
+    ...(basePreset.visualElements || []),
+    ...aiAnalysis.keyVisuals.filter(kv =>
+      !(basePreset.visualElements || []).some(ve => ve.toLowerCase().includes(kv.toLowerCase().split(' ')[0]))
+    )
+  ].slice(0, 8) // Cap at 8 elements
+
+  const mergedIconicImagery = [
+    ...(basePreset.iconicImagery || []),
+    ...aiAnalysis.customEnhancements.map(e => e.split(':')[0].trim()).slice(0, 3)
+  ].slice(0, 6)
+
+  // Build the enhanced background setting
+  const enhancedBackgroundSetting = aiAnalysis.visualDirection
+    ? `${basePreset.backgroundSetting || 'Professional event background'}. SPECIFIC TO THIS EVENT: ${aiAnalysis.visualDirection}`
+    : (basePreset.backgroundSetting || 'Professional event background')
+
+  // Determine vibe keywords from AI mood
+  const vibeKeywords = extractVibeKeywords(aiAnalysis.moodAtmosphere, basePreset.designStrategy || '')
+
+  return {
+    corePurpose: basePreset.corePurpose || "Create a professional and engaging design",
+    desiredAction: "Engage and connect with the event's specific context",
+    emotionalJob: aiAnalysis.moodAtmosphere || basePreset.emotionalJob || "Feel connected and inspired",
+    visualElements: mergedVisualElements,
+    backgroundSetting: enhancedBackgroundSetting,
+    iconicImagery: mergedIconicImagery,
+    colorMood: aiAnalysis.colorGuidance || basePreset.colorMood || "Professional and engaging",
+    designStrategy: `${basePreset.designStrategy || 'Professional event design'}. AI ENHANCEMENTS: ${aiAnalysis.customEnhancements.slice(0, 3).join(', ')}`,
+    successMetric: "Emotional connection and accurate event representation",
+    layoutGuidance: "Balanced layout with event-specific visual elements",
+    decorativeElements: basePreset.decorativeElements || {
+      corners: "Clean geometric",
+      patterns: "Event-appropriate",
+      accents: "Strategic highlights"
+    },
+    creativeTwist: aiAnalysis.customEnhancements[0] || basePreset.creativeTwist || "Unique event representation",
+    storyAnalysis: {
+      narrative: `${aiAnalysis.matchedPreset?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} event - ${aiAnalysis.reasoning}`,
+      emotionalArc: "Interest -> Engagement -> Connection",
+      themes: extractThemes(aiAnalysis),
+      transformation: "Curious -> Informed -> Inspired",
+      context: {
+        formality: inferFormality(basePreset.sophisticationLevel as 'minimalist' | 'balanced' | 'rich' | 'playful' | 'refined' | undefined),
+        energyLevel: inferEnergyLevel(aiAnalysis.moodAtmosphere),
+        timeHorizon: "present",
+        scope: "community"
+      }
+    },
+    vibeAndMood: {
+      vibeKeywords,
+      moodAtmosphere: aiAnalysis.moodAtmosphere,
+      emotionalTemperature: inferTemperature(aiAnalysis.moodAtmosphere),
+      energyDynamics: inferEnergyDynamics(aiAnalysis.moodAtmosphere),
+      audienceResonance: aiAnalysis.reasoning
+    },
+    typographyStrategy: {
+      headlinePersonality: inferTypographyPersonality(basePreset.sophisticationLevel as 'minimalist' | 'balanced' | 'rich' | 'playful' | 'refined' | undefined),
+      fontRecommendations: {
+        headline: (basePreset.sophisticationLevel as string) === 'rich' ? "Playfair Display or Montserrat" : "Inter or Roboto",
+        subheading: "Open Sans or Source Sans Pro",
+        body: "Inter or Roboto"
+      },
+      multiColorStrategy: {
+        words: [],
+        colorRhythm: "emphasis-based"
+      },
+      hierarchyFlow: "Top-down with strategic emphasis",
+      sizingStrategy: (basePreset.sophisticationLevel as string) === 'rich' ? "dominant" : "balanced"
+    },
+    colorStorytelling: {
+      dominantHues: [],
+      colorPsychology: aiAnalysis.colorGuidance || "Event-appropriate color palette"
+    },
+    decorativeElementsContext: {
+      sophisticationLevel: (() => {
+        const level = basePreset.sophisticationLevel as string
+        if (level === 'rich' || level === 'refined') return 'refined'
+        if (level === 'playful') return 'playful'
+        return 'balanced' // minimalist, balanced, or undefined
+      })(),
+      placementStrategy: "Strategic placement supporting event narrative",
+      thematicElements: aiAnalysis.customEnhancements.map((enhancement, i) => ({
+        element: enhancement,
+        placement: i === 0 ? "Central focus" : i === 1 ? "Supporting background" : "Accent corners",
+        opacity: i === 0 ? 1 : 0.3,
+        reasoning: `AI-identified enhancement for ${aiAnalysis.matchedPreset}`
+      }))
+    },
+    layoutNarrative: {
+      visualHierarchy: ["Event title", "Key details", "Call to action"],
+      contentAreaStyle: "Balanced composition with event-specific visual focus",
+      logoStripTreatment: 'modern',
+      spatialDensity: 'balanced'
+    }
+  }
+}
+
+/**
+ * Build a context purely from AI analysis when no preset matches
+ */
+function buildAIOnlyContext(
+  aiAnalysis: AIEventAnalysis,
+  fallbackInput: { title?: string; description?: string; theme?: string; style?: string }
+): DesignContext {
+  const vibeKeywords = extractVibeKeywords(aiAnalysis.moodAtmosphere, '')
+
+  return {
+    corePurpose: `Create a professional design for: ${fallbackInput.title || 'Event'}`,
+    desiredAction: "Engage and connect",
+    emotionalJob: aiAnalysis.moodAtmosphere || "Feel informed and inspired",
+    visualElements: aiAnalysis.keyVisuals.length > 0
+      ? aiAnalysis.keyVisuals
+      : ["Clean professional layout", "Relevant imagery", "Clear typography"],
+    backgroundSetting: aiAnalysis.visualDirection || "Modern professional gradient background",
+    iconicImagery: aiAnalysis.customEnhancements.slice(0, 4),
+    colorMood: aiAnalysis.colorGuidance || "Professional and clean",
+    designStrategy: aiAnalysis.visualDirection
+      ? `AI-Generated: ${aiAnalysis.visualDirection}`
+      : "Standard professional layout with clear hierarchy",
+    successMetric: "Clear communication and engagement",
+    layoutGuidance: "Balanced layout with visual hierarchy",
+    decorativeElements: {
+      corners: "Clean geometric",
+      patterns: "Subtle professional",
+      accents: "Minimal highlights"
+    },
+    creativeTwist: aiAnalysis.customEnhancements[0] || "Modern clean aesthetics",
+    storyAnalysis: {
+      narrative: aiAnalysis.reasoning || "Professional event announcement",
+      emotionalArc: "Clear -> Informative -> Engaging",
+      themes: extractThemes(aiAnalysis),
+      transformation: "Uninformed -> Informed",
+      context: {
+        formality: "professional",
+        energyLevel: inferEnergyLevel(aiAnalysis.moodAtmosphere),
+        timeHorizon: "present",
+        scope: "community"
+      }
+    },
+    vibeAndMood: {
+      vibeKeywords,
+      moodAtmosphere: aiAnalysis.moodAtmosphere || "Professional atmosphere",
+      emotionalTemperature: inferTemperature(aiAnalysis.moodAtmosphere),
+      energyDynamics: inferEnergyDynamics(aiAnalysis.moodAtmosphere),
+      audienceResonance: "Professional engagement"
+    },
+    typographyStrategy: {
+      headlinePersonality: "Bold Modern Sans",
+      fontRecommendations: {
+        headline: "Montserrat or Inter",
+        subheading: "Open Sans",
+        body: "Inter"
+      },
+      multiColorStrategy: { words: [], colorRhythm: "emphasis-based" },
+      hierarchyFlow: "Top-down",
+      sizingStrategy: "balanced"
+    },
+    colorStorytelling: {
+      dominantHues: [],
+      colorPsychology: "Professional and clear color palette"
+    },
+    decorativeElementsContext: {
+      sophisticationLevel: 'balanced',
+      placementStrategy: "Strategic minimal placement",
+      thematicElements: []
+    },
+    layoutNarrative: {
+      visualHierarchy: ["Title", "Details", "CTA"],
+      contentAreaStyle: "Clear and professional",
+      logoStripTreatment: 'modern',
+      spatialDensity: 'balanced'
+    }
+  }
+}
+
+// Helper functions for AI context merging
+function extractVibeKeywords(moodAtmosphere: string, designStrategy: string): string[] {
+  const combined = `${moodAtmosphere} ${designStrategy}`.toLowerCase()
+  const keywords: string[] = []
+
+  if (combined.includes('prestig') || combined.includes('premium') || combined.includes('elegant')) {
+    keywords.push('Prestigious', 'Elegant')
+  }
+  if (combined.includes('academic') || combined.includes('scholar') || combined.includes('education')) {
+    keywords.push('Scholarly', 'Academic')
+  }
+  if (combined.includes('professional') || combined.includes('formal')) {
+    keywords.push('Professional', 'Formal')
+  }
+  if (combined.includes('celebrat') || combined.includes('festiv') || combined.includes('joy')) {
+    keywords.push('Celebratory', 'Joyful')
+  }
+  if (combined.includes('innovat') || combined.includes('tech') || combined.includes('modern')) {
+    keywords.push('Innovative', 'Modern')
+  }
+  if (combined.includes('inspir') || combined.includes('motivat')) {
+    keywords.push('Inspirational', 'Motivating')
+  }
+
+  return keywords.length > 0 ? keywords : ['Professional', 'Clean', 'Clear']
+}
+
+function extractThemes(aiAnalysis: AIEventAnalysis): string[] {
+  const themes: string[] = []
+  const moodLower = aiAnalysis.moodAtmosphere.toLowerCase()
+
+  if (moodLower.includes('learn') || moodLower.includes('education') || moodLower.includes('knowledge')) {
+    themes.push('Learning')
+  }
+  if (moodLower.includes('connect') || moodLower.includes('network') || moodLower.includes('community')) {
+    themes.push('Connection')
+  }
+  if (moodLower.includes('achiev') || moodLower.includes('success') || moodLower.includes('excellence')) {
+    themes.push('Achievement')
+  }
+  if (moodLower.includes('growth') || moodLower.includes('develop') || moodLower.includes('transform')) {
+    themes.push('Growth')
+  }
+
+  return themes.length > 0 ? themes : ['Engagement', 'Professional']
+}
+
+function inferFormality(sophisticationLevel?: 'minimalist' | 'balanced' | 'rich' | 'playful' | 'refined'): 'casual' | 'professional' | 'premium' | 'exclusive' {
+  switch (sophisticationLevel) {
+    case 'rich': return 'premium'
+    case 'refined': return 'exclusive'
+    case 'playful': return 'casual'
+    default: return 'professional'
+  }
+}
+
+function inferEnergyLevel(moodAtmosphere: string): 'calm' | 'moderate' | 'high' | 'explosive' {
+  const lower = moodAtmosphere.toLowerCase()
+  if (lower.includes('calm') || lower.includes('serene') || lower.includes('peaceful')) return 'calm'
+  if (lower.includes('excit') || lower.includes('dynamic') || lower.includes('energetic')) return 'high'
+  if (lower.includes('explos') || lower.includes('intense')) return 'explosive'
+  return 'moderate'
+}
+
+function inferTemperature(moodAtmosphere: string): 'warm' | 'neutral' | 'cool' {
+  const lower = moodAtmosphere.toLowerCase()
+  if (lower.includes('warm') || lower.includes('welcoming') || lower.includes('friendly')) return 'warm'
+  if (lower.includes('cool') || lower.includes('calm') || lower.includes('professional')) return 'cool'
+  return 'neutral'
+}
+
+function inferEnergyDynamics(moodAtmosphere: string): 'static' | 'flowing' | 'explosive' | 'pulsing' {
+  const lower = moodAtmosphere.toLowerCase()
+  if (lower.includes('dynamic') || lower.includes('flow')) return 'flowing'
+  if (lower.includes('explos') || lower.includes('burst')) return 'explosive'
+  if (lower.includes('pulse') || lower.includes('rhythm')) return 'pulsing'
+  return 'static'
+}
+
+function inferTypographyPersonality(sophisticationLevel?: 'minimalist' | 'balanced' | 'rich' | 'playful' | 'refined'): string {
+  switch (sophisticationLevel) {
+    case 'rich': return 'Elegant Display Serif'
+    case 'refined': return 'Premium Modern Sans'
+    case 'playful': return 'Friendly Rounded Sans'
+    case 'minimalist': return 'Clean Geometric Sans'
+    default: return 'Bold Modern Sans'
   }
 }
 

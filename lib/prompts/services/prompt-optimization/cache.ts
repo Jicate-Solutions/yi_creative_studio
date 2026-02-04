@@ -382,7 +382,8 @@ export function getGeminiCachedContentName(cacheKey: string): string | null {
  */
 export function prepareGeminiCacheContent(
   systemPrompt: string,
-  model: string = 'gemini-2.0-flash-exp',
+  // v25.0: Updated default from deprecated gemini-2.0-flash-exp
+  model: string = 'gemini-2.5-flash',
   ttlSeconds: number = 3600
 ): {
   model: string

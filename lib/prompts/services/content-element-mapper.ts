@@ -303,9 +303,10 @@ const CONTENT_ELEMENT_CATEGORIES: ElementCategory[] = [
 
   // ============================================================
   // EDUCATION & ACADEMIC
+  // v24.12.3: Added "faculty", "development", "training", "programme", "workshop", "seminar" keywords
   // ============================================================
   {
-    keywords: /\b(learn|education|academic|university|college|school|student)\b/i,
+    keywords: /\b(learn|education|academic|university|college|school|student|faculty|development|training|professional|programme|workshop|seminar|teacher|instructor|curriculum|pedagogy|educator|capacity|skill)\b/i,
     elements: [
       'open book with pages transforming into flying knowledge birds',
       'brain synapses firing as new connections illuminate understanding',
@@ -529,12 +530,7 @@ export function getContentRelatedElements(
   eventName: string,
   eventType?: string,
   uniquenessSeed?: string
-): {
-  elements: string[]
-  backgrounds: string[]
-  decorativeAccents: string[]
-  matchedCategories: string[]
-} {
+): ContentElements {
   const searchText = `${eventName} ${eventType || ''}`.toLowerCase()
   const matchedCategories: string[] = []
   let elements: string[] = []
@@ -646,6 +642,14 @@ export function getCreativityDirective(seed: string): string {
   }
 
   return directive
+}
+
+// Export return type of getContentRelatedElements for external use
+export interface ContentElements {
+  elements: string[]
+  backgrounds: string[]
+  decorativeAccents: string[]
+  matchedCategories: string[]
 }
 
 export type { ElementCategory }

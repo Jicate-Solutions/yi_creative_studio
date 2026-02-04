@@ -25,11 +25,13 @@ async function getSharp(): Promise<typeof sharp> {
 }
 import { processImageWithLogos, resizeImageToExactDimensions, applyEnhanced4RowStrip, applyEnhanced4RowStripSplit, type LogoPosition } from '@/lib/sharp/logo-overlay'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
-import { processImageWithSpeakerPhoto, processImageWithMultiSpeakerLayout, calculateSpeakerPhotoCoordinates } from '@/lib/sharp/speaker-overlay'
+import { processImageWithSpeakerPhoto, processImageWithMultiSpeakerLayout, calculateSpeakerPhotoCoordinates, calculateMultiSpeakerExclusionZone, type LayoutStrategy } from '@/lib/sharp/speaker-overlay'
+import { findSafePositionWithPreference } from '@/lib/sharp/intelligent-positioning'
 import { detectTextInForbiddenZones, getSuggestedHeaderHeight, type ZoneViolation } from '@/lib/sharp/text-zone-verifier'
 import { calculateAdaptiveLogoLayout, getLayoutModeDescription, calculateLayoutHeight } from '@/lib/sharp/adaptive-logo-layout'
 import { compositeLogoBars, calculateOptimalLogoBarHeights, type LogoBarBuffers, type LogoBarCompositorConfig } from '@/lib/sharp/logo-bar-compositor'
 import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, getSpeakersWithPhotos } from '@/lib/utils/speaker-migration'
+import { calculateSpeakerCardDimensions, calculateBlockDimensions, scaleToFitSafeZone, getLayoutStrategy } from '@/lib/sharp/speaker-dimensions'
 import { analyzeSpeakerLayout, type SpeakerLayoutDecision } from '@/lib/agents/speaker-layout-agent'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
 import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
@@ -345,6 +347,20 @@ export async function POST(request: NextRequest) {
       selectedPalette: colorConfig?.selectedPalette,
       hasCustomColors: !!colorConfig?.customColors,
     })
+
+    // v3.1: Validate format selection (required unless custom dimensions provided)
+    if (!formatId && !customDimensions) {
+      console.error('[Generate API] Missing format: formatId=null, customDimensions=null')
+      return NextResponse.json(
+        {
+          error: 'Format selection required',
+          code: 'FORMAT_REQUIRED',
+          message: 'Please select a creative format or specify custom dimensions before generating.',
+          hint: 'This usually means the external event import did not infer a format. Please select one manually.',
+        },
+        { status: 400 }
+      )
+    }
 
     // Get format if specified
     let selectedFormat = formatId ? getFormatById(formatId) : null
@@ -1513,26 +1529,28 @@ export async function POST(request: NextRequest) {
             photoSize = scaledSize
           }
 
-          // v20.7: Pass zone constraints to prevent overlap with logo bars
-          speakerPhotoZoneCoordinates = calculateSpeakerPhotoCoordinates(
-            {
-              position: buildOptions.speakerPhotoConfig.position || 'left',
-              verticalPosition: originalSpeakerPhotoConfig.verticalPosition || 'top',
-              size: photoSize,
-              borderWidth: borderWidth,
-              shadow: originalSpeakerPhotoConfig.shadow,  // v6.6: Pass shadow config for accurate positioning
-            },
-            {
-              width: selectedFormat.width,
-              height: selectedFormat.height,
-            },
-            {  // v20.7: Zone constraints to prevent overlap
-              headerHeight: preCalculatedHeaderHeight,
-              footerHeight: preCalculatedFooterHeight,
-            }
-          )
+          // v24.26: Use calculateMultiSpeakerExclusionZone for accurate Gemini exclusion
+          // This accounts for text dimensions and multi-speaker layouts, solving the coordinate mismatch
+          // between the old calculateSpeakerPhotoCoordinates() (photo-only) and calculateMultiSpeakerPositions() (with text)
+          const exclusionZoneSpeakerCount = totalSpeakersCount || 1
+          const exclusionZoneLayout: LayoutStrategy = exclusionZoneSpeakerCount <= 3 ? 'side-by-side' : exclusionZoneSpeakerCount <= 6 ? 'grid' : 'stacked'
 
-          console.log('[Generate] Speaker photo zone coordinates calculated:', speakerPhotoZoneCoordinates)
+          speakerPhotoZoneCoordinates = calculateMultiSpeakerExclusionZone({
+            speakerCount: exclusionZoneSpeakerCount,
+            layout: exclusionZoneLayout,
+            imageWidth: selectedFormat.width,
+            imageHeight: selectedFormat.height,
+            photoSize: photoSize,
+            spacing: 40,  // v24.25 default spacing
+            position: buildOptions.speakerPhotoConfig.position || 'left',
+            // v24.28: CRITICAL FIX - Use 'bottom' as fallback to match design-constants.ts default
+            // Previously 'top' was used, causing exclusion zone at 44% while Sharp overlaid at 60%
+            verticalPosition: originalSpeakerPhotoConfig.verticalPosition || 'bottom',
+            shadow: originalSpeakerPhotoConfig.shadow !== false,
+            textEnabled: true,  // Always true for grouped speaker cards
+          })
+
+          console.log('[Generate] v24.26: Speaker exclusion zone (with text dimensions):', speakerPhotoZoneCoordinates)
         }
 
         // v7.0: Calculate logo strip zone coordinates for 4-Row Enhanced Strip
@@ -2057,7 +2075,10 @@ ${typographyProfile.hierarchy}
     // If logos need to be overlaid, process with Sharp
     // v14.2: Skip individual logo placement when enhanced 4-row strip is enabled
     // The 4-row strip fetches and places brand logos from logosPlacements automatically
-    if (logosPlacements && logosPlacements.length > 0 && !enhanced4RowStrip?.enabled) {
+    // v25.0: When enhanced4RowStrip exists but enabled=false, skip ALL logo overlays (user disabled the feature)
+    // Only use legacy system for old creatives without enhanced4RowStrip config at all
+    const hasEnhanced4RowConfig = enhanced4RowStrip !== undefined
+    if (logosPlacements && logosPlacements.length > 0 && !hasEnhanced4RowConfig) {
       // NEW v4.8: Design Intelligence for Logo Strips
       // If user hasn't manually selected a strip shape, infer it from the AI's design strategy/vibe
       let stripShape = designData?.stripShape
@@ -2072,8 +2093,13 @@ ${typographyProfile.hierarchy}
       console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}, opacity: ${logoStripMode?.opacity ?? 100}%, logoBound: ${logoStripMode?.logoBound ?? false}`)
       console.log(`Logo strip shape: ${stripShape || 'default (curved)'}`) // NEW v3.11
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
-    } else if (enhanced4RowStrip?.enabled) {
-      console.log('[Logo Placement] Skipping individual logo placement - Enhanced 4-Row Strip will handle brand logos')
+    } else if (hasEnhanced4RowConfig) {
+      // User has enhanced4RowStrip config - either enabled or explicitly disabled
+      if (enhanced4RowStrip?.enabled) {
+        console.log('[Logo Placement] Skipping individual logo placement - Enhanced 4-Row Strip will handle brand logos')
+      } else {
+        console.log('[Logo Placement] Logo Strip feature is DISABLED by user - skipping all logo overlays')
+      }
     }
 
     // ========================================================
@@ -2648,27 +2674,182 @@ ${typographyProfile.hierarchy}
       }
 
       try {
-        // Use AI-driven layout positioning for multi-speaker WITH photos (2+)
-        if (multiSpeakerLayout && multiSpeakerLayout.isValid && speakerCountWithPhotos > 1) {
-          console.log('[Generate API] Using AI-driven multi-speaker layout')
-          imageUrl = await processImageWithMultiSpeakerLayout(
-            imageUrl,
-            normalizedSpeakerPhoto,
-            multiSpeakerLayout
-          )
-          console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speakers with intelligent layout`)
+        // v24.34: HYBRID AI + USER PREFERENCE POSITIONING
+        // User selects side (left/right/auto), AI analyzes image and finds safest zone within that side
+        // This replaces v24.28's fixed positioning which caused overlaps with text
+
+        // v24.35: Default to RIGHT side for speaker photos
+        // Rationale: Content (headlines, topics, date/venue) typically renders on LEFT
+        // The RIGHT side usually has blank gradient/background - ideal for speaker overlays
+        const userPreferredSide = normalizedSpeakerPhoto.position || 'right'
+        const userVerticalPreference = normalizedSpeakerPhoto.verticalPosition || 'bottom'
+
+        console.log(`[v24.34 Hybrid Position] User preference: side=${userPreferredSide}, vertical=${userVerticalPreference}`)
+
+        // Convert imageUrl to buffer for AI analysis (if it's a data URL)
+        let analysisBuffer: Buffer | null = null
+        if (imageUrl.startsWith('data:')) {
+          const base64Data = imageUrl.split(',')[1]
+          analysisBuffer = Buffer.from(base64Data, 'base64')
         }
-        // Fallback to existing flow for single speaker or invalid layout
-        else {
-          console.log('[Generate API] Using standard speaker overlay flow')
-          // v20.4: Pass pre-calculated coordinates to skip AI positioning and respect user's selections
-          imageUrl = await processImageWithSpeakerPhoto(
-            imageUrl,
-            normalizedSpeakerPhoto,
-            speakerPhotoZoneCoordinates  // When defined, overlay uses user's exact position/size instead of AI override
-          )
-          console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speaker photo${speakerCountWithPhotos > 1 ? 's' : ''}`)
+
+        // v24.47.5: Zone constants - aligned with Gemini prompt content zones
+        // Gemini content zone ends at 65% when speaker photos enabled (see event-poster.ts CONTENT_END)
+        const HEADER_END = 0.25      // 25% - logo bar header zone
+        // v24.47.5: Footer at 90% - actual footer bar is small, gives more speaker space
+        const FOOTER_START = 0.90   // 90% - footer bar position (gives 360px for speakers)
+        // v24.47.5: Speaker zone at 65-90% = 360px (fits 361px cards)
+        const SPEAKER_SAFE_START = 0.65  // Start at 65% - below content zone (40-65%)
+        const IMAGE_WIDTH = 1080
+        const IMAGE_HEIGHT = 1440
+        const PADDING = 40
+        const spacing = 40
+
+        // Calculate safe Y bounds (hard constraints for entire poster)
+        const minY = Math.floor(IMAGE_HEIGHT * HEADER_END) + PADDING  // 400px (below header)
+        const maxY = Math.floor(IMAGE_HEIGHT * FOOTER_START) - PADDING  // 1256px (above footer)
+
+        // v24.48: Calculate SPEAKER zone bounds (not entire safe zone)
+        // Speaker zone: from SPEAKER_SAFE_START (65%) to FOOTER_START (90%)
+        // This is the ACTUAL area where speakers should be placed
+        const speakerZoneTop = Math.floor(IMAGE_HEIGHT * SPEAKER_SAFE_START)  // 936px (65%)
+        const speakerZoneBottom = maxY  // 1256px (90% - padding)
+        const speakerZoneHeight = speakerZoneBottom - speakerZoneTop  // 320px available for speakers
+
+        console.log(`[v24.48] Speaker zone: ${speakerZoneTop}px (${Math.round(SPEAKER_SAFE_START * 100)}%) to ${speakerZoneBottom}px - ${speakerZoneHeight}px available`)
+
+        // v24.48: Scale cards to fit SPEAKER zone (not entire safe zone)
+        // This ensures cards are properly scaled to fit the 65%-90% area
+        const scaledDims = scaleToFitSafeZone(speakerCountWithPhotos, speakerZoneHeight, spacing)
+        const { photoSize, cardWidth, cardHeight, blockWidth, blockHeight, wasScaled, compactMode } = scaledDims
+        const layout = getLayoutStrategy(speakerCountWithPhotos)
+
+        console.log(`[v24.48] Speaker positioning: count=${speakerCountWithPhotos}, layout=${layout}`)
+        console.log(`[v24.48] Card dimensions: ${cardWidth}x${cardHeight}px (photoSize=${photoSize}px)`)
+        console.log(`[v24.48] Block dimensions: ${blockWidth}x${blockHeight}px`)
+        if (wasScaled) {
+          console.log(`[v24.48] ⚠️ Cards SCALED DOWN from 180px to ${photoSize}px to fit speaker zone (${speakerZoneHeight}px)`)
         }
+        if (compactMode) {
+          console.log(`[v24.48] 📦 COMPACT MODE: Zone too small (${speakerZoneHeight}px), using photo-only cards (no name/designation)`)
+        }
+
+        // v24.38: AI-PRIMARY SPEAKER POSITIONING
+        // Let AI analyze the image and find truly empty areas FIRST
+        // Fixed positioning is now the FALLBACK, not primary
+
+        let useAIPosition = false
+
+        if (analysisBuffer && speakerCountWithPhotos >= 1) {
+          console.log('[v24.40] AI-PRIMARY: Analyzing image for optimal speaker position...')
+          try {
+            // v24.40: Use correct block dimensions from unified calculator
+            // v24.46: Changed to center position - speakers below content, horizontally centered
+            const aiPosition = await findSafePositionWithPreference(
+              analysisBuffer,
+              { width: blockWidth, height: blockHeight },  // v24.40: Layout-aware dimensions
+              {
+                position: 'center',  // v24.46: Center horizontally (below content)
+                vertical: 'lower'    // v24.46: Always lower (below content zone)
+              },
+              {
+                hasLogosAtTop: true,
+                minConfidence: 0.35,  // v24.38: Lower threshold - trust AI more
+                allowOverride: true
+              }
+            )
+
+            console.log(`[v24.40] AI analysis result:`)
+            console.log(`  - Zone: ${aiPosition.zone}`)
+            console.log(`  - Position: (${aiPosition.x}, ${aiPosition.y})`)
+            console.log(`  - Confidence: ${(aiPosition.confidence * 100).toFixed(1)}%`)
+            console.log(`  - Reasoning: ${aiPosition.reasoning}`)
+
+            // v24.44: TRUST HIGH-CONFIDENCE AI POSITIONS
+            // When AI has ≥75% confidence, it has verified the zone is truly empty
+            // Only enforce absolute boundaries (logos 0-20%, footer 85-100%)
+            const ABSOLUTE_MIN_Y = Math.floor(IMAGE_HEIGHT * 0.20) + PADDING  // 328px (below logo zone)
+            const ABSOLUTE_MAX_Y = Math.floor(IMAGE_HEIGHT * 0.85) - PADDING   // 1184px (above footer)
+
+            // Determine which bounds to use based on confidence level
+            const isHighConfidence = aiPosition.confidence >= 0.75
+            const effectiveMinY = isHighConfidence ? ABSOLUTE_MIN_Y : minY
+            const effectiveMaxY = isHighConfidence ? ABSOLUTE_MAX_Y : maxY
+
+            console.log(`[v24.44] Confidence: ${(aiPosition.confidence * 100).toFixed(1)}% - using ${isHighConfidence ? 'RELAXED' : 'STANDARD'} bounds`)
+            console.log(`[v24.44] Effective bounds: minY=${effectiveMinY}, maxY=${effectiveMaxY}`)
+
+            // v24.44: Accept AI position with dynamic bounds based on confidence
+            if (aiPosition.confidence >= 0.35 &&
+                aiPosition.y >= effectiveMinY &&
+                aiPosition.y + blockHeight <= effectiveMaxY + PADDING) {
+              useAIPosition = true
+              speakerPhotoZoneCoordinates = {
+                x: aiPosition.x,
+                y: aiPosition.y,
+                width: blockWidth,  // v24.40: Layout-aware width
+                height: blockHeight,  // v24.40: Layout-aware height
+                topEdge: aiPosition.y,
+                bottomEdge: aiPosition.y + blockHeight,
+                leftEdge: aiPosition.x,
+                rightEdge: aiPosition.x + blockWidth,
+                photoSize: photoSize,  // v24.40: Scaled photo size
+                compactMode: compactMode  // v24.45: Disable text when zone too small
+              }
+              console.log(`[v24.44] ✅ AI POSITION ACCEPTED: (${aiPosition.x}, ${aiPosition.y}) - ${isHighConfidence ? 'HIGH CONFIDENCE' : 'STANDARD'} mode, ${layout} layout ${blockWidth}x${blockHeight}px`)
+            } else {
+              console.log(`[v24.44] ⚠️ AI position rejected:`)
+              console.log(`  - Confidence: ${(aiPosition.confidence * 100).toFixed(1)}% (need >= 35%)`)
+              console.log(`  - Y bounds check: y=${aiPosition.y} >= minY=${effectiveMinY} && y+h=${aiPosition.y + blockHeight} <= maxY+P=${effectiveMaxY + PADDING}`)
+            }
+          } catch (aiError) {
+            console.log('[v24.40] AI analysis failed:', aiError instanceof Error ? aiError.message : 'unknown error')
+          }
+        }
+
+        // v24.40: Fall back to fixed positioning ONLY if AI failed or rejected
+        // Now uses scaled dimensions from scaleToFitSafeZone()
+        // v24.49: Simple positioning at BOTTOM of speaker zone (closer to footer)
+        if (!useAIPosition) {
+          console.log(`[v24.49] Using FALLBACK fixed positioning: ${layout} layout for ${speakerCountWithPhotos} speakers`)
+
+          // v24.46: Center-aligned X position (horizontally centered below content)
+          const x = Math.floor((IMAGE_WIDTH - blockWidth) / 2)
+
+          // v24.49: Position speakers at BOTTOM of speaker zone (closer to footer)
+          // Cards are already scaled to fit the zone, so place at bottom of zone
+          // speakerZoneTop, speakerZoneBottom, speakerZoneHeight are already calculated above (lines 2693-2695)
+          const startY = speakerZoneBottom - blockHeight  // Bottom-aligned in zone
+
+          // Clamp to ensure stays within bounds (should rarely be needed now)
+          const clampedStartY = Math.max(minY, Math.min(startY, speakerZoneBottom - blockHeight))
+
+          speakerPhotoZoneCoordinates = {
+            x,
+            y: clampedStartY,
+            width: blockWidth,
+            height: blockHeight,
+            topEdge: clampedStartY,
+            bottomEdge: clampedStartY + blockHeight,
+            leftEdge: x,
+            rightEdge: x + blockWidth,
+            photoSize: photoSize,
+            compactMode: compactMode  // v24.45: Disable text when zone too small
+          }
+          console.log(`[v24.49] FALLBACK: ${speakerCountWithPhotos} speakers ${layout.toUpperCase()} BOTTOM-ALIGNED at (${x}, ${clampedStartY}) - ${blockWidth}x${blockHeight}px (zone: ${speakerZoneTop}-${speakerZoneBottom}px, ${speakerZoneHeight}px available)${compactMode ? ' [COMPACT]' : ''}`)
+        }
+
+        // v24.30: Pass poster colors for contrast-aware speaker text
+        imageUrl = await processImageWithSpeakerPhoto(
+          imageUrl,
+          normalizedSpeakerPhoto,
+          speakerPhotoZoneCoordinates,  // Now potentially updated by AI
+          {
+            primaryColor: resolvedColors.primaryColor,
+            accentColor: resolvedColors.accentColor,
+          }
+        )
+        console.log(`[Generate API] Successfully overlaid ${speakerCountWithPhotos} speaker photo${speakerCountWithPhotos > 1 ? 's' : ''}`)
       } catch (error) {
         console.error('[Generate API] Speaker photo overlay failed:', error)
         // Continue with original image on error

@@ -65,6 +65,17 @@ import {
 import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { DesignContextForPrompt } from '../types'
 
+// v25.1: Import content density analyzer for sparse content background enrichment
+import {
+  analyzeContentDensity,
+  buildContentDensityGuidance,
+  getAdjustedElementCount,
+  type ContentDensityAnalysis,
+} from '@/lib/prompts/helpers/content-density-analyzer'
+
+// v26.0: Import storytelling fusion types
+import type { StorytellingOutput } from '../../storytelling-fusion'
+
 // ============================================================
 // MULTI-COLOR TYPOGRAPHY HELPERS (v5.0)
 // ============================================================
@@ -489,6 +500,42 @@ function buildHeadlineTextSection(
   return `<text role="event_headline" color="${headlineColor}" prominence="dominant" size="largest">${eventName}</text>`
 }
 
+/**
+ * v26.0: Build storytelling narrative section for cohesive visual storytelling
+ * Converts StorytellingOutput into XML-structured prompt guidance for Gemini
+ *
+ * @param storytelling - The unified visual narrative from storytelling fusion
+ * @returns XML-structured storytelling brief with narrative, story arc, and element connections
+ */
+function buildStorytellingNarrativeSection(storytelling: StorytellingOutput): string {
+  return `
+<visual_storytelling confidence="${(storytelling.narrativeConfidence * 100).toFixed(0)}%">
+UNIFIED VISUAL NARRATIVE:
+${storytelling.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${storytelling.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${storytelling.storyArc.climax}
+3. RESOLUTION: ${storytelling.storyArc.resolution}
+
+VISUAL ELEMENTS & THEIR CONNECTIONS:
+${storytelling.elementCohesion.map(ec => `
+${ec.element}
+  → Story Role: ${ec.storyRole.toUpperCase()}
+  → Purpose: ${ec.reasoning}
+  → Visual Link: ${ec.visualConnection}
+`).join('\n')}
+
+CRITICAL STORYTELLING REQUIREMENTS:
+✓ Create ONE unified visual story (not disconnected elements)
+✓ The HERO VISUAL must be the dominant focal point
+✓ Supporting elements enhance the hero without competing
+✓ All visuals serve the narrative cohesively
+✓ Background atmosphere reinforces the story mood
+</visual_storytelling>
+`.trim()
+}
+
 // ============================================================
 // MAIN BUILDER
 // ============================================================
@@ -573,52 +620,86 @@ export function buildEventPosterPrompt(
   const headerReservePercent = options.logoStripZoneCoordinates?.headerReservePercent || 18
   const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
 
-  // v24.10: UNIFIED ZONE STRATEGY (40%-70%)
-  // All text content MUST be placed within the center zone to prevent header/footer overlap
-  // Zone Layout (same for Flash and Pro models):
+  // v25.1: Analyze content density to determine if background needs enrichment
+  const contentDensityAnalysis = analyzeContentDensity({
+    eventName,
+    eventDescription,
+    eventNote,
+    venue: data.venue,
+    speakers,
+  })
+
+  console.log('[Event Poster v25.1] Content Density Analysis:', contentDensityAnalysis.analysis)
+
+  // v25.1: Build content density guidance if background enrichment is needed
+  const contentDensityGuidance = buildContentDensityGuidance(contentDensityAnalysis)
+
+  // v24.29: Early detection of speaker photo mode for content zone calculation
+  // Must be calculated BEFORE content zones so we can shrink to 40%-60% when speakers enabled
+  const hasSpeakerPhotoEarly = options.speakerPhotoConfig?.enabled === true
+
+  // v24.50: DYNAMIC ZONE STRATEGY (40%-60% or 40%-70%)
+  // When speaker photos enabled: shrink content zone to 40%-60% (reserve 60%-90% for photo overlays)
+  // When no speaker photos: standard 40%-70% content zone
+  //
+  // Zone Layout (v24.50 - speaker-aware):
   // - Header: 0-40% (FORBIDDEN - no text, reserved for branding/logos)
-  // - Content: 40-70% (ALL text - headline, tagline, date, venue, speakers)
-  // - Footer: 70-100% (FORBIDDEN - no text, reserved for footer bar)
+  // - Content: 40-60% or 40-70% (ALL text - headline, tagline, date, venue)
+  // - Speaker Photos: 60-90% (RESERVED for Sharp overlays when enabled)
+  // - Footer: 90-100% (FORBIDDEN - no text, reserved for footer bar)
   const CONTENT_START = 40  // 40% from top - ALL text starts here
-  const CONTENT_END = 70    // 70% from top - ALL text ends here
-  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 30% available for text
+  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : 70  // v24.50: 60% when speaker photos (was 65%), 70% otherwise
+  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 20% or 30% available for text
 
   // Override calculated header start with center zone start
   const headerStartPercent = CONTENT_START
 
-  console.log('[Event Poster v24.10] UNIFIED ZONE STRATEGY:', {
+  console.log('[Event Poster v24.50] DYNAMIC ZONE STRATEGY:', {
     contentStart: `${CONTENT_START}%`,
     contentEnd: `${CONTENT_END}%`,
     centerZoneHeight: `${CENTER_ZONE_HEIGHT}%`,
     headerZone: '0% - 40% (FORBIDDEN)',
-    footerZone: '70% - 100% (FORBIDDEN)',
-    reasoning: 'v24.10 Unified zones - same for Flash and Pro models'
+    speakerPhotoZone: hasSpeakerPhotoEarly ? '60% - 90% (RESERVED for photo overlays)' : 'N/A',
+    footerZone: `${CONTENT_END}% - 100% (FORBIDDEN)`,
+    hasSpeakerPhoto: hasSpeakerPhotoEarly,
+    reasoning: hasSpeakerPhotoEarly
+      ? 'v24.50: Content shrunk to 40%-60% to reserve 60%-90% for speaker photo overlays'
+      : 'Standard 40%-70% content zone (no speaker photos)'
   })
 
-  // v24.10: Simplified text zones - all within 40%-70% (30% total)
-  // Calculate speaker zone height based on speaker count
-  const speakerZoneHeight = speakers.length > 0 ?
-    (speakers.length > 2 ? 8 : 6) : 0 // Compressed for 30% zone
+  // v24.50: Simplified text zones - all within content zone
+  // When speaker photos: 40%-60% (20% total) - tighter spacing
+  // When no photos: 40%-70% (30% total) - standard spacing
+  const speakerZoneHeight = speakers.length > 0 && !hasSpeakerPhotoEarly ?
+    (speakers.length > 2 ? 8 : 6) : 0 // No speaker text zone when photo overlay mode
 
-  // v24.10: Distribute text proportionally within center zone (40-70%)
-  // 30% total height = need tighter spacing
+  // v24.31: Distribute text proportionally within dynamic content zone
+  // Updated zone order: additionalDetails (59-65%) BEFORE speakers (66-68%)
   const textZones = {
     header: { start: 0, end: headerReservePercent },
     headline: { start: CONTENT_START, end: CONTENT_START + 6 },          // 40-46%
     tagline: { start: CONTENT_START + 7, end: CONTENT_START + 11 },      // 47-51%
     dateVenue: { start: CONTENT_START + 12, end: CONTENT_START + 18 },   // 52-58%
-    speakers: { start: CONTENT_START + 19, end: CONTENT_START + 25 },    // 59-65%
-    additionalDetails: { start: CONTENT_START + 26, end: CONTENT_END - 2 }, // 66-68%
+    // v24.31: Additional details moved ABOVE speakers (59-65%)
+    additionalDetails: hasSpeakerPhotoEarly
+      ? { start: CONTENT_START + 18, end: CONTENT_END - 2 }  // 58-58% (compressed when photo overlay)
+      : { start: CONTENT_START + 19, end: CONTENT_START + 25 }, // 59-65%
+    // v24.31: Speakers moved BELOW additional details (66-68%)
+    // When photo overlay enabled: Sharp handles speaker rendering, skip this zone
+    speakers: hasSpeakerPhotoEarly
+      ? { start: 0, end: 0 }  // Skip - Sharp renders speaker text with photo
+      : { start: CONTENT_START + 26, end: CONTENT_START + 28 },    // 66-68%
     buffer: { start: CONTENT_END, end: CONTENT_END },                    // No buffer needed
-    footer: { start: CONTENT_END, end: 100 }                             // 70-100% (FORBIDDEN)
+    footer: { start: CONTENT_END, end: 100 }                             // Dynamic based on CONTENT_END
   }
 
-  console.log('[Event Poster v24.10] Center Zone Text Distribution:', {
+  console.log('[Event Poster v24.50] Dynamic Text Distribution:', {
     contentZone: `${CONTENT_START}% - ${CONTENT_END}%`,
     headline: `${textZones.headline.start}% - ${textZones.headline.end}%`,
     tagline: `${textZones.tagline.start}% - ${textZones.tagline.end}%`,
     dateVenue: `${textZones.dateVenue.start}% - ${textZones.dateVenue.end}%`,
-    speakers: `${textZones.speakers.start}% - ${textZones.speakers.end}%`,
+    additionalDetails: `${textZones.additionalDetails.start}% - ${textZones.additionalDetails.end}%`,
+    speakers: hasSpeakerPhotoEarly ? 'SKIPPED (photo overlay mode)' : `${textZones.speakers.start}% - ${textZones.speakers.end}%`,
     footerZone: `${CONTENT_END}% - 100% (FORBIDDEN)`
   })
 
@@ -675,15 +756,15 @@ export function buildEventPosterPrompt(
   // Build speaker zone context from options.speakerPhotoConfig (v3.1)
   // This uses the config passed from API route, which preserves the zone even when user has own photo
 
-  // v7.0: RE-ENABLED speaker photo safe zones using natural language approach
-  // New strategy: Use composition philosophy language instead of spatial prohibitions
-  // Avoids trigger words: "zone", "area", "circle", "forbidden", "do not draw"
-  // Guides Gemini to keep corners simple using positive design guidance
+  // v24.29: RE-ENABLED speaker photo composition guidance with 60% text boundary
+  // New strategy: Use composition philosophy language to keep ALL text above 60%
+  // This reserves 60%-70% for Sharp photo overlays without Gemini drawing placeholders
   const speakerZoneContext = buildSpeakerPhotoCompositionGuidance(options.speakerPhotoConfig)
-  const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+  // v24.29: Use early detection value for consistency (already calculated above for content zones)
+  const hasSpeakerPhoto = hasSpeakerPhotoEarly
 
   if (hasSpeakerPhoto && speakerZoneContext) {
-    console.log('[Event Poster] v7.0: Speaker photo composition guidance ENABLED using natural language approach')
+    console.log('[Event Poster] v24.29: Speaker photo composition guidance ENABLED (60% text boundary)')
   }
 
   // v24.17: Log speaker text completely skipped from Gemini prompt when photo overlay is enabled
@@ -711,11 +792,25 @@ export function buildEventPosterPrompt(
 
   // NEW v3.2: Build decorative elements section from Design Intelligence context
   // v4.0: Now sophistication-aware
+  // v25.1: Content density-aware - more elements for sparse content
+  // v24.12.4: Increased base counts for richer backgrounds (3→5, 7→10, 12→15)
+  const baseMaxElements = sophistication === 'minimalist' ? 5 : (sophistication === 'rich' ? 15 : 10)
+  const adjustedMaxElements = getAdjustedElementCount(baseMaxElements, contentDensityAnalysis)
+
+  if (contentDensityAnalysis.shouldEnrichBackground) {
+    console.log('[Event Poster v25.1] Background enrichment active:', {
+      baseElements: baseMaxElements,
+      adjustedElements: adjustedMaxElements,
+      multiplier: contentDensityAnalysis.decorativeMultiplier,
+      backgroundComplexity: contentDensityAnalysis.backgroundComplexity
+    })
+  }
+
   const decorativeElementsContext = buildDecorativeElementsSection({
     eventType: data.eventType || 'general',
     designContext: options.designContext,
-    // FIX: Significantly increased limits for rich designs to fix "limited decorative elements" issue
-    maxElements: sophistication === 'minimalist' ? 3 : (sophistication === 'rich' ? 12 : 7), // Increased from 8/5 to 12/7
+    // v25.1: Use adjusted element count based on content density
+    maxElements: adjustedMaxElements,
     includeIconicImagery: true,
     sophistication,
   })
@@ -977,6 +1072,16 @@ The event headline "${eventName}" MUST be:
 - Rendered ON TOP of all visual elements (highest z-index)
 - The FIRST element viewers notice (not decorative graphics)
 
+SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
+
+AVOID these elements in the generated image (negative prompt list style):
+horizontal lines, vertical lines, diagonal lines, divider bars, section separators, stripe patterns, band divisions, border lines, ruled lines, gradient bands, visible zone boundaries, segmented backgrounds, horizontal breaks, flow lines, motion streaks, connecting lines, slash marks, underscores, dashes, separator elements, decorative line patterns
+
+CREATE instead:
+ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
+
+The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
+
 Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
 
 Date, venue, and event details MUST be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
@@ -1022,6 +1127,16 @@ The event headline "${eventName}" MUST be:
 - NEVER obscured by decorative elements
 - Rendered ON TOP of all visual elements (highest z-index)
 - The FIRST element viewers notice (not decorative graphics)
+
+SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
+
+AVOID these elements in the generated image (negative prompt list style):
+horizontal lines, vertical lines, diagonal lines, divider bars, section separators, stripe patterns, band divisions, border lines, ruled lines, gradient bands, visible zone boundaries, segmented backgrounds, horizontal breaks, flow lines, motion streaks, connecting lines, slash marks, underscores, dashes, separator elements, decorative line patterns
+
+CREATE instead:
+ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
+
+The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
 
 Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
 
@@ -1228,14 +1343,17 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
 <!-- v21.0: Layout percentages removed from prose to prevent rendering as visible text -->
 <!-- v22.0: Now using structured XML tags at TOP instead of vague spatial language -->
 <!-- v23.0: Reordered sections - spatial constraints now appear FIRST (before typography) -->
-POSTER LAYOUT AND COMPOSITION:
+<!-- v24.12.1: Wrapped heading in instruction tags to prevent text leak -->
+
+<instruction>(DO NOT RENDER AS TEXT) LAYOUT AND COMPOSITION RULES:</instruction>
 
   <layout_composition_rules>
-    1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.11):
-  - CONTENT ZONE: 40% to 70% of canvas height (576px to 1008px for 1440px canvas)
-  - ALL TEXT MUST FIT within this 30% vertical zone (432px available height)
+    1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.29):
+  - CONTENT ZONE: 40% to ${CONTENT_END}% of canvas height (576px to ${Math.floor(1440 * CONTENT_END / 100)}px for 1440px canvas)
+  - ALL TEXT MUST FIT within this ${CENTER_ZONE_HEIGHT}% vertical zone (${Math.floor(1440 * CENTER_ZONE_HEIGHT / 100)}px available height)
   - HEADER ZONE (0-40%): FORBIDDEN for text - reserved for logo overlays
-  - FOOTER ZONE (70-100%): FORBIDDEN for text - reserved for footer bar
+  ${hasSpeakerPhoto ? `- SPEAKER OVERLAY ZONE (60%-90%): FORBIDDEN for text - reserved for speaker photo overlays (864px to 1296px)` : ''}
+  - FOOTER ZONE (${CONTENT_END}%-100%): FORBIDDEN for text - reserved for footer bar
   - Refer to <spatial_layout_constraints> above for EXACT Y-coordinate positioning
   - The <text_zone> and <forbidden_zone> boundaries are ABSOLUTE - follow them precisely
   - This is a technical requirement for post-processing, not a creative suggestion
@@ -1243,7 +1361,7 @@ POSTER LAYOUT AND COMPOSITION:
   CONTENT OVERFLOW RULE:
   - If event has extensive content: Use smaller fonts and tighter spacing
   - Priority: Event title > Date/Venue > Speaker > Additional details
-  - NEVER expand text into 0-40% header or 70-100% footer zones
+  - NEVER expand text into 0-40% header or ${CONTENT_END}%-100% footer zones
 
     2. HIERARCHY OVER RIGIDITY (WITHIN ZONES):
   - Do NOT rigidly center everything. Follow the "Alignment Strategy" defined in the typography section above.
@@ -1254,15 +1372,32 @@ POSTER LAYOUT AND COMPOSITION:
 3. DATE, TIME, AND VENUE POSITIONING:
   - Group Date, Time, and Venue together as a unified visual block
   - Position in the <text_zone id="date_venue"> (see Y-coordinates in spatial_layout_constraints)
-  - Use icons or dividers to enhance visual grouping
+  - Use icons or spacing to enhance visual grouping (NO horizontal lines or dividers)
   - "${eventName}" must remain the dominant focal point above this section
 ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
-4. VISUAL FLOW AND BACKGROUND ELEMENTS:
-  - Background elements (gradients, shapes, illustrations) MAY flow through all zones including <forbidden_zone> areas
-  - Only TEXT and FOCAL ELEMENTS must respect <text_zone> boundaries
-  - Use subtle opacity for background elements near text zones for readability
-  - The background flows seamlessly from top to bottom without creating visible bands or stripes
+4. FULL-CANVAS VISUAL FLOW (v24.12.2 - MANDATORY):
+
+  ⚠️ CRITICAL: Create ONE CONTINUOUS visual design across the ENTIRE canvas (0% to 100%)
+
+  WHAT TO DO:
+  ✅ Background gradients MUST extend from top edge (0%) to bottom edge (100%)
+  ✅ Visual elements (shapes, illustrations, atmospheric effects) flow edge-to-edge
+  ✅ Header area (0-40%) and Footer area (70-100%) get the SAME visual treatment as center
+  ✅ Create ONE unified design - the entire poster is ONE artwork
+  ✅ Use gradients, shapes, and lighting that span the full canvas height
+
+  WHAT NOT TO DO:
+  ❌ Do NOT create separate visual sections for header/content/footer
+  ❌ Do NOT use different background colors or styles for different zones
+  ❌ Do NOT create visible bands, stripes, or horizontal divisions
+  ❌ Do NOT treat header/footer as separate design areas
+
+  TEXT vs VISUALS separation:
+  - TEXT stays in 40%-70% zone (Sharp overlays cover 0-40% and 70-100%)
+  - VISUALS (backgrounds, gradients, shapes) MUST flow through ALL zones
+  - The same gradient/design should be visible behind the logo overlays
+  - This creates seamless integration between AI poster and logo bars
 
 5. TEXT PROTECTION AND READABILITY:
 - Keep <text_zone> areas clear of complex decorative elements for readability
@@ -1412,11 +1547,15 @@ ${speakers.length > 0 && !hasSpeakerPhoto ? `${speakers.length > 1 ? '- Speakers
 ${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
 ${'' /* v14.0: eventNote moved to Additional Details section (line 1307) - Footer section now available for future use */}
 
-${decorativeElementsContext}
+${/* v26.0: Inject storytelling narrative BEFORE decorative elements */''}${options.designContext?.storytellingContext ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
+
+` : ''}${decorativeElementsContext}
 
 ${backgroundSettingContext}
 
-VISUAL STYLE:
+${contentDensityGuidance ? `${contentDensityGuidance}
+
+` : ''}VISUAL STYLE:
 ${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette.The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style} -vibe(${tg_cat}) with ${tg_align} -aligned layout that commands attention.Event details are clean and readable with supportive icons.The call - to - action button has bold, high contrast styling.Energy level: ${eventContext.energy}.
 
 ${options.multiColorTypography ? `

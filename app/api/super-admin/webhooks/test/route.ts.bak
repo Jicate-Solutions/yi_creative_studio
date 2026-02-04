@@ -1,0 +1,181 @@
+/**
+ * Super Admin API: Test Webhook
+ * POST /api/super-admin/webhooks/test
+ *
+ * Sends a test webhook payload to verify integration works
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { superAdminGuard } from '@/lib/middleware/super-admin-guard'
+import { logSuperAdminAction } from '@/lib/services/audit-service'
+import crypto from 'crypto'
+
+interface TestWebhookBody {
+  organization_id: string
+  source_app_id: string
+  action: 'create' | 'update' | 'delete'
+  payload: Record<string, unknown>
+}
+
+export async function POST(request: NextRequest) {
+  return superAdminGuard(request, async (req, { adminClient, superAdmin }) => {
+    try {
+      // Using 'as any' because these tables are not yet in database types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = adminClient as any
+
+      const body: TestWebhookBody = await req.json()
+
+      // Validate required fields
+      if (!body.organization_id || !body.source_app_id || !body.action || !body.payload) {
+        return NextResponse.json(
+          { error: 'Missing required fields: organization_id, source_app_id, action, payload' },
+          { status: 400 }
+        )
+      }
+
+      // Get event source for this organization and source_app_id
+      const { data: source, error: sourceError } = await client
+        .from('event_sources')
+        .select('*')
+        .eq('organization_id', body.organization_id)
+        .eq('source_app_id', body.source_app_id)
+        .single()
+
+      if (sourceError || !source) {
+        return NextResponse.json(
+          {
+            error: 'Event source not found',
+            details: `No event source found for organization ${body.organization_id} with source_app_id ${body.source_app_id}`,
+          },
+          { status: 404 }
+        )
+      }
+
+      if (!source.is_active) {
+        return NextResponse.json(
+          { error: 'Event source is inactive', details: 'Activate the event source before testing' },
+          { status: 400 }
+        )
+      }
+
+      // Generate signature for the test payload
+      const payloadString = JSON.stringify(body.payload)
+      const signature = crypto.createHmac('sha256', source.webhook_secret).update(payloadString).digest('hex')
+
+      // Build the internal webhook URL
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const webhookUrl = `${baseUrl}/api/webhooks/events`
+
+      // Track start time for duration
+      const startTime = Date.now()
+
+      // Call the webhook endpoint internally
+      let webhookResponse: Response
+      let responseBody: unknown
+      let webhookError: string | null = null
+
+      try {
+        webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Webhook-Secret': source.webhook_secret,
+            'X-Webhook-Signature': signature,
+            'X-Source-App-Id': body.source_app_id,
+            'X-Test-Request': 'true',
+          },
+          body: JSON.stringify({
+            action: body.action,
+            event: body.payload,
+            organization_id: body.organization_id,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              source: body.source_app_id,
+              test: true,
+            },
+          }),
+        })
+
+        responseBody = await webhookResponse.json()
+      } catch (fetchError) {
+        webhookError = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error'
+        webhookResponse = new Response(null, { status: 500 })
+        responseBody = { error: webhookError }
+      }
+
+      const duration = Date.now() - startTime
+
+      // Log the test webhook call
+      await client.from('webhook_logs').insert({
+        event_source_id: source.id,
+        source_app_id: body.source_app_id,
+        organization_id: body.organization_id,
+        action: body.action,
+        external_event_id: (body.payload.id as string) || 'test-event',
+        event_name: (body.payload.name as string) || 'Test Event',
+        status: webhookResponse.ok ? 'success' : 'error',
+        error_message: webhookError || (!webhookResponse.ok ? JSON.stringify(responseBody) : null),
+        request_payload: body.payload,
+        response_payload: responseBody,
+        ip_address: '127.0.0.1',
+        user_agent: 'Super Admin Test Tool',
+        duration_ms: duration,
+      })
+
+      // Log super admin action
+      await logSuperAdminAction({
+        super_admin_id: superAdmin.id,
+        action: 'webhook:test',
+        resource_type: 'event_source',
+        resource_id: source.id,
+        target_organization_id: body.organization_id,
+        changes: {
+          before: { action: body.action },
+          after: { result: webhookResponse.ok ? 'success' : 'error' },
+        },
+      })
+
+      // Generate curl command for external testing
+      const curlCommand = `curl -X POST '${webhookUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-Webhook-Secret: YOUR_WEBHOOK_SECRET' \\
+  -H 'X-Webhook-Signature: ${signature}' \\
+  -H 'X-Source-App-Id: ${body.source_app_id}' \\
+  -d '${JSON.stringify(
+    {
+      action: body.action,
+      event: body.payload,
+      organization_id: body.organization_id,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        source: body.source_app_id,
+      },
+    },
+    null,
+    2
+  )}'`
+
+      return NextResponse.json({
+        success: webhookResponse.ok,
+        test_result: {
+          status: webhookResponse.status,
+          ok: webhookResponse.ok,
+          duration_ms: duration,
+          response: responseBody,
+          error: webhookError,
+        },
+        curl_command: curlCommand,
+        message: webhookResponse.ok
+          ? 'Test webhook sent successfully'
+          : `Test webhook failed with status ${webhookResponse.status}`,
+      })
+    } catch (error) {
+      console.error('[super-admin] Exception testing webhook:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
+  })
+}

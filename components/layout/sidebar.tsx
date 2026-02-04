@@ -42,6 +42,8 @@ import {
   Library,
   Layers,
   Coins,
+  CalendarDays,
+  Link2,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 
@@ -59,6 +61,11 @@ const mainNavItems: NavItem[] = [
     title: 'Dashboard',
     href: ROUTES.dashboard,
     icon: LayoutDashboard,
+  },
+  {
+    title: 'Events',
+    href: ROUTES.events,
+    icon: CalendarDays,
   },
   {
     title: 'Create',
@@ -114,6 +121,12 @@ const settingsNavItems: NavItem[] = [
     adminOnly: true,
   },
   {
+    title: 'Integrations',
+    href: ROUTES.integrations,
+    icon: Link2,
+    adminOnly: true,
+  },
+  {
     title: 'Admin Credits',
     href: ROUTES.adminCredits,
     icon: Coins,
@@ -134,6 +147,10 @@ export function Sidebar() {
     setMounted(true)
   }, [])
 
+  // Sidebar is expanded only when pinned (not collapsed)
+  // When collapsed, tooltips on individual menu items show labels on hover
+  const isExpanded = !sidebarCollapsed
+
   // Don't render during SSR to avoid hydration mismatch with Radix UI
   if (!mounted) return null
 
@@ -153,35 +170,52 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col h-[100dvh] transition-all duration-500',
+        'hidden md:flex flex-col h-[100dvh] transition-all duration-300 ease-in-out',
         'fixed top-0 left-0 z-40',
-        'bg-background/80 backdrop-blur-2xl border-r border-white/10 shadow-2xl',
-        sidebarCollapsed ? 'w-20' : 'w-64'
+        'bg-background/95 backdrop-blur-2xl border-r border-white/10 shadow-2xl',
+        isExpanded ? 'w-64' : 'w-[72px]'
       )}
     >
       {/* Header: Logo */}
-      <div className={cn("flex h-20 items-center justify-center transition-all", sidebarCollapsed ? "px-0" : "px-6 justify-between")}>
-        <div className={cn("transition-transform duration-300 origin-center", sidebarCollapsed ? "scale-90" : "scale-100")}>
-          <Logo showText={!sidebarCollapsed} size="sm" />
+      <div className={cn(
+        "flex flex-col items-center transition-all duration-300",
+        isExpanded ? "px-4 h-16 flex-row justify-between" : "px-0 pt-3 pb-2 gap-2"
+      )}>
+        <div className={cn("transition-all duration-300 origin-center", isExpanded ? "scale-100" : "scale-90")}>
+          <Logo showText={isExpanded} size="sm" />
         </div>
 
-        {!sidebarCollapsed && (
-          <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(true)}>
-            <ChevronRight className="h-4 w-4 rotate-180 opacity-50" />
+        {isExpanded ? (
+          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-50 hover:opacity-100" onClick={() => setSidebarCollapsed(true)}>
+            <ChevronRight className="h-4 w-4 rotate-180" />
           </Button>
+        ) : (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
+                onClick={() => setSidebarCollapsed(false)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="ml-2">Expand sidebar</TooltipContent>
+          </Tooltip>
         )}
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 min-h-0 px-4 py-2">
-        <nav className="flex flex-col gap-2">
+      <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+        <nav className="flex flex-col gap-1">
           {/* Main Nav */}
           {mainNavItems.map((item) => (
             <NavLink
               key={item.href}
               item={item}
               isActive={pathname === item.href}
-              collapsed={sidebarCollapsed}
+              collapsed={!isExpanded}
             />
           ))}
 
@@ -189,7 +223,7 @@ export function Sidebar() {
           {filteredSettingsItems.length > 0 && (
             <>
               <div className="my-2" />
-              {!sidebarCollapsed && (
+              {isExpanded && (
                 <span className="px-3 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1 opacity-70">
                   System
                 </span>
@@ -199,7 +233,7 @@ export function Sidebar() {
                   key={item.href}
                   item={item}
                   isActive={pathname === item.href}
-                  collapsed={sidebarCollapsed}
+                  collapsed={!isExpanded}
                 />
               ))}
             </>
@@ -208,7 +242,7 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* Bottom User Dock */}
-      <div className="p-3 mt-auto flex flex-col gap-2 items-center">
+      <div className="p-2 mt-auto flex flex-col gap-2 items-center">
 
         {/* Credits Pill (Mini) */}
 
@@ -219,15 +253,15 @@ export function Sidebar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(
-              "flex items-center gap-3 w-full p-2 rounded-2xl transition-all hover:bg-muted/50 group outline-none",
-              sidebarCollapsed ? "justify-center" : ""
+              "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-muted/50 group outline-none",
+              !isExpanded ? "justify-center" : ""
             )}>
               <Avatar className="h-9 w-9 rounded-xl border border-white/10 shadow-sm transition-transform group-hover:scale-105">
                 <AvatarImage src={profile?.avatar_url || undefined} className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-[10px]">{initials}</AvatarFallback>
               </Avatar>
 
-              {!sidebarCollapsed && (
+              {isExpanded && (
                 <div className="flex flex-col items-start overflow-hidden">
                   <span className="text-sm font-bold truncate w-full text-left">{profile?.full_name || 'Creator'}</span>
                   <span className="text-[10px] text-muted-foreground truncate w-full text-left">{user?.email}</span>
@@ -258,11 +292,21 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Collapsed Toggle (if mobile or alternative interaction needed) */}
-        {sidebarCollapsed && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-30 hover:opacity-100" onClick={() => setSidebarCollapsed(false)}>
-            <ChevronRight className="h-3 w-3" />
-          </Button>
+        {/* Expand button - only show when collapsed (collapse is at top) */}
+        {!isExpanded && (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
+                onClick={() => setSidebarCollapsed(false)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="ml-2">Expand sidebar</TooltipContent>
+          </Tooltip>
         )}
       </div>
     </aside>

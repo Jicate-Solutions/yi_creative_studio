@@ -229,6 +229,9 @@ export interface DesignContextForPrompt {
     visualLanguage: string         // Specific visual language and aesthetic
     moodKeywords: string[]         // 3-4 mood keywords
   }
+  // v26.0: Storytelling fusion context
+  // Unifies multiple event analyzers into cohesive visual narrative
+  storytellingContext?: import('../../services/storytelling-fusion').StorytellingOutput
 }
 
 /**
@@ -671,6 +674,13 @@ export interface DesignBrief {
   footerHeight?: number
   logoSafeZoneGuidance?: string
   requestCustomTheme?: boolean  // v6.0 Phase 3: Request AI to generate custom theme instead of using predefined themes
+
+  // v1.0: Additional fields for AI Event Context Analyzer (global event understanding)
+  date?: string
+  time?: string
+  verticalName?: string
+  initiativeText?: string
+  targetAudience?: string
 }
 
 export interface DesignIntelligenceResult {
@@ -681,4 +691,30 @@ export interface DesignIntelligenceResult {
     tokenUsage: TokenUsage
     durationMs: number
   }
+}
+
+// ============================================================
+// STORYTELLING FUSION TYPES (v26.0)
+// ============================================================
+
+export interface StorytellingOutput {
+  visualNarrative: string
+  storyArc: {
+    opening: string
+    climax: string
+    resolution: string
+  }
+  cohesiveElements: {
+    primaryElement: string
+    supportingElements: string[]
+    atmosphericElements: string[]
+  }
+  elementCohesion: Array<{
+    element: string
+    storyRole: 'hero' | 'support' | 'atmosphere'
+    reasoning: string
+    visualConnection: string
+  }>
+  narrativeConfidence: number
+  geminiStoryBrief: string
 }

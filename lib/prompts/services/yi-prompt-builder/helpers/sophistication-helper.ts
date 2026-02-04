@@ -2,7 +2,8 @@
 import type { EnhancedBuildOptions } from '../types'
 import { buildForbiddenZonesSection, buildZoneReminderSection } from './logo-zone-enforcement'
 
-// Keywords that suggest a Rich/Immersive design (Festivals, Parties, High-Energy)
+// Keywords that suggest a Rich/Immersive design (Festivals, Parties, High-Energy, Professional Events)
+// v24.12.4: Added professional event keywords for richer backgrounds
 const RICH_KEYWORDS = [
     // Festivals & Holidays
     'christmas', 'xmas', 'diwali', 'deepavali', 'eid', 'ramadan', 'holi', 'onam', 'pongal',
@@ -11,7 +12,12 @@ const RICH_KEYWORDS = [
     'gala', 'night', 'bash', 'party', 'celebration', 'concert', 'dj', 'music',
     'drive', 'contest', 'challenge', 'marathon', 'hackathon',
     // Vibes
-    'neon', 'cyber', 'future', 'glow', 'luxury', 'awards'
+    'neon', 'cyber', 'future', 'glow', 'luxury', 'awards',
+    // v24.12.4: Professional Events (for rich, immersive backgrounds)
+    'conference', 'summit', 'symposium', 'forum', 'congress', 'convention',
+    'workshop', 'seminar', 'training', 'development', 'programme', 'program',
+    'leadership', 'professional', 'executive', 'retreat', 'session', 'meeting',
+    'inauguration', 'launch', 'opening', 'ceremony', 'annual', 'faculty'
 ];
 
 /**

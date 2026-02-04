@@ -2940,3 +2940,34 @@
     transform: translate(10px, 10px) scale(0.95);
   }
 }
+
+/* ========================================
+   CREATE PAGE TOAST POSITIONING
+   Position toasts in center preview area
+   ======================================== */
+body.create-page-active [data-sonner-toaster] {
+  /* Position relative to viewport center, accounting for sidebar */
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(calc(-50% + 10px)) !important;
+  top: 80px !important;
+}
+
+body.create-page-active [data-sonner-toaster] [data-sonner-toast] {
+  /* Ensure toasts are centered */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ========================================
+   CREATE PAGE SCROLLBAR HIDING
+   Hide scrollbars while maintaining scroll
+   ======================================== */
+body.create-page-active .overflow-y-auto {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+body.create-page-active .overflow-y-auto::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}

@@ -114,7 +114,7 @@ export const AISuggestionField = forwardRef<
           {showSuggestion && suggestion && !value && (
             <div
               className={cn(
-                'absolute inset-0 pointer-events-none px-3 py-2 text-muted-foreground/50 italic',
+                'absolute inset-0 pointer-events-none px-3 py-2 text-purple-600 italic',
                 multiline ? 'min-h-[80px]' : ''
               )}
             >

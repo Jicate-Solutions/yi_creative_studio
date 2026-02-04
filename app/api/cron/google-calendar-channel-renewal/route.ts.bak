@@ -1,0 +1,100 @@
+/**
+ * Google Calendar Channel Renewal Cron
+ *
+ * GET /api/cron/google-calendar-channel-renewal
+ *
+ * Renews push notification channels before they expire.
+ * Should be run every 6 hours via Vercel Cron.
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import {
+  getConnectionsWithExpiringChannels,
+  renewPushChannel,
+} from '@/lib/services/google-calendar'
+import { createClient } from '@/lib/supabase/server'
+
+const CRON_SECRET = process.env.CRON_SECRET
+
+export async function GET(request: NextRequest) {
+  try {
+    // Verify cron secret
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = authHeader?.replace('Bearer ', '')
+
+    if (CRON_SECRET && cronSecret !== CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const startTime = Date.now()
+    let renewed = 0
+    let errors = 0
+    const errorDetails: string[] = []
+
+    // Get connections with expiring channels
+    const connections = await getConnectionsWithExpiringChannels()
+
+    console.log(`Found ${connections.length} connections with expiring channels`)
+
+    // Renew each channel
+    for (const connection of connections) {
+      try {
+        await renewPushChannel(connection)
+        renewed++
+        console.log(
+          `Renewed channel for org ${connection.organization_id}`
+        )
+      } catch (error) {
+        errors++
+        const message =
+          error instanceof Error ? error.message : 'Unknown error'
+        errorDetails.push(
+          `Org ${connection.organization_id}: ${message}`
+        )
+        console.error(
+          `Failed to renew channel for org ${connection.organization_id}:`,
+          error
+        )
+      }
+    }
+
+    // Log summary
+    // TODO: Regenerate Supabase types to include google_calendar_push_logs table
+    // const supabase = await createClient()
+    // await supabase.from('google_calendar_push_logs').insert({
+    //   event_type: 'channel_renewed',
+    //   success: errors === 0,
+    //   error_message:
+    //     errors > 0 ? `${errors} renewals failed: ${errorDetails.join('; ')}` : null,
+    //   response_payload: {
+    //     total: connections.length,
+    //     renewed,
+    //     errors,
+    //   },
+    //   duration_ms: Date.now() - startTime,
+    // })
+
+    return NextResponse.json({
+      success: true,
+      total: connections.length,
+      renewed,
+      errors,
+      duration_ms: Date.now() - startTime,
+    })
+  } catch (error) {
+    console.error('Channel renewal cron error:', error)
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Channel renewal failed',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// Vercel Cron configuration
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
