@@ -826,7 +826,7 @@ export function CanvasCreatePage() {
       />
 
       {/* Canvas Preview OR Template Browser - Full Width with bottom padding for nav */}
-      <div className="flex-1 flex flex-col items-center justify-center px-2 py-4 pb-2 bg-muted/30 overflow-auto">
+      <div className="flex-1 flex flex-col items-center justify-center px-1 min-[400px]:px-2 pt-1 min-[400px]:pt-4 pb-1 min-[400px]:pb-2 bg-muted/30 overflow-auto">
         {isGenerating ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -837,7 +837,7 @@ export function CanvasCreatePage() {
             <TemplateBrowserPanel />
           </div>
         ) : (
-          <div className="w-full flex flex-col items-center pb-20">
+          <div className="w-full flex flex-col items-center pb-2 min-[400px]:pb-16">
             {/* Clickable wrapper for full-view modal */}
             <div
               onClick={() => {
@@ -852,6 +852,7 @@ export function CanvasCreatePage() {
               )}
             >
               <CanvasPreview
+                isMobile={isMobile}
                 onExpandClick={
                   generatedImage || selectedTemplate?.image_url
                     ? () => setPreviewModalOpen(true)
@@ -859,16 +860,16 @@ export function CanvasCreatePage() {
                 }
               />
             </div>
-            {/* Action buttons when image exists */}
+            {/* Action buttons when image exists - Responsive grid */}
             {generatedImage && !isGenerating && (
-              <div className="w-full max-w-sm grid grid-cols-2 gap-2 mt-4 px-4">
+              <div className="w-full max-w-sm grid grid-cols-2 min-[400px]:grid-cols-4 gap-1.5 min-[400px]:gap-2 mt-3 px-2 min-[400px]:px-4">
                 <Button
                   size="sm"
                   onClick={() => setExportModalOpen(true)}
-                  className="w-full gap-2"
+                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Download</span>
                 </Button>
 
                 <ShuffleButton
@@ -880,22 +881,22 @@ export function CanvasCreatePage() {
                   size="sm"
                   variant="secondary"
                   onClick={() => router.push('/gallery')}
-                  className="w-full gap-2"
+                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  View in Gallery
+                  <span className="truncate">Gallery</span>
                 </Button>
 
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setRegenerateModalOpen(true)}
-                  className="w-full gap-2"
+                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
                 >
-                  <RefreshCcw className="h-3.5 w-3.5" />
-                  Regenerate
+                  <RefreshCcw className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Redo</span>
                 </Button>
               </div>
             )}

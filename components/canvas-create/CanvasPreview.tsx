@@ -29,9 +29,11 @@ const ExpandIconButton = ({ onClick }: { onClick?: () => void }) => {
 
 interface CanvasPreviewProps {
   onExpandClick?: () => void
+  /** Use compact sizing for mobile */
+  isMobile?: boolean
 }
 
-export function CanvasPreview({ onExpandClick }: CanvasPreviewProps = {}) {
+export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreviewProps = {}) {
   const {
     selectedFormat,
     generatedImage,
@@ -69,12 +71,15 @@ export function CanvasPreview({ onExpandClick }: CanvasPreviewProps = {}) {
   const logoStripEnabled = formData.enhanced4RowStrip?.enabled !== false
   const footerEnabled = formData.enhanced4RowStrip?.footer?.enabled !== false
 
-  // Calculate preview dimensions (maintain aspect ratio, max 450px for desktop)
+  // Calculate preview dimensions (maintain aspect ratio)
+  // Mobile: Use smaller max height to fit screen better (300px for 320px screens)
+  // Desktop: Max 450px
   const getPreviewDimensions = () => {
-    if (!selectedFormat) return { width: 337, height: 450 }
+    if (!selectedFormat) return { width: isMobile ? 225 : 337, height: isMobile ? 300 : 450 }
 
     const { width, height } = selectedFormat
-    const maxSize = 450
+    // Mobile uses smaller preview to fit 320px screens with margins
+    const maxSize = isMobile ? 300 : 450
     const aspectRatio = width / height
 
     if (aspectRatio > 1) {
