@@ -23,6 +23,7 @@ import {
   Crown,
   Menu,
   Webhook,
+  SendHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,11 @@ const navItems = [
     name: 'Credits',
     href: '/super-admin/credits',
     icon: CreditCard,
+  },
+  {
+    name: 'Credit Requests',
+    href: '/super-admin/credit-requests',
+    icon: SendHorizontal,
   },
   {
     name: 'Subscriptions',

@@ -43,6 +43,7 @@ export function ReviewSummaryPanel({ onBackToEdit }: ReviewSummaryPanelProps) {
             logosPlacements: formData.logosPlacements,
             designData: formData.designData,
             creationMode: formData.creationMode,
+            enhanced4RowStrip: formData.enhanced4RowStrip,
           }}
           selectedFormat={selectedFormat}
           selectedVertical={selectedVertical}

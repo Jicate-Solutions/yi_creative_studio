@@ -53,13 +53,16 @@ interface RegenerateModalProps {
   currentBalance: number
 }
 
-// Display-friendly names for AI models
+// Display-friendly names for AI models - Stylish labels for UI
 const getModelDisplayName = (model: AIModel) => {
   const displayNames: Record<string, string> = {
-    'ideogram': 'Smart Design',
-    'google': 'Creative Poster',
+    'ideogram': 'Design Forge',
+    'google': 'Vision Studio',
+    'gemini': 'Vision Studio',
+    'gemini-3-pro-image-preview': 'Vision Pro',
   }
-  return displayNames[model.provider] || model.name
+  // Check slug first, then provider, then fallback to name
+  return displayNames[model.slug] || displayNames[model.provider] || model.name
 }
 
 // Subset of popular themes for quick selection

@@ -19,6 +19,7 @@ import {
   buildOrganizationContext,
   buildLayoutZoneContext,
   buildLanguageContext,
+  buildSpeakerPhotoCompositionGuidance, // v7.0: Speaker zone guidance for flyers
 } from '../context-helpers'
 import { FLYER_EXAMPLES } from '../examples'
 import {
@@ -433,6 +434,24 @@ export function buildFlyerPrompt(
   // NEW v3.5: Build forbidden zones (Sophistication-Aware)
   const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
+  // v7.0: Speaker photo zone detection and guidance for flyers
+  // When speaker photos are enabled, reserve lower area for Sharp photo overlays
+  const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+  const speakerZoneContext = hasSpeakerPhoto
+    ? buildSpeakerPhotoCompositionGuidance(options.speakerPhotoConfig)
+    : ''
+
+  // v7.0: Dynamic zone calculation based on speaker photo presence
+  // When speakers: shrink content zone to reserve space for photo overlays
+  // Standard: 15% header, 25% headline, 40% content, 20% action
+  // With speakers: 15% header, 25% headline, 30% content, 10% action, 20% speaker photos
+  const CONTENT_ZONE_END = hasSpeakerPhoto ? 70 : 80 // Reserve 70-90% for speaker photos when enabled
+
+  if (hasSpeakerPhoto) {
+    console.log('[Flyer v7.0] Speaker photo zone guidance ENABLED')
+    console.log('[Flyer v7.0] Content zone adjusted: 15%-70% (reserving 70%-90% for speaker overlays)')
+  }
+
   // NEW v3.2: Build AI background section if applicable
   const aiBackgroundResult = buildAIBackgroundSection(data, options)
   const useAIBackground = aiBackgroundResult.isActive
@@ -528,23 +547,27 @@ ${designContextDecorativeSection}
 
 ${designContextBackgroundSection}
 
-<subject>
+${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
+
+` : ''}<subject>
 A professional marketing flyer for: "${data.flyerTitle}"
 Print Size: ${flyerSize} - ${sizeContext.textGuidance}
 Must communicate value proposition and drive specific action.
 Designed for both print and digital use.
 ${useAIBackground ? `Event Context: ${moodDescription}` : ''}
+${hasSpeakerPhoto ? 'Speaker photos will be overlaid in the lower section (70%-90%)' : ''}
 </subject>
 
 <composition>
 Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
-Zone Structure (optimized for ${flyerSize}):
-- HEADER (15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
-- HEADLINE (25%): "${data.flyerTitle}" - bold, attention-grabbing
-- CONTENT (40%): Key information, benefits, details
-- ACTION (20%): CTA, contact info, event details
+Zone Structure (optimized for ${flyerSize}${hasSpeakerPhoto ? ', speaker photo enabled' : ''}):
+- HEADER (0-15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
+- HEADLINE (15-40%): "${data.flyerTitle}" - bold, attention-grabbing
+- CONTENT (40-${CONTENT_ZONE_END}%): Key information, benefits, details
+${hasSpeakerPhoto ? `- SPEAKER PHOTO ZONE (${CONTENT_ZONE_END}-90%): RESERVED for speaker photo overlays - keep background clean/simple
+- ACTION (90-100%): CTA, contact info` : '- ACTION (80-100%): CTA, contact info, event details'}
 
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
@@ -696,6 +719,17 @@ export function buildFlyerPromptWithAgent(
   const forbiddenZonesContext = buildForbiddenZonesSection(options.logoAwareness)
   const zoneReminderContext = buildZoneReminderSection(options.logoAwareness)
 
+  // v7.0: Speaker photo zone detection and guidance for agent-enhanced flyers
+  const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+  const speakerZoneContext = hasSpeakerPhoto
+    ? buildSpeakerPhotoCompositionGuidance(options.speakerPhotoConfig)
+    : ''
+  const CONTENT_ZONE_END = hasSpeakerPhoto ? 70 : 80
+
+  if (hasSpeakerPhoto) {
+    console.log('[Flyer Agent v7.0] Speaker photo zone guidance ENABLED')
+  }
+
   // Build AI background section WITH agent recommendation
   const aiBackgroundResult = buildAIBackgroundSection(data, options, options.agentRecommendation)
   const useAIBackground = aiBackgroundResult.isActive
@@ -774,24 +808,28 @@ ${langContext}
 
 ${aiBackgroundSection}
 
-<subject>
+${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
+
+` : ''}<subject>
 A professional marketing flyer for: "${data.flyerTitle}"
 Print Size: ${flyerSize} - ${sizeContext.textGuidance}
 Must communicate value proposition and drive specific action.
 Designed for both print and digital use.
 ${useAIBackground ? `Event Context: ${moodDescription}` : ''}
 ${options.agentRecommendation ? `Agent Analysis: ${options.agentRecommendation.rationale}` : ''}
+${hasSpeakerPhoto ? 'Speaker photos will be overlaid in the lower section (70%-90%)' : ''}
 </subject>
 
 <composition>
 Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
-Zone Structure (optimized for ${flyerSize}):
-- HEADER (15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
-- HEADLINE (25%): "${data.flyerTitle}" - bold, attention-grabbing
-- CONTENT (40%): Key information, benefits, details
-- ACTION (20%): CTA, contact info, event details
+Zone Structure (optimized for ${flyerSize}${hasSpeakerPhoto ? ', speaker photo enabled' : ''}):
+- HEADER (0-15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
+- HEADLINE (15-40%): "${data.flyerTitle}" - bold, attention-grabbing
+- CONTENT (40-${CONTENT_ZONE_END}%): Key information, benefits, details
+${hasSpeakerPhoto ? `- SPEAKER PHOTO ZONE (${CONTENT_ZONE_END}-90%): RESERVED for speaker photo overlays - keep background clean/simple
+- ACTION (90-100%): CTA, contact info` : '- ACTION (80-100%): CTA, contact info, event details'}
 
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}

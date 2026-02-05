@@ -8,14 +8,15 @@ interface InlineStyleSectionProps {
 }
 
 // 8 most popular/useful styles for quick access
+// Note: value must match POSTER_STYLES keys from design-constants.ts
 const QUICK_STYLES = [
   { value: 'gradient', label: 'Gradient' },
   { value: 'flat', label: 'Flat Design' },
   { value: 'glass', label: 'Glassmorphism' },
-  { value: 'photography', label: 'Photographic' },
+  { value: 'photographic', label: 'Photographic' },
   { value: 'geometric', label: 'Geometric' },
   { value: 'typography', label: 'Typography' },
-  { value: '3d', label: '3D Isometric' },
+  { value: '3d-isometric', label: '3D Isometric' },
   { value: 'illustration', label: 'Illustration' },
 ]
 

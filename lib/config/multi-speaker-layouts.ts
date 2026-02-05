@@ -1,5 +1,5 @@
 /**
- * Multi-Speaker Photo Layout Engine v7.1
+ * Multi-Speaker Photo Layout Engine v8.0
  *
  * Calculates optimal positions for 2-4 speaker photos based on:
  * - Speaker count
@@ -7,14 +7,22 @@
  * - Canvas dimensions
  * - Photo size preference
  * - Reserved zones (header, footer, text)
+ * - Format-specific zone configurations (v8.0)
  *
  * Key Design Principles:
- * 1. Avoid header zone (0-15% from top) - reserved for logos
- * 2. Avoid footer zone (85-100% from top) - reserved for footer strip
+ * 1. Avoid header zone - reserved for logos (format-specific)
+ * 2. Avoid footer zone - reserved for footer strip (format-specific)
  * 3. Avoid text zones (dynamic based on content)
  * 4. Maintain minimum 5% spacing between photos
  * 5. Keep photos within canvas bounds
+ *
+ * v8.0 Changes:
+ * - Replaced hardcoded HEADER_ZONE_END/FOOTER_ZONE_START with format-zones config
+ * - Added format-aware zone calculation via getZoneBoundaries()
+ * - Backward compatible - defaults to poster_portrait zones (40%/70%)
  */
+
+import { getFormatZones, type FormatZones } from './format-zones'
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -92,10 +100,43 @@ const SIZE_MULTIPLIERS: Record<PhotoSizePreset, number> = {
   large: 0.22   // 22% of canvas width (~238px on 1080px)
 }
 
-// v24.11: Reserved zones aligned with content zone (40%-70%)
-// Previous v20.11 used 15%/85% which allowed photos in header/footer areas
-const HEADER_ZONE_END = 40    // 0-40% reserved (content zone starts at 40%)
-const FOOTER_ZONE_START = 70  // 70-100% reserved (content zone ends at 70%)
+// v8.0: Zone boundaries are now format-aware
+// Default values for backward compatibility (matches poster_portrait / event_poster)
+const DEFAULT_HEADER_ZONE_END = 40    // 0-40% reserved (content zone starts at 40%)
+const DEFAULT_FOOTER_ZONE_START = 70  // 70-100% reserved (content zone ends at 70%)
+
+/**
+ * Get zone boundaries for a specific format
+ * Falls back to defaults for backward compatibility
+ *
+ * @param formatId - Format ID (e.g., 'event_poster', 'instagram_post')
+ * @returns Zone boundaries with headerZoneEnd and footerZoneStart percentages
+ */
+export function getZoneBoundaries(formatId?: string): {
+  headerZoneEnd: number
+  footerZoneStart: number
+} {
+  if (!formatId) {
+    return {
+      headerZoneEnd: DEFAULT_HEADER_ZONE_END,
+      footerZoneStart: DEFAULT_FOOTER_ZONE_START
+    }
+  }
+
+  try {
+    const zones = getFormatZones(formatId)
+    return {
+      headerZoneEnd: zones.headerZone.end,
+      footerZoneStart: zones.footerZone.start
+    }
+  } catch {
+    // Fallback to defaults if format-zones lookup fails
+    return {
+      headerZoneEnd: DEFAULT_HEADER_ZONE_END,
+      footerZoneStart: DEFAULT_FOOTER_ZONE_START
+    }
+  }
+}
 
 // ============================================================
 // LAYOUT TEMPLATES
@@ -360,6 +401,8 @@ export function calculateMultiSpeakerLayout(
     totalSpeakersForSizing?: number
     /** v20.10: PHASE 3 - Footer reserve percentage for boundary protection */
     footerReservePercent?: number
+    /** v8.0: Format ID for format-specific zone boundaries */
+    formatId?: string
   }
 ): MultiSpeakerLayout {
   const useIntelligentSizing = options?.useIntelligentSizing ?? true // Default to AI-driven sizing
@@ -485,7 +528,8 @@ export function calculateMultiSpeakerLayout(
   })
 
   // Perform basic validation
-  const validationErrors = performBasicValidation(positions, canvasWidth, canvasHeight)
+  // v8.0: Pass formatId for format-specific zone boundaries
+  const validationErrors = performBasicValidation(positions, canvasWidth, canvasHeight, options?.formatId)
 
   // Check if layout is recommended
   if (!template.isRecommended && validationErrors.length === 0) {
@@ -507,13 +551,18 @@ export function calculateMultiSpeakerLayout(
 
 /**
  * Perform basic validation on calculated positions
+ * v8.0: Added formatId parameter for format-specific zone boundaries
  */
 function performBasicValidation(
   positions: SpeakerPhotoPosition[],
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  formatId?: string
 ): string[] {
   const errors: string[] = []
+
+  // v8.0: Get format-specific zone boundaries
+  const { headerZoneEnd, footerZoneStart } = getZoneBoundaries(formatId)
 
   // Check canvas bounds
   positions.forEach((pos, i) => {
@@ -531,8 +580,8 @@ function performBasicValidation(
     }
   })
 
-  // Check header zone collision (0-15%)
-  const headerBottom = canvasHeight * (HEADER_ZONE_END / 100)
+  // Check header zone collision (format-specific)
+  const headerBottom = canvasHeight * (headerZoneEnd / 100)
   positions.forEach((pos, i) => {
     const photoTop = pos.y - pos.size / 2
     if (photoTop < headerBottom) {
@@ -540,8 +589,8 @@ function performBasicValidation(
     }
   })
 
-  // Check footer zone collision (85-100%)
-  const footerTop = canvasHeight * (FOOTER_ZONE_START / 100)
+  // Check footer zone collision (format-specific)
+  const footerTop = canvasHeight * (footerZoneStart / 100)
   positions.forEach((pos, i) => {
     const photoBottom = pos.y + pos.size / 2
     if (photoBottom > footerTop) {
@@ -841,10 +890,12 @@ export function calculateIntelligentLayout(params: {
   }
 
   // Use AI-driven intelligent sizing
+  // v8.0: Pass formatId for format-specific zone boundaries
   return calculateMultiSpeakerLayout(speakerCount, aspectRatio, canvasWidth, canvasHeight, 'medium', {
     useIntelligentSizing: true,
     sophistication,
     totalSpeakersForSizing, // v7.1: Pass total speakers for sizing
+    formatId, // v8.0: Pass formatId for format-specific zone boundaries
   })
 }
 

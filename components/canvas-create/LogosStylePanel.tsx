@@ -27,13 +27,14 @@ import { ColorPickerCompact } from '@/components/create/color-picker'
 
 
 // Quick color palette options
+// Note: id must match COLOR_PALETTES keys from design-constants.ts or special values (ai, brand, custom)
 const COLOR_PRESETS = [
   { id: 'ai', label: 'AI Auto', description: 'AI picks colors based on event context' },
   { id: 'brand', label: 'Yi Brand', description: 'Official Yi blue and orange' },
-  { id: 'corporate', label: 'Corporate', description: 'Professional blues and grays' },
-  { id: 'vibrant', label: 'Vibrant', description: 'Bold, energetic colors' },
-  { id: 'elegant', label: 'Elegant', description: 'Sophisticated neutrals' },
-  { id: 'festive', label: 'Festive', description: 'Celebratory warm tones' },
+  { id: 'navy_gold', label: 'Corporate', description: 'Professional blues and grays' },
+  { id: 'teal_orange', label: 'Vibrant', description: 'Bold, energetic colors' },
+  { id: 'purple_pink', label: 'Elegant', description: 'Sophisticated neutrals' },
+  { id: 'green_yellow_cream', label: 'Festive', description: 'Celebratory warm tones' },
   { id: 'custom', label: 'Custom', description: 'Pick your own colors' },
 ]
 
@@ -81,7 +82,7 @@ export function LogosStylePanel() {
   const handleColorChange = (colorId: string) => {
     if (colorId === 'brand') {
       setUseBrandColors(true)
-      setColorPalette(null)
+      // Note: Don't call setColorPalette(null) here - setUseBrandColors already clears palette
     } else if (colorId === 'ai') {
       setUseBrandColors(false)
       setColorPalette('ai_auto')
@@ -101,7 +102,7 @@ export function LogosStylePanel() {
   return (
     <div className="p-3 space-y-3 overflow-y-auto">
       {/* Logo Strip - Toggle to enable, click to edit when enabled */}
-      <div className="rounded-lg border bg-card p-2.5">
+      <div className="rounded-lg border bg-card p-2.5" data-tour="logo-strip">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
@@ -201,7 +202,7 @@ export function LogosStylePanel() {
       </div>
 
       {/* Theme - Card style matching Logo Strip */}
-      <div className="rounded-lg border bg-card p-2.5">
+      <div className="rounded-lg border bg-card p-2.5" data-tour="theme-selector">
         <div className="flex items-center gap-2 mb-2">
           <Paintbrush className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Theme</span>
@@ -232,7 +233,7 @@ export function LogosStylePanel() {
             updateFormData({
               designData: {
                 ...formData.designData,
-                posterStyle: style,
+                style: style,
               },
             })
           }}

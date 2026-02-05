@@ -147,19 +147,6 @@ export function GoogleCalendarConnect({
             <CheckCircle2 className="h-3 w-3" />
             Google Calendar
           </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="h-7 px-2"
-          >
-            {isSyncing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-          </Button>
         </div>
 
         <AlertDialog open={showDisconnect} onOpenChange={setShowDisconnect}>

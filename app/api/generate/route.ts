@@ -51,6 +51,8 @@ import {
   type DesignContext,
 } from '@/lib/prompts'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
+import { getFormatZones, getFormatCategory, shouldEnforceZones } from '@/lib/config/format-zones'
+import { shouldApplyLogoBars } from '@/lib/config/format-logo-bar-config'
 import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
 import {
   generateDesignContextSafe,
@@ -397,61 +399,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Credit consumption: Check balance and deduct credits BEFORE generation
-    try {
-      const { consumeCredits, getCreditBalance } = await import('@/lib/services/credit-service')
-
-      // Check current balance
-      const balance = await getCreditBalance(supabase, organizationId)
-      const GENERATION_COST = 10 // Credits per generation
-
-      if (balance.balance < GENERATION_COST) {
-        return NextResponse.json(
-          {
-            error: 'Insufficient credits',
-            details: `You need ${GENERATION_COST} credits to generate. Current balance: ${balance.balance}`,
-            required: GENERATION_COST,
-            available: balance.balance,
-          },
-          { status: 402 } // Payment Required
-        )
-      }
-
-      // Deduct credits (will be logged in credit_transactions)
-      // Note: If generation fails later, credits should be refunded
-      await consumeCredits(supabase, {
-        organization_id: organizationId,
-        amount: GENERATION_COST,
-        reason: 'AI creative generation',
-        reference_type: 'creative_generation',
-        reference_id: randomUUID(), // Temporary ID, will be updated with actual creative ID after save
-        metadata: {
-          format: formatId || 'unknown',
-          model: model || 'gemini-2.5-flash-image',
-          provider: provider || 'google',
-          user_id: user.id,
-          creation_mode: creationMode || 'scratch',
-        },
-      })
-
-      console.log(`[Generate API] Credits consumed: ${GENERATION_COST}. New balance: ${balance.balance - GENERATION_COST}`)
-    } catch (creditError) {
-      console.error('[Generate API] Credit check/consumption failed:', creditError)
-      // TEMPORARY DEV BYPASS: Allow generation to continue if credit check fails (for testing Flash model fixes)
-      // TODO: Remove this bypass once organization_credits table migration is applied
-      const isDevelopment = process.env.NODE_ENV === 'development'
-      if (isDevelopment) {
-        console.warn('[Generate API] ⚠️ BYPASSING credit check in development mode - migration pending')
-      } else {
-        return NextResponse.json(
-          {
-            error: 'Credit system error',
-            details: creditError instanceof Error ? creditError.message : 'Failed to process credits',
-          },
-          { status: 500 }
-        )
-      }
-    }
+    // NOTE: Credit deduction is handled by the client (CanvasCreatePage.tsx)
+    // using the correct model-based cost (modelToUse.credits_cost)
+    // The client already validates balance and deducts credits BEFORE calling this API
+    // Do NOT deduct credits here to avoid double-charging users
 
     // NEW v3.2: Fetch organization brand_config to get font preference
     // This implements the hybrid approach: font family from org settings, AI controls sizing
@@ -1201,9 +1152,10 @@ export async function POST(request: NextRequest) {
       console.log('[Generate] Design Guidance:', ultraProPrompt.designGuidance)
 
       // v5.5: VARIATION DEBUGGING - Track cache behavior for creative formats
+      // v7.0: All formats are creative formats - no hardcoded list
       console.log('[VARIATION DEBUG] Ultra-Pro Cache Status:', ultraProResult.usage.model === 'cached' ? '🔄 HIT (reused)' : '✅ MISS (fresh)')
       console.log('[VARIATION DEBUG] Format:', formatId)
-      console.log('[VARIATION DEBUG] Is Creative Format:', ['event_poster', 'flyer', 'instagram_post', 'youtube_thumbnail'].includes(formatId || ''))
+      console.log('[VARIATION DEBUG] Is Creative Format:', !!formatId) // v7.0: All formats supported
 
       // ========================================================
       // STAGE 2: Build enhanced prompt with AI-generated context
@@ -2586,29 +2538,32 @@ ${typographyProfile.hierarchy}
           // future integration when we have access to individual text element positions.
           // Current architecture: Gemini generates full image → we only have image buffer at this point.
           //
-          // v20.11: Aggressive Safe Zone Logging
-          if (formatId === 'event_poster' && enhanced4RowStrip.footer && selectedFormat) {
-            const AGGRESSIVE_HEADER_ZONE = 36
+          // v21.0: Format-Aware Safe Zone Logging (replaces v20.11 event_poster-only check)
+          // Now logs zone boundaries for ALL formats using format-zones configuration
+          if (enhanced4RowStrip.footer && selectedFormat && formatId && shouldEnforceZones(formatId)) {
+            const formatZones = getFormatZones(formatId)
+            const category = getFormatCategory(formatId)
+            const headerZoneEnd = formatZones.headerZone.end
             const footerHeight = enhanced4RowStrip.footer.height || 268
             const canvasHeight = selectedFormat.height
             const footerStartPercent = ((canvasHeight - footerHeight) / canvasHeight) * 100
             const footerBufferEnd = footerStartPercent - 8
 
-            console.log('[Text Boundary v20.11] AGGRESSIVE SAFE ZONES ACTIVE:')
+            console.log(`[Text Boundary v21.0] FORMAT-AWARE SAFE ZONES (${formatId} / ${category}):`)
             console.log(`  Canvas: ${canvasHeight}px`)
             console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-            console.log(`  ❌ FORBIDDEN HEADER: 0% - ${AGGRESSIVE_HEADER_ZONE}%`)
-            console.log(`     - Logo zone: 0-10%`)
-            console.log(`     - Safety padding: 10-${AGGRESSIVE_HEADER_ZONE}%`)
+            console.log(`  ❌ FORBIDDEN HEADER: 0% - ${headerZoneEnd}%`)
+            console.log(`     - Logo zone: 0-${Math.round(headerZoneEnd * 0.25)}%`)
+            console.log(`     - Safety padding: ${Math.round(headerZoneEnd * 0.25)}-${headerZoneEnd}%`)
             console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-            console.log(`  ✅ CONTENT AREA: ${AGGRESSIVE_HEADER_ZONE}% - ${footerBufferEnd.toFixed(1)}%`)
-            console.log(`     - Usable space: ${footerBufferEnd - AGGRESSIVE_HEADER_ZONE}%`)
+            console.log(`  ✅ CONTENT AREA: ${formatZones.contentZone.start}% - ${formatZones.contentZone.end}%`)
+            console.log(`     - Usable space: ${formatZones.contentZone.end - formatZones.contentZone.start}%`)
             console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
             console.log(`  ❌ FORBIDDEN FOOTER: ${footerStartPercent.toFixed(1)}% - 100%`)
             console.log(`     - Safety buffer: ${footerBufferEnd.toFixed(1)}-${footerStartPercent.toFixed(1)}%`)
             console.log(`     - Footer overlay: ${footerStartPercent.toFixed(1)}-100%`)
             console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-            console.log(`  Content MUST be within ${AGGRESSIVE_HEADER_ZONE}%-${footerBufferEnd.toFixed(1)}%`)
+            console.log(`  Content MUST be within ${formatZones.contentZone.start}%-${footerBufferEnd.toFixed(1)}%`)
           }
 
           processedBuffer = await applyEnhanced4RowStrip(

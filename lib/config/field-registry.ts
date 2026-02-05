@@ -90,7 +90,7 @@ export const FIELD_REGISTRY: Record<string, CanonicalField> = {
     label: 'Event Date',
     type: 'date',
     category: 'core',
-    required: true,
+    required: false,
     aliases: ['date', 'certificateDate', 'postDate', 'importantDate', 'presentationDate', 'publicationDate', 'dateIssued'],
   },
 
@@ -118,7 +118,7 @@ export const FIELD_REGISTRY: Record<string, CanonicalField> = {
     label: 'Venue',
     type: 'text',
     category: 'core',
-    required: true,
+    required: false,
     maxLength: 225,
     placeholder: 'e.g., JKKN Convention Center, Coimbatore',
     aliases: ['eventVenue', 'location'],

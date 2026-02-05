@@ -209,7 +209,7 @@ export default function EventsPage() {
           {/* Source Filter */}
           {eventSources.length > 1 && (
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[160px]">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="All Sources" />
               </SelectTrigger>

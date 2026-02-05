@@ -445,29 +445,32 @@ export function shouldUseEventUnderstanding(
   formatId: string,
   eventName: string
 ): boolean {
-  // Always use for these creative formats
-  const creativeFormats = [
-    'event_poster',
-    'workshop_flyer',
-    'conference_poster',
-    'instagram_post',
-    'instagram_story',
-    'linkedin_post',
-    'facebook_event_cover',
-    'youtube_thumbnail',
-    'web_banner',
-    'x_post'
+  // v7.0: Use event understanding for ALL creative formats
+  // Excluded: certificate (name-focused), letterhead, resume, business_card (non-event)
+  const excludedFormats = [
+    'certificate',
+    'letterhead',
+    'resume',
+    'business_card',
+    'report_cover',
+    'book_cover'
   ]
 
-  if (creativeFormats.includes(formatId)) {
-    // Skip if event name is too generic
-    const genericNames = ['event', 'meeting', 'session', 'workshop', 'conference', 'seminar']
-    const isGeneric = genericNames.some(g =>
-      eventName.toLowerCase().trim() === g
-    )
-
-    return !isGeneric
+  // Skip for non-event formats
+  if (excludedFormats.includes(formatId)) {
+    return false
   }
 
-  return false
+  // Skip if no format specified
+  if (!formatId) {
+    return false
+  }
+
+  // Skip if event name is too generic
+  const genericNames = ['event', 'meeting', 'session', 'workshop', 'conference', 'seminar']
+  const isGeneric = genericNames.some(g =>
+    eventName.toLowerCase().trim() === g
+  )
+
+  return !isGeneric
 }

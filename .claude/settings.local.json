@@ -312,7 +312,8 @@
       "Skill(mobile-bottom-navbar:*)",
       "Bash(del \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\components\\\\layout\\\\mobile-bottom-nav.tsx\")",
       "Bash(move:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "WebFetch(domain:yi-creative-studio.vercel.app)"
     ],
     "deny": [],
     "ask": [],

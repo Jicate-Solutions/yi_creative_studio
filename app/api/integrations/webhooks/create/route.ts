@@ -61,11 +61,13 @@ export async function POST(request: NextRequest) {
     .from('event_sources' as any)
     .insert({
       name,
+      source_name: name, // Required field
       source_app_id,
       organization_id,
       description: description || null,
       is_active: is_active ?? true,
       webhook_secret,
+      created_by: user.id,
     })
     .select('*')
     .single()) as { data: Record<string, any> | null; error: any }

@@ -23,11 +23,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { AIModel } from '@/types/database.types'
 
-// Helper function for model display names
+// Helper function for model display names - Stylish labels for UI
 const getModelDisplayName = (slug: string) => {
   const names: Record<string, string> = {
-    'ideogram': 'Smart Design',
-    'google': 'Creative Poster',
+    'ideogram': 'Design Forge',
+    'google': 'Vision Studio',
+    'gemini': 'Vision Studio',
+    'gemini-3-pro-image-preview': 'Vision Pro',
   }
   return names[slug] || slug
 }
@@ -40,6 +42,7 @@ interface HeaderBarProps {
   onModelChange: (modelId: string) => void
   isModelsLoading: boolean
   canGenerate?: boolean // True when in review mode and form is valid
+  hasGeneratedImage?: boolean // Hide button when image exists
 }
 
 export function HeaderBar({
@@ -50,6 +53,7 @@ export function HeaderBar({
   onModelChange,
   isModelsLoading,
   canGenerate = true, // Default to true for backward compatibility
+  hasGeneratedImage = false,
 }: HeaderBarProps) {
   const { verticals } = useVerticals()
   const {
@@ -73,10 +77,12 @@ export function HeaderBar({
       <header className="border-b bg-card px-3 py-2 flex items-center justify-between gap-2">
         {/* Left: Format & Mode */}
         <div className="flex items-center gap-2">
-          <FormatDropdown />
+          <div data-tour="format-selector">
+            <FormatDropdown />
+          </div>
 
           {/* Creation Mode Toggle - Enhanced visibility */}
-          <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg border">
+          <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg border" data-tour="creation-mode">
             <button
               onClick={() => setCreationMode('template')}
               className={cn(
@@ -108,7 +114,7 @@ export function HeaderBar({
             value={selectedVertical?.id || ''}
             onValueChange={(id) => selectVertical(id)}
           >
-            <SelectTrigger className="w-[100px] h-8 text-xs">
+            <SelectTrigger className="w-[100px] h-8 text-xs" data-tour="vertical-selector">
               <SelectValue placeholder="Vertical" />
             </SelectTrigger>
             <SelectContent>
@@ -126,7 +132,7 @@ export function HeaderBar({
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="relative">
+                <div className="relative" data-tour="model-selector">
                   <Select value={selectedModel?.id || ''} onValueChange={onModelChange}>
                     <SelectTrigger className="w-[140px] h-8 text-xs pr-7">
                       <SelectValue placeholder="AI Model" />
@@ -159,7 +165,7 @@ export function HeaderBar({
 
           {/* Resolution - Minimal */}
           <Select value={resolution} onValueChange={handleResolutionChange}>
-            <SelectTrigger className="w-[75px] h-8 text-xs">
+            <SelectTrigger className="w-[75px] h-8 text-xs" data-tour="resolution-selector">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -172,24 +178,27 @@ export function HeaderBar({
 
         {/* Right: Actions - Compact */}
         <div className="flex items-center gap-1.5">
-          <Button
-            onClick={onGenerate}
-            disabled={isGenerating || !selectedFormat || !canGenerate}
-            className="h-9 gap-2 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!canGenerate ? 'Review your details first' : undefined}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="font-medium">Creating...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                <span className="font-medium">Generate</span>
-              </>
-            )}
-          </Button>
+          {!hasGeneratedImage && (
+            <Button
+              onClick={onGenerate}
+              disabled={isGenerating || !selectedFormat || !canGenerate}
+              className="h-9 gap-2 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!canGenerate ? 'Review your details first' : undefined}
+              data-tour="generate-btn"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="font-medium">Creating...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  <span className="font-medium">Generate</span>
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </header>
     </TooltipProvider>

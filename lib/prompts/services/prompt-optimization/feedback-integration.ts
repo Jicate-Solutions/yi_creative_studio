@@ -204,6 +204,158 @@ function getBuiltInPatterns(formatId: string, eventType?: string): FeedbackPatte
         failureCount: 5,
       })
       break
+
+    // v7.0: Added patterns for all social media formats
+    case 'instagram_post':
+    case 'facebook_post':
+    case 'linkedin_post':
+    case 'twitter_post':
+      patterns.push({
+        patternId: 'builtin_social_post_hierarchy',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Primary message must be scannable in under 3 seconds, text should occupy no more than 30% of image area',
+        },
+        confidence: 0.90,
+        successCount: 70,
+        failureCount: 7,
+      })
+      break
+
+    case 'instagram_story':
+    case 'instagram_reel':
+    case 'tiktok_cover':
+    case 'whatsapp_status':
+      patterns.push({
+        patternId: 'builtin_story_vertical',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Optimized for mobile viewing, text must be large enough to read on small screens, key info in safe zones',
+        },
+        confidence: 0.92,
+        successCount: 55,
+        failureCount: 4,
+      })
+      break
+
+    case 'presentation_16_9':
+    case 'presentation_4_3':
+      patterns.push({
+        patternId: 'builtin_presentation_readability',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Title slide text must be readable from back of room, minimum 60pt equivalent for headlines',
+        },
+        confidence: 0.95,
+        successCount: 40,
+        failureCount: 2,
+      })
+      break
+
+    case 'invitation':
+      patterns.push({
+        patternId: 'builtin_invitation_elegance',
+        formatId: 'invitation',
+        patternType: 'style_modifier',
+        trigger: {},
+        modification: {
+          action: 'inject',
+          target: 'visualElements',
+          content: 'elegant typography, refined borders, balanced white space, premium finish appearance',
+        },
+        confidence: 0.93,
+        successCount: 35,
+        failureCount: 3,
+      })
+      break
+
+    case 'web_banner':
+    case 'leaderboard_ad':
+    case 'square_ad':
+    case 'billboard':
+      patterns.push({
+        patternId: 'builtin_ad_impact',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Message must be understood in 2 seconds or less, minimal text, high-impact visuals, clear CTA',
+        },
+        confidence: 0.94,
+        successCount: 45,
+        failureCount: 3,
+      })
+      break
+
+    case 'portrait_poster':
+    case 'landscape_poster':
+    case 'announcement':
+      patterns.push({
+        patternId: 'builtin_poster_general',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Event name must be prominently displayed, date/time/location clearly visible, professional layout',
+        },
+        confidence: 0.91,
+        successCount: 50,
+        failureCount: 5,
+      })
+      break
+
+    case 'business_card':
+      patterns.push({
+        patternId: 'builtin_business_card_minimal',
+        formatId: 'business_card',
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Keep design minimal and professional, contact info must be clearly legible at small print size',
+        },
+        confidence: 0.96,
+        successCount: 30,
+        failureCount: 1,
+      })
+      break
+
+    case 'facebook_cover':
+    case 'linkedin_banner':
+    case 'twitter_header':
+    case 'youtube_banner':
+      patterns.push({
+        patternId: 'builtin_banner_safe_zones',
+        formatId: formatId,
+        patternType: 'constraint_addition',
+        trigger: {},
+        modification: {
+          action: 'append',
+          target: 'constraints',
+          content: 'Keep important content in center safe zone, edges may be cropped on different devices',
+        },
+        confidence: 0.93,
+        successCount: 40,
+        failureCount: 3,
+      })
+      break
   }
 
   return patterns

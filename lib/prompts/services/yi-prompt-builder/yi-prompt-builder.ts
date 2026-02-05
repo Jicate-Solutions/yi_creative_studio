@@ -374,23 +374,13 @@ export class YiPromptBuilder {
 
   /**
    * Check if a format ID is supported
+   * v7.0: All formats are now supported - dedicated builders or generic fallback
    */
   static isSupportedFormat(formatId: string): boolean {
-    const normalizedFormat = this.normalizeFormatId(formatId)
-    const supportedFormats = [
-      'certificate',
-      'event_poster',
-      'instagram_post',
-      'story',
-      'youtube_thumbnail',
-      'linkedin_post',
-      'flyer',
-      'business_card',
-      'presentation',
-      'web_banner',
-      'social_post',
-    ]
-    return supportedFormats.includes(normalizedFormat)
+    // v7.0: All formats are supported - we have dedicated builders for common formats
+    // and the generic builder handles all others
+    // Only return false if formatId is empty/invalid
+    return !!formatId && formatId.trim().length > 0
   }
 
   /**

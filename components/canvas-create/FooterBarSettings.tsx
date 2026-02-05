@@ -293,6 +293,25 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Label Text & Color - shown when partner logo is selected */}
+            {footer.digitalPartner.logoId && (
+              <div className="flex items-center gap-1 p-1 rounded bg-white border mt-1">
+                <span className="text-[8px] text-muted-foreground shrink-0">Label:</span>
+                <Input
+                  value={footer.digitalPartner.labelText || 'Digital Partner'}
+                  onChange={(e) => updateFooterDigitalPartner({ labelText: e.target.value })}
+                  placeholder="Digital Partner"
+                  className="h-5 text-[9px] border-0 p-0 focus-visible:ring-0"
+                />
+                <input
+                  type="color"
+                  value={footer.digitalPartner.labelColor || '#9CA3AF'}
+                  onChange={(e) => updateFooterDigitalPartner({ labelColor: e.target.value })}
+                  className="w-4 h-4 rounded border cursor-pointer shrink-0"
+                />
+              </div>
+            )}
           </div>
 
           {/* Footer Background Color */}

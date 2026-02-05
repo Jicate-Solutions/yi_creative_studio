@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import {
-  ChevronDown,
   Sparkles,
-  Pencil,
   Image as ImageIcon,
-  FileText,
   Palette,
   Lock,
   User,
-  X,
   AlertTriangle,
+  Calendar,
+  Clock,
+  MapPin,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -20,23 +20,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { FORM_SECTIONS, FORMAT_SECTIONS, FORMAT_SECTION_FIELDS } from '@/lib/config/form-sections'
 import { FIELD_REGISTRY } from '@/lib/config/field-registry'
+import { getFieldIcon, FIELD_GROUPS, type FieldGroupKey } from '@/lib/config/field-icons'
 import { isLogoAutoLocked } from '@/lib/config/logo-locks'
+import { ValueCard } from './summary'
 import type { CreativeFormat } from '@/lib/config/creative-formats'
 import type { VerticalPreset, OrganizationLogo } from '@/types/database.types'
 import type { LogoPlacement } from '@/stores/creative-store'
+import type { Enhanced4RowStripMode } from '@/lib/config/design-constants'
 
 // ============================================================================
 // Types
@@ -67,6 +64,7 @@ interface GenerateSummaryCardProps {
       }
     }
     creationMode: string
+    enhanced4RowStrip?: Enhanced4RowStripMode
   }
   selectedFormat: CreativeFormat | null
   selectedVertical: VerticalPreset | null
@@ -130,115 +128,18 @@ function normalizeFormatId(formatId: string): string {
 // Sub-Components
 // ============================================================================
 
-function SummarySection({
-  title,
-  icon: Icon,
-  children,
-  aiCount = 0,
-  isEmpty = false,
-  defaultOpen = true,
-}: {
-  title: string
-  icon: React.ElementType
-  children: React.ReactNode
-  aiCount?: number
-  isEmpty?: boolean
-  defaultOpen?: boolean
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen && !isEmpty)
+// Mobile detection hook
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
 
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors',
-            'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            isOpen ? 'bg-muted/30' : 'bg-transparent'
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{title}</span>
-            {isEmpty && (
-              <span className="text-xs text-muted-foreground">(none)</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {aiCount > 0 && (
-              <Badge variant="secondary" className="h-5 gap-1 px-1.5 text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                <Sparkles className="h-3 w-3" />
-                {aiCount} AI
-              </Badge>
-            )}
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform',
-                isOpen && 'rotate-180'
-              )}
-            />
-          </div>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-1 pt-1">
-        <div className="space-y-1 pl-6 pr-2 pb-2">
-          {children}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  )
-}
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
-function SummaryField({
-  label,
-  value,
-  isAiFilled,
-  onEdit,
-}: {
-  label: string
-  value: string
-  isAiFilled?: boolean
-  onEdit: () => void
-}) {
-  const displayValue = value || '(not set)'
-  const isEmpty = !value
-
-  return (
-    <div
-      className={cn(
-        'group flex items-start justify-between gap-2 rounded-md px-2 py-1.5 transition-colors',
-        isAiFilled && 'bg-violet-50/50 dark:bg-violet-900/10'
-      )}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          {isAiFilled && (
-            <Sparkles className="h-3 w-3 text-violet-500" />
-          )}
-        </div>
-        <p
-          className={cn(
-            'text-sm truncate',
-            isEmpty && 'text-muted-foreground italic'
-          )}
-          title={displayValue}
-        >
-          {displayValue}
-        </p>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onEdit}
-        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-        <span className="sr-only">Edit {label}</span>
-      </Button>
-    </div>
-  )
+  return isMobile
 }
 
 function LogoThumbnail({
@@ -373,7 +274,7 @@ function InlineEditModal({
 }
 
 // ============================================================================
-// Main Component
+// Main Component - Value-Centric Layout with Card-per-Group
 // ============================================================================
 
 export function GenerateSummaryCard({
@@ -383,6 +284,7 @@ export function GenerateSummaryCard({
   logos,
   onEditField,
 }: GenerateSummaryCardProps) {
+  const isMobile = useIsMobile()
   const [editModal, setEditModal] = useState<EditModalState>({
     isOpen: false,
     fieldId: '',
@@ -390,39 +292,6 @@ export function GenerateSummaryCard({
     value: '',
     type: 'text',
   })
-
-  // Get format-specific sections and fields
-  const { sections, sectionFields } = useMemo(() => {
-    if (!selectedFormat?.id) {
-      return { sections: [], sectionFields: {} }
-    }
-
-    const normalizedId = normalizeFormatId(selectedFormat.id)
-    const sectionIds = FORMAT_SECTIONS[normalizedId] || ['core', 'advanced']
-    const fields = FORMAT_SECTION_FIELDS[normalizedId] || {}
-
-    const availableSections = sectionIds
-      .map((id) => FORM_SECTIONS[id])
-      .filter(Boolean)
-      .sort((a, b) => a.priority - b.priority)
-
-    return {
-      sections: availableSections,
-      sectionFields: fields,
-    }
-  }, [selectedFormat?.id])
-
-  // Count AI-filled fields per section
-  const aiCountBySection = useMemo(() => {
-    const counts: Record<string, number> = {}
-    const aiFields = new Set(formData.aiFilledFields)
-
-    Object.entries(sectionFields).forEach(([sectionId, fieldIds]) => {
-      counts[sectionId] = (fieldIds as string[]).filter((id) => aiFields.has(id)).length
-    })
-
-    return counts
-  }, [sectionFields, formData.aiFilledFields])
 
   // Get logo placements with full logo data
   const logoData = useMemo(() => {
@@ -434,6 +303,42 @@ export function GenerateSummaryCard({
 
   // Speaker photo config
   const speakerPhoto = formData.designData?.customization?.speakerPhoto
+
+  // Group fields by category for card-per-group layout
+  const groupedFields = useMemo(() => {
+    const aiFields = new Set(formData.aiFilledFields)
+    const groups: Record<FieldGroupKey, Array<{ id: string; value: string; isAiFilled: boolean }>> = {
+      timing: [],
+      location: [],
+      contact: [],
+      speaker: [],
+      branding: [],
+      content: [],
+      social: [],
+      signatory: [],
+      design: [],
+    }
+
+    // Add form fields to their groups
+    Object.entries(formData.formData).forEach(([fieldId, rawValue]) => {
+      const value = getFieldValue(formData.formData, fieldId)
+      if (!value) return // Skip empty fields
+
+      // Find which group this field belongs to
+      for (const [groupKey, groupConfig] of Object.entries(FIELD_GROUPS)) {
+        if ((groupConfig.fields as readonly string[]).includes(fieldId)) {
+          groups[groupKey as FieldGroupKey].push({
+            id: fieldId,
+            value,
+            isAiFilled: aiFields.has(fieldId),
+          })
+          break
+        }
+      }
+    })
+
+    return groups
+  }, [formData.formData, formData.aiFilledFields])
 
   const openEditModal = (fieldId: string) => {
     const field = FIELD_REGISTRY[fieldId]
@@ -453,8 +358,13 @@ export function GenerateSummaryCard({
     onEditField(fieldId, value)
   }
 
+  // Count total AI-filled visible fields
+  const aiCount = useMemo(() => {
+    return Object.values(groupedFields).flat().filter(f => f.isAiFilled).length
+  }, [groupedFields])
+
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {/* Format & Vertical Header */}
       <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -467,164 +377,211 @@ export function GenerateSummaryCard({
             </span>
           )}
         </div>
-        {selectedVertical && (
-          <Badge variant="secondary" className="text-xs">
-            {selectedVertical.name}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {aiCount > 0 && (
+            <Badge variant="secondary" className="h-5 gap-1 px-1.5 text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+              <Sparkles className="h-3 w-3" />
+              {aiCount} AI
+            </Badge>
+          )}
+          {selectedVertical && (
+            <Badge variant="secondary" className="text-xs">
+              {selectedVertical.name}
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Form Field Sections */}
-      {sections.map((section) => {
-        const fieldIds = (sectionFields[section.id] as string[]) || []
-        const aiCount = aiCountBySection[section.id] || 0
-
-        // Special handling for speaker section - data is in designData, not formData
-        if (section.id === 'speaker') {
-          const speakers = formData.designData?.customization?.speakerPhoto?.speakers || []
-          const hasSpeakers = speakers.length > 0
-
-          return (
-            <SummarySection
-              key={section.id}
-              title={section.title}
-              icon={User}
-              aiCount={0}
-              isEmpty={!hasSpeakers}
-              defaultOpen={section.defaultExpanded}
-            >
-              {speakers.map((speaker, index) => (
-                <div key={speaker.id || index} className="px-2 py-1.5 space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Speaker {index + 1}</span>
-                    {speaker.photoUrl && (
-                      <Badge variant="outline" className="text-[10px]">Has Photo</Badge>
-                    )}
-                  </div>
-                  <div className="text-sm font-medium">{speaker.name || '(No name)'}</div>
-                  {speaker.designation && (
-                    <div className="text-xs text-muted-foreground">{speaker.designation}</div>
-                  )}
-                </div>
-              ))}
-            </SummarySection>
-          )
-        }
-
-        // Regular section handling
-        const hasValues = fieldIds.some((id) => getFieldValue(formData.formData, id))
-
-        return (
-          <SummarySection
-            key={section.id}
-            title={section.title}
-            icon={FileText}
-            aiCount={aiCount}
-            isEmpty={!hasValues}
-            defaultOpen={section.defaultExpanded}
-          >
-            {fieldIds.map((fieldId) => {
-              const field = FIELD_REGISTRY[fieldId]
-              if (!field) return null
-
-              const value = getFieldValue(formData.formData, fieldId)
-              const isAiFilled = formData.aiFilledFields.includes(fieldId)
-
+      {/* Timing Card - Date + Time inline */}
+      {(groupedFields.timing.length > 0) && (
+        <div className="rounded-lg border bg-card/50 p-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {groupedFields.timing.map((field) => {
+              const Icon = getFieldIcon(field.id)
               return (
-                <SummaryField
-                  key={fieldId}
-                  label={field.label}
-                  value={value}
-                  isAiFilled={isAiFilled}
-                  onEdit={() => openEditModal(fieldId)}
-                />
+                <button
+                  key={field.id}
+                  onClick={() => openEditModal(field.id)}
+                  className={cn(
+                    'group flex items-center gap-1.5 text-sm rounded px-1.5 py-0.5 transition-colors',
+                    'hover:bg-muted/70',
+                    field.isAiFilled && 'bg-violet-50/50 dark:bg-violet-900/10'
+                  )}
+                >
+                  <Icon className={cn(
+                    'h-3.5 w-3.5 shrink-0',
+                    field.isAiFilled ? 'text-violet-600' : 'text-muted-foreground'
+                  )} />
+                  <span>{field.value}</span>
+                  {field.isAiFilled && <Sparkles className="h-2.5 w-2.5 text-violet-500" />}
+                </button>
               )
             })}
-          </SummarySection>
-        )
-      })}
-
-      {/* Design Section */}
-      <SummarySection
-        title="Design & Styling"
-        icon={Palette}
-        defaultOpen={false}
-        isEmpty={!formData.designData?.theme && !formData.designData?.style}
-      >
-        {formData.designData?.theme && (
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-xs text-muted-foreground">Theme</span>
-            <Badge variant="outline" className="text-xs capitalize">
-              {formData.designData.theme.replace(/_/g, ' ')}
-            </Badge>
           </div>
-        )}
-        {formData.designData?.style && (
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-xs text-muted-foreground">Style</span>
-            <Badge variant="outline" className="text-xs capitalize">
-              {formData.designData.style.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-        )}
-        {formData.designData?.resolution && (
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-xs text-muted-foreground">Resolution</span>
-            <Badge variant="outline" className="text-xs uppercase">
-              {formData.designData.resolution}
-            </Badge>
-          </div>
-        )}
-      </SummarySection>
+        </div>
+      )}
 
-      {/* Logos Section */}
-      <SummarySection
-        title={`Logos (${logoData.length} placed)`}
-        icon={ImageIcon}
-        isEmpty={logoData.length === 0}
-        defaultOpen={false}
-      >
-        {logoData.map(({ placement, logo }) => (
-          <LogoThumbnail
-            key={placement.logoId}
-            logo={logo}
-            placement={placement}
-          />
-        ))}
-      </SummarySection>
+      {/* Location Card */}
+      {groupedFields.location.length > 0 && (
+        <ValueCard
+          label="Location"
+          fields={groupedFields.location}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
 
-      {/* Speaker Photo Section - Display photos from multi-speaker array */}
-      <SummarySection
-        title="Speaker Photos"
-        icon={User}
-        isEmpty={!speakerPhoto?.enabled || !speakerPhoto?.speakers?.some(s => s.photoUrl)}
-        defaultOpen={speakerPhoto?.speakers?.some(s => s.photoUrl)}
-      >
-        {speakerPhoto?.enabled && speakerPhoto?.speakers?.filter(s => s.photoUrl).map((speaker, index) => (
-          <div key={speaker.id || index} className="flex items-center gap-2 rounded-md px-2 py-1.5 bg-muted/30">
-            <div
-              className={cn(
-                'relative h-10 w-10 shrink-0 overflow-hidden border bg-white',
-                speakerPhoto.shape === 'circle' ? 'rounded-full' : speakerPhoto.shape === 'rounded' ? 'rounded-lg' : 'rounded'
+      {/* Content Card - Event name, description, etc */}
+      {groupedFields.content.length > 0 && (
+        <ValueCard
+          label="Content"
+          fields={groupedFields.content}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Contact Card */}
+      {groupedFields.contact.length > 0 && (
+        <ValueCard
+          label="Contact"
+          fields={groupedFields.contact}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Branding Card */}
+      {groupedFields.branding.length > 0 && (
+        <ValueCard
+          label="Branding"
+          fields={groupedFields.branding}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Social Card */}
+      {groupedFields.social.length > 0 && (
+        <ValueCard
+          label="Social"
+          fields={groupedFields.social}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Signatory Card (for certificates) */}
+      {groupedFields.signatory.length > 0 && (
+        <ValueCard
+          label="Signatory"
+          fields={groupedFields.signatory}
+          onEditField={openEditModal}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Speakers Card - from designData */}
+      {speakerPhoto?.speakers && speakerPhoto.speakers.length > 0 && (
+        <div className="rounded-lg border bg-card/50 p-2 space-y-1">
+          {speakerPhoto.speakers.map((speaker, index) => (
+            <div key={speaker.id || index} className="flex items-center gap-2 rounded-md px-2 py-1.5 bg-muted/30">
+              {speaker.photoUrl ? (
+                <div
+                  className={cn(
+                    'relative h-8 w-8 shrink-0 overflow-hidden border bg-white',
+                    speakerPhoto.shape === 'circle' ? 'rounded-full' : speakerPhoto.shape === 'rounded' ? 'rounded-lg' : 'rounded'
+                  )}
+                >
+                  <Image
+                    src={speaker.photoUrl}
+                    alt={speaker.name || `Speaker ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </div>
               )}
-            >
-              <Image
-                src={speaker.photoUrl!}
-                alt={speaker.name || `Speaker ${index + 1}`}
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{speaker.name || `Speaker ${index + 1}`}</p>
+                {speaker.designation && (
+                  <p className="truncate text-xs text-muted-foreground">{speaker.designation}</p>
+                )}
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">{speaker.name || `Speaker ${index + 1}`}</p>
-              {speaker.designation && (
-                <p className="truncate text-[10px] text-muted-foreground">{speaker.designation}</p>
-              )}
-            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Design Card - Theme, Style, Resolution */}
+      {(formData.designData?.theme || formData.designData?.style || formData.designData?.resolution) && (
+        <div className="rounded-lg border bg-card/50 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {formData.designData?.theme && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="capitalize">{formData.designData.theme.replace(/_/g, ' ')}</span>
+              </div>
+            )}
+            {formData.designData?.style && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="capitalize">{formData.designData.style.replace(/_/g, ' ')}</span>
+              </div>
+            )}
+            {formData.designData?.resolution && (
+              <Badge variant="outline" className="text-xs uppercase">
+                {formData.designData.resolution}
+              </Badge>
+            )}
           </div>
-        ))}
-      </SummarySection>
+        </div>
+      )}
+
+      {/* Logos Card - Only show if Logo Strip is enabled */}
+      {formData.enhanced4RowStrip?.enabled && logoData.length > 0 && (
+        <div className="rounded-lg border bg-card/50 p-2 space-y-1">
+          <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground mb-1">
+            <ImageIcon className="h-3.5 w-3.5" />
+            <span>{logoData.length} logos</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {logoData.map(({ placement, logo }) => {
+              const isLocked = logo?.name && isLogoAutoLocked(logo.name)
+              return (
+                <div
+                  key={placement.logoId}
+                  className="relative h-8 w-8 rounded border bg-white shrink-0 overflow-hidden"
+                  title={`${logo?.name || 'Logo'} - ${formatPositionLabel(placement.position)}`}
+                >
+                  {logo?.file_url ? (
+                    <Image
+                      src={logo.file_url}
+                      alt={logo.name || 'Logo'}
+                      fill
+                      className="object-contain p-0.5"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  {isLocked && (
+                    <div className="absolute bottom-0 right-0 bg-background/80 rounded-tl p-0.5">
+                      <Lock className="h-2.5 w-2.5 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Inline Edit Modal */}
       {editModal.isOpen && (

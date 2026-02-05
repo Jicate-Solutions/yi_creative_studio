@@ -313,18 +313,35 @@ export function useExternalEvents(options: UseExternalEventsOptions = {}) {
 
 /**
  * Hook to fetch a single event by ID
+ * v3.1: Fixed race condition - resets state on eventId change, cancels stale requests
  */
 export function useExternalEvent(eventId: string | null, source?: string) {
   const { currentOrganization } = useAuthStore()
   const [event, setEvent] = useState<ExternalEvent | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Reset state immediately when eventId changes - prevents stale data flash
+  useEffect(() => {
+    setEvent(null)
+    setError(null)
+    if (eventId) {
+      setIsLoading(true)
+    }
+  }, [eventId])
 
   const fetchEvent = useCallback(async () => {
-    if (!eventId || !currentOrganization?.id) return
+    if (!eventId || !currentOrganization?.id) {
+      setIsLoading(false)
+      return
+    }
 
-    setIsLoading(true)
-    setError(null)
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
 
     try {
       const params = new URLSearchParams({
@@ -336,7 +353,9 @@ export function useExternalEvent(eventId: string | null, source?: string) {
         params.append('source', source)
       }
 
-      const response = await fetch(`/api/external-events?${params.toString()}`)
+      const response = await fetch(`/api/external-events?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+      })
       const data = await response.json()
 
       if (!response.ok) {
@@ -345,6 +364,10 @@ export function useExternalEvent(eventId: string | null, source?: string) {
 
       setEvent(data.event || null)
     } catch (err) {
+      // Ignore aborted requests - they're intentional
+      if (err instanceof Error && err.name === 'AbortError') {
+        return
+      }
       console.error('[useExternalEvent] Fetch error:', err)
       setError(err instanceof Error ? err.message : 'Failed to load event')
     } finally {
@@ -355,6 +378,12 @@ export function useExternalEvent(eventId: string | null, source?: string) {
   useEffect(() => {
     if (eventId) {
       fetchEvent()
+    }
+    // Cleanup: cancel request on unmount or eventId change
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
     }
   }, [eventId, fetchEvent])
 

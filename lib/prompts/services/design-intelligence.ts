@@ -1790,12 +1790,25 @@ function parseDesignContext(json: string): DesignContext {
 }
 
 /**
- * Get format-specific design guidance to prevent event_poster contamination
+ * Get format-specific design guidance
+ * v21.0: Now includes event_poster guidance (previously returned empty string)
  */
 function getFormatSpecificGuidance(formatId?: string, formatName?: string): string {
-  if (!formatId || formatId === 'event_poster') return ''
+  if (!formatId) return ''
 
   const guidance: Record<string, string> = {
+    event_poster: `
+=== EVENT POSTER DESIGN CONTEXT ===
+Event posters require:
+- Bold, eye-catching headlines that drive attendance interest
+- Clear date, time, and venue information hierarchy
+- Dynamic, engaging backgrounds that match the event type (tech, health, business, etc.)
+- Professional yet promotional energy
+- Space for speaker photos if applicable (lower content zone)
+- Three-band composition: header (logos) > content (text) > footer (partners)
+- Visual hierarchy: Event name > Date/Time > Speakers > Details
+CRITICAL: Design an EVENT POSTER with promotional energy that drives attendance!`,
+
     certificate: `
 === CERTIFICATE DESIGN CONTEXT ===
 Certificates require:

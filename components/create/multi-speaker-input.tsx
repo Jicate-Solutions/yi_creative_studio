@@ -4,30 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { Upload, X, User, Loader2, Plus, ChevronDown, ChevronRight, GripVertical, ImageIcon, Settings2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Upload, X, User, Loader2, Plus, ChevronDown, ChevronRight, ImageIcon, Camera, Briefcase, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type {
   SpeakerItem,
   PhotoShape,
@@ -36,7 +20,6 @@ import type {
   LayoutMode,
   LayoutStrategy,
 } from '@/lib/config/design-constants'
-import { SpeakerPositionDropdown } from './speaker-position-dropdown'
 
 interface SharedSettings {
   shape: PhotoShape
@@ -75,7 +58,6 @@ export function MultiSpeakerInput({
   const [expandedSpeakers, setExpandedSpeakers] = useState<Set<string>>(
     new Set(speakers.length > 0 ? [speakers[0].id] : [])
   )
-  const [settingsExpanded, setSettingsExpanded] = useState(false)
 
   // Track previous speaker IDs to detect newly added speakers
   const prevSpeakerIdsRef = useRef<Set<string>>(new Set(speakers.map(s => s.id)))
@@ -118,7 +100,6 @@ export function MultiSpeakerInput({
 
   const handleAddSpeaker = () => {
     onAddSpeaker()
-    // New speaker will be auto-expanded via useEffect below
   }
 
   const handlePhotoUpload = async (speakerId: string, file: File) => {
@@ -136,27 +117,6 @@ export function MultiSpeakerInput({
     try {
       const dataUrl = await fileToDataUrl(file)
       onUpdateSpeaker(speakerId, { photoUrl: dataUrl })
-
-      // Auto-enable speaker photos when photo is uploaded (fixes overlay not rendering)
-      // Note: 'enabled' is not part of SharedSettings interface, handled at parent level
-      // onUpdateSettings({ enabled: true })
-
-      // DIAGNOSTIC: Log photo upload with full details (FIX #3: Enhanced logging)
-      console.log('[PHOTO UPLOAD] Complete diagnostic:', {
-        speakerId,
-        speakerFound: !!speakers.find(s => s.id === speakerId),
-        photoUrlReceived: !!dataUrl,
-        photoUrlLength: dataUrl?.length || 0,
-        photoUrlPrefix: dataUrl?.substring(0, 80) || 'NONE',
-        speakersBeforeUpdate: speakers.map(s => ({
-          id: s.id,
-          name: s.name,
-          hasPhoto: !!s.photoUrl,
-          photoLength: s.photoUrl?.length || 0
-        })),
-        autoEnabled: true
-      })
-
       toast.success('Speaker photo uploaded')
     } catch {
       toast.error('Failed to upload photo')
@@ -165,19 +125,6 @@ export function MultiSpeakerInput({
 
   const handleRemovePhoto = (speakerId: string) => {
     onUpdateSpeaker(speakerId, { photoUrl: undefined })
-
-    // Auto-disable speaker photos if no speakers have photos after removal
-    const speakersAfterRemoval = speakers.map(s =>
-      s.id === speakerId ? { ...s, photoUrl: undefined } : s
-    )
-    const hasAnyPhotos = speakersAfterRemoval.some(s => s.photoUrl)
-
-    if (!hasAnyPhotos) {
-      // Note: 'enabled' is not part of SharedSettings interface, handled at parent level
-      // onUpdateSettings({ enabled: false })
-      console.log('[MULTI-SPEAKER] Auto-disabled speaker photos (no photos remaining)')
-    }
-
     toast.success('Speaker photo removed')
   }
 
@@ -192,285 +139,83 @@ export function MultiSpeakerInput({
 
   const getSpeakerSummary = (speaker: SpeakerItem): string => {
     if (speaker.name && speaker.designation) {
-      return `${speaker.name} - ${speaker.designation}`
+      return `${speaker.name} • ${speaker.designation}`
     }
     if (speaker.name) return speaker.name
     if (speaker.designation) return speaker.designation
     return 'Unnamed Speaker'
   }
 
-  const getCompletionCount = () => {
-    let completed = 0
-    let total = speakers.length * 2 // Name + designation per speaker
-
-    speakers.forEach(speaker => {
-      if (speaker.name) completed++
-      if (speaker.designation) completed++
-    })
-
-    return { completed, total }
+  const getSpeakerCompletion = (speaker: SpeakerItem): { isComplete: boolean; hasPhoto: boolean } => {
+    return {
+      isComplete: !!speaker.name,
+      hasPhoto: !!speaker.photoUrl,
+    }
   }
 
-  const { completed, total } = getCompletionCount()
-
-  // DEBUG: Log speakers array to diagnose missing button issue
-  console.log('[MultiSpeakerInput] Render debug:', {
-    speakersLength: speakers.length,
-    speakersIds: speakers.map(s => s.id),
-    shouldShowButton: speakers.length > 0 && speakers.length < 4,
-    shouldShowEmptyState: speakers.length === 0,
-  })
-
   return (
-    <div className="space-y-4">
-      {/* Speaker Cards List - Priority Content */}
-      <div className="space-y-3">
-        {speakers.length === 0 ? (
-          <Card className="shadow-sm border-dashed border-2 bg-muted/30 max-w-xs mx-auto">
-            <CardContent className="flex flex-col items-center justify-center py-4 text-center">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-2">
-                <User className="h-5 w-5 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm font-medium text-foreground mb-1">No speakers added yet</p>
-              <p className="text-xs text-muted-foreground mb-4 max-w-xs">
-                Add speakers to feature them in your creative design
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddSpeaker}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add First Speaker
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {speakers.map((speaker, index) => (
-              <SpeakerCard
-                key={speaker.id}
-                speaker={speaker}
-                index={index}
-                isExpanded={expandedSpeakers.has(speaker.id)}
-                onToggle={() => toggleSpeaker(speaker.id)}
-                onUpdate={(updates) => onUpdateSpeaker(speaker.id, updates)}
-                onRemove={() => onRemoveSpeaker(speaker.id)}
-                onPhotoUpload={(file) => handlePhotoUpload(speaker.id, file)}
-                onRemovePhoto={() => handleRemovePhoto(speaker.id)}
-                getSummary={getSpeakerSummary}
-              />
-            ))}
-
-            {/* Add Another Speaker Button - Always visible when speakers exist */}
-            {speakers.length < 4 ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="default"
-                onClick={handleAddSpeaker}
-                className="w-full gap-2 border-dashed border-2 border-primary/40 hover:border-primary hover:bg-primary/5 transition-colors py-3 mt-2"
-              >
-                <Plus className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Add Another Speaker</span>
-                <span className="text-xs text-muted-foreground ml-1">({speakers.length}/4)</span>
-              </Button>
-            ) : (
-              <div className="text-center p-3 bg-muted/50 rounded-lg border border-dashed mt-2">
-                <p className="text-xs text-muted-foreground">
-                  Maximum 4 speakers reached
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Consolidated Appearance & Layout Settings */}
-      {speakers.length > 0 && (
-        <Card className="shadow-sm border-none bg-muted/30">
-          <CardHeader className="pb-3 cursor-pointer" onClick={() => setSettingsExpanded(!settingsExpanded)}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Settings2 className="h-4 w-4 text-primary w-5" />
-                <div>
-                  <CardTitle className="text-sm">Customize Appearance</CardTitle>
-                  <CardDescription className="text-xs">
-                    Layout, photo style, and positioning
-                  </CardDescription>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                {settingsExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
+    <div className="space-y-3">
+      {speakers.length === 0 ? (
+        /* Empty State - Compact and inviting */
+        <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 bg-gradient-to-br from-muted/30 to-muted/10 p-6">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <User className="h-6 w-6 text-primary" />
             </div>
-          </CardHeader>
+            <h4 className="text-sm font-semibold text-foreground mb-1">Add Your Speaker</h4>
+            <p className="text-xs text-muted-foreground mb-4 max-w-[200px]">
+              Feature speakers with their photo on your creative
+            </p>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleAddSpeaker}
+              className="gap-2 shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Add Speaker
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {speakers.map((speaker, index) => (
+            <SpeakerCard
+              key={speaker.id}
+              speaker={speaker}
+              index={index}
+              isExpanded={expandedSpeakers.has(speaker.id)}
+              onToggle={() => toggleSpeaker(speaker.id)}
+              onUpdate={(updates) => onUpdateSpeaker(speaker.id, updates)}
+              onRemove={() => onRemoveSpeaker(speaker.id)}
+              onPhotoUpload={(file) => handlePhotoUpload(speaker.id, file)}
+              onRemovePhoto={() => handleRemovePhoto(speaker.id)}
+              getSummary={getSpeakerSummary}
+              getCompletion={getSpeakerCompletion}
+            />
+          ))}
 
-          {settingsExpanded && (
-            <CardContent className="space-y-5 pt-0">
-              {/* Row 1: Layout & Position */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Layout Mode (if > 1 speaker) */}
-                {speakers.length > 1 && (
-                  <div className="space-y-3">
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Arrangement</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="layout-mode" className="text-xs">Mode</Label>
-                        <Select
-                          value={layoutMode}
-                          onValueChange={(value) => onUpdateLayout(value as LayoutMode, layoutStrategy)}
-                        >
-                          <SelectTrigger id="layout-mode" className="h-8 text-xs bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="auto">Auto-detect</SelectItem>
-                            <SelectItem value="manual">Manual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {layoutMode === 'manual' && (
-                        <div className="space-y-1.5">
-                          <Label htmlFor="layout-strategy" className="text-xs">Style</Label>
-                          <Select
-                            value={layoutStrategy || 'side-by-side'}
-                            onValueChange={(value) => onUpdateLayout('manual', value as LayoutStrategy)}
-                          >
-                            <SelectTrigger id="layout-strategy" className="h-8 text-xs bg-background">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="side-by-side">Side by Side</SelectItem>
-                              <SelectItem value="stacked">Stacked</SelectItem>
-                              <SelectItem value="grid">Grid</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Photo Position */}
-                <div className="space-y-3">
-                  <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Positioning</Label>
-                  <SpeakerPositionDropdown
-                    position={sharedSettings.position}
-                    verticalPosition={sharedSettings.verticalPosition}
-                    onChange={(position, verticalPosition) =>
-                      onUpdateSettings({ position, verticalPosition })
-                    }
-                  />
-                </div>
+          {/* Add Another Speaker Button */}
+          {speakers.length < 4 ? (
+            <button
+              type="button"
+              onClick={handleAddSpeaker}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all group"
+            >
+              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                <Plus className="h-3 w-3 text-primary" />
               </div>
-
-              {/* Row 2: Photo Styling */}
-              <div className="space-y-3 pt-2 border-t border-dashed border-muted-foreground/20">
-                <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Photo Style</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="photo-shape" className="text-xs">Shape</Label>
-                    <Select
-                      value={sharedSettings.shape}
-                      onValueChange={(value) => onUpdateSettings({ shape: value as PhotoShape })}
-                    >
-                      <SelectTrigger id="photo-shape" className="h-8 text-xs bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="circle">Circle</SelectItem>
-                        <SelectItem value="square">Square</SelectItem>
-                        <SelectItem value="rounded">Rounded</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="photo-size" className="text-xs">Size</Label>
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 rounded">{sharedSettings.size}px</span>
-                    </div>
-                    <Slider
-                      id="photo-size"
-                      value={[sharedSettings.size]}
-                      onValueChange={([value]) => onUpdateSettings({ size: value })}
-                      min={100}
-                      max={400}
-                      step={10}
-                      className="py-1.5"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 3: Advanced (Border & Shadow) */}
-              <div className="space-y-3 pt-2 border-t border-dashed border-muted-foreground/20">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Border Control */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="border-width" className="text-xs">Border Width</Label>
-                      <span className="text-[10px] text-muted-foreground">{sharedSettings.border.width}px</span>
-                    </div>
-                    <Slider
-                      id="border-width"
-                      value={[sharedSettings.border.width]}
-                      onValueChange={([value]) => onUpdateSettings({
-                        border: { ...sharedSettings.border, width: value }
-                      })}
-                      min={0}
-                      max={10}
-                      step={1}
-                      className="py-1.5"
-                    />
-                  </div>
-
-                  {/* Color & Shadow */}
-                  <div className="flex items-end gap-3">
-                    <div className="space-y-1.5 flex-1">
-                      <Label htmlFor="border-color" className="text-xs">Border Color</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="border-color"
-                          type="color"
-                          value={sharedSettings.border.color}
-                          onChange={(e) => onUpdateSettings({
-                            border: { ...sharedSettings.border, color: e.target.value }
-                          })}
-                          className="h-8 w-12 p-1 cursor-pointer bg-background"
-                        />
-                        <Input
-                          value={sharedSettings.border.color}
-                          onChange={(e) => onUpdateSettings({
-                            border: { ...sharedSettings.border, color: e.target.value }
-                          })}
-                          className="h-8 text-xs font-mono uppercase bg-background"
-                          maxLength={7}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 pb-2">
-                      <Switch
-                        id="photo-shadow"
-                        checked={sharedSettings.shadow}
-                        onCheckedChange={(checked) => onUpdateSettings({ shadow: checked })}
-                      />
-                      <Label htmlFor="photo-shadow" className="text-xs font-medium">Shadow</Label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
+              <span className="text-xs font-medium text-primary">Add Speaker</span>
+              <span className="text-[10px] text-muted-foreground">({speakers.length}/4)</span>
+            </button>
+          ) : (
+            <div className="text-center py-2 px-3 bg-muted/30 rounded-lg">
+              <p className="text-[10px] text-muted-foreground">
+                Maximum 4 speakers
+              </p>
+            </div>
           )}
-        </Card>
+        </div>
       )}
     </div>
   )
@@ -487,6 +232,7 @@ interface SpeakerCardProps {
   onPhotoUpload: (file: File) => void
   onRemovePhoto: () => void
   getSummary: (speaker: SpeakerItem) => string
+  getCompletion: (speaker: SpeakerItem) => { isComplete: boolean; hasPhoto: boolean }
 }
 
 function SpeakerCard({
@@ -499,9 +245,13 @@ function SpeakerCard({
   onPhotoUpload,
   onRemovePhoto,
   getSummary,
+  getCompletion,
 }: SpeakerCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const { isComplete, hasPhoto } = getCompletion(speaker)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -511,151 +261,227 @@ function SpeakerCard({
     await onPhotoUpload(file)
     setIsUploading(false)
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  return (
-    <Card className="shadow-sm border-none">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
 
-          <div className="flex items-center gap-2 flex-1">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-              {index + 1}
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      setIsUploading(true)
+      await onPhotoUpload(file)
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <Card className={cn(
+      "overflow-hidden transition-all duration-200",
+      isExpanded ? "shadow-md ring-1 ring-primary/10" : "shadow-sm hover:shadow-md",
+      isComplete && hasPhoto && "ring-1 ring-green-500/20"
+    )}>
+      {/* Compact Header */}
+      <CardHeader className="p-0">
+        <div className="flex items-center gap-2.5 p-3">
+          {/* Clickable toggle area - NOT a button to avoid nesting issues */}
+          <div
+            onClick={onToggle}
+            className="flex items-center gap-2.5 flex-1 cursor-pointer min-w-0"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onToggle()}
+          >
+            {/* Speaker Number Badge */}
+            <div className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors",
+              isComplete && hasPhoto
+                ? "bg-green-500 text-white"
+                : isComplete
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+            )}>
+              {isComplete && hasPhoto ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                index + 1
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={onToggle}
-              className="flex-1 text-left flex items-center gap-2 hover:text-foreground transition-colors"
-            >
-              <span className="text-sm font-medium truncate">
-                {getSummary(speaker)}
-              </span>
-              {speaker.photoUrl && (
-                <ImageIcon className="h-3 w-3 text-green-600" />
+            {/* Speaker Info */}
+            <div className="flex-1 text-left min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "text-sm font-medium truncate",
+                  !speaker.name && "text-muted-foreground italic"
+                )}>
+                  {getSummary(speaker)}
+                </span>
+                {hasPhoto && (
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <ImageIcon className="h-2.5 w-2.5 text-green-600" />
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Chevron indicator */}
+            <div className="w-7 h-7 flex items-center justify-center text-muted-foreground shrink-0">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
               )}
-            </button>
+            </div>
           </div>
 
+          {/* Remove button - OUTSIDE the toggle area */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
           >
-            <X className="h-4 w-4" />
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onToggle}
-            className="h-8 w-8 p-0"
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardHeader>
 
+      {/* Expandable Content */}
       {isExpanded && (
-        <CardContent className="space-y-4 pt-0">
-          {/* Name and Designation */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor={`speaker-name-${speaker.id}`} className="text-xs">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id={`speaker-name-${speaker.id}`}
-                placeholder="e.g., Dr. Jane Smith"
-                value={speaker.name}
-                onChange={(e) => onUpdate({ name: e.target.value })}
-                className="h-9 text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={`speaker-designation-${speaker.id}`} className="text-xs">
-                Designation
-              </Label>
-              <Input
-                id={`speaker-designation-${speaker.id}`}
-                placeholder="e.g., CEO, TechCorp"
-                value={speaker.designation || ''}
-                onChange={(e) => onUpdate({ designation: e.target.value })}
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Photo Upload */}
-          <div className="space-y-2">
-            <Label className="text-xs">Speaker Photo</Label>
-
-            {speaker.photoUrl ? (
-              <div className="relative">
-                <div className="aspect-square w-32 rounded-lg overflow-hidden shadow-md ring-1 ring-black/5">
-                  <img
-                    src={speaker.photoUrl}
-                    alt={speaker.name || 'Speaker photo'}
-                    className="w-full h-full object-cover"
+        <CardContent className="px-3 pb-3 pt-0">
+          <div className="space-y-3">
+            {/* Name & Designation Row */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Name Field */}
+              <div className="space-y-1">
+                <Label htmlFor={`name-${speaker.id}`} className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Name <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                  <Input
+                    id={`name-${speaker.id}`}
+                    placeholder="Dr. Jane Smith"
+                    value={speaker.name}
+                    onChange={(e) => onUpdate({ name: e.target.value })}
+                    className="h-8 text-xs pl-8 bg-muted/30 border-muted-foreground/10 focus:bg-background"
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={onRemovePhoto}
-                  className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
               </div>
-            ) : (
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+
+              {/* Designation Field */}
+              <div className="space-y-1">
+                <Label htmlFor={`designation-${speaker.id}`} className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Designation
+                </Label>
+                <div className="relative">
+                  <Briefcase className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                  <Input
+                    id={`designation-${speaker.id}`}
+                    placeholder="CEO, TechCorp"
+                    value={speaker.designation || ''}
+                    onChange={(e) => onUpdate({ designation: e.target.value })}
+                    className="h-8 text-xs pl-8 bg-muted/30 border-muted-foreground/10 focus:bg-background"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Photo Upload Section */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Photo
+              </Label>
+
+              {speaker.photoUrl ? (
+                /* Photo Preview */
+                <div className="flex items-start gap-3">
+                  <div className="relative group">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden ring-2 ring-green-500/20 shadow-sm">
+                      <img
+                        src={speaker.photoUrl}
+                        alt={speaker.name || 'Speaker'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onRemovePhoto}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-xs font-medium text-green-600 flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Photo uploaded
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Click × to remove and upload a different photo
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Upload Area */
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="gap-2"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      Upload Photo
-                    </>
+                  className={cn(
+                    "relative flex items-center gap-3 p-3 rounded-lg border-2 border-dashed cursor-pointer transition-all",
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/30"
                   )}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG or WebP (max 5MB)
-                </p>
-              </div>
-            )}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                    isDragging ? "bg-primary/10" : "bg-muted"
+                  )}>
+                    {isUploading ? (
+                      <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                    ) : (
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-xs font-medium">
+                      {isUploading ? 'Uploading...' : isDragging ? 'Drop to upload' : 'Upload photo'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Drag & drop or click • PNG, JPG (max 5MB)
+                    </p>
+                  </div>
+
+                  <Upload className="h-4 w-4 text-muted-foreground/50" />
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       )}

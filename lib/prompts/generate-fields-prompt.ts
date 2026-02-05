@@ -246,9 +246,9 @@ Return ONLY valid JSON with no additional text. Use this exact structure:
   "fields": [
     {"id": "eventTitle", "label": "Event Title", "type": "text", "required": true, "placeholder": "e.g., Free Health Check-up Camp", "maxLength": 80, "suggestable": true},
     {"id": "eventDescription", "label": "Event Description", "type": "textarea", "required": false, "placeholder": "Describe the health services offered...", "rows": 3, "suggestable": true},
-    {"id": "eventDate", "label": "Event Date", "type": "date", "required": true, "placeholder": "", "suggestable": false},
+    {"id": "eventDate", "label": "Event Date", "type": "date", "required": false, "placeholder": "", "suggestable": false},
     {"id": "eventTime", "label": "Event Time", "type": "time", "required": false, "suggestable": false},
-    {"id": "venue", "label": "Venue", "type": "text", "required": true, "placeholder": "e.g., Community Hall, Main Street", "maxLength": 100, "suggestable": false},
+    {"id": "venue", "label": "Venue", "type": "text", "required": false, "placeholder": "e.g., Community Hall, Main Street", "maxLength": 100, "suggestable": false},
     {"id": "healthServices", "label": "Health Services", "type": "textarea", "required": false, "placeholder": "e.g., Blood pressure, Diabetes screening, Eye check-up", "rows": 2, "suggestable": true},
     {"id": "registrationInfo", "label": "Registration / Contact", "type": "text", "required": false, "placeholder": "e.g., Call 1800-XXX-XXXX or visit yi.org", "maxLength": 100, "suggestable": false}
   ],

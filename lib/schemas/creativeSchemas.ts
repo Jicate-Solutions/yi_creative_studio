@@ -463,7 +463,7 @@ export const CREATIVE_SCHEMAS: Record<CreativeSchemaType, CreativeSchema> = {
         id: 'venue',
         label: 'Venue',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: 'e.g., The Grand Ballroom, Hotel Taj',
         maxLength: 150,
         suggestable: true,

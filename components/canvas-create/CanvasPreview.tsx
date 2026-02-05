@@ -297,7 +297,7 @@ export function CanvasPreview({ onExpandClick }: CanvasPreviewProps = {}) {
 
         {/* Footer Strip Area */}
         {footerEnabled && (
-          <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-3">
+          <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-1.5 px-2">
             <div className="flex items-center justify-between">
               {/* Signature - show actual image if set, or placeholder if enabled */}
               {footer?.signature?.enabled && (footer?.signature?.signatureId || footer?.signature?.logoId) ? (
@@ -321,9 +321,15 @@ export function CanvasPreview({ onExpandClick }: CanvasPreviewProps = {}) {
               ) : null}
 
               {/* Center info */}
-              <div className="text-center flex-1 px-2">
-                <p className="text-[11px] font-bold text-green-600">{hashtag}</p>
-                <p className="text-[9px] text-gray-400">{website}</p>
+              <div className="text-center flex-1 px-2 leading-tight">
+                <p className="text-[10px] font-bold text-green-600 leading-none">{hashtag}</p>
+                <p className="text-[8px] text-gray-400 leading-tight">{website}</p>
+                {/* Social media pill */}
+                {(footer?.socialBar?.enabled ?? true) && footer?.website?.socialHandle?.trim() && (
+                  <div className="inline-flex items-center gap-0.5 bg-gray-800 text-white px-1.5 py-0 rounded-full mt-0.5">
+                    <span className="text-[7px]">@{footer.website.socialHandle.replace(/^@/, '')}</span>
+                  </div>
+                )}
               </div>
 
               {/* Partner - show actual image if set, or placeholder if enabled */}
@@ -331,18 +337,33 @@ export function CanvasPreview({ onExpandClick }: CanvasPreviewProps = {}) {
                 (() => {
                   const partnerLogo = logos.find(l => l.id === footer.digitalPartner.logoId)
                   return partnerLogo?.file_url ? (
-                    <div className="w-16 h-12 flex items-center justify-center">
-                      <Image src={partnerLogo.file_url} alt="Partner" width={55} height={40} className="object-contain" unoptimized />
+                    <div className="flex flex-col items-center">
+                      <span className="text-[7px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                        {footer.digitalPartner.labelText || 'Digital Partner'}
+                      </span>
+                      <div className="w-16 h-10 flex items-center justify-center">
+                        <Image src={partnerLogo.file_url} alt="Partner" width={55} height={35} className="object-contain" unoptimized />
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-16 h-12 bg-orange-50 rounded flex items-center justify-center">
-                      <span className="text-[9px] text-orange-400">Partner</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[7px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                        {footer.digitalPartner.labelText || 'Digital Partner'}
+                      </span>
+                      <div className="w-16 h-10 bg-orange-50 rounded flex items-center justify-center">
+                        <span className="text-[9px] text-orange-400">Partner</span>
+                      </div>
                     </div>
                   )
                 })()
               ) : footer?.digitalPartner?.enabled ? (
-                <div className="w-16 h-12 bg-orange-50 rounded flex items-center justify-center">
-                  <span className="text-[9px] text-orange-400">Partner</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-[7px] text-gray-500 uppercase tracking-wider font-bold mb-0.5">
+                    {footer.digitalPartner.labelText || 'Digital Partner'}
+                  </span>
+                  <div className="w-16 h-10 bg-orange-50 rounded flex items-center justify-center">
+                    <span className="text-[9px] text-orange-400">Partner</span>
+                  </div>
                 </div>
               ) : null}
             </div>

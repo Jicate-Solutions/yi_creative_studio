@@ -1949,7 +1949,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterRowConfig = {
     shape: 'rectangle',
     borderRadius: '40px 40px 0 0', // Top-rounded "tab" look
   },
-  height: 180, // v17.1: Increased from 150 to 180 to match Gemini safe zone + social content clearance
+  height: 140, // v25.0: Reduced from 180 to 140 for compact footer (40px compression per user request)
   padding: { horizontal: 40, vertical: 20 },
 }
 
@@ -1982,7 +1982,7 @@ export const ENHANCED_STRIP_ROW_HEIGHTS = {
   brand: 120,     // v16.3: INCREASED from 85px to 120px - prominent brand row
   vertical: 90,   // v19.0: INCREASED from 60px to 90px for 75px logo visibility (50% increase)
   initiative: 40, // Text row - unchanged
-  partner: 150,   // v16.14: INCREASED from 130px to 150px - taller footer for social bar visibility
+  partner: 120,   // v25.0: Reduced from 150 to 120 for compact footer (30px compression per user request)
 } as const
 
 // Maximum vertical logos allowed

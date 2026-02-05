@@ -17,7 +17,26 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { TimePicker } from '@/components/ui/time-picker'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileText, Sparkles, Check, X, AlertCircle } from 'lucide-react'
+import {
+  FileText,
+  Sparkles,
+  Check,
+  X,
+  AlertCircle,
+  Calendar,
+  Clock,
+  MapPin,
+  AlignLeft,
+  ClipboardList,
+  Phone,
+  Globe,
+  Users,
+  Info,
+  Quote,
+  Building2,
+  Hash,
+  type LucideIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCreativeStore } from '@/stores/creative-store'
@@ -174,6 +193,56 @@ interface DynamicDetailsFormProps {
 }
 
 // ============================================================================
+// Field Icon Mapping
+// ============================================================================
+
+const FIELD_ICONS: Record<string, LucideIcon> = {
+  // Core event fields
+  eventName: FileText,
+  eventTitle: FileText,
+  title: FileText,
+  posterTitle: FileText,
+  eventTagline: Quote,
+  tagline: Quote,
+  eventDate: Calendar,
+  date: Calendar,
+  eventTime: Clock,
+  startTime: Clock,
+  eventEndTime: Clock,
+  endTime: Clock,
+  venue: MapPin,
+  location: MapPin,
+  eventVenue: MapPin,
+
+  // Content fields
+  eventDescription: AlignLeft,
+  description: AlignLeft,
+  additionalDetails: Info,
+
+  // Contact fields
+  registrationInfo: ClipboardList,
+  registrationDetails: ClipboardList,
+  contactNumber: Phone,
+  phone: Phone,
+  websiteUrl: Globe,
+  website: Globe,
+
+  // Social/branding
+  hashtag: Hash,
+  socialHandle: Hash,
+  organizationName: Building2,
+  organization: Building2,
+
+  // Audience
+  targetAudience: Users,
+  audience: Users,
+}
+
+function getFieldIcon(fieldId: string): LucideIcon {
+  return FIELD_ICONS[fieldId] || FileText
+}
+
+// ============================================================================
 // Dynamic Field Component
 // ============================================================================
 
@@ -239,19 +308,22 @@ function DynamicField({
         ? 'text-yellow-600'
         : 'text-gray-400'
 
+  // Get the icon for this field
+  const FieldIcon = getFieldIcon(field.id)
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* Label with suggestion indicator */}
       <div className="flex items-center justify-between">
-        <Label htmlFor={field.id} className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+        <Label htmlFor={field.id} className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
           {field.label}
-          {field.required && <span className="text-primary ml-0.5">*</span>}
+          {field.required && <span className="text-destructive ml-0.5">*</span>}
         </Label>
         {suggestion && showSuggestion && (
-          <div className="flex items-center gap-1 text-xs">
-            <Sparkles className="h-3 w-3 text-primary" />
+          <div className="flex items-center gap-1 text-[10px]">
+            <Sparkles className="h-2.5 w-2.5 text-primary" />
             <span className={confidenceColor}>
-              {Math.round((suggestion.confidence || 0) * 100)}% confident
+              {Math.round((suggestion.confidence || 0) * 100)}%
             </span>
           </div>
         )}
@@ -259,12 +331,12 @@ function DynamicField({
 
       {/* Field Input */}
       <div className="relative">
-        {/* Ghost text suggestion layer */}
+        {/* Ghost text suggestion layer - adjusted for icon padding */}
         {showSuggestion && suggestion && !value && (
           <div
             className={cn(
-              'absolute inset-0 pointer-events-none px-3 py-2 text-gray-800 italic',
-              field.type === 'textarea' ? 'min-h-[80px]' : ''
+              'absolute inset-0 pointer-events-none pl-8 pr-3 py-2 text-muted-foreground/70 italic text-xs truncate',
+              field.type === 'textarea' ? 'min-h-[60px] whitespace-pre-wrap' : ''
             )}
           >
             {suggestion.value}
@@ -272,76 +344,94 @@ function DynamicField({
         )}
 
         {field.type === 'text' && (
-          <Input
-            id={field.id}
-            value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            placeholder={showSuggestion && suggestion ? '' : field.placeholder}
-            maxLength={field.maxLength}
-            className={cn(
-              'relative z-10 border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary transition-colors bg-transparent',
-              showSuggestion && suggestion && !value ? 'bg-transparent' : '',
-              isLoading ? 'animate-pulse' : '',
-              error ? 'border-destructive' : ''
-            )}
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <FieldIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 z-20" />
+            <Input
+              id={field.id}
+              value={value}
+              onChange={(e) => handleChange(e.target.value)}
+              placeholder={showSuggestion && suggestion ? '' : field.placeholder}
+              maxLength={field.maxLength}
+              className={cn(
+                'relative z-10 h-8 text-xs pl-8 rounded-lg bg-muted/30 border-muted-foreground/10 focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/30 transition-all',
+                showSuggestion && suggestion && !value ? 'bg-transparent' : '',
+                isLoading ? 'animate-pulse' : '',
+                error ? 'border-destructive focus-visible:ring-destructive/30' : ''
+              )}
+              disabled={isLoading}
+            />
+          </div>
         )}
 
         {field.type === 'textarea' && (
-          <Textarea
-            id={field.id}
-            value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            placeholder={showSuggestion && suggestion ? '' : field.placeholder}
-            rows={field.rows || 3}
-            className={cn(
-              'relative z-10 border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary transition-colors bg-transparent resize-y min-h-[60px]',
-              showSuggestion && suggestion && !value ? 'bg-transparent' : '',
-              isLoading ? 'animate-pulse' : '',
-              error ? 'border-destructive' : ''
-            )}
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <FieldIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/50 z-20" />
+            <Textarea
+              id={field.id}
+              value={value}
+              onChange={(e) => handleChange(e.target.value)}
+              placeholder={showSuggestion && suggestion ? '' : field.placeholder}
+              rows={field.rows || 2}
+              className={cn(
+                'relative z-10 text-xs pl-8 rounded-lg bg-muted/30 border-muted-foreground/10 focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/30 transition-all resize-y min-h-[60px]',
+                showSuggestion && suggestion && !value ? 'bg-transparent' : '',
+                isLoading ? 'animate-pulse' : '',
+                error ? 'border-destructive focus-visible:ring-destructive/30' : ''
+              )}
+              disabled={isLoading}
+            />
+          </div>
         )}
 
         {field.type === 'date' && (
-          <DatePicker
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder || 'Select date'}
-            error={!!error}
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <DatePicker
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder || 'Select date'}
+              error={!!error}
+              disabled={isLoading}
+              className="h-8 text-xs rounded-lg bg-muted/30 border-muted-foreground/10 focus:bg-background"
+            />
+          </div>
         )}
 
         {field.type === 'time' && (
-          <TimePicker
-            value={value}
-            onChange={handleChange}
-            error={!!error}
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <TimePicker
+              value={value}
+              onChange={handleChange}
+              error={!!error}
+              disabled={isLoading}
+              className="h-8 text-xs rounded-lg bg-muted/30 border-muted-foreground/10 focus:bg-background"
+            />
+          </div>
         )}
 
         {field.type === 'select' && field.options && (
-          <Select value={value} onValueChange={handleChange} disabled={isLoading}>
-            <SelectTrigger className={cn("border-0 border-b border-muted-foreground/20 rounded-none px-0 shadow-none focus:ring-0 focus:border-primary bg-transparent", error ? 'border-destructive' : '')}>
-              <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <FieldIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 z-20 pointer-events-none" />
+            <Select value={value} onValueChange={handleChange} disabled={isLoading}>
+              <SelectTrigger className={cn(
+                "h-8 text-xs pl-8 rounded-lg bg-muted/30 border-muted-foreground/10 focus:bg-background focus:ring-1 focus:ring-primary/30",
+                error ? 'border-destructive' : ''
+              )}>
+                <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options.map((option) => (
+                  <SelectItem key={option} value={option} className="text-xs">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         {/* Loading shimmer */}
         {isLoading && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-200/50 to-transparent animate-shimmer rounded-md" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-200/50 to-transparent animate-shimmer rounded-lg" />
         )}
       </div>
 
@@ -349,7 +439,7 @@ function DynamicField({
       {field.maxLength && (isNearLimit || value.length > 0) && (
         <div
           className={cn(
-            'flex items-center justify-end text-xs',
+            'flex items-center justify-end text-[10px]',
             isOverLimit
               ? 'text-destructive font-medium'
               : isNearLimit
@@ -358,31 +448,31 @@ function DynamicField({
           )}
         >
           <span>
-            {value.length} / {field.maxLength}
-            {isOverLimit && ' - Text may be truncated'}
+            {value.length}/{field.maxLength}
+            {isOverLimit && ' (limit)'}
           </span>
         </div>
       )}
 
       {/* Error message */}
       {error && (
-        <p className="text-xs text-destructive flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
+        <p className="text-[10px] text-destructive flex items-center gap-1">
+          <AlertCircle className="h-2.5 w-2.5" />
           {error}
         </p>
       )}
 
       {/* Accept/Dismiss buttons for suggestions */}
       {showSuggestion && suggestion && !value && (
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-1.5 pt-0.5">
           <Button
             type="button"
             size="sm"
             variant="outline"
             onClick={handleAccept}
-            className="h-7 px-2 text-xs bg-green-50 border-green-200 hover:bg-green-100 text-green-700"
+            className="h-6 px-2 text-[10px] bg-green-50 border-green-200 hover:bg-green-100 text-green-700"
           >
-            <Check className="h-3 w-3 mr-1" />
+            <Check className="h-2.5 w-2.5 mr-1" />
             Accept
           </Button>
           <Button
@@ -390,9 +480,9 @@ function DynamicField({
             size="sm"
             variant="ghost"
             onClick={handleDismiss}
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
           >
-            <X className="h-3 w-3 mr-1" />
+            <X className="h-2.5 w-2.5 mr-1" />
             Dismiss
           </Button>
         </div>

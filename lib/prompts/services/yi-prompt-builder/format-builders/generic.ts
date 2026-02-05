@@ -17,7 +17,9 @@ import {
   buildOrganizationContext,
   buildLanguageContext,
   buildLayoutZoneContext,
+  buildSpeakerPhotoCompositionGuidance, // v7.0: Speaker zone guidance
 } from '../context-helpers'
+import { getFormatZones } from '@/lib/config/format-zones' // v7.0: Format-aware zones
 
 // Import logo zone enforcement helper (v3.4)
 import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
@@ -188,6 +190,28 @@ export function buildGenericPrompt(
   // NEW v3.4: Build forbidden zones (Sophistication-Aware)
   const { forbiddenZonesContext, zoneReminderContext } = getIntegratedZoneContext(options, sophistication)
 
+  // v7.0: Speaker photo zone detection and guidance for all formats
+  // Uses format-zones config to determine if this format supports speaker photos
+  const formatZones = getFormatZones(formatId)
+  const hasSpeakerPhoto = options.speakerPhotoConfig?.enabled === true
+  const speakerZoneContext = hasSpeakerPhoto
+    ? buildSpeakerPhotoCompositionGuidance(options.speakerPhotoConfig)
+    : ''
+
+  // v7.0: Dynamic content zone based on speaker photo presence and format zones
+  const CONTENT_ZONE_START = formatZones.contentZone.start
+  const CONTENT_ZONE_END = hasSpeakerPhoto
+    ? Math.min(formatZones.contentZone.end, formatZones.speakerPhotoZone?.start || formatZones.contentZone.end)
+    : formatZones.contentZone.end
+
+  if (hasSpeakerPhoto) {
+    console.log(`[Generic v7.0] Speaker photo zone guidance ENABLED for ${formatId}`)
+    console.log(`[Generic v7.0] Content zone adjusted: ${CONTENT_ZONE_START}%-${CONTENT_ZONE_END}%`)
+    if (formatZones.speakerPhotoZone) {
+      console.log(`[Generic v7.0] Speaker photo zone: ${formatZones.speakerPhotoZone.start}%-${formatZones.speakerPhotoZone.end}%`)
+    }
+  }
+
   // NEW v4.2: Build sophistication-aware decorative elements
   const decorativeElementsContext = buildDecorativeElementsSection({
     eventType: (formData.eventType as string) || formatId.replace(/_/g, ' '),
@@ -277,14 +301,24 @@ ${decorativeElementsContext}
 
 ${aiTypographySection}
 
-<subject>
+${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
+
+` : ''}<subject>
 A professional graphic for: "${title}"
 ${description ? `Details: ${description}` : ''}
 The design should be visually appealing, clear, and effective for its purpose.
+${hasSpeakerPhoto ? `Speaker photos will be overlaid in the lower section (${formatZones.speakerPhotoZone?.start || CONTENT_ZONE_END}%-${formatZones.speakerPhotoZone?.end || 90}%)` : ''}
 </subject>
 
 <composition>
 Layout: ${options.designContext?.layoutSuggestion || 'Clean, organized layout with clear visual hierarchy'}
+${hasSpeakerPhoto ? `
+Zone Structure (speaker photo enabled):
+- HEADER ZONE (0%-${CONTENT_ZONE_START}%): Reserved for branding/logos
+- CONTENT ZONE (${CONTENT_ZONE_START}%-${CONTENT_ZONE_END}%): Main title, description, and details
+- SPEAKER PHOTO ZONE (${formatZones.speakerPhotoZone?.start || CONTENT_ZONE_END}%-${formatZones.speakerPhotoZone?.end || 90}%): RESERVED for speaker photo overlays - keep background clean/simple
+- FOOTER ZONE (${formatZones.footerZone.start}%-100%): Footer content
+` : ''}
 - Main title/headline as the most prominent element
 - Supporting content appropriately sized
 - Brand elements positioned properly

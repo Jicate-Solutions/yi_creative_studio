@@ -1428,6 +1428,8 @@ export const useCreativeStore = create<CreativeState>()(
                     ...state.formData.enhanced4RowStrip.footer.digitalPartner,
                     logoId,
                     enabled: !!logoId, // Auto-enable when logo selected
+                    // Ensure labelText has default when enabling
+                    labelText: state.formData.enhanced4RowStrip.footer.digitalPartner.labelText || 'Digital Partner',
                   },
                 },
               },

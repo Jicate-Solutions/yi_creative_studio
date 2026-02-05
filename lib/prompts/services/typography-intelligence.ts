@@ -532,22 +532,25 @@ export function shouldUseTypographyIntelligence(
   formatId: string,
   hasEventProfile: boolean
 ): boolean {
-  // Use typography intelligence when:
-  // 1. We have Event Understanding insights to leverage
-  // 2. Format is visual/creative (not purely data-driven)
+  // v7.0: Use typography intelligence for ALL visual/creative formats
+  // Use when we have Event Understanding insights to leverage
 
-  const creativeFormats = [
-    'event_poster',
-    'workshop_flyer',
-    'conference_poster',
-    'instagram_post',
-    'instagram_story',
-    'linkedin_post',
-    'facebook_event_cover',
-    'youtube_thumbnail',
-    'web_banner',
-    'certificate'
+  // Excluded: purely data-driven formats that don't need typography AI
+  const excludedFormats = [
+    'letterhead',  // Standard document typography
+    'resume',      // Fixed typography conventions
   ]
 
-  return creativeFormats.includes(formatId) && hasEventProfile
+  // Skip for non-creative formats
+  if (excludedFormats.includes(formatId)) {
+    return false
+  }
+
+  // Skip if no format specified
+  if (!formatId) {
+    return false
+  }
+
+  // Use typography intelligence when we have event profile insights
+  return hasEventProfile
 }

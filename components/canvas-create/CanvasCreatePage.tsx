@@ -21,6 +21,7 @@ import { isPastDate } from '@/lib/utils/date-utils'
 import { toast } from 'sonner'
 import { FileText, Palette, RefreshCcw, Loader2, Download } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
+import { CreatePageTour } from '@/components/onboarding/CreatePageTour'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
 import { ExportModal } from '@/components/export/export-modal'
 import { ShuffleButton } from '@/components/create/shuffle-button'
@@ -72,6 +73,12 @@ export function CanvasCreatePage() {
 
   // External event auto-config flag
   const [externalEventAutoConfigured, setExternalEventAutoConfigured] = useState(false)
+
+  // Reset auto-config flag when eventId changes - allows re-import for new events
+  // This fixes the bug where switching events quickly shows stale data
+  useEffect(() => {
+    setExternalEventAutoConfigured(false)
+  }, [eventId])
 
   // Validation state
   const [isFormValid, setIsFormValid] = useState(false)
@@ -624,12 +631,13 @@ export function CanvasCreatePage() {
           onModelChange={selectModel}
           isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
+          hasGeneratedImage={!!generatedImage}
         />
 
         {/* Main Content - Canva-style layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Details or Review Summary */}
-          <div className="w-[375px] min-w-[375px] border-r bg-card overflow-y-auto h-full flex flex-col">
+          <div className="w-[375px] min-w-[375px] border-r bg-card overflow-y-auto h-full flex flex-col" data-tour="details-panel">
             {panelMode === 'edit' ? (
               <DetailsPanel
                 suggestionsLoading={suggestionsLoading}
@@ -640,6 +648,7 @@ export function CanvasCreatePage() {
                 onValidationChange={handleValidationChange}
                 showReviewButton={isFormValid}
                 onReviewClick={handleReviewClick}
+                organizationId={currentOrganization?.id}
               />
             ) : (
               <ReviewSummaryPanel onBackToEdit={handleBackToEdit} />
@@ -725,7 +734,7 @@ export function CanvasCreatePage() {
           </div>
 
           {/* Right Panel - Logos & Style */}
-          <div className="w-[375px] min-w-[375px] border-l bg-card overflow-y-auto">
+          <div className="w-[375px] min-w-[375px] border-l bg-card overflow-y-auto" data-tour="style-panel">
             <LogosStylePanel />
           </div>
         </div>
@@ -794,6 +803,9 @@ export function CanvasCreatePage() {
           onOpenChange={setShuffleModalOpen}
           creativeId={creativeId}
         />
+
+        {/* Spotlight Tour for first-time users */}
+        <CreatePageTour />
       </div>
     )
   }
@@ -810,6 +822,7 @@ export function CanvasCreatePage() {
         onModelChange={selectModel}
         isModelsLoading={isModelsLoading}
         canGenerate={panelMode === 'review' && isFormValid}
+        hasGeneratedImage={!!generatedImage}
       />
 
       {/* Canvas Preview OR Template Browser - Full Width with bottom padding for nav */}
@@ -936,6 +949,7 @@ export function CanvasCreatePage() {
             onValidationChange={handleValidationChange}
             showReviewButton={isFormValid}
             onReviewClick={handleReviewClick}
+            organizationId={currentOrganization?.id}
           />
         ) : (
           <ReviewSummaryPanel onBackToEdit={handleBackToEdit} />

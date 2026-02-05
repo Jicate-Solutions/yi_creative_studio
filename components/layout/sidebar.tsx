@@ -277,9 +277,6 @@ export function Sidebar() {
             <DropdownMenuItem className="rounded-xl gap-3 p-2.5 cursor-pointer">
               <Settings className="h-4 w-4" /> Global Settings
             </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-xl gap-3 p-2.5 cursor-pointer">
-              <CreditCard className="h-4 w-4" /> Billing
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="p-2 flex items-center justify-between">
               <span className="text-xs font-medium">Dark Mode</span>

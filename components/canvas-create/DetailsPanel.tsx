@@ -13,7 +13,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronUp, User, Sparkles, Check, X, AlertCircle, ListChecks } from 'lucide-react'
+import { ChevronDown, ChevronUp, User, Sparkles, Check, X, AlertCircle, ClipboardPaste } from 'lucide-react'
+import { SmartPasteSheet } from './SmartPasteSheet'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
@@ -52,6 +59,8 @@ interface DetailsPanelProps {
   // Review mode props
   showReviewButton?: boolean
   onReviewClick?: () => void
+  // Smart Paste props
+  organizationId?: string
 }
 
 export function DetailsPanel({
@@ -63,6 +72,7 @@ export function DetailsPanel({
   onValidationChange,
   showReviewButton = false,
   onReviewClick,
+  organizationId,
 }: DetailsPanelProps = {}) {
   const {
     selectedFormat,
@@ -79,6 +89,7 @@ export function DetailsPanel({
   const [showMore, setShowMore] = useState(false)
   const [speakerSectionOpen, setSpeakerSectionOpen] = useState(false)
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
+  const [smartPasteOpen, setSmartPasteOpen] = useState(false)
 
   // Check if format supports speaker photo
   const supportsSpeakerPhoto = selectedFormat
@@ -166,12 +177,17 @@ export function DetailsPanel({
   )
 
   // Validate required fields and notify parent
+  // Note: eventDate, eventTime, venue are always optional for poster generation
+  const optionalOverrideFields = ['eventDate', 'eventTime', 'venue']
+
   useEffect(() => {
     if (!onValidationChange) return
 
     const fields = dynamicSchema.schema?.fields || []
     const schemaFieldIds = fields.map(f => f.id)
-    const requiredFieldIds = fields.filter(f => f.required).map(f => f.id)
+    const requiredFieldIds = fields
+      .filter(f => f.required && !optionalOverrideFields.includes(f.id))
+      .map(f => f.id)
 
     const missingFields = requiredFieldIds.filter(fieldId => {
       // Try to map to API field and find value
@@ -258,7 +274,9 @@ export function DetailsPanel({
             <span className="flex items-center gap-1">
               {showError && <AlertCircle className="h-3 w-3" />}
               {field.label}
-              {field.required && <span className="text-destructive ml-0.5">*</span>}
+              {field.required && !['eventDate', 'eventTime', 'venue'].includes(field.id) && (
+                <span className="text-destructive ml-0.5">*</span>
+              )}
             </span>
           </Label>
 
@@ -430,12 +448,31 @@ export function DetailsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col">
       {/* Scrollable Content Area */}
       <div className="flex-1 p-3 space-y-3 overflow-y-auto">
         {/* Compact Panel Header */}
-        <div className="pb-2 border-b">
+        <div className="pb-2 border-b flex items-center justify-between">
           <h2 className="text-base font-semibold">{selectedFormat?.label || 'Details'}</h2>
+          {organizationId && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setSmartPasteOpen(true)}
+                  >
+                    <ClipboardPaste className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Smart Paste - Extract from text</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         {/* Required Fields - Compact spacing */}
@@ -554,12 +591,23 @@ export function DetailsPanel({
         <div className="flex-none p-3 border-t bg-card/95 backdrop-blur">
           <Button
             onClick={onReviewClick}
-            className="w-full gap-2"
+            className="w-full h-11 gap-2 gradient-yi text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-200"
           >
-            <ListChecks className="h-4 w-4" />
+            <Sparkles className="h-4 w-4" />
             Review & Generate
           </Button>
         </div>
+      )}
+
+      {/* Smart Paste Sheet */}
+      {organizationId && (
+        <SmartPasteSheet
+          open={smartPasteOpen}
+          onOpenChange={setSmartPasteOpen}
+          organizationId={organizationId}
+          verticalSlug={selectedVertical?.slug}
+          formatId={selectedFormat?.id}
+        />
       )}
     </div>
   )

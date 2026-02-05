@@ -226,7 +226,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
           {/* Footer Container with configurable background */}
           {/* v21.0: justify-evenly for dynamic zone distribution */}
           <div
-            className="relative flex items-center justify-evenly overflow-hidden h-[120px]"
+            className="relative flex items-center justify-evenly overflow-hidden h-[90px]"
             style={{
               backgroundColor: footer.background.color,
               borderRadius: footer.background.borderRadius || '0',
@@ -273,7 +273,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   className="font-bold uppercase tracking-wide text-center"
                   style={{
                     color: footer.hashtag.color || '#0B6D41',
-                    fontSize: `${footer.fontSize + 2}px`,
+                    fontSize: `${footer.fontSize - 2}px`,
                     fontWeight: footer.fontWeight === 'bold' ? 700 : footer.fontWeight === 'semibold' ? 600 : 500,
                   }}
                 >
@@ -294,7 +294,7 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
               {/* Social Media Bar - Dark Pill */}
               {(footer.socialBar?.enabled ?? true) && footer.website.socialHandle?.trim() && (
                 <div
-                  className="flex items-center gap-2 px-3 py-1 mt-0.5"
+                  className="flex items-center gap-2 px-2 py-0.5 mt-0.5"
                   style={{
                     backgroundColor: footer.socialBar?.backgroundColor || '#1a1a1a',
                     borderRadius: `${footer.socialBar?.borderRadius || 20}px`,
@@ -303,15 +303,15 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   {/* Instagram Icon */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke={footer.socialBar?.textColor || '#FFFFFF'}
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="h-4 w-4 shrink-0"
+                    className="h-3.5 w-3.5 shrink-0"
                   >
                     <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
                     <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
@@ -321,20 +321,20 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                   {/* Facebook Icon */}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke={footer.socialBar?.textColor || '#FFFFFF'}
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="h-4 w-4 shrink-0"
+                    className="h-3.5 w-3.5 shrink-0"
                   >
                     <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
                   </svg>
                   <span
-                    className="text-xs font-medium"
+                    className="text-[10px] font-medium"
                     style={{ color: footer.socialBar?.textColor || '#FFFFFF' }}
                   >
                     {footer.website.socialHandle.startsWith('@')
@@ -353,10 +353,10 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                 style={{ width: `${zoneWidths.zone3Width}%` }}
               >
                 {footer.digitalPartner.enabled && partnerLogo?.file_url && (
-                  <div className="flex flex-col items-center justify-center gap-0.5 text-center">
+                  <div className="flex flex-col items-center gap-0 text-center">
                     {/* "Digital Partner" Label - Bold uppercase for visibility */}
                     <span
-                      className="text-[9px] uppercase tracking-wider whitespace-nowrap font-bold"
+                      className="text-[9px] uppercase tracking-wider whitespace-nowrap font-bold leading-none"
                       style={{ color: footer.digitalPartner.labelColor || '#374151' }}
                     >
                       {footer.digitalPartner.labelText}
@@ -367,8 +367,8 @@ export function EnhancedStripCanvas({ className }: EnhancedStripCanvasProps) {
                       <Image
                         src={partnerLogo.file_url}
                         alt={partnerLogo.name || 'Partner'}
-                        width={60}
-                        height={40}
+                        width={80}
+                        height={50}
                         className="object-contain"
                         unoptimized
                       />

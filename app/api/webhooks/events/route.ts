@@ -505,6 +505,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse, { status: 400 })
     }
 
+    // 6.5 Validate required fields (v3.1)
+    // Check if event source has required fields configured
+    if (eventSourceId || (organization_id && webhookSecret)) {
+      const { data: eventSourceConfig } = await supabaseAdmin
+        .from('event_sources')
+        .select('required_fields')
+        .eq('organization_id', targetOrgId)
+        .eq('source_app_id', sourceAppId)
+        .single()
+
+      if (eventSourceConfig?.required_fields && Array.isArray(eventSourceConfig.required_fields) && eventSourceConfig.required_fields.length > 0) {
+        const eventData = event as unknown as Record<string, unknown>
+        const missingFields: string[] = []
+
+        for (const requiredField of eventSourceConfig.required_fields) {
+          // Check in both camelCase (original) and snake_case (normalized)
+          const camelKey = requiredField.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
+          const hasField =
+            eventData[requiredField] !== undefined && eventData[requiredField] !== null && eventData[requiredField] !== '' ||
+            eventData[camelKey] !== undefined && eventData[camelKey] !== null && eventData[camelKey] !== ''
+
+          if (!hasField) {
+            missingFields.push(requiredField)
+          }
+        }
+
+        if (missingFields.length > 0) {
+          const errorResponse = {
+            success: false,
+            error: 'Missing required fields',
+            missing_fields: missingFields,
+            message: `The following fields are required for this integration: ${missingFields.join(', ')}`,
+          }
+          await logWebhookCall({
+            event_source_id: eventSourceId,
+            source_app_id: sourceAppId,
+            organization_id: targetOrgId,
+            action: action,
+            external_event_id: event?.id,
+            event_name: event?.name,
+            status: 'validation_error',
+            error_message: `Missing required fields: ${missingFields.join(', ')}`,
+            request_payload: payload as unknown as Record<string, unknown>,
+            response_payload: errorResponse,
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            duration_ms: Date.now() - startTime,
+          })
+          return NextResponse.json(errorResponse, { status: 400 })
+        }
+      }
+    }
+
     // 7. Extract dynamic fields (v3.0)
     // Any field NOT in KNOWN_FIELD_KEYS will be stored in custom_data
     const { customData, fieldMetadata } = extractEventFields(

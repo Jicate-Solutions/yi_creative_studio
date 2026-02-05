@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useCredits, useOrganization } from '@/hooks'
 import { useAuthStore } from '@/stores/auth-store'
 import {
@@ -22,138 +22,197 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import {
   Coins,
   CreditCard,
   TrendingUp,
   TrendingDown,
-  Plus,
-  ArrowUpRight,
+  SendHorizontal,
   Loader2,
-  Check,
-  ExternalLink,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react'
 import { CREDIT_PACKAGES } from '@/lib/config/constants'
 import { format } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
 
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance
-  }
-}
-
-interface RazorpayOptions {
-  key: string
-  amount: number
-  currency: string
-  name: string
-  description: string
-  order_id?: string
-  handler: (response: RazorpayResponse) => void
-  prefill: {
-    name?: string
-    email?: string
-  }
-  theme: {
-    color: string
-  }
-}
-
-interface RazorpayInstance {
-  open: () => void
-}
-
-interface RazorpayResponse {
-  razorpay_payment_id: string
-  razorpay_order_id?: string
-  razorpay_signature?: string
+interface CreditRequest {
+  id: string
+  package_id: string
+  package_name: string
+  credits_amount: number
+  price_inr: number
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  rejection_reason?: string
+  created_at: string
+  reviewed_at?: string
 }
 
 export default function BillingPage() {
-  const { balance, transactions, isLoading, addCredits, fetchTransactions } = useCredits()
+  const { balance, transactions, isLoading } = useCredits()
   const { organization } = useOrganization()
-  const { canManage, profile, user } = useAuthStore()
+  const { canManage, currentOrganization } = useAuthStore()
 
-  // Fix hydration mismatch: canManage() returns different values on server vs client
+  // Fix hydration mismatch
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Only check admin status after mount to prevent hydration mismatch
   const isAdmin = isMounted ? canManage() : false
 
-  const [purchasingPackage, setPurchasingPackage] = useState<string | null>(null)
+  const [requestingPackage, setRequestingPackage] = useState<string | null>(null)
+  const [creditRequests, setCreditRequests] = useState<CreditRequest[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(true)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [requestToCancel, setRequestToCancel] = useState<string | null>(null)
 
-  const handlePurchase = async (packageId: string) => {
+  // Fetch credit requests
+  const fetchCreditRequests = useCallback(async () => {
+    if (!currentOrganization?.id) return
+
+    try {
+      const response = await fetch(
+        `/api/billing/request-credits?organizationId=${currentOrganization.id}`
+      )
+      const data = await response.json()
+
+      if (data.requests) {
+        setCreditRequests(data.requests)
+      }
+    } catch (error) {
+      console.error('Error fetching credit requests:', error)
+    } finally {
+      setLoadingRequests(false)
+    }
+  }, [currentOrganization?.id])
+
+  useEffect(() => {
+    fetchCreditRequests()
+  }, [fetchCreditRequests])
+
+  // Check if there's a pending request
+  const pendingRequest = creditRequests.find((r) => r.status === 'pending')
+
+  const handleRequestCredits = async (packageId: string) => {
     if (!isAdmin) {
-      toast.error('Only admins can purchase credits')
+      toast.error('Only admins can request credits')
+      return
+    }
+
+    if (!currentOrganization?.id) {
+      toast.error('Organization not found')
+      return
+    }
+
+    if (pendingRequest) {
+      toast.error(
+        `You already have a pending request for ${pendingRequest.package_name}. Please wait for admin approval.`
+      )
       return
     }
 
     const pkg = CREDIT_PACKAGES.find((p) => p.id === packageId)
     if (!pkg) return
 
-    setPurchasingPackage(packageId)
+    setRequestingPackage(packageId)
 
     try {
-      // In production, create order via API
-      // For now, simulate with Razorpay client-side
-      const options: RazorpayOptions = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-        amount: pkg.priceINR * 100, // Razorpay expects paise
-        currency: 'INR',
-        name: 'Yi CreativeStudio',
-        description: `${pkg.credits} Credits - ${pkg.name}`,
-        handler: async function (response: RazorpayResponse) {
-          // Add credits after successful payment
-          const result = await addCredits(
-            pkg.credits,
-            pkg.priceINR,
-            response.razorpay_payment_id,
-            `${pkg.name} purchase`
-          )
+      const response = await fetch('/api/billing/request-credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageId,
+          organizationId: currentOrganization.id,
+        }),
+      })
 
-          if (result) {
-            toast.success(`Successfully purchased ${pkg.credits} credits!`)
-          }
-          setPurchasingPackage(null)
-        },
-        prefill: {
-          name: profile?.full_name || '',
-          email: user?.email || '',
-        },
-        theme: {
-          color: '#005B96',
-        },
-      }
+      const data = await response.json()
 
-      // Check if Razorpay is loaded
-      if (typeof window !== 'undefined' && window.Razorpay) {
-        const razorpay = new window.Razorpay(options)
-        razorpay.open()
+      if (data.success) {
+        toast.success(data.message)
+        fetchCreditRequests() // Refresh the list
       } else {
-        // Fallback: simulate purchase for demo
-        toast.info('Razorpay not configured. Simulating purchase...')
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-
-        const result = await addCredits(
-          pkg.credits,
-          pkg.priceINR,
-          `demo_${Date.now()}`,
-          `${pkg.name} purchase (demo)`
-        )
-
-        if (result) {
-          toast.success(`Demo: Added ${pkg.credits} credits!`)
-        }
-        setPurchasingPackage(null)
+        toast.error(data.error || 'Failed to submit request')
       }
     } catch (error) {
-      console.error('Purchase error:', error)
-      toast.error('Failed to process payment')
-      setPurchasingPackage(null)
+      console.error('Request error:', error)
+      toast.error('Failed to submit credit request')
+    } finally {
+      setRequestingPackage(null)
+    }
+  }
+
+  const handleCancelRequest = async () => {
+    if (!requestToCancel) return
+
+    try {
+      const supabase = createClient()
+      // Note: Using 'any' cast as credit_requests table types need regeneration
+      const { error } = await supabase
+        .from('credit_requests' as any)
+        .update({ status: 'cancelled' })
+        .eq('id', requestToCancel)
+        .eq('status', 'pending')
+
+      if (error) throw error
+
+      toast.success('Request cancelled')
+      fetchCreditRequests()
+    } catch (error) {
+      console.error('Cancel error:', error)
+      toast.error('Failed to cancel request')
+    } finally {
+      setCancelDialogOpen(false)
+      setRequestToCancel(null)
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-300 bg-yellow-50">
+            <Clock className="h-3 w-3" />
+            Pending
+          </Badge>
+        )
+      case 'approved':
+        return (
+          <Badge variant="outline" className="gap-1 text-green-600 border-green-300 bg-green-50">
+            <CheckCircle2 className="h-3 w-3" />
+            Approved
+          </Badge>
+        )
+      case 'rejected':
+        return (
+          <Badge variant="outline" className="gap-1 text-red-600 border-red-300 bg-red-50">
+            <XCircle className="h-3 w-3" />
+            Rejected
+          </Badge>
+        )
+      case 'cancelled':
+        return (
+          <Badge variant="outline" className="gap-1 text-gray-600 border-gray-300 bg-gray-50">
+            <XCircle className="h-3 w-3" />
+            Cancelled
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
@@ -199,6 +258,39 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
+      {/* Pending Request Alert */}
+      {pendingRequest && (
+        <Card className="border-yellow-300 bg-yellow-50">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+                <div>
+                  <p className="font-medium text-yellow-800">
+                    Pending Credit Request
+                  </p>
+                  <p className="text-sm text-yellow-700">
+                    {pendingRequest.package_name} ({pendingRequest.credits_amount} credits) -
+                    Requested on {format(new Date(pendingRequest.created_at), 'MMM d, yyyy')}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-yellow-700 border-yellow-400 hover:bg-yellow-100"
+                onClick={() => {
+                  setRequestToCancel(pendingRequest.id)
+                  setCancelDialogOpen(true)
+                }}
+              >
+                Cancel Request
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Credit Packages */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Buy Credits</h2>
@@ -235,15 +327,15 @@ export default function BillingPage() {
                   <Button
                     className={`w-full ${pkg.popular ? 'gradient-yi hover:opacity-90' : ''}`}
                     variant={pkg.popular ? 'default' : 'outline'}
-                    onClick={() => handlePurchase(pkg.id)}
-                    disabled={purchasingPackage === pkg.id}
+                    onClick={() => handleRequestCredits(pkg.id)}
+                    disabled={requestingPackage === pkg.id || !!pendingRequest}
                   >
-                    {purchasingPackage === pkg.id ? (
+                    {requestingPackage === pkg.id ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
-                      <Plus className="h-4 w-4 mr-2" />
+                      <SendHorizontal className="h-4 w-4 mr-2" />
                     )}
-                    Buy Now
+                    {pendingRequest ? 'Request Pending' : 'Request Credits'}
                   </Button>
                 ) : (
                   <Button className="w-full" variant="outline" disabled>
@@ -254,7 +346,68 @@ export default function BillingPage() {
             </Card>
           ))}
         </div>
+        <p className="text-sm text-muted-foreground mt-3 text-center">
+          Credit requests require admin approval before being added to your account
+        </p>
       </div>
+
+      {/* Credit Request History */}
+      {creditRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SendHorizontal className="h-5 w-5" />
+              Credit Requests
+            </CardTitle>
+            <CardDescription>
+              Your organization&apos;s credit request history
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingRequests ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-12" />
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Package</TableHead>
+                    <TableHead>Credits</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {creditRequests.slice(0, 10).map((req) => (
+                    <TableRow key={req.id}>
+                      <TableCell className="font-medium">{req.package_name}</TableCell>
+                      <TableCell>{req.credits_amount.toLocaleString()}</TableCell>
+                      <TableCell>₹{req.price_inr.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {getStatusBadge(req.status)}
+                          {req.rejection_reason && (
+                            <span className="text-xs text-red-600">
+                              {req.rejection_reason}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(req.created_at), 'MMM d, yyyy')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Transaction History */}
       <Card>
@@ -323,6 +476,24 @@ export default function BillingPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Cancel Request Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Credit Request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this credit request? You can submit a new request afterwards.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Request</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelRequest}>
+              Cancel Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
