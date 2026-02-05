@@ -453,6 +453,8 @@ export type Database = {
           credits_used: number
           download_count: number | null
           expires_at: string | null
+          external_event_id: string | null
+          external_event_source: string | null
           form_data: Json
           generation_time_ms: number | null
           id: string
@@ -466,6 +468,7 @@ export type Database = {
           shuffled_at: string | null
           shuffled_color_mapping: Json | null
           shuffled_image_url: string | null
+          synced_event_id: string | null
           thumbnail_url: string | null
           title: string | null
           vertical: string | null
@@ -479,6 +482,8 @@ export type Database = {
           credits_used: number
           download_count?: number | null
           expires_at?: string | null
+          external_event_id?: string | null
+          external_event_source?: string | null
           form_data: Json
           generation_time_ms?: number | null
           id?: string
@@ -492,6 +497,7 @@ export type Database = {
           shuffled_at?: string | null
           shuffled_color_mapping?: Json | null
           shuffled_image_url?: string | null
+          synced_event_id?: string | null
           thumbnail_url?: string | null
           title?: string | null
           vertical?: string | null
@@ -505,6 +511,8 @@ export type Database = {
           credits_used?: number
           download_count?: number | null
           expires_at?: string | null
+          external_event_id?: string | null
+          external_event_source?: string | null
           form_data?: Json
           generation_time_ms?: number | null
           id?: string
@@ -518,6 +526,7 @@ export type Database = {
           shuffled_at?: string | null
           shuffled_color_mapping?: Json | null
           shuffled_image_url?: string | null
+          synced_event_id?: string | null
           thumbnail_url?: string | null
           title?: string | null
           vertical?: string | null
@@ -535,6 +544,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creatives_synced_event_id_fkey"
+            columns: ["synced_event_id"]
+            isOneToOne: false
+            referencedRelation: "synced_events"
             referencedColumns: ["id"]
           },
         ]
@@ -602,6 +618,145 @@ export type Database = {
           },
         ]
       }
+      dynamic_field_registry: {
+        Row: {
+          canonical_mapping: string | null
+          category: string | null
+          created_at: string | null
+          display_order: number | null
+          field_id: string
+          field_label: string
+          field_type: string | null
+          first_seen_at: string | null
+          help_text: string | null
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          last_seen_at: string | null
+          max_length: number | null
+          options: Json | null
+          organization_id: string | null
+          placeholder: string | null
+          source_app_id: string
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          canonical_mapping?: string | null
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          field_id: string
+          field_label: string
+          field_type?: string | null
+          first_seen_at?: string | null
+          help_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          last_seen_at?: string | null
+          max_length?: number | null
+          options?: Json | null
+          organization_id?: string | null
+          placeholder?: string | null
+          source_app_id: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          canonical_mapping?: string | null
+          category?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          field_id?: string
+          field_label?: string
+          field_type?: string | null
+          first_seen_at?: string | null
+          help_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          last_seen_at?: string | null
+          max_length?: number | null
+          options?: Json | null
+          organization_id?: string | null
+          placeholder?: string | null
+          source_app_id?: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dynamic_field_registry_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_sources: {
+        Row: {
+          api_base_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          error_count: number | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          name: string | null
+          organization_id: string
+          source_app_id: string
+          source_name: string
+          total_syncs: number | null
+          updated_at: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_base_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          error_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          name?: string | null
+          organization_id: string
+          source_app_id: string
+          source_name: string
+          total_syncs?: number | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_base_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          error_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          name?: string | null
+          organization_id?: string
+          source_app_id?: string
+          source_name?: string
+          total_syncs?: number | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       footer_presets: {
         Row: {
           config: Json
@@ -639,50 +794,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "footer_presets_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      initiative_presets: {
-        Row: {
-          config: Json
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          id: string
-          is_default: boolean | null
-          name: string
-          organization_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          config: Json
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_default?: boolean | null
-          name: string
-          organization_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          config?: Json
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_default?: boolean | null
-          name?: string
-          organization_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "initiative_presets_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -788,6 +899,226 @@ export type Database = {
             columns: ["prevention_action_id"]
             isOneToOne: false
             referencedRelation: "prevention_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          calendar_id: string
+          calendar_name: string | null
+          calendar_timezone: string | null
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string | null
+          error_count: number | null
+          google_account_email: string | null
+          google_account_id: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          organization_id: string
+          push_channel_expiry: string | null
+          push_channel_id: string | null
+          push_channel_token: string | null
+          push_resource_id: string | null
+          refresh_token_encrypted: string | null
+          sync_error: string | null
+          sync_future_days: number | null
+          sync_past_days: number | null
+          sync_status: string | null
+          sync_token: string | null
+          token_expiry: string | null
+          total_events_synced: number | null
+          total_syncs: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          calendar_id?: string
+          calendar_name?: string | null
+          calendar_timezone?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          error_count?: number | null
+          google_account_email?: string | null
+          google_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          organization_id: string
+          push_channel_expiry?: string | null
+          push_channel_id?: string | null
+          push_channel_token?: string | null
+          push_resource_id?: string | null
+          refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          sync_future_days?: number | null
+          sync_past_days?: number | null
+          sync_status?: string | null
+          sync_token?: string | null
+          token_expiry?: string | null
+          total_events_synced?: number | null
+          total_syncs?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          calendar_id?: string
+          calendar_name?: string | null
+          calendar_timezone?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          error_count?: number | null
+          google_account_email?: string | null
+          google_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          organization_id?: string
+          push_channel_expiry?: string | null
+          push_channel_id?: string | null
+          push_channel_token?: string | null
+          push_resource_id?: string | null
+          refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          sync_future_days?: number | null
+          sync_past_days?: number | null
+          sync_status?: string | null
+          sync_token?: string | null
+          token_expiry?: string | null
+          total_events_synced?: number | null
+          total_syncs?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_push_logs: {
+        Row: {
+          channel_id: string | null
+          connection_id: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          event_type: string
+          events_added: number | null
+          events_deleted: number | null
+          events_updated: number | null
+          id: string
+          message_number: string | null
+          organization_id: string | null
+          request_headers: Json | null
+          resource_id: string | null
+          resource_state: string | null
+          response_payload: Json | null
+          success: boolean | null
+        }
+        Insert: {
+          channel_id?: string | null
+          connection_id?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_type: string
+          events_added?: number | null
+          events_deleted?: number | null
+          events_updated?: number | null
+          id?: string
+          message_number?: string | null
+          organization_id?: string | null
+          request_headers?: Json | null
+          resource_id?: string | null
+          resource_state?: string | null
+          response_payload?: Json | null
+          success?: boolean | null
+        }
+        Update: {
+          channel_id?: string | null
+          connection_id?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_type?: string
+          events_added?: number | null
+          events_deleted?: number | null
+          events_updated?: number | null
+          id?: string
+          message_number?: string | null
+          organization_id?: string | null
+          request_headers?: Json | null
+          resource_id?: string | null
+          resource_state?: string | null
+          response_payload?: Json | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_push_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "google_calendar_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_calendar_push_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      initiative_presets: {
+        Row: {
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "initiative_presets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1890,6 +2221,149 @@ export type Database = {
           },
         ]
       }
+      synced_events: {
+        Row: {
+          allow_guests: boolean | null
+          banner_image_url: string | null
+          chapter_location: string | null
+          chapter_name: string | null
+          city: string | null
+          current_registrations: number | null
+          custom_data: Json | null
+          description: string | null
+          end_time: string | null
+          entry_fee: string | null
+          event_date: string
+          event_name: string
+          event_time: string | null
+          event_type: string | null
+          external_id: string
+          field_metadata: Json | null
+          guest_limit: number | null
+          id: string
+          is_featured: boolean | null
+          is_virtual: boolean | null
+          max_capacity: number | null
+          organization_id: string
+          organizer_name: string | null
+          registration_deadline: string | null
+          registration_start_date: string | null
+          registration_url: string | null
+          source_app_id: string
+          source_created_at: string | null
+          source_updated_at: string | null
+          speakers: Json | null
+          status: string | null
+          synced_at: string | null
+          tagline: string | null
+          tags: Json | null
+          target_audience: string | null
+          venue: string | null
+          venue_address: string | null
+          venue_capacity: number | null
+          venue_latitude: number | null
+          venue_longitude: number | null
+          virtual_meeting_link: string | null
+          waitlist_enabled: boolean | null
+        }
+        Insert: {
+          allow_guests?: boolean | null
+          banner_image_url?: string | null
+          chapter_location?: string | null
+          chapter_name?: string | null
+          city?: string | null
+          current_registrations?: number | null
+          custom_data?: Json | null
+          description?: string | null
+          end_time?: string | null
+          entry_fee?: string | null
+          event_date: string
+          event_name: string
+          event_time?: string | null
+          event_type?: string | null
+          external_id: string
+          field_metadata?: Json | null
+          guest_limit?: number | null
+          id?: string
+          is_featured?: boolean | null
+          is_virtual?: boolean | null
+          max_capacity?: number | null
+          organization_id: string
+          organizer_name?: string | null
+          registration_deadline?: string | null
+          registration_start_date?: string | null
+          registration_url?: string | null
+          source_app_id: string
+          source_created_at?: string | null
+          source_updated_at?: string | null
+          speakers?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tagline?: string | null
+          tags?: Json | null
+          target_audience?: string | null
+          venue?: string | null
+          venue_address?: string | null
+          venue_capacity?: number | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
+          virtual_meeting_link?: string | null
+          waitlist_enabled?: boolean | null
+        }
+        Update: {
+          allow_guests?: boolean | null
+          banner_image_url?: string | null
+          chapter_location?: string | null
+          chapter_name?: string | null
+          city?: string | null
+          current_registrations?: number | null
+          custom_data?: Json | null
+          description?: string | null
+          end_time?: string | null
+          entry_fee?: string | null
+          event_date?: string
+          event_name?: string
+          event_time?: string | null
+          event_type?: string | null
+          external_id?: string
+          field_metadata?: Json | null
+          guest_limit?: number | null
+          id?: string
+          is_featured?: boolean | null
+          is_virtual?: boolean | null
+          max_capacity?: number | null
+          organization_id?: string
+          organizer_name?: string | null
+          registration_deadline?: string | null
+          registration_start_date?: string | null
+          registration_url?: string | null
+          source_app_id?: string
+          source_created_at?: string | null
+          source_updated_at?: string | null
+          speakers?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tagline?: string | null
+          tags?: Json | null
+          target_audience?: string | null
+          venue?: string | null
+          venue_address?: string | null
+          venue_capacity?: number | null
+          venue_latitude?: number | null
+          venue_longitude?: number | null
+          virtual_meeting_link?: string | null
+          waitlist_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synced_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       template_images: {
         Row: {
           created_at: string | null
@@ -2246,6 +2720,75 @@ export type Database = {
           },
         ]
       }
+      webhook_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          event_name: string | null
+          event_source_id: string | null
+          external_event_id: string | null
+          id: string
+          ip_address: string | null
+          organization_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          source_app_id: string
+          status: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_name?: string | null
+          event_source_id?: string | null
+          external_event_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          source_app_id: string
+          status: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          event_name?: string | null
+          event_source_id?: string | null
+          external_event_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          source_app_id?: string
+          status?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_event_source_id_fkey"
+            columns: ["event_source_id"]
+            isOneToOne: false
+            referencedRelation: "event_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2296,6 +2839,10 @@ export type Database = {
         Args: { p_organization_id: string; p_user_id: string }
         Returns: boolean
       }
+      check_valid_invite_for_join: {
+        Args: { p_organization_id: string; p_role: string }
+        Returns: boolean
+      }
       cleanup_expired_color_cache: { Args: never; Returns: number }
       deduct_credits: {
         Args: {
@@ -2310,6 +2857,10 @@ export type Database = {
           success: boolean
           transaction_id: string
         }[]
+      }
+      generate_push_channel_token: {
+        Args: { p_organization_id: string }
+        Returns: string
       }
       get_api_usage_analytics: {
         Args: { org_id: string; start_date?: string }
@@ -2351,6 +2902,23 @@ export type Database = {
           usage_date: string
         }[]
       }
+      get_google_calendar_tokens:
+        | {
+            Args: { p_connection_id: string }
+            Returns: {
+              access_token: string
+              refresh_token: string
+              token_expiry: string
+            }[]
+          }
+        | {
+            Args: { p_connection_id: string; p_encryption_key: string }
+            Returns: {
+              access_token: string
+              refresh_token: string
+              token_expiry: string
+            }[]
+          }
       get_recent_api_usage: {
         Args: { org_id: string; record_limit?: number; start_date?: string }
         Returns: {
@@ -2367,6 +2935,18 @@ export type Database = {
         }[]
       }
       get_user_org_role: { Args: { org_id: string }; Returns: string }
+      increment_dynamic_field_usage: {
+        Args: { p_field_id: string; p_org_id: string; p_source_id: string }
+        Returns: undefined
+      }
+      increment_event_source_sync: {
+        Args: {
+          p_is_error?: boolean
+          p_organization_id: string
+          p_source_app_id: string
+        }
+        Returns: undefined
+      }
       increment_template_use_count: {
         Args: { template_id: string }
         Returns: undefined
@@ -2386,6 +2966,35 @@ export type Database = {
           success: boolean
           transaction_id: string
         }[]
+      }
+      store_google_calendar_tokens:
+        | {
+            Args: {
+              p_access_token: string
+              p_connection_id: string
+              p_refresh_token: string
+              p_token_expiry: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_access_token: string
+              p_connection_id: string
+              p_encryption_key: string
+              p_refresh_token: string
+              p_token_expiry: string
+            }
+            Returns: undefined
+          }
+      update_google_calendar_sync_stats: {
+        Args: {
+          p_connection_id: string
+          p_error_message?: string
+          p_events_synced?: number
+          p_is_error?: boolean
+        }
+        Returns: undefined
       }
       user_belongs_to_organization: {
         Args: { org_id: string }
@@ -2524,16 +3133,16 @@ export const Constants = {
   },
 } as const
 
-// Convenience type aliases for commonly used tables
-export type Template = Tables<'templates'>
-export type TemplateImage = Tables<'template_images'>
-export type VerticalPreset = Tables<'vertical_presets'>
-export type AIModel = Tables<'ai_models'>
-export type Creative = Tables<'creatives'>
-export type Organization = Tables<'organizations'>
-export type OrganizationLogo = Tables<'organization_logos'>
-export type OrganizationMember = Tables<'organization_members'>
-export type OrganizationInvite = Tables<'organization_invites'>
-export type UserProfile = Tables<'user_profiles'>
-export type ApiUsage = Tables<'api_usage'>
-export type CreditTransaction = Tables<'credit_transactions'>
+// Helper type aliases for commonly used tables
+export type Template = Database['public']['Tables']['templates']['Row']
+export type TemplateImage = Database['public']['Tables']['template_images']['Row']
+export type VerticalPreset = Database['public']['Tables']['vertical_presets']['Row']
+export type AIModel = Database['public']['Tables']['ai_models']['Row']
+export type Creative = Database['public']['Tables']['creatives']['Row']
+export type Organization = Database['public']['Tables']['organizations']['Row']
+export type OrganizationMember = Database['public']['Tables']['organization_members']['Row']
+export type OrganizationLogo = Database['public']['Tables']['organization_logos']['Row']
+export type UserProfile = Database['public']['Tables']['user_profiles']['Row']
+export type CreditTransaction = Database['public']['Tables']['credit_transactions']['Row']
+export type GoogleCalendarConnection = Database['public']['Tables']['google_calendar_connections']['Row']
+export type GoogleCalendarPushLog = Database['public']['Tables']['google_calendar_push_logs']['Row']

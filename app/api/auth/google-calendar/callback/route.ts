@@ -84,6 +84,17 @@ export async function GET(request: NextRequest) {
     // Exchange code for tokens
     const tokens = await exchangeCodeForTokens(code, GOOGLE_REDIRECT_URI)
 
+    // Verify we got a refresh token (required for long-term access)
+    if (!tokens.refresh_token) {
+      const errorRedirect = new URL(redirectUrl, request.nextUrl.origin)
+      errorRedirect.searchParams.set('google', 'error')
+      errorRedirect.searchParams.set(
+        'message',
+        'No refresh token received. Please revoke access in Google settings and try again.'
+      )
+      return NextResponse.redirect(errorRedirect)
+    }
+
     // Get user info from Google
     const googleUser = await getGoogleUserInfo(tokens.access_token)
 
@@ -159,10 +170,10 @@ export async function GET(request: NextRequest) {
       {
         organization_id: organizationId,
         source_app_id: GOOGLE_CALENDAR_SOURCE_APP_ID,
+        source_name: 'Google Calendar',
         name: 'Google Calendar',
         description: `Connected to ${googleUser.email}`,
         is_active: true,
-        google_calendar_connection_id: connection.id,
       },
       {
         onConflict: 'organization_id,source_app_id',
