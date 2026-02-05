@@ -629,7 +629,7 @@ export function CanvasCreatePage() {
         {/* Main Content - Canva-style layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Details or Review Summary */}
-          <div className="w-[375px] min-w-[375px] border-r bg-card overflow-hidden h-full flex flex-col">
+          <div className="w-[375px] min-w-[375px] border-r bg-card overflow-y-auto h-full flex flex-col">
             {panelMode === 'edit' ? (
               <DetailsPanel
                 suggestionsLoading={suggestionsLoading}
