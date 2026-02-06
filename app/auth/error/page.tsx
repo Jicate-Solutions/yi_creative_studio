@@ -5,7 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertTriangle } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 
-export default function AuthErrorPage() {
+interface AuthErrorPageProps {
+  searchParams: Promise<{ message?: string; error?: string }>
+}
+
+export default async function AuthErrorPage({ searchParams }: AuthErrorPageProps) {
+  const params = await searchParams
+  const errorMessage = params.message || params.error
+
+  // Determine login URL based on SSO configuration
+  const loginUrl = process.env.YI_CONNECT_LOGIN_URL
+    ? process.env.YI_CONNECT_LOGIN_URL
+    : ROUTES.login
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8 sm:py-12">
       <Card className="w-full max-w-md text-center">
@@ -18,8 +30,7 @@ export default function AuthErrorPage() {
           </div>
           <CardTitle className="text-xl sm:text-2xl">Authentication Error</CardTitle>
           <CardDescription>
-            Something went wrong during authentication.
-            This could be due to an expired or invalid link.
+            {errorMessage || 'Something went wrong during authentication. This could be due to an expired or invalid link.'}
           </CardDescription>
         </CardHeader>
 
@@ -33,7 +44,7 @@ export default function AuthErrorPage() {
 
           <div className="flex flex-col gap-2">
             <Button asChild className="gradient-yi">
-              <Link href={ROUTES.login}>
+              <Link href={loginUrl}>
                 Try again
               </Link>
             </Button>

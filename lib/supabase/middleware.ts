@@ -1,10 +1,35 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Check if Yi Connect SSO is enabled
+ * When enabled, unauthenticated users are redirected to Yi Connect instead of local login
+ */
+function isYiConnectSSOEnabled(): boolean {
+  // Enable SSO when YI_CONNECT_LOGIN_URL is configured
+  return !!process.env.YI_CONNECT_LOGIN_URL
+}
+
+/**
+ * Get the Yi Connect login URL with redirect parameter
+ */
+function getYiConnectLoginUrl(redirectTo: string, origin: string): string {
+  const baseUrl = process.env.YI_CONNECT_LOGIN_URL!
+  const url = new URL(baseUrl)
+
+  // Pass the full callback URL including the original redirect target
+  const callbackUrl = `${origin}/api/auth/sso`
+  url.searchParams.set('callback_url', callbackUrl)
+  url.searchParams.set('redirect_to', redirectTo)
+
+  return url.toString()
+}
+
 export async function updateSession(request: NextRequest) {
   // Define public routes that don't require authentication
   // Check this FIRST to potentially skip the Supabase call entirely for public routes
-  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback', '/onboarding']
+  // Added /api/auth/sso for Yi Connect SSO callback
+  const publicRoutes = ['/', '/auth/login', '/auth/signup', '/auth/verify', '/auth/error', '/auth/callback', '/api/auth/sso', '/onboarding']
   const isPublicRoute = publicRoutes.some(route =>
     request.nextUrl.pathname === route ||
     request.nextUrl.pathname.startsWith('/join/') ||
@@ -60,10 +85,24 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect unauthenticated users to login (but not for API routes)
   if (!user && !isPublicRoute && !isApiRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    url.searchParams.set('redirectTo', request.nextUrl.pathname)
-    const redirectResponse = NextResponse.redirect(url)
+    let redirectResponse: NextResponse
+
+    // Check if Yi Connect SSO is enabled
+    if (isYiConnectSSOEnabled()) {
+      // Redirect to Yi Connect for authentication
+      const yiConnectUrl = getYiConnectLoginUrl(
+        request.nextUrl.pathname,
+        request.nextUrl.origin
+      )
+      redirectResponse = NextResponse.redirect(yiConnectUrl)
+    } else {
+      // Use local login page (legacy behavior)
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('redirectTo', request.nextUrl.pathname)
+      redirectResponse = NextResponse.redirect(url)
+    }
+
     // Preserve any session cookies that were refreshed during getUser()
     // This is critical - without this, refreshed tokens are lost on redirect
     supabaseResponse.cookies.getAll().forEach(cookie => {
