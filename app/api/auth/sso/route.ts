@@ -13,9 +13,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { verifySSOToken, getYiConnectLoginUrl } from '@/lib/auth/sso-token'
+import { createClient } from '@supabase/supabase-js'
+import { verifySSOToken } from '@/lib/auth/sso-token'
 import { provisionUserFromSSO } from '@/lib/auth/sso-provisioning'
+
+// Create admin client with service role for user management
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * Handle SSO callback (GET request from Yi Connect redirect)
@@ -57,38 +63,19 @@ export async function GET(request: NextRequest) {
 
     const payload = verificationResult.payload
 
-    // 2. Provision user and organizations
-    const provisionResult = await provisionUserFromSSO(payload)
+    console.log('[SSO] Token verified for:', payload.email)
 
-    if (!provisionResult.success) {
-      console.error('SSO provisioning failed:', provisionResult.error)
-      return NextResponse.redirect(
-        new URL(
-          `/auth/error?message=${encodeURIComponent(provisionResult.error || 'User provisioning failed')}`,
-          request.url
-        )
-      )
-    }
+    // 2. Create auth.users record FIRST (required for user_profiles foreign key)
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(payload.sub)
 
-    // 3. Create Supabase session
-    // Since Yi Connect and Yi Creative use separate Supabase projects,
-    // we need to create a session for this user in Yi Creative's Supabase.
-    //
-    // Option 1: Use Supabase Admin API to create a session
-    // Option 2: Use a custom session mechanism
-    //
-    // For now, we'll use the admin API to sign in the user
-    const supabase = await createClient()
+    let authUserId = existingUser?.user?.id
 
-    // Check if user exists in auth.users
-    // If not, we need to create them using the admin API
-    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserById(
-      payload.sub
-    )
+    if (!authUserId) {
+      console.log('[SSO] Creating new auth user for:', payload.email)
 
-    if (!existingUser?.user) {
       // Create user in auth.users using admin API
-      const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
+      const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
         id: payload.sub,
         email: payload.email,
         email_confirm: true, // Auto-confirm since Yi Connect already verified
@@ -100,45 +87,149 @@ export async function GET(request: NextRequest) {
       })
 
       if (createUserError) {
-        console.error('Failed to create auth user:', createUserError)
-        // Try to continue anyway - user might already exist
+        console.error('[SSO] Failed to create auth user:', createUserError)
+
+        // Check if it's a duplicate email error - try to find existing user
+        if (createUserError.message?.includes('already been registered')) {
+          const { data: userByEmail } = await supabaseAdmin.auth.admin.listUsers()
+          const existingByEmail = userByEmail?.users?.find(u => u.email === payload.email)
+          if (existingByEmail) {
+            authUserId = existingByEmail.id
+            console.log('[SSO] Found existing user by email:', authUserId)
+          }
+        }
+
+        if (!authUserId) {
+          return NextResponse.redirect(
+            new URL(`/auth/error?message=${encodeURIComponent('Failed to create user account')}`, request.url)
+          )
+        }
+      } else {
+        authUserId = newUser?.user?.id || payload.sub
+        console.log('[SSO] Auth user created:', authUserId)
+      }
+    } else {
+      console.log('[SSO] Auth user already exists:', authUserId)
+    }
+
+    // 3. NOW provision user_profiles and organizations (after auth.users exists)
+    // IMPORTANT: Use the resolved authUserId (may differ from Yi Connect ID for existing users)
+    const provisionResult = await provisionUserFromSSO(payload, authUserId)
+
+    if (!provisionResult.success) {
+      console.error('[SSO] Provisioning failed:', provisionResult.error)
+      return NextResponse.redirect(
+        new URL(
+          `/auth/error?message=${encodeURIComponent(provisionResult.error || 'User provisioning failed')}`,
+          request.url
+        )
+      )
+    }
+
+    console.log('[SSO] Provisioning successful, creating session...')
+
+    // 4. Generate a magic link to get the hashed_token
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: payload.email,
+    })
+
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error('[SSO] Failed to generate magic link:', linkError)
+      return NextResponse.redirect(
+        new URL(`/auth/error?message=${encodeURIComponent('Failed to create session')}`, request.url)
+      )
+    }
+
+    console.log('[SSO] Magic link generated, creating session server-side...')
+
+    // 5. Use verifyOtp with the hashed_token to create session SERVER-SIDE
+    // This avoids cross-origin cookie issues (magic links set cookies on .supabase.co)
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+
+    const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
+      token_hash: linkData.properties.hashed_token,
+      type: 'magiclink',
+    })
+
+    if (otpError || !otpData.session) {
+      console.error('[SSO] verifyOtp failed:', otpError)
+      return NextResponse.redirect(
+        new URL(`/auth/error?message=${encodeURIComponent('Session creation failed')}`, request.url)
+      )
+    }
+
+    console.log('[SSO] Session created successfully for:', otpData.user?.email)
+
+    // 5.5. CRITICAL: ALWAYS set force_refresh for SSO logins to ensure AuthProvider fetches latest memberships
+    // This bypasses the optimization that skips fetchUserData when cached data exists
+    console.log('[SSO] Setting force_refresh flag for SSO login...')
+
+    const ssoDataToStore: any = {
+      force_refresh: true,  // ALWAYS true for SSO logins (not conditional on event_data)
+      synced_at: new Date().toISOString(),
+    }
+
+    // Add event data if present (optional - for instant event loading)
+    if (payload.event_data) {
+      console.log('[SSO] Also storing event data in session metadata...')
+      ssoDataToStore.event_data = payload.event_data
+      ssoDataToStore.event_id = payload.event_id
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      data: {
+        sso_data: ssoDataToStore
+      }
+    })
+
+    if (updateError) {
+      console.error('[SSO] Failed to store SSO data in session:', updateError)
+    } else {
+      console.log('[SSO] SSO data stored in session metadata ✓')
+      console.log('[SSO] Force refresh flag set - AuthProvider will refresh memberships')
+      if (payload.event_data) {
+        console.log('[SSO] Event data also stored in session')
       }
     }
 
-    // Generate a magic link or session for the user
-    // Using generateLink to create a session-establishing link
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: payload.email,
-      options: {
-        redirectTo: `${request.nextUrl.origin}/auth/callback`,
-      },
-    })
+    // 6. Build final redirect URL with SSO login flag
+    let finalRedirect = payload.redirect_to || '/dashboard'
 
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('Failed to generate session link:', linkError)
-      // Fallback: redirect to dashboard and let middleware handle auth
-      const redirectTo = payload.redirect_to || '/dashboard'
-      return NextResponse.redirect(new URL(redirectTo, request.url))
+    // Build URL parameters
+    const urlParams = new URLSearchParams()
+    urlParams.set('sso_login', 'true')  // CRITICAL: Force membership refresh
+
+    // CRITICAL: Pass SSO organization ID directly in URL
+    // This bypasses localStorage race condition and ensures correct org is used
+    if (provisionResult.primaryOrganizationId) {
+      urlParams.set('sso_org', provisionResult.primaryOrganizationId)
+      console.log('[SSO] Including sso_org in URL:', provisionResult.primaryOrganizationId)
     }
 
-    // Extract token from magic link and redirect to callback
-    const magicLinkUrl = new URL(linkData.properties.action_link)
-    const tokenHash = magicLinkUrl.hash || magicLinkUrl.searchParams.get('token_hash')
-
-    // Redirect through the callback to establish session
-    const callbackUrl = new URL('/auth/callback', request.url)
-    if (tokenHash) {
-      callbackUrl.hash = tokenHash.startsWith('#') ? tokenHash : `#${tokenHash}`
-    }
-    callbackUrl.searchParams.set('redirect_to', payload.redirect_to || '/dashboard')
-
-    // If there's an event_id, include it for the creative flow
-    if (payload.event_id) {
-      callbackUrl.searchParams.set('event_id', payload.event_id)
+    if (payload.event_id && !finalRedirect.includes('eventId')) {
+      urlParams.set('eventId', payload.event_id)
     }
 
-    return NextResponse.redirect(callbackUrl)
+    // Ensure path starts with /
+    let redirectPath = finalRedirect.startsWith('/') ? finalRedirect : `/${finalRedirect}`
+
+    // Fix common redirect path issues
+    // Yi Connect may send "/dashboard/create" but the actual route is "/create"
+    // because "(dashboard)" is a Next.js route group (parentheses = not part of URL)
+    if (redirectPath.startsWith('/dashboard/create')) {
+      redirectPath = redirectPath.replace('/dashboard/create', '/create')
+      console.log('[SSO] Fixed redirect path from /dashboard/create to /create')
+    }
+
+    // Append SSO flag to URL
+    const separator = redirectPath.includes('?') ? '&' : '?'
+    redirectPath = `${redirectPath}${separator}${urlParams.toString()}`
+
+    console.log('[SSO] Redirecting to:', redirectPath)
+    console.log('[SSO] URL includes sso_login flag - AuthProvider will force membership refresh')
+    return NextResponse.redirect(new URL(redirectPath, request.url))
   } catch (error) {
     console.error('SSO callback error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown SSO error'

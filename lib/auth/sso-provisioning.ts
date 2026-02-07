@@ -5,15 +5,23 @@
  * when users authenticate via Yi Connect SSO.
  */
 
-import { createClient } from '@/lib/supabase/server'
-import { mapRole } from './role-mapping'
+import { createClient } from '@supabase/supabase-js'
+import { mapRoleForMembership } from './role-mapping'
 import type {
   SSOTokenPayload,
-  SSOChapter,
+  SSOEventData,
   UserProvisioningData,
   OrganizationProvisioningData,
   MembershipProvisioningData,
 } from './sso-types'
+
+// Create admin client with service role for provisioning (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+type SupabaseAdminClient = typeof supabaseAdmin
 
 /**
  * Result of SSO provisioning
@@ -42,30 +50,48 @@ function generateSlug(name: string): string {
  *
  * Creates or updates the user profile and all their organization memberships.
  * Returns the user ID and primary organization ID for session creation.
+ *
+ * @param tokenPayload - The decoded SSO token
+ * @param resolvedAuthUserId - Optional: The actual auth.users ID (may differ from Yi Connect ID for existing users)
  */
 export async function provisionUserFromSSO(
-  tokenPayload: SSOTokenPayload
+  tokenPayload: SSOTokenPayload,
+  resolvedAuthUserId?: string
 ): Promise<ProvisioningResult> {
   try {
-    const supabase = await createClient()
+    // Use resolved auth ID if provided, otherwise fall back to Yi Connect ID
+    const effectiveUserId = resolvedAuthUserId || tokenPayload.sub
 
-    // 1. Find or create user profile
-    const userId = await provisionUser(supabase, {
-      yi_connect_user_id: tokenPayload.sub,
+    console.log('[SSO Provisioning] Starting provisioning for:', {
+      sub: tokenPayload.sub,
+      email: tokenPayload.email,
+      name: tokenPayload.name,
+      chapters: tokenPayload.chapters.length,
+      effectiveUserId, // This is what we'll actually use
+      usingResolvedId: !!resolvedAuthUserId,
+    })
+
+    // 1. Find or create user profile using the EFFECTIVE user ID (from auth.users)
+    // Use admin client to bypass RLS policies
+    const userId = await provisionUser(supabaseAdmin, {
+      yi_connect_user_id: tokenPayload.sub, // Keep original Yi Connect ID for reference
       email: tokenPayload.email,
       full_name: tokenPayload.name,
       avatar_url: tokenPayload.avatar_url,
-    })
+    }, effectiveUserId)
 
     if (!userId) {
-      return { success: false, error: 'Failed to provision user' }
+      console.error('[SSO Provisioning] Failed to provision user - userId is null')
+      return { success: false, error: 'Failed to provision user profile' }
     }
+
+    console.log('[SSO Provisioning] User provisioned with ID:', userId)
 
     // 2. Provision each chapter as an organization
     let primaryOrganizationId: string | undefined
 
     for (const chapter of tokenPayload.chapters) {
-      const orgId = await provisionOrganization(supabase, {
+      const orgId = await provisionOrganization(supabaseAdmin, {
         yi_connect_chapter_id: chapter.chapter_id,
         name: chapter.chapter_name,
         location: chapter.chapter_location,
@@ -79,13 +105,26 @@ export async function provisionUserFromSSO(
         }
 
         // 3. Create/update membership with mapped role
-        const creativeRole = mapRole(chapter.role, chapter.hierarchy_level)
-        await provisionMembership(supabase, {
+        // CRITICAL: Use mapRoleForMembership to ensure valid org role
+        // (organization_members only allows: admin, editor, viewer)
+        const creativeRole = mapRoleForMembership(chapter.role, chapter.hierarchy_level)
+        await provisionMembership(supabaseAdmin, {
           user_id: userId,
           organization_id: orgId,
           role: creativeRole,
         })
       }
+    }
+
+    // 4. Provision event if event_data is present in the token
+    // This allows on-the-fly event creation when clicking "Create Poster" from Yi Connect
+    if (tokenPayload.event_data && primaryOrganizationId) {
+      console.log('[SSO Provisioning] Event data found in token, provisioning event...')
+      await provisionEventFromSSO(
+        supabaseAdmin,
+        tokenPayload.event_data,
+        primaryOrganizationId
+      )
     }
 
     return {
@@ -107,47 +146,75 @@ export async function provisionUserFromSSO(
  *
  * Note: This creates a user_profiles record. The auth.users record
  * is created separately via Supabase's signInWithIdToken or similar.
+ *
+ * @param supabase - Supabase client
+ * @param data - User data from SSO token
+ * @param effectiveUserId - The actual auth.users ID to use (may differ from Yi Connect ID)
  */
 async function provisionUser(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  data: UserProvisioningData
+  supabase: SupabaseAdminClient,
+  data: UserProvisioningData,
+  effectiveUserId: string
 ): Promise<string | null> {
   try {
-    // Check if user already exists by yi_connect_user_id (future field)
-    // For now, check by email since we haven't added the yi_connect field yet
+    console.log('[SSO Provisioning] provisionUser called with:', {
+      yi_connect_user_id: data.yi_connect_user_id,
+      email: data.email,
+      full_name: data.full_name,
+      effectiveUserId, // This is what we'll use for user_profiles.id
+    })
+
+    // Check if user profile already exists by the EFFECTIVE user ID (from auth.users)
     const { data: existingProfile, error: findError } = await supabase
       .from('user_profiles')
-      .select('id')
-      .eq('id', data.yi_connect_user_id) // Will match auth.users.id
+      .select('id, yi_connect_user_id')
+      .eq('id', effectiveUserId)
       .single()
 
+    console.log('[SSO Provisioning] existingProfile lookup result:', { existingProfile, findError })
+
     if (existingProfile) {
-      // Update existing profile
+      // Update existing profile - also link yi_connect_user_id if not already set
+      const updateData: Record<string, unknown> = {
+        full_name: data.full_name,
+        avatar_url: data.avatar_url,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Link Yi Connect ID if not already set
+      if (!existingProfile.yi_connect_user_id && data.yi_connect_user_id) {
+        updateData.yi_connect_user_id = data.yi_connect_user_id
+        updateData.yi_connect_synced_at = new Date().toISOString()
+        updateData.sso_provider = 'yi-connect'
+        console.log('[SSO Provisioning] Linking Yi Connect ID to existing profile')
+      }
+
       const { error: updateError } = await supabase
         .from('user_profiles')
-        .update({
-          full_name: data.full_name,
-          avatar_url: data.avatar_url,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', existingProfile.id)
 
       if (updateError) {
-        console.error('Failed to update user profile:', updateError)
+        console.error('[SSO Provisioning] Failed to update user profile:', updateError)
+      } else {
+        console.log('[SSO Provisioning] Profile updated successfully')
       }
 
       return existingProfile.id
     }
 
-    // Create new profile
-    // Note: The auth.users record must be created first (via Supabase admin API)
-    // For now, we'll use upsert to handle both cases
+    // Create new profile using the EFFECTIVE user ID (which matches auth.users.id)
+    console.log('[SSO Provisioning] Attempting upsert with effective id:', effectiveUserId)
+
     const { data: newProfile, error: insertError } = await supabase
       .from('user_profiles')
       .upsert({
-        id: data.yi_connect_user_id, // Use Yi Connect user ID as the profile ID
+        id: effectiveUserId, // Use the EFFECTIVE user ID (from auth.users)
         full_name: data.full_name,
         avatar_url: data.avatar_url,
+        yi_connect_user_id: data.yi_connect_user_id, // Store Yi Connect ID for reference
+        yi_connect_synced_at: new Date().toISOString(),
+        sso_provider: 'yi-connect',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -155,11 +222,18 @@ async function provisionUser(
       .single()
 
     if (insertError) {
-      console.error('Failed to create user profile:', insertError)
+      console.error('[SSO Provisioning] Failed to create user profile:', {
+        error: insertError,
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+      })
       return null
     }
 
-    return newProfile?.id || data.yi_connect_user_id
+    console.log('[SSO Provisioning] Upsert successful:', newProfile)
+    return newProfile?.id || effectiveUserId
   } catch (error) {
     console.error('User provisioning error:', error)
     return null
@@ -170,7 +244,7 @@ async function provisionUser(
  * Provision (create or update) an organization from chapter data
  */
 async function provisionOrganization(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseAdminClient,
   data: OrganizationProvisioningData
 ): Promise<string | null> {
   try {
@@ -254,7 +328,7 @@ async function provisionOrganization(
  * Provision (create or update) organization membership
  */
 async function provisionMembership(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseAdminClient,
   data: MembershipProvisioningData
 ): Promise<boolean> {
   try {
@@ -305,6 +379,105 @@ async function provisionMembership(
 }
 
 /**
+ * Provision (create or update) a synced event from SSO token
+ * Creates event in synced_events table for on-the-fly event creation
+ */
+async function provisionEventFromSSO(
+  supabase: SupabaseAdminClient,
+  eventData: SSOEventData,
+  organizationId: string
+): Promise<string | null> {
+  try {
+    console.log('[SSO Provisioning] provisionEvent called with:', {
+      event_id: eventData.event_id,
+      event_name: eventData.event_name,
+      organizationId,
+    })
+
+    // Check if event already exists by external_id and source_app_id
+    // CRITICAL: Use the actual database unique constraint (external_id, source_app_id)
+    // NOT (external_id, organization_id) - events can exist across multiple orgs
+    const { data: existingEvent } = await supabase
+      .from('synced_events')
+      .select('id, organization_id')
+      .eq('external_id', eventData.event_id)
+      .eq('source_app_id', 'yi-connect')
+      .single()
+
+    if (existingEvent) {
+      // Update existing event (also update organization_id if different)
+      const { error: updateError } = await supabase
+        .from('synced_events')
+        .update({
+          organization_id: organizationId, // Update to current user's org
+          event_name: eventData.event_name,
+          event_date: eventData.event_date,
+          event_time: eventData.event_time,
+          venue: eventData.venue,
+          venue_address: eventData.venue_address,
+          city: eventData.city,
+          description: eventData.description,
+          tagline: eventData.tagline,
+          banner_image_url: eventData.banner_image_url,
+          event_type: eventData.event_type,
+          chapter_name: eventData.chapter_name,
+          chapter_location: eventData.chapter_location,
+          speakers: eventData.speakers || null,
+          synced_at: new Date().toISOString(),
+        })
+        .eq('id', existingEvent.id)
+
+      if (updateError) {
+        console.error('[SSO Provisioning] Failed to update event:', updateError)
+      } else {
+        console.log('[SSO Provisioning] Event updated:', existingEvent.id,
+          existingEvent.organization_id !== organizationId
+            ? `(org changed: ${existingEvent.organization_id} → ${organizationId})`
+            : '(same org)')
+      }
+
+      return existingEvent.id
+    }
+
+    // Create new event
+    const { data: newEvent, error: insertError } = await supabase
+      .from('synced_events')
+      .insert({
+        external_id: eventData.event_id,
+        organization_id: organizationId,
+        source_app_id: 'yi-connect',
+        event_name: eventData.event_name,
+        event_date: eventData.event_date,
+        event_time: eventData.event_time,
+        venue: eventData.venue,
+        venue_address: eventData.venue_address,
+        city: eventData.city,
+        description: eventData.description,
+        tagline: eventData.tagline,
+        banner_image_url: eventData.banner_image_url,
+        event_type: eventData.event_type,
+        chapter_name: eventData.chapter_name,
+        chapter_location: eventData.chapter_location,
+        speakers: eventData.speakers || null,
+        synced_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('[SSO Provisioning] Failed to create event:', insertError)
+      return null
+    }
+
+    console.log('[SSO Provisioning] Event created:', newEvent?.id)
+    return newEvent?.id || null
+  } catch (error) {
+    console.error('[SSO Provisioning] Event provisioning error:', error)
+    return null
+  }
+}
+
+/**
  * Remove a user's membership from an organization
  * Used when handling member.removed webhook events
  */
@@ -313,9 +486,7 @@ export async function removeMembership(
   organizationId: string
 ): Promise<boolean> {
   try {
-    const supabase = await createClient()
-
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('organization_members')
       .delete()
       .eq('user_id', userId)

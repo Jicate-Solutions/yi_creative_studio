@@ -150,3 +150,33 @@ export function getRoleDisplayName(roleName: string): string {
   const normalizedRole = roleName.toLowerCase().replace(/\s+/g, '_')
   return YI_CONNECT_ROLE_DISPLAY[normalizedRole] || roleName
 }
+
+/**
+ * Map Yi Connect role to organization membership role
+ *
+ * CRITICAL: The organization_members table has a check constraint that
+ * only allows: 'admin', 'editor', 'viewer'
+ *
+ * super_admin is a PLATFORM-LEVEL role (stored in auth.users.is_super_admin),
+ * NOT a valid organization membership role.
+ *
+ * This function ensures platform roles are converted to valid org membership roles.
+ *
+ * @param roleName - Yi Connect role name
+ * @param hierarchyLevel - Yi Connect hierarchy level (optional)
+ * @returns Valid organization membership role ('admin' | 'editor' | 'viewer')
+ */
+export function mapRoleForMembership(
+  roleName: string,
+  hierarchyLevel?: number
+): 'admin' | 'editor' | 'viewer' {
+  const creativeRole = mapRole(roleName, hierarchyLevel)
+
+  // Platform roles (super_admin) should be 'admin' for org membership purposes
+  // They still have super_admin access via auth.users.is_super_admin flag
+  if (creativeRole === 'super_admin') {
+    return 'admin'
+  }
+
+  return creativeRole as 'admin' | 'editor' | 'viewer'
+}

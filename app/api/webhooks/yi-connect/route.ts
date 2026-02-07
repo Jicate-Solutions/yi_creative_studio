@@ -296,9 +296,9 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        console.warn(`[Yi Connect Webhook] Unknown event type: ${payload.event}`)
+        console.warn(`[Yi Connect Webhook] Unknown event type: ${(payload as any).event}`)
         return NextResponse.json(
-          { success: false, error: `Unknown event type: ${payload.event}` },
+          { success: false, error: `Unknown event type: ${(payload as any).event}` },
           { status: 400 }
         )
     }

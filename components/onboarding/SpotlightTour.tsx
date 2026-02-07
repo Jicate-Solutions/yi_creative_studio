@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button'
 import { X, ChevronRight, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const STORAGE_KEY = 'yi-creative-tour-seen'
-
 export interface TourStep {
   target: string // CSS selector or data-tour attribute
   title: string
@@ -15,12 +13,22 @@ export interface TourStep {
 }
 
 interface SpotlightTourProps {
+  tourId: string
+  storageKey: string
   steps: TourStep[]
   onComplete?: () => void
+  onSkip?: () => void
   forceShow?: boolean
 }
 
-export function SpotlightTour({ steps, onComplete, forceShow = false }: SpotlightTourProps) {
+export function SpotlightTour({
+  tourId,
+  storageKey,
+  steps,
+  onComplete,
+  onSkip,
+  forceShow = false
+}: SpotlightTourProps) {
   const [isActive, setIsActive] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
@@ -32,13 +40,13 @@ export function SpotlightTour({ steps, onComplete, forceShow = false }: Spotligh
       return
     }
 
-    const hasSeen = localStorage.getItem(STORAGE_KEY)
+    const hasSeen = localStorage.getItem(storageKey)
     if (!hasSeen) {
       // Small delay to let page render
       const timer = setTimeout(() => setIsActive(true), 500)
       return () => clearTimeout(timer)
     }
-  }, [forceShow])
+  }, [forceShow, storageKey])
 
   // Find and highlight current target element
   const updateTargetPosition = useCallback(() => {
@@ -90,13 +98,14 @@ export function SpotlightTour({ steps, onComplete, forceShow = false }: Spotligh
   }
 
   const handleComplete = () => {
-    localStorage.setItem(STORAGE_KEY, 'true')
+    localStorage.setItem(storageKey, 'true')
     setIsActive(false)
     onComplete?.()
   }
 
   const handleSkip = () => {
     handleComplete()
+    onSkip?.()
   }
 
   if (!isActive || !steps[currentStep]) return null
@@ -286,9 +295,9 @@ export function SpotlightTour({ steps, onComplete, forceShow = false }: Spotligh
 }
 
 // Hook to manually trigger tour
-export function useResetTour() {
+export function useResetTour(storageKey: string) {
   return () => {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(storageKey)
     window.location.reload()
   }
 }

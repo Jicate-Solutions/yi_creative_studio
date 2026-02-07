@@ -107,10 +107,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter by status (default: published only)
+    // EXCEPTION: When fetching specific event by external_id, allow any status
+    // (user clicked "Create Poster" for THIS event, show it regardless of status)
     if (status) {
       query = query.eq('status', status)
-    } else {
-      // By default, only show published events
+    } else if (!externalId) {
+      // Only apply default 'published' filter when listing events, not when fetching specific event
       query = query.eq('status', 'published')
     }
 

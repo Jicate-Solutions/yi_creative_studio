@@ -34,6 +34,37 @@ export interface SSOChapter {
 }
 
 /**
+ * Speaker data included in SSO event
+ */
+export interface SSOSpeaker {
+  name: string
+  title?: string
+  photo_url?: string
+}
+
+/**
+ * Event data included in SSO token when clicking "Create Poster"
+ * Yi Connect sends full event details for on-the-fly creation in Yi Creative
+ */
+export interface SSOEventData {
+  event_id: string // Yi Connect event UUID (maps to external_id in synced_events)
+  event_name: string // Required
+  event_date: string // ISO date string, required
+  event_time?: string
+  venue?: string
+  venue_address?: string
+  city?: string
+  description?: string
+  tagline?: string
+  banner_image_url?: string
+  event_type?: string // e.g., "networking", "workshop"
+  chapter_id: string // Yi Connect chapter UUID
+  chapter_name: string
+  chapter_location: string
+  speakers?: SSOSpeaker[]
+}
+
+/**
  * SSO Token payload from Yi Connect
  * This is the decoded JWT payload
  */
@@ -48,7 +79,8 @@ export interface SSOTokenPayload {
   chapters: SSOChapter[]
 
   // Optional context
-  event_id?: string // If from "Create Poster" button
+  event_id?: string // If from "Create Poster" button (KEEP for backwards compat)
+  event_data?: SSOEventData // Full event data for on-the-fly creation
   redirect_to?: string // Post-SSO redirect path
 
   // Token metadata

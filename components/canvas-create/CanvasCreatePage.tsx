@@ -19,7 +19,7 @@ import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
 import { toast } from 'sonner'
-import { FileText, Palette, RefreshCcw, Loader2, Download } from 'lucide-react'
+import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { CreatePageTour } from '@/components/onboarding/CreatePageTour'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
@@ -28,10 +28,29 @@ import { ShuffleButton } from '@/components/create/shuffle-button'
 import { ColorShuffleModal } from '@/components/create/color-shuffle-modal'
 import { ImagePreviewModal } from '@/components/create/image-preview-modal'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import type { Json } from '@/types/database.types'
+import type { ExternalEvent } from '@/types/external-event.types'
 
-export function CanvasCreatePage() {
+interface CanvasCreatePageProps {
+  initialEventData?: ExternalEvent | null
+  eventSource?: 'sso_token' | 'none'
+}
+
+export function CanvasCreatePage({
+  initialEventData = null,
+  eventSource: initialEventSource = 'none'
+}: CanvasCreatePageProps = {}) {
   const { currentOrganization, user } = useAuthStore()
   const { verticals } = useVerticals()
   const { logos } = useLogos()
@@ -57,7 +76,11 @@ export function CanvasCreatePage() {
   const searchParams = useSearchParams()
   const eventId = searchParams.get('eventId')
   const eventSource = searchParams.get('source')
-  const { event: externalEvent, isLoading: isLoadingEvent, error: eventError } = useExternalEvent(eventId, eventSource || undefined)
+  const { event: externalEvent, isLoading: isLoadingEvent, error: eventError } = useExternalEvent(
+    eventId,
+    eventSource || undefined,
+    initialEventData // Pass initial data from SSO session
+  )
 
   // AI Suggestions
   const {
@@ -79,6 +102,14 @@ export function CanvasCreatePage() {
   useEffect(() => {
     setExternalEventAutoConfigured(false)
   }, [eventId])
+
+  // Show success toast when using SSO event data
+  useEffect(() => {
+    if (initialEventSource === 'sso_token' && initialEventData && !externalEventAutoConfigured) {
+      toast.success('Event details loaded from Yi Connect')
+      console.log('[Create Page] Event loaded from SSO token:', initialEventData.name)
+    }
+  }, [initialEventSource, initialEventData, externalEventAutoConfigured])
 
   // Validation state
   const [isFormValid, setIsFormValid] = useState(false)
@@ -153,7 +184,7 @@ export function CanvasCreatePage() {
   // No SSE streaming - using original synchronous generation
 
   // Mobile panel state
-  const [activePanel, setActivePanel] = useState<'details' | 'style' | null>(null)
+  const [activePanel, setActivePanel] = useState<'details' | 'style' | 'generate' | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
   // Detect mobile
@@ -163,6 +194,13 @@ export function CanvasCreatePage() {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Auto-open Details panel when template is selected on mobile
+  useEffect(() => {
+    if (isMobile && selectedTemplate && formData.creationMode === 'template') {
+      setActivePanel('details')
+    }
+  }, [selectedTemplate, isMobile, formData.creationMode])
 
   // Initialize logos when available - sync to store for HeaderStripSettings
   useEffect(() => {
@@ -632,6 +670,12 @@ export function CanvasCreatePage() {
           isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
           hasGeneratedImage={!!generatedImage}
+          // Mobile dropdown props
+          verticals={verticals}
+          selectedVertical={selectedVertical}
+          onVerticalChange={selectVertical}
+          resolution={formData.designData?.resolution || '2K'}
+          onResolutionChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
         />
 
         {/* Main Content - Canva-style layout */}
@@ -812,33 +856,44 @@ export function CanvasCreatePage() {
 
   // Mobile layout
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header Bar */}
-      <HeaderBar
-        onGenerate={handleGenerateWithDateCheck}
-        isGenerating={isGenerating}
-        models={models}
-        selectedModel={selectedModel}
-        onModelChange={selectModel}
-        isModelsLoading={isModelsLoading}
-        canGenerate={panelMode === 'review' && isFormValid}
-        hasGeneratedImage={!!generatedImage}
-      />
+    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
+      {/* Header Bar - Fixed at top with 3 bars */}
+      <div className="shrink-0">
+        <HeaderBar
+          onGenerate={handleGenerateWithDateCheck}
+          isGenerating={isGenerating}
+          models={models}
+          selectedModel={selectedModel}
+          onModelChange={selectModel}
+          isModelsLoading={isModelsLoading}
+          canGenerate={panelMode === 'review' && isFormValid}
+          hasGeneratedImage={!!generatedImage}
+          // Mobile dropdown props
+          verticals={verticals}
+          selectedVertical={selectedVertical}
+          onVerticalChange={selectVertical}
+          resolution={formData.designData?.resolution || '2K'}
+          onResolutionChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
+          // Mobile panel control (Bar 3)
+          activePanel={activePanel}
+          onPanelChange={setActivePanel}
+        />
+      </div>
 
-      {/* Canvas Preview OR Template Browser - Full Width with bottom padding for nav */}
-      <div className="flex-1 flex flex-col items-center justify-center px-1 min-[400px]:px-2 pt-1 min-[400px]:pt-4 pb-1 min-[400px]:pb-2 bg-muted/30 overflow-auto">
+      {/* Canvas Preview Area - Flexible but constrained */}
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-2 py-1 bg-muted/30 overflow-hidden">
         {isGenerating ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Generating your creative...</p>
           </div>
         ) : formData.creationMode === 'template' && !generatedImage ? (
-          <div className="w-full h-full">
+          <div className="w-full h-full max-h-full overflow-auto">
             <TemplateBrowserPanel />
           </div>
         ) : (
-          <div className="w-full flex flex-col items-center pb-2 min-[400px]:pb-16">
-            {/* Clickable wrapper for full-view modal */}
+          <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
+            {/* Preview - Constrained to fit */}
             <div
               onClick={() => {
                 if (generatedImage || selectedTemplate?.image_url) {
@@ -846,6 +901,7 @@ export function CanvasCreatePage() {
                 }
               }}
               className={cn(
+                "max-h-full w-full flex items-center justify-center",
                 generatedImage || selectedTemplate?.image_url
                   ? 'cursor-pointer active:scale-[0.98] transition-all duration-200'
                   : ''
@@ -860,77 +916,50 @@ export function CanvasCreatePage() {
                 }
               />
             </div>
-            {/* Action buttons when image exists - Responsive grid */}
-            {generatedImage && !isGenerating && (
-              <div className="w-full max-w-sm grid grid-cols-2 min-[400px]:grid-cols-4 gap-1.5 min-[400px]:gap-2 mt-3 px-2 min-[400px]:px-4">
-                <Button
-                  size="sm"
-                  onClick={() => setExportModalOpen(true)}
-                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
-                >
-                  <Download className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Download</span>
-                </Button>
-
-                <ShuffleButton
-                  creativeId={creativeId}
-                  onShuffleClick={() => setShuffleModalOpen(true)}
-                />
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => router.push('/gallery')}
-                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="truncate">Gallery</span>
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRegenerateModalOpen(true)}
-                  className="w-full gap-1 min-[400px]:gap-2 px-2 min-[400px]:px-3 text-xs min-[400px]:text-sm"
-                >
-                  <RefreshCcw className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Redo</span>
-                </Button>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Mobile Action Bar - More Prominent with Icons */}
-      {!activePanel && (
-        <div className="border-t bg-card/95 backdrop-blur-sm px-4 py-3 flex justify-around shadow-[0_-2px_10px_rgba(0,0,0,0.08)]">
-          <button
-            onClick={() => setActivePanel('details')}
-            className={cn(
-              'flex flex-col items-center gap-1.5 px-6 py-2.5 rounded-xl transition-all',
-              activePanel === 'details'
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <FileText className="h-5 w-5" />
-            <span className="text-xs font-medium">Details</span>
-          </button>
-          <button
-            onClick={() => setActivePanel('style')}
-            className={cn(
-              'flex flex-col items-center gap-1.5 px-6 py-2.5 rounded-xl transition-all',
-              activePanel === 'style'
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Palette className="h-5 w-5" />
-            <span className="text-xs font-medium">Style</span>
-          </button>
+      {/* Post-generation action buttons - Only show when image exists */}
+      {generatedImage && !isGenerating && !activePanel && (
+        <div className="shrink-0 border-t bg-card px-3 py-2">
+          <div className="grid grid-cols-4 gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => setExportModalOpen(true)}
+              className="w-full gap-1 px-2 text-[11px] h-8"
+            >
+              <Download className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Download</span>
+            </Button>
+
+            <ShuffleButton
+              creativeId={creativeId}
+              onShuffleClick={() => setShuffleModalOpen(true)}
+            />
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => router.push('/gallery')}
+              className="w-full gap-1 px-2 text-[11px] h-8"
+            >
+              <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="truncate">Gallery</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRegenerateModalOpen(true)}
+              className="w-full gap-1 px-2 text-[11px] h-8"
+            >
+              <RefreshCcw className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Redo</span>
+            </Button>
+          </div>
         </div>
       )}
 
@@ -963,6 +992,80 @@ export function CanvasCreatePage() {
         title="Logos & Style"
       >
         <LogosStylePanel />
+      </MobileBottomSheet>
+
+      <MobileBottomSheet
+        isOpen={activePanel === 'generate'}
+        onClose={() => setActivePanel(null)}
+        title="Generate Settings"
+      >
+        <div className="p-4 space-y-4">
+          {/* AI Model Selector */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">AI Model</Label>
+            {isModelsLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select AI Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex items-center justify-between w-full gap-3">
+                        <span>{model.slug === 'ideogram' ? 'Design Forge' : model.slug === 'google' || model.slug === 'gemini' ? 'Vision Studio' : model.slug}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                          {model.credits_cost} cr
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Resolution */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Resolution</Label>
+            <Select
+              value={formData.designData?.resolution || '2K'}
+              onValueChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1K">1K - Standard</SelectItem>
+                <SelectItem value="2K">2K - High Quality</SelectItem>
+                <SelectItem value="4K">4K - Ultra HD</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Generate Button */}
+          <Button
+            onClick={() => {
+              setActivePanel(null)
+              handleGenerate()
+            }}
+            disabled={isGenerating || !selectedFormat || !(panelMode === 'review' && isFormValid)}
+            className="w-full h-12 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="font-medium">Creating...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-5 w-5" />
+                <span className="font-medium">Generate Creative</span>
+              </>
+            )}
+          </Button>
+        </div>
       </MobileBottomSheet>
 
       {/* Past Date Warning Dialog */}

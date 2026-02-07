@@ -22,6 +22,10 @@ async function getPublicKey() {
   // Decode Base64 to get PEM formatted key
   const publicKeyPem = Buffer.from(publicKeyBase64, 'base64').toString('utf-8')
 
+  // Debug: Log first 100 chars of decoded PEM to verify format
+  console.log('[SSO Debug] Public key PEM (first 100 chars):', publicKeyPem.substring(0, 100))
+  console.log('[SSO Debug] Public key ends with:', publicKeyPem.substring(publicKeyPem.length - 50))
+
   // Import the PEM key for use with jose
   return importSPKI(publicKeyPem, 'RS256')
 }
@@ -36,6 +40,26 @@ export async function verifySSOToken(
   token: string
 ): Promise<SSOVerificationResult> {
   try {
+    // Debug: Decode token header to see algorithm used
+    const tokenParts = token.split('.')
+    if (tokenParts.length >= 2) {
+      try {
+        const header = JSON.parse(Buffer.from(tokenParts[0], 'base64url').toString('utf-8'))
+        const payloadPreview = JSON.parse(Buffer.from(tokenParts[1], 'base64url').toString('utf-8'))
+        console.log('[SSO Debug] Token header:', JSON.stringify(header))
+        console.log('[SSO Debug] Token payload (preview):', JSON.stringify({
+          sub: payloadPreview.sub,
+          email: payloadPreview.email,
+          iss: payloadPreview.iss,
+          aud: payloadPreview.aud,
+          exp: payloadPreview.exp,
+          iat: payloadPreview.iat,
+        }))
+      } catch (e) {
+        console.log('[SSO Debug] Could not decode token parts:', e)
+      }
+    }
+
     // Get the public key
     const publicKey = await getPublicKey()
 
@@ -81,6 +105,7 @@ export async function verifySSOToken(
       avatar_url: payload.avatar_url as string | undefined,
       chapters: payload.chapters as SSOTokenPayload['chapters'],
       event_id: payload.event_id as string | undefined,
+      event_data: payload.event_data as SSOTokenPayload['event_data'],
       redirect_to: payload.redirect_to as string | undefined,
       iss: 'yi-connect',
       aud: 'yi-creative',
@@ -90,6 +115,14 @@ export async function verifySSOToken(
 
     return { success: true, payload: ssoPayload }
   } catch (error) {
+    // Debug: Log the full error details
+    console.error('[SSO Debug] Token verification error:', error)
+    if (error instanceof Error) {
+      console.error('[SSO Debug] Error name:', error.name)
+      console.error('[SSO Debug] Error message:', error.message)
+      console.error('[SSO Debug] Error stack:', error.stack)
+    }
+
     // Handle specific JWT errors
     if (error instanceof Error) {
       if (error.message.includes('expired')) {

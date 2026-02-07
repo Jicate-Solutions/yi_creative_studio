@@ -34,8 +34,8 @@ export function TemplateBrowserPanel() {
 
   return (
     <div className="h-full flex flex-col bg-muted/20 rounded-lg border">
-      {/* Header with filter */}
-      <div className="p-4 border-b flex items-center gap-3 bg-card rounded-t-lg">
+      {/* Header with filter - compact on mobile */}
+      <div className="p-2 md:p-4 border-b flex items-center gap-2 md:gap-3 bg-card rounded-t-lg">
         <Filter className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm text-muted-foreground">Filter:</span>
         <Select value={filterVertical} onValueChange={setFilterVertical}>
@@ -54,12 +54,12 @@ export function TemplateBrowserPanel() {
         </span>
       </div>
 
-      {/* Template grid */}
-      <ScrollArea className="flex-1 p-4">
+      {/* Template grid - compact padding on mobile */}
+      <ScrollArea className="flex-1 p-2 md:p-4">
         {filteredTemplates.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-4">
             {filteredTemplates.map((template) => (
               <div
                 key={template.id}
@@ -72,7 +72,7 @@ export function TemplateBrowserPanel() {
                     : "border-transparent hover:border-muted-foreground/20"
                 )}
               >
-                <div className="aspect-[3/4] relative bg-muted">
+                <div className="aspect-square md:aspect-[3/4] relative bg-muted">
                   <Image
                     src={template.image_url}
                     alt={template.name}
@@ -96,9 +96,9 @@ export function TemplateBrowserPanel() {
                     <span className="text-white text-sm font-medium">Select</span>
                   </div>
                 </div>
-                <div className="p-2 bg-card">
-                  <p className="text-sm font-medium truncate">{template.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                <div className="p-1.5 md:p-2 bg-card">
+                  <p className="text-xs md:text-sm font-medium truncate">{template.name}</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">
                     {template.width}×{template.height}
                   </p>
                 </div>
@@ -125,10 +125,10 @@ export function TemplateBrowserPanel() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
-      <p className="font-medium text-muted-foreground">No templates found</p>
-      <p className="text-sm text-muted-foreground mt-1">
+    <div className="flex flex-col items-center justify-center py-4 md:py-16 text-center">
+      <ImageIcon className="h-8 w-8 md:h-12 md:w-12 text-muted-foreground/30 mb-2 md:mb-4" />
+      <p className="font-medium text-muted-foreground text-sm md:text-base">No templates found</p>
+      <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1">
         Try a different vertical filter or upload templates
       </p>
     </div>

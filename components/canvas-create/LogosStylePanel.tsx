@@ -14,6 +14,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Layers, Palette, Paintbrush, Check } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EnhancedStripCanvas } from '@/components/create/logo-step/enhanced-strip-canvas'

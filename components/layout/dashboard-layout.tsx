@@ -39,6 +39,11 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
     if (initialAuthData && !hydrationDone.current) {
       hydrationDone.current = true
 
+      // CRITICAL: Check for SSO organization override in URL
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+      const ssoOrgId = params?.get('sso_org')
+      const isSSOLogin = params?.get('sso_login') === 'true'
+
       // Batch all state updates together
       if (initialAuthData.profile) {
         setProfile(initialAuthData.profile)
@@ -46,8 +51,26 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
       if (initialAuthData.membership) {
         setMembership(initialAuthData.membership)
       }
-      if (initialAuthData.currentOrganization) {
-        setCurrentOrganization(initialAuthData.currentOrganization)
+
+      // CRITICAL: Override organization for SSO logins
+      // This fixes the race condition where localStorage has stale org from pre-SSO
+      let orgToSet = initialAuthData.currentOrganization
+      if (ssoOrgId && initialAuthData.organizations) {
+        const ssoOrg = initialAuthData.organizations.find((o) => o.id === ssoOrgId)
+        if (ssoOrg) {
+          orgToSet = ssoOrg
+          console.log('[DashboardLayout] SSO org override:', {
+            from: initialAuthData.currentOrganization?.name,
+            to: ssoOrg.name,
+            ssoOrgId
+          })
+        } else {
+          console.warn('[DashboardLayout] SSO org not found in memberships:', ssoOrgId)
+        }
+      }
+
+      if (orgToSet) {
+        setCurrentOrganization(orgToSet)
       }
       if (initialAuthData.organizations) {
         setOrganizations(initialAuthData.organizations)
@@ -55,6 +78,16 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
       // Mark as server-hydrated FIRST to prevent auth-provider from fetching
       setServerHydrated(true)
       setLoading(false)
+
+      // Clean up SSO parameters from URL after hydration (keep eventId)
+      if (isSSOLogin && typeof window !== 'undefined') {
+        const cleanParams = new URLSearchParams(window.location.search)
+        cleanParams.delete('sso_login')
+        cleanParams.delete('sso_org')
+        const newUrl = window.location.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '')
+        window.history.replaceState({}, '', newUrl)
+        console.log('[DashboardLayout] SSO URL params cleaned up')
+      }
 
       console.log('[DashboardLayout] Server data hydrated - auth-provider will skip fetch')
     }

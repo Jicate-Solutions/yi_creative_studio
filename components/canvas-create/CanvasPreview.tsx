@@ -72,14 +72,14 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
   const footerEnabled = formData.enhanced4RowStrip?.footer?.enabled !== false
 
   // Calculate preview dimensions (maintain aspect ratio)
-  // Mobile: Use smaller max height to fit screen better (300px for 320px screens)
+  // Mobile: Use larger max height for better visibility (400px fits modern screens)
   // Desktop: Max 450px
   const getPreviewDimensions = () => {
-    if (!selectedFormat) return { width: isMobile ? 225 : 337, height: isMobile ? 300 : 450 }
+    if (!selectedFormat) return { width: isMobile ? 300 : 337, height: isMobile ? 400 : 450 }
 
     const { width, height } = selectedFormat
-    // Mobile uses smaller preview to fit 320px screens with margins
-    const maxSize = isMobile ? 300 : 450
+    // Mobile uses 400px for better visibility on modern screens
+    const maxSize = isMobile ? 400 : 450
     const aspectRatio = width / height
 
     if (aspectRatio > 1) {
@@ -148,13 +148,15 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
           </div>
         </div>
 
-        {/* Format info */}
-        <div className="text-center text-sm text-muted-foreground">
-          <p className="font-medium">{selectedFormat?.label}</p>
-          <p>
-            {selectedFormat?.width} x {selectedFormat?.height}
-          </p>
-        </div>
+        {/* Format info - hide on mobile to save space */}
+        {!isMobile && (
+          <div className="text-center text-sm text-muted-foreground">
+            <p className="font-medium">{selectedFormat?.label}</p>
+            <p>
+              {selectedFormat?.width} x {selectedFormat?.height}
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -184,12 +186,15 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
           </div>
         </div>
 
-        <div className="text-center text-sm text-muted-foreground">
-          <p className="font-medium">Template Selected</p>
-          <p>
-            {selectedFormat?.width} x {selectedFormat?.height}
-          </p>
-        </div>
+        {/* Format info - hide on mobile to save space */}
+        {!isMobile && (
+          <div className="text-center text-sm text-muted-foreground">
+            <p className="font-medium">Template Selected</p>
+            <p>
+              {selectedFormat?.width} x {selectedFormat?.height}
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -384,15 +389,17 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
         </div>
       </div>
 
-      {/* Format info */}
-      <div className="text-center text-sm text-muted-foreground">
-        <p className="font-medium">{selectedFormat?.label || 'Select Format'}</p>
-        {selectedFormat && (
-          <p>
-            {selectedFormat.width} x {selectedFormat.height}
-          </p>
-        )}
-      </div>
+      {/* Format info - hide on mobile to save space */}
+      {!isMobile && (
+        <div className="text-center text-sm text-muted-foreground">
+          <p className="font-medium">{selectedFormat?.label || 'Select Format'}</p>
+          {selectedFormat && (
+            <p>
+              {selectedFormat.width} x {selectedFormat.height}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

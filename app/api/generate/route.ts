@@ -385,8 +385,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!membership) {
+      // Enhanced error for debugging organization access issues
+      console.error('[Generate API] Permission denied:', {
+        userId: user.id,
+        organizationId,
+        reason: 'No membership found for this organization'
+      })
+
       return NextResponse.json(
-        { error: 'You do not have access to this organization' },
+        {
+          error: 'You do not have access to this organization',
+          code: 'NO_ORG_MEMBERSHIP',
+          hint: 'Please refresh the page or switch to a valid organization in settings'
+        },
         { status: 403 }
       )
     }

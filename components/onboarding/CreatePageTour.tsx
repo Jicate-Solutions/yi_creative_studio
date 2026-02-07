@@ -1,6 +1,6 @@
 'use client'
 
-import { SpotlightTour, type TourStep } from './SpotlightTour'
+import { SpotlightTour, useResetTour, type TourStep } from './SpotlightTour'
 
 const CREATE_PAGE_TOUR_STEPS: TourStep[] = [
   {
@@ -67,6 +67,8 @@ interface CreatePageTourProps {
 export function CreatePageTour({ forceShow = false, onComplete }: CreatePageTourProps) {
   return (
     <SpotlightTour
+      tourId="create-page-tour"
+      storageKey="create-page-tour-completed"
       steps={CREATE_PAGE_TOUR_STEPS}
       forceShow={forceShow}
       onComplete={onComplete}
@@ -74,5 +76,7 @@ export function CreatePageTour({ forceShow = false, onComplete }: CreatePageTour
   )
 }
 
-// Re-export reset hook for convenience
-export { useResetTour } from './SpotlightTour'
+// Wrapper hook for resetting this specific tour
+export function useResetCreatePageTour() {
+  return useResetTour('create-page-tour-completed')
+}

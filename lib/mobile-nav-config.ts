@@ -12,6 +12,7 @@ import {
   BarChart3,
   Coins,
   Settings,
+  CalendarDays,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 
@@ -93,6 +94,19 @@ export function getMobileNavConfig(
         },
       ],
     },
+    // Events (5th group - appears in More menu)
+    {
+      id: 'events',
+      groupLabel: 'Events',
+      icon: CalendarDays,
+      menus: [
+        {
+          href: ROUTES.events,
+          label: 'Events',
+          icon: CalendarDays,
+        },
+      ],
+    },
   ]
 
   // Admin-only settings group (appears in More menu)
@@ -159,5 +173,6 @@ export const GROUP_ICONS: Record<string, LucideIcon> = {
   'Create': Sparkles,
   'Gallery': Images,
   'Templates': Library,
+  'Events': CalendarDays,
   'Settings': Settings,
 }

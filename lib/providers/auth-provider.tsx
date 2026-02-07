@@ -59,9 +59,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const hasOrganization = !!currentState.currentOrganization
     const isServerHydrated = currentState.serverHydrated
 
-    // Skip fetch if we have both profile AND organization from any source
-    // This covers both server hydration AND localStorage rehydration
-    if ((isServerHydrated || (hasProfile && hasOrganization)) && hasProfile && hasOrganization) {
+    // CRITICAL: Check for SSO login flag in URL
+    const isBrowser = typeof window !== 'undefined'
+    const params = isBrowser ? new URLSearchParams(window.location.search) : new URLSearchParams()
+    const isSSOLogin = params.get('sso_login') === 'true'
+
+    if (isSSOLogin) {
+      console.log('[Auth] SSO login detected - forcing membership refresh (bypassing cache)')
+      // Continue with fetch (don't return early)
+    } else if ((isServerHydrated || (hasProfile && hasOrganization)) && hasProfile && hasOrganization) {
+      // Original skip logic - only applies when NOT SSO login
       console.log('[Auth] Skipping fetchUserData - data already available:', {
         serverHydrated: isServerHydrated,
         hasProfile,
@@ -131,11 +138,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setOrganizations(orgs)
 
-        // Set current org (prefer stored one or first available)
+        // Set current org (prefer stored one, fall back to first available)
         const storedOrgId = currentOrganization?.id
-        const matchedOrg = storedOrgId
-          ? orgs.find((o) => o.id === storedOrgId)
-          : orgs[0]
+        // CRITICAL FIX: Ensure fallback to orgs[0] if stored org not found
+        // This fixes SSO user 403 errors when their stored org (from localStorage) doesn't exist in memberships
+        const matchedOrg = (storedOrgId ? orgs.find((o) => o.id === storedOrgId) : null) || orgs[0]
+
+        // Track if we switched organizations (for logging/debugging)
+        const switchedOrg = storedOrgId && matchedOrg?.id !== storedOrgId
 
         if (matchedOrg) {
           setCurrentOrganization(matchedOrg)
@@ -145,8 +155,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (membership) {
             setMembership(membership as OrganizationMember)
           }
+
+          // Log organization switch for SSO users
+          if (switchedOrg) {
+            console.log('[Auth] Switched organization:', {
+              from: storedOrgId,
+              to: matchedOrg.id,
+              name: matchedOrg.name,
+              reason: 'Stored org not found in memberships (likely SSO migration)'
+            })
+          }
         }
       }
+
+      // Note: sso_login URL parameter is already cleaned up in initializeAuth
+      // No need to clear any flags here
     } catch (error) {
       console.error('Error fetching user data:', error)
     }
@@ -171,14 +194,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let timeoutId: NodeJS.Timeout | null = null
 
     const initializeAuth = async () => {
+      // CRITICAL: Check for SSO login flag in URL
+      const isBrowser = typeof window !== 'undefined'
+      const params = isBrowser ? new URLSearchParams(window.location.search) : new URLSearchParams()
+      const isSSOLogin = params.get('sso_login') === 'true'
+
+      if (isSSOLogin) {
+        console.log('[Auth] SSO login detected via URL parameter - forcing membership refresh')
+        // NOTE: URL cleanup moved to AFTER fetchUserData completes (see below)
+        // This ensures fetchUserData can also detect the SSO login flag
+      }
+
       // OPTIMIZATION: Check if we already have valid data from server hydration
       // This prevents unnecessary auth API calls when dashboard layout already fetched data
       const currentState = useAuthStore.getState()
       if (currentState.serverHydrated && currentState.profile && currentState.currentOrganization) {
-        console.log('[Auth] Skipping initializeAuth - already server-hydrated')
-        setLoading(false)
-        setInitialized(true)
-        return
+        // EXCEPTION: Always fetch for SSO logins, even if server-hydrated
+        if (!isSSOLogin) {
+          console.log('[Auth] Skipping initializeAuth - already server-hydrated')
+          setLoading(false)
+          setInitialized(true)
+          return
+        }
+        console.log('[Auth] SSO login detected - bypassing server hydration optimization')
       }
 
       setLoading(true)
@@ -218,10 +256,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (initialSession) {
           setSession(initialSession)
           setUser(initialSession.user)
-          // Non-blocking: fetch user data in background - don't await
-          fetchUserData(initialSession.user.id).catch(err =>
-            console.warn('[Auth] Background user data fetch failed:', err)
-          )
+          // CRITICAL: AWAIT fetchUserData for SSO logins to ensure currentOrganization is updated
+          // This prevents 403 errors when user has stale org in localStorage
+          await fetchUserData(initialSession.user.id)
+
+          // CRITICAL: Clean up SSO URL parameter AFTER fetchUserData completes
+          // This ensures fetchUserData can also detect the sso_login flag
+          if (isSSOLogin && isBrowser) {
+            params.delete('sso_login')
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')
+            window.history.replaceState({}, '', newUrl)
+            console.log('[Auth] SSO login URL cleanup complete')
+          }
         }
       } catch (error) {
         // Log error but still mark as initialized to show UI
@@ -249,13 +295,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Setting session and fetching user data for:', newSession.user.id)
           setSession(newSession)
           setUser(newSession.user)
-          setLoading(false) // Clear loading immediately - don't block on user data fetch
 
-          // Fetch user data in background - non-blocking for better UX
-          fetchUserData(newSession.user.id).catch(err =>
-            console.warn('[Auth] Background user data fetch failed:', err)
-          )
-          console.log('Session set, user data fetching in background')
+          // CRITICAL: AWAIT fetchUserData to ensure currentOrganization is correct
+          // This prevents 403 errors for SSO users with stale org in localStorage
+          await fetchUserData(newSession.user.id)
+
+          setLoading(false) // Clear loading after data fetch completes
+          console.log('Session set, user data fetched successfully')
         } else if (event === 'SIGNED_OUT') {
           reset()
         } else if (event === 'TOKEN_REFRESHED' && newSession) {

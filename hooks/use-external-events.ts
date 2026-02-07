@@ -313,25 +313,44 @@ export function useExternalEvents(options: UseExternalEventsOptions = {}) {
 
 /**
  * Hook to fetch a single event by ID
+ * v3.2: Added initialData parameter to skip fetch when SSO provides event data instantly
  * v3.1: Fixed race condition - resets state on eventId change, cancels stale requests
  */
-export function useExternalEvent(eventId: string | null, source?: string) {
+export function useExternalEvent(
+  eventId: string | null,
+  source?: string,
+  initialData?: ExternalEvent | null // NEW: Initial data from SSO session
+) {
   const { currentOrganization } = useAuthStore()
-  const [event, setEvent] = useState<ExternalEvent | null>(null)
+  const [event, setEvent] = useState<ExternalEvent | null>(initialData || null) // Use initial data if provided
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Reset state immediately when eventId changes - prevents stale data flash
+  // BUT skip reset if we have initial data
   useEffect(() => {
+    if (initialData) {
+      setEvent(initialData)
+      setError(null)
+      setIsLoading(false)
+      return // Don't reset or fetch if we have initial data
+    }
+
+    // Original reset logic for non-SSO flow
     setEvent(null)
     setError(null)
     if (eventId) {
       setIsLoading(true)
     }
-  }, [eventId])
+  }, [eventId, initialData])
 
   const fetchEvent = useCallback(async () => {
+    // Skip fetch if we have initial data from SSO
+    if (initialData) {
+      return
+    }
+
     if (!eventId || !currentOrganization?.id) {
       setIsLoading(false)
       return
@@ -373,7 +392,7 @@ export function useExternalEvent(eventId: string | null, source?: string) {
     } finally {
       setIsLoading(false)
     }
-  }, [eventId, source, currentOrganization?.id])
+  }, [eventId, source, currentOrganization?.id, initialData])
 
   useEffect(() => {
     if (eventId) {
