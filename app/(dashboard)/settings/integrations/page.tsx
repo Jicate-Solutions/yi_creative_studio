@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { useOrganization } from '@/hooks'
 import { useClientAdmin } from '@/hooks/use-client-admin'
 import { GoogleCalendarCard, WebhookIntegrationsSection } from '@/components/settings/integrations'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertCircle, Link2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AlertCircle, Link2, Copy, Check, Building2 } from 'lucide-react'
 
 export default function IntegrationsPage() {
   const { organization } = useOrganization()
@@ -61,6 +63,9 @@ export default function IntegrationsPage() {
 
       {/* Integrations List */}
       <div className="space-y-6">
+        {/* Organization ID Card for Yi Connect */}
+        <OrganizationIdCard organization={organization} />
+
         {/* Google Calendar */}
         <GoogleCalendarCard organizationId={organization.id} />
 
@@ -85,5 +90,59 @@ export default function IntegrationsPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/**
+ * Organization ID Card Component
+ * Shows the organization ID with copy functionality for Yi Connect integration
+ */
+function OrganizationIdCard({ organization }: { organization: { id: string; name: string } }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(organization.id)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Building2 className="h-5 w-5" />
+          Organization ID
+        </CardTitle>
+        <CardDescription>
+          Use this ID to connect Yi Connect or other external services to your organization
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-3">
+          <code className="flex-1 rounded-lg bg-muted px-4 py-3 font-mono text-sm">
+            {organization.id}
+          </code>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCopy}
+            className="shrink-0"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          <strong>Organization:</strong> {organization.name}
+        </p>
+      </CardContent>
+    </Card>
   )
 }

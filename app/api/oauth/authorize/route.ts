@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
+
+// Admin client for OAuth tables (not in typed schema)
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * OAuth 2.0 Authorization Code Generation
@@ -76,7 +83,8 @@ export async function POST(request: NextRequest) {
     // Store authorization code (expires in 10 minutes)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
 
-    const { error: insertError } = await supabase
+    // Use admin client for OAuth table (not in typed schema)
+    const { error: insertError } = await supabaseAdmin
       .from('oauth_authorization_codes')
       .insert({
         code,
