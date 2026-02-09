@@ -46,6 +46,17 @@ function generateSlug(name: string): string {
 }
 
 /**
+ * Extract venue name from address if venue is not provided
+ * Takes the first part of the address (before first comma) as venue name
+ */
+function extractVenueFromAddress(address: string | undefined | null): string | undefined {
+  if (!address) return undefined
+  // Take the first part before comma as venue name
+  const firstPart = address.split(',')[0]?.trim()
+  return firstPart || undefined
+}
+
+/**
  * Normalize event data from Yi Connect to expected SSOEventData format
  *
  * Yi Connect may send either:
@@ -58,6 +69,9 @@ function normalizeEventData(rawEventData: SSOEventData | Record<string, unknown>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = rawEventData as any
 
+  // Get the address (either format)
+  const venueAddress = data.venue_address || data.venueAddress
+
   return {
     // ID and name - handle both formats
     event_id: data.event_id || data.id,
@@ -66,8 +80,9 @@ function normalizeEventData(rawEventData: SSOEventData | Record<string, unknown>
     event_time: data.event_time || data.startTime,
 
     // Venue - handle both snake_case and camelCase
-    venue: data.venue,
-    venue_address: data.venue_address || data.venueAddress,
+    // If venue is null/empty, try to extract from address (first part before comma)
+    venue: data.venue || extractVenueFromAddress(venueAddress),
+    venue_address: venueAddress,
     city: data.city,
 
     // Details
