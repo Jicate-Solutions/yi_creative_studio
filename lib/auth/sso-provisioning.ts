@@ -46,6 +46,47 @@ function generateSlug(name: string): string {
 }
 
 /**
+ * Normalize event data from Yi Connect to expected SSOEventData format
+ *
+ * Yi Connect may send either:
+ * - New format: { id, name, date, startTime, venue, venueAddress, ... }
+ * - Expected format: { event_id, event_name, event_date, event_time, venue, venue_address, ... }
+ *
+ * This function normalizes both to the expected format.
+ */
+function normalizeEventData(rawEventData: SSOEventData | Record<string, unknown>): SSOEventData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = rawEventData as any
+
+  return {
+    // ID and name - handle both formats
+    event_id: data.event_id || data.id,
+    event_name: data.event_name || data.name,
+    event_date: data.event_date || data.date,
+    event_time: data.event_time || data.startTime,
+
+    // Venue - handle both snake_case and camelCase
+    venue: data.venue,
+    venue_address: data.venue_address || data.venueAddress,
+    city: data.city,
+
+    // Details
+    description: data.description,
+    tagline: data.tagline,
+    banner_image_url: data.banner_image_url || data.bannerImageUrl,
+    event_type: data.event_type || data.eventType,
+
+    // Chapter info - handle both formats
+    chapter_id: data.chapter_id || data.chapterId,
+    chapter_name: data.chapter_name || data.chapterName,
+    chapter_location: data.chapter_location || data.chapterLocation,
+
+    // Speakers
+    speakers: data.speakers,
+  }
+}
+
+/**
  * Provision a user from SSO token
  *
  * Creates or updates the user profile and all their organization memberships.
@@ -138,9 +179,13 @@ export async function provisionUserFromSSO(
     // This allows on-the-fly event creation when clicking "Create Poster" from Yi Connect
     if (tokenPayload.event_data && primaryOrganizationId) {
       console.log('[SSO Provisioning] Event data found in token, provisioning event...')
+      // Normalize event_data to handle both Yi Connect formats:
+      // - New format: { id, name, date, startTime, ... }
+      // - Expected format: { event_id, event_name, event_date, event_time, ... }
+      const normalizedEventData = normalizeEventData(tokenPayload.event_data)
       await provisionEventFromSSO(
         supabaseAdmin,
-        tokenPayload.event_data,
+        normalizedEventData,
         primaryOrganizationId
       )
     }
