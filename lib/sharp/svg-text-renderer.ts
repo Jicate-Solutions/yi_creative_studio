@@ -1183,7 +1183,8 @@ export function generateFooterBarSVG(
       const logoHeight = digitalPartner.logoId ? (digitalPartner.logoSize || 80) : 0
       const gap = digitalPartner.logoId ? 8 : 0  // Gap between label and logo
       const totalHeight = labelHeight + gap + logoHeight
-      const startY = (rowHeight - totalHeight) / 2
+      // v20.10: Added +1px vertical offset to prevent text cropping at footer edge
+      const startY = (rowHeight - totalHeight) / 2 + 1
 
       // Render the label
       if (usePathRendering) {
