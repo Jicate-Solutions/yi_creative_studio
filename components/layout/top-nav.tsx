@@ -192,7 +192,10 @@ export function TopNav() {
                     <DropdownMenuSeparator className="bg-border/10" />
                     <div className="p-2">
                       <DropdownMenuItem
-                        onClick={() => signOut()}
+                        onClick={async () => {
+                          await signOut()
+                          window.location.href = '/auth/login'
+                        }}
                         className="rounded-xl p-3 text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
                       >
                         <LogOut className="mr-3 h-4 w-4" />

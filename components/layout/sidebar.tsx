@@ -283,7 +283,10 @@ export function Sidebar() {
               <ThemeToggle />
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="rounded-xl gap-3 p-2.5 text-destructive focus:text-destructive cursor-pointer" onClick={() => signOut()}>
+            <DropdownMenuItem className="rounded-xl gap-3 p-2.5 text-destructive focus:text-destructive cursor-pointer" onClick={async () => {
+              await signOut()
+              window.location.href = '/auth/login'
+            }}>
               <LogOut className="h-4 w-4" /> Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>

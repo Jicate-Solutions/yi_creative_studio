@@ -237,9 +237,10 @@ export function MobileBottomNav() {
                 </div>
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setMoreMenuOpen(false)
-                    signOut()
+                    await signOut()
+                    window.location.href = '/auth/login'
                   }}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-destructive/10 text-destructive transition-colors"
                 >
