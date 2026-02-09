@@ -116,6 +116,24 @@ export async function provisionUserFromSSO(
       }
     }
 
+    // 3.5 Fallback: If no chapters in token but user has existing membership, use that org
+    // This handles cases where Yi Connect sends empty chapters array
+    if (!primaryOrganizationId && tokenPayload.event_data && userId) {
+      console.log('[SSO Provisioning] No chapters in token, checking existing memberships...')
+
+      const { data: existingMembership } = await supabaseAdmin
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single()
+
+      if (existingMembership?.organization_id) {
+        primaryOrganizationId = existingMembership.organization_id
+        console.log('[SSO Provisioning] Using existing org membership:', primaryOrganizationId)
+      }
+    }
+
     // 4. Provision event if event_data is present in the token
     // This allows on-the-fly event creation when clicking "Create Poster" from Yi Connect
     if (tokenPayload.event_data && primaryOrganizationId) {
