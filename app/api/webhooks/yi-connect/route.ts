@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyWebhookSignature } from '@/lib/auth/sso-token'
-import { mapRole } from '@/lib/auth/role-mapping'
+import { mapRoleForMembership } from '@/lib/auth/role-mapping'
 import type {
   YiConnectWebhookPayload,
   UserWebhookPayload,
@@ -149,7 +149,9 @@ async function handleMemberAddOrUpdate(payload: MemberWebhookPayload): Promise<v
   }
 
   // Map Yi Connect role to Yi Creative role
-  const creativeRole = mapRole(role)
+  // CRITICAL: Use mapRoleForMembership to ensure valid org membership role
+  // (organization_members only allows: admin, editor, viewer - not super_admin)
+  const creativeRole = mapRoleForMembership(role)
 
   // Find the organization by chapter_id
   // Since we don't have yi_connect_chapter_id field yet, we'll need to use name/slug

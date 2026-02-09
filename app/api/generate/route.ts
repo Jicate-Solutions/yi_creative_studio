@@ -264,28 +264,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // SECURITY: Verify user has editor+ role (viewers cannot generate)
-    // Super Admins automatically pass this check
-    const isSuperAdmin = (user as any).is_super_admin === true
-    if (!isSuperAdmin) {
-      const { data: membership } = await supabase
-        .from('organization_members')
-        .select('role')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!membership || membership.role === 'viewer') {
-        return NextResponse.json(
-          {
-            error: 'Insufficient permissions',
-            code: 'EDITOR_REQUIRED',
-            message: 'Editor or Admin role required to generate creatives',
-          },
-          { status: 403 }
-        )
-      }
-    }
-
+    // Parse request body FIRST so we can use organizationId in permission check
+    // This fixes the multi-org user bug where .single() fails without org filter
     const body = await request.json()
     const {
       prompt,
@@ -332,6 +312,53 @@ export async function POST(request: NextRequest) {
       useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
     }
 
+    // SECURITY: Verify user has editor+ role for this specific organization
+    // Super Admins automatically pass this check
+    // FIX: Use organizationId filter to support multi-org users (fixes .single() bug)
+    const isSuperAdmin = (user as any).is_super_admin === true
+    if (!isSuperAdmin) {
+      const { data: membership, error: membershipError } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('organization_id', organizationId)
+        .single()
+
+      if (membershipError || !membership) {
+        console.error('[Generate API] Permission denied:', {
+          userId: user.id,
+          organizationId,
+          error: membershipError?.message,
+          reason: 'No membership found for this organization'
+        })
+        return NextResponse.json(
+          {
+            error: 'You do not have access to this organization',
+            code: 'NO_ORG_MEMBERSHIP',
+            hint: 'Please refresh the page or switch to a valid organization in settings'
+          },
+          { status: 403 }
+        )
+      }
+
+      if (membership.role === 'viewer') {
+        console.error('[Generate API] Permission denied:', {
+          userId: user.id,
+          organizationId,
+          role: membership.role,
+          reason: 'Viewer role cannot generate creatives'
+        })
+        return NextResponse.json(
+          {
+            error: 'Insufficient permissions',
+            code: 'EDITOR_REQUIRED',
+            message: 'Editor or Admin role required to generate creatives',
+          },
+          { status: 403 }
+        )
+      }
+    }
+
     // DIAGNOSTIC: Validate request body for speaker photos
     if (creationMode === 'scratch') {
       if (!designData) {
@@ -376,39 +403,8 @@ export async function POST(request: NextRequest) {
     let contentOnlyWidth = 0
     let contentOnlyHeight = 0
 
-    // Verify user belongs to the organization
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('organization_id', organizationId)
-      .single()
-
-    if (!membership) {
-      // Enhanced error for debugging organization access issues
-      console.error('[Generate API] Permission denied:', {
-        userId: user.id,
-        organizationId,
-        reason: 'No membership found for this organization'
-      })
-
-      return NextResponse.json(
-        {
-          error: 'You do not have access to this organization',
-          code: 'NO_ORG_MEMBERSHIP',
-          hint: 'Please refresh the page or switch to a valid organization in settings'
-        },
-        { status: 403 }
-      )
-    }
-
-    // Check role permissions
-    if (membership.role === 'viewer') {
-      return NextResponse.json(
-        { error: 'Viewers cannot generate creatives' },
-        { status: 403 }
-      )
-    }
+    // NOTE: Permission check moved above (after body parsing) to use organizationId filter
+    // This fixes the multi-org user bug where .single() fails without org filter
 
     // NOTE: Credit deduction is handled by the client (CanvasCreatePage.tsx)
     // using the correct model-based cost (modelToUse.credits_cost)
