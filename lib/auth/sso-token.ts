@@ -2,17 +2,51 @@
  * Yi Connect SSO Token Verification
  *
  * Verifies and decodes JWT tokens from Yi Connect using RS256 algorithm.
- * The public key is provided by Yi Connect and stored in environment variables.
+ * Supports multi-tenant: per-chapter public keys stored in database,
+ * with fallback to environment variable for backward compatibility.
  */
 
-import { jwtVerify, importSPKI } from 'jose'
+import { jwtVerify, importSPKI, decodeJwt } from 'jose'
+import { createClient } from '@supabase/supabase-js'
 import type { SSOTokenPayload, SSOVerificationResult } from './sso-types'
+
+// Admin client for database lookups (bypasses RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * Get the RSA public key for token verification
- * The key is Base64 encoded in environment variable
+ *
+ * Priority:
+ * 1. Per-chapter public key from yi_connect_integrations table
+ * 2. Fallback to YI_CONNECT_SSO_PUBLIC_KEY env var
+ *
+ * @param chapterId - Optional chapter ID to look up per-org key
  */
-async function getPublicKey() {
+async function getPublicKey(chapterId?: string) {
+  // Try per-chapter key from database first
+  if (chapterId) {
+    try {
+      const { data: integration } = await supabaseAdmin
+        .from('yi_connect_integrations')
+        .select('public_key')
+        .eq('chapter_id', chapterId)
+        .eq('status', 'active')
+        .single()
+
+      if (integration?.public_key) {
+        console.log('[SSO Debug] Using per-chapter public key for:', chapterId)
+        const publicKeyPem = Buffer.from(integration.public_key, 'base64').toString('utf-8')
+        return importSPKI(publicKeyPem, 'RS256')
+      }
+    } catch (error) {
+      console.log('[SSO Debug] No per-chapter key found, falling back to env var')
+    }
+  }
+
+  // Fallback to environment variable
   const publicKeyBase64 = process.env.YI_CONNECT_SSO_PUBLIC_KEY
 
   if (!publicKeyBase64) {
@@ -23,11 +57,24 @@ async function getPublicKey() {
   const publicKeyPem = Buffer.from(publicKeyBase64, 'base64').toString('utf-8')
 
   // Debug: Log first 100 chars of decoded PEM to verify format
-  console.log('[SSO Debug] Public key PEM (first 100 chars):', publicKeyPem.substring(0, 100))
-  console.log('[SSO Debug] Public key ends with:', publicKeyPem.substring(publicKeyPem.length - 50))
+  console.log('[SSO Debug] Using env var public key')
 
   // Import the PEM key for use with jose
   return importSPKI(publicKeyPem, 'RS256')
+}
+
+/**
+ * Extract chapter ID from token without verification
+ * Used to look up the correct public key for multi-tenant SSO
+ */
+function extractChapterIdFromToken(token: string): string | undefined {
+  try {
+    const payload = decodeJwt(token)
+    const chapters = payload.chapters as Array<{ chapter_id: string }> | undefined
+    return chapters?.[0]?.chapter_id
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -40,6 +87,10 @@ export async function verifySSOToken(
   token: string
 ): Promise<SSOVerificationResult> {
   try {
+    // Extract chapter ID first to look up per-org public key
+    const chapterId = extractChapterIdFromToken(token)
+    console.log('[SSO Debug] Extracted chapter_id:', chapterId)
+
     // Debug: Decode token header to see algorithm used
     const tokenParts = token.split('.')
     if (tokenParts.length >= 2) {
@@ -60,8 +111,8 @@ export async function verifySSOToken(
       }
     }
 
-    // Get the public key
-    const publicKey = await getPublicKey()
+    // Get the public key (tries per-chapter first, then env var)
+    const publicKey = await getPublicKey(chapterId)
 
     // Verify and decode the token
     const { payload } = await jwtVerify(token, publicKey, {
