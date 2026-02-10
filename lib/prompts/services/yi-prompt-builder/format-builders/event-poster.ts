@@ -204,6 +204,63 @@ function determineSpeakerColor(params: {
   }
 }
 
+/**
+ * Safely access color values from colorMapping with fallback protection
+ * Prevents crashes when AI response is truncated or colorMapping is incomplete
+ *
+ * v1.0: Added for production stability (fixes truncated hex code crashes)
+ */
+function getSafeColor(
+  colorSource: any,
+  role: 'hero' | 'headline' | 'body' | 'cta' | 'caption',
+  fallback: string
+): { color: string; description: string } {
+  // Check if colorSource and role exist
+  if (!colorSource?.[role]) {
+    console.warn(`[Event Poster] Missing color role '${role}', using fallback: ${fallback}`)
+    return {
+      color: fallback,
+      description: `Fallback color for ${role} (original data missing)`
+    }
+  }
+
+  const colorObj = colorSource[role]
+
+  // Check if color property exists
+  if (!colorObj.color) {
+    console.warn(`[Event Poster] Missing color property for '${role}', using fallback: ${fallback}`)
+    return {
+      color: fallback,
+      description: `Fallback color for ${role} (color property missing)`
+    }
+  }
+
+  // Validate hex code completeness (must be 7 chars: #RRGGBB)
+  const color = colorObj.color
+  if (color.startsWith('#') && color.length !== 7) {
+    console.warn(`[Event Poster] Incomplete hex code for '${role}': ${color} (expected 7 chars, got ${color.length}), using fallback: ${fallback}`)
+    return {
+      color: fallback,
+      description: `Fallback color for ${role} (hex code truncated from ${color})`
+    }
+  }
+
+  // All validations passed, return the color
+  return {
+    color: colorObj.color,
+    description: colorObj.description || `Color for ${role}`
+  }
+}
+
+// Default fallback colors (matching design system)
+const COLOR_FALLBACKS = {
+  hero: '#1E40AF',      // Bold blue - main headline
+  headline: '#3B82F6',  // Medium blue - secondary headline
+  body: '#E0E0E0',      // Light gray - body text
+  cta: '#10B981',       // Green - call-to-action
+  caption: '#9CA3AF'    // Subtle gray - captions/footer
+} as const
+
 // ============================================================
 // COLOR-AWARE DYNAMIC CONTEXT HELPERS (v6.0 - Phase 2)
 // ============================================================
@@ -1056,12 +1113,12 @@ FONT STYLES (MOOD-BASED):
 
 TEXT HIERARCHY (v13.0 - ENFORCED):
 
-The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${colorSource.hero.color} (${colorSource.hero.description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
+The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color} (${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
 
 🎯 TEXT HIERARCHY ENFORCEMENT:
-1. Event Headline: LARGEST (ultra-bold, ${colorSource.hero.color})
-2. Tagline/Speaker Names: MEDIUM (${colorSource.headline.color})
-3. Date/Venue: SMALL supporting text (${colorSource.body.color})
+1. Event Headline: LARGEST (ultra-bold, ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color})
+2. Tagline/Speaker Names: MEDIUM (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color})
+3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
 4. Additional Details: SMALLEST supporting text
 
 CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
@@ -1082,13 +1139,13 @@ ONE seamless, continuous background that flows from top to bottom like a single 
 
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
 
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
 
-Date, venue, and event details MUST be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
+Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color} (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}).
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).color} (${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description}) with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).color} (${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}).` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability
@@ -1112,12 +1169,12 @@ TYPOGRAPHY SYSTEM:
 
 TEXT HIERARCHY (v13.0 - ENFORCED):
 
-The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${colorSource.hero.color} (${colorSource.hero.description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
+The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color} (${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
 
 🎯 TEXT HIERARCHY ENFORCEMENT:
-1. Event Headline: LARGEST (ultra-bold, ${colorSource.hero.color})
-2. Tagline/Speaker Names: MEDIUM (${colorSource.headline.color})
-3. Date/Venue: SMALL supporting text (${colorSource.body.color})
+1. Event Headline: LARGEST (ultra-bold, ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color})
+2. Tagline/Speaker Names: MEDIUM (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color})
+3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
 4. Additional Details: SMALLEST supporting text
 
 CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
@@ -1138,13 +1195,13 @@ ONE seamless, continuous background that flows from top to bottom like a single 
 
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
 
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${colorSource.headline.color} (${colorSource.headline.description}).
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
 
-Date, venue, and event details MUST be smaller supporting text in ${colorSource.body.color} (${colorSource.body.description}).
+Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color} (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}).
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${colorSource.cta.color} (${colorSource.cta.description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).color} (${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description}) with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${colorSource.caption.color} (${colorSource.caption.description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).color} (${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}).` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability

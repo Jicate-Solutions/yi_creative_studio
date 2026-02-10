@@ -1176,15 +1176,33 @@ export function generateFooterBarSVG(
     if (digitalPartner.enabled && (digitalPartner.logoId || digitalPartner.labelText)) {
       const partnerLabelFontSize = labelFontSize + 2  // 20px - larger for visibility
       const partnerLabelText = "DIGITAL PARTNER"  // Uppercase for emphasis
-      const partnerLabelColor = digitalPartner.labelColor || '#374151'  // Darker gray for better visibility
+      const partnerLabelColor = digitalPartner.labelColor || '#000000'  // Black text (was #FFFFFF)
 
       // Calculate vertical position - label at top, logo below
       const labelHeight = partnerLabelFontSize + 4
       const logoHeight = digitalPartner.logoId ? (digitalPartner.logoSize || 80) : 0
-      const gap = digitalPartner.logoId ? 8 : 0  // Gap between label and logo
+      const gap = digitalPartner.logoId ? 2 : 0  // Reduced gap for tighter spacing (was 8px)
       const totalHeight = labelHeight + gap + logoHeight
       // v20.11: Increased to +6px for better top padding in footer card
       const startY = (rowHeight - totalHeight) / 2 + 6
+
+      // v20.12: Add dark background behind label for better visibility
+      const labelWidth = estimateTextWidth(partnerLabelText, partnerLabelFontSize, 'bold') + 20  // +20 for horizontal padding
+      const labelBgHeight = partnerLabelFontSize + 8  // Height with vertical padding
+      const labelBgX = zone3X - labelWidth / 2  // Center background horizontally
+      const labelBgY = startY + partnerLabelFontSize / 2 - labelBgHeight / 2 + 2  // Vertically center with text
+
+      // Add dark background rectangle
+      svgElements.push(`<rect
+        x="${labelBgX}"
+        y="${labelBgY}"
+        width="${labelWidth}"
+        height="${labelBgHeight}"
+        rx="4"
+        ry="4"
+        fill="#1a1a1a"
+        opacity="0.95"
+      />`)
 
       // Render the label
       if (usePathRendering) {

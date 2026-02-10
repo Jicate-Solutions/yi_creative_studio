@@ -119,3 +119,59 @@ export function safeJsonParse<T>(text: string, fallback?: T): T {
         }
     }
 }
+
+/**
+ * Validate colorMapping structure from AI responses
+ * Ensures all required roles exist with complete hex codes
+ *
+ * v1.0: Added to prevent crashes from truncated AI responses
+ */
+export function validateColorMapping(colorMapping: any): boolean {
+    if (!colorMapping || typeof colorMapping !== 'object') {
+        console.warn('[validateColorMapping] colorMapping is null or not an object')
+        return false
+    }
+
+    const requiredRoles = ['hero', 'headline', 'body', 'cta', 'caption']
+
+    for (const role of requiredRoles) {
+        // Check if role exists
+        if (!colorMapping[role]) {
+            console.warn(`[validateColorMapping] Missing required role: ${role}`)
+            return false
+        }
+
+        const colorObj = colorMapping[role]
+
+        // Check if color property exists
+        if (!colorObj.color) {
+            console.warn(`[validateColorMapping] Missing color property for role: ${role}`)
+            return false
+        }
+
+        // Check if description exists (not strictly required but good to have)
+        if (!colorObj.description) {
+            console.warn(`[validateColorMapping] Missing description for role: ${role} (non-fatal)`)
+            // Don't fail on missing description, just warn
+        }
+
+        // Validate hex code completeness (must be 7 chars: #RRGGBB)
+        const color = colorObj.color
+        if (color.startsWith('#')) {
+            if (color.length !== 7) {
+                console.warn(`[validateColorMapping] Incomplete hex code for role '${role}': ${color} (expected 7 chars, got ${color.length})`)
+                return false
+            }
+
+            // Validate hex format (only hex chars after #)
+            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                console.warn(`[validateColorMapping] Invalid hex format for role '${role}': ${color}`)
+                return false
+            }
+        }
+        // For non-hex colors (like 'white', 'black'), allow them through
+    }
+
+    console.log('[validateColorMapping] ✓ All color roles validated successfully')
+    return true
+}

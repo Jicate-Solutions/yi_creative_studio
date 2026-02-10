@@ -11,7 +11,7 @@ import type {
 export type { DesignBrief, DesignContextForPrompt } from './yi-prompt-builder/types'
 import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { EventProfile } from './event-understanding'
-import { safeJsonParse } from '@/lib/utils/json-repair'
+import { safeJsonParse, validateColorMapping } from '@/lib/utils/json-repair'
 
 // v1.0: Import AI Event Context Analyzer for global event understanding
 import {
@@ -683,11 +683,11 @@ CRITICAL RULES FOR ACCURACY:
             "alignment": "Pick ONE: center | left | right | asymmetric",
               "hierarchy": "size and weight hierarchy mapping",
                 "colorMapping": {
-        "hero": { "color": "hex code or name", "contrastRatio": 7.0, "description": "rationale" },
-        "headline": { "color": "hex code or name", "contrastRatio": 7.0, "description": "rationale" },
-        "body": { "color": "hex or name", "contrastRatio": 4.5, "description": "rationale" },
-        "cta": { "color": "hex or name", "contrastRatio": 7.0, "description": "rationale" },
-        "caption": { "color": "hex or name", "contrastRatio": 4.5, "description": "rationale" }
+        "hero": { "color": "hex code or name", "contrastRatio": 7.0, "description": "brief rationale (10 words max)" },
+        "headline": { "color": "hex code or name", "contrastRatio": 7.0, "description": "brief rationale (10 words max)" },
+        "body": { "color": "hex or name", "contrastRatio": 4.5, "description": "brief rationale (10 words max)" },
+        "cta": { "color": "hex or name", "contrastRatio": 7.0, "description": "brief rationale (10 words max)" },
+        "caption": { "color": "hex or name", "contrastRatio": 4.5, "description": "brief rationale (10 words max)" }
       }
     },
     "decorativeElements": {
@@ -1779,6 +1779,17 @@ function parseDesignContext(json: string): DesignContext {
         'bold graphic elements',
         'contemporary design aesthetic'
       ]
+    }
+
+    // v5.6: Validate colorMapping if present (prevents crashes from truncated AI responses)
+    if (parsed.typographyGuidance?.colorMapping) {
+      if (!validateColorMapping(parsed.typographyGuidance.colorMapping)) {
+        console.warn('[Design Intelligence] Invalid colorMapping detected (truncated or incomplete), removing it to use fallback colors')
+        // Remove invalid colorMapping so fallback logic in event-poster.ts kicks in
+        delete parsed.typographyGuidance.colorMapping
+      } else {
+        console.log('[Design Intelligence] ✓ colorMapping validated successfully')
+      }
     }
 
     return parsed as DesignContext
