@@ -3,6 +3,7 @@ import { trackApiUsage } from '@/lib/services/api-usage'
 import type { EventProfile } from './event-understanding'
 import type { AIEventContext } from '@/lib/ai/event-context-analyzer'
 import type { ContentElements } from './content-element-mapper'
+import { safeJsonParse } from '@/lib/utils/json-repair'
 
 // ============================================================
 // STORYTELLING FUSION TYPES (v26.0)
@@ -81,7 +82,7 @@ export async function fuseStorytellingContext(
     throw new Error('Unexpected response type from Claude API')
   }
 
-  const result = JSON.parse(textContent.text)
+  const result = safeJsonParse<StorytellingOutput>(textContent.text)
 
   // Track API usage (only if userId and organizationId are available)
   if (options?.userId && options?.organizationId) {

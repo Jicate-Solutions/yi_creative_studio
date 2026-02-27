@@ -577,7 +577,7 @@ export interface InstagramContext {
 // ============================================================
 
 export interface GeminiImageRequest {
-  model: 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview'
+  model: 'gemini-2.5-flash-image' | 'gemini-3.1-flash-image-preview' | 'gemini-3-pro-image-preview'
   generationConfig: {
     responseModalities: ('TEXT' | 'IMAGE')[]
     temperature?: number

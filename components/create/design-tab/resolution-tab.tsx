@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Check, Monitor, Image, Maximize2, Info } from 'lucide-react'
+import { Check, Monitor, Image, Maximize2, Info, Minimize2 } from 'lucide-react'
 import {
   RESOLUTIONS,
   DIMENSION_QUALITY,
@@ -17,12 +17,18 @@ import {
 } from '@/components/ui/tooltip'
 
 const RESOLUTION_ICONS: Record<ResolutionId, React.ElementType> = {
+  '512px': Minimize2,
   '1K': Monitor,
   '2K': Image,
   '4K': Maximize2,
 }
 
 const RESOLUTION_COLORS: Record<ResolutionId, { bg: string; border: string; text: string }> = {
+  '512px': {
+    bg: 'bg-green-50 dark:bg-green-950/30',
+    border: 'border-green-200 dark:border-green-800',
+    text: 'text-green-600 dark:text-green-400',
+  },
   '1K': {
     bg: 'bg-blue-50 dark:bg-blue-950/30',
     border: 'border-blue-200 dark:border-blue-800',

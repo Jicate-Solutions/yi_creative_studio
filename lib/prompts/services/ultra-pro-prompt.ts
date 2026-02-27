@@ -614,6 +614,23 @@ async function callGemini(
 // RESPONSE PARSING
 // ============================================================
 
+function normaliseUltraProResult(
+  parsed: any,
+  compiledData: CompiledFormData,
+  logoStripEnabled?: boolean
+): UltraProPrompt {
+  return {
+    primaryText: parsed.primaryText || compiledData.eventName || 'Event',
+    secondaryText: Array.isArray(parsed.secondaryText) ? parsed.secondaryText : [],
+    visualScene: parsed.visualScene || 'Professional event setting',
+    designGuidance: parsed.designGuidance || 'Clean, modern design with clear hierarchy',
+    textPlacementHints: parsed.textPlacementHints || 'Center-aligned text with event name prominent',
+    colorPaletteHints: parsed.colorPaletteHints || 'Professional color palette',
+    mustIncludeElements: Array.isArray(parsed.mustIncludeElements) ? parsed.mustIncludeElements : [],
+    enhancedPrompt: parsed.enhancedPrompt || buildFallbackEnhancedPrompt(compiledData, logoStripEnabled),
+  }
+}
+
 function parseUltraProPrompt(
   response: string,
   compiledData: CompiledFormData,
@@ -634,25 +651,23 @@ function parseUltraProPrompt(
   // Extract JSON object
   const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
+    // Second attempt: response may be truncated (no closing }) — repair and retry
+    if (jsonStr.startsWith('{')) {
+      try {
+        const repaired = safeJsonParse<any>(jsonStr)
+        console.warn('[Ultra-Pro Prompt] Recovered truncated JSON via repair')
+        return normaliseUltraProResult(repaired, compiledData, logoStripEnabled)
+      } catch {
+        // fall through to original fallback
+      }
+    }
     console.error('[Ultra-Pro Prompt] Failed to extract JSON:', response.substring(0, 200))
     return generateFallbackPrompt(compiledData, logoStripEnabled)
   }
 
   try {
-    // v7.0: Use safeJsonParse with repair logic instead of bare JSON.parse
     const parsed = safeJsonParse<any>(jsonMatch[0])
-
-    // Ensure all required fields exist
-    return {
-      primaryText: parsed.primaryText || compiledData.eventName || 'Event',
-      secondaryText: Array.isArray(parsed.secondaryText) ? parsed.secondaryText : [],
-      visualScene: parsed.visualScene || 'Professional event setting',
-      designGuidance: parsed.designGuidance || 'Clean, modern design with clear hierarchy',
-      textPlacementHints: parsed.textPlacementHints || 'Center-aligned text with event name prominent',
-      colorPaletteHints: parsed.colorPaletteHints || 'Professional color palette',
-      mustIncludeElements: Array.isArray(parsed.mustIncludeElements) ? parsed.mustIncludeElements : [],
-      enhancedPrompt: parsed.enhancedPrompt || buildFallbackEnhancedPrompt(compiledData, logoStripEnabled),
-    }
+    return normaliseUltraProResult(parsed, compiledData, logoStripEnabled)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] JSON parse error:', error)
     console.error('[Ultra-Pro Prompt] Raw JSON (first 500 chars):', jsonMatch[0].substring(0, 500))

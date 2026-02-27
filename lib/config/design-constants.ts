@@ -6,7 +6,7 @@
 // ============================================================
 
 export type AspectRatioId = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
-export type ResolutionId = '1K' | '2K' | '4K'
+export type ResolutionId = '512px' | '1K' | '2K' | '4K'
 
 export const ASPECT_RATIOS = {
   '1:1': { width: 1024, height: 1024, label: 'Square', icon: 'Square', useCase: 'Instagram, Facebook, Profile' },
@@ -24,51 +24,61 @@ export const ASPECT_RATIOS = {
 // High resolution dimensions for different quality levels
 export const DIMENSION_QUALITY = {
   '1:1': {
+    '512px': { width: 512, height: 512 },
     '1K': { width: 1024, height: 1024 },
     '2K': { width: 2048, height: 2048 },
     '4K': { width: 4096, height: 4096 },
   },
   '2:3': {
+    '512px': { width: 424, height: 632 },
     '1K': { width: 848, height: 1264 },
     '2K': { width: 1696, height: 2528 },
     '4K': { width: 3392, height: 5056 },
   },
   '3:2': {
+    '512px': { width: 632, height: 424 },
     '1K': { width: 1264, height: 848 },
     '2K': { width: 2528, height: 1696 },
     '4K': { width: 5056, height: 3392 },
   },
   '3:4': {
+    '512px': { width: 448, height: 600 },
     '1K': { width: 896, height: 1200 },
     '2K': { width: 1792, height: 2400 },
     '4K': { width: 3584, height: 4800 },
   },
   '4:3': {
+    '512px': { width: 600, height: 448 },
     '1K': { width: 1200, height: 896 },
     '2K': { width: 2400, height: 1792 },
     '4K': { width: 4800, height: 3584 },
   },
   '4:5': {
+    '512px': { width: 464, height: 576 },
     '1K': { width: 928, height: 1152 },
     '2K': { width: 1856, height: 2304 },
     '4K': { width: 3712, height: 4608 },
   },
   '5:4': {
+    '512px': { width: 576, height: 464 },
     '1K': { width: 1152, height: 928 },
     '2K': { width: 2304, height: 1856 },
     '4K': { width: 4608, height: 3712 },
   },
   '9:16': {
+    '512px': { width: 384, height: 688 },
     '1K': { width: 768, height: 1376 },
     '2K': { width: 1536, height: 2752 },
     '4K': { width: 3072, height: 5504 },
   },
   '16:9': {
+    '512px': { width: 688, height: 384 },
     '1K': { width: 1376, height: 768 },
     '2K': { width: 2752, height: 1536 },
     '4K': { width: 5504, height: 3072 },
   },
   '21:9': {
+    '512px': { width: 792, height: 336 },
     '1K': { width: 1584, height: 672 },
     '2K': { width: 3168, height: 1344 },
     '4K': { width: 6336, height: 2688 },
@@ -76,6 +86,7 @@ export const DIMENSION_QUALITY = {
 } as const
 
 export const RESOLUTIONS = {
+  '512px': { label: 'Thumbnail (512px)', description: 'Quick Preview (NB2 only)', multiplier: 0.5 },
   '1K': { label: 'Standard (1K)', description: 'Web & Social Media', multiplier: 1 },
   '2K': { label: 'High (2K)', description: 'Print & Presentations', multiplier: 1.5 },
   '4K': { label: 'Ultra (4K)', description: 'Large Format & Banners', multiplier: 2 },

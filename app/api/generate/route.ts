@@ -287,6 +287,8 @@ export async function POST(request: NextRequest) {
       language,
       userFormData,
       useXmlPrompts, // New flag to opt-in to XML-structured prompts (Gemini-optimized)
+      thinkingLevel, // Flash 3.1 only: 'minimal' (fast) | 'High' (quality)
+      useImageSearch, // Flash 3.1 only: whether to enable Google Image Search grounding
     } = body as {
       prompt: string
       model: string
@@ -311,6 +313,8 @@ export async function POST(request: NextRequest) {
       language?: 'en' | 'ta' | 'hi'
       userFormData?: Record<string, unknown>
       useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
+      thinkingLevel?: 'minimal' | 'High' // Flash 3.1 only: thinking mode control
+      useImageSearch?: boolean // Flash 3.1 only: enable Google Image Search grounding (default true)
     }
 
     // SECURITY: Verify user has editor+ role for this specific organization
@@ -603,6 +607,7 @@ export async function POST(request: NextRequest) {
     // Position locking is now user-controlled via the UI
 
     let imageUrl: string
+    let imageActualModel: string | undefined = undefined  // Tracks which model actually ran (may differ after TIER 3 upgrade)
     let storedPromptForRegeneration: string | undefined = undefined  // v24.0: Store prompt for potential regeneration
 
     // Determine if user has their own speaker photo(s) to overlay
@@ -1258,7 +1263,7 @@ export async function POST(request: NextRequest) {
           // NEW v24.7: Pass engine for model-aware zone enforcement
           // Pro model needs STRICTER zone constraints than Flash model
           // Pro ignores percentage-based prose guidance, needs explicit boundaries
-          engine: model === 'gemini-3-pro-image-preview' ? 'yi_craft' : 'yi_vision',
+          engine: model === 'gemini-3-pro-image-preview' ? 'yi_craft' : 'yi_vision',  // Flash 2.5 and Flash 3.1 both use yi_vision zone semantics
 
           // Logo awareness - tells AI where to keep zones clear for overlay
           // Supports multiple logos with individual positions and sizes
@@ -1762,14 +1767,17 @@ export async function POST(request: NextRequest) {
         const systemInstruction = YiPromptBuilder.getSystemInstruction()
 
         // Generate with Gemini using the new prompt
-        imageUrl = await generateWithGemini(
+        ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
           finalXmlPrompt,
           promptDesignData,
           systemInstruction,
           selectedFormat,
           resolution,
-          model  // Pass model from request
-        )
+          model,  // Pass model from request
+          0,      // retryCount
+          thinkingLevel,  // Flash 3.1 thinking level
+          useImageSearch  // Flash 3.1 image search grounding
+        ))
       } else {
         // ========================================================
         // LEGACY: Original prompt generation path
@@ -1834,7 +1842,7 @@ ${typographyProfile.hierarchy}
         if (provider === 'google') {
           // Extract resolution from designData or use default
           const resolution = promptDesignData?.resolution || '1K'
-          imageUrl = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution, model)
+          ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution, model, 0, thinkingLevel, useImageSearch))
         } else if (provider === 'ideogram') {
           imageUrl = await generateWithIdeogram(
             promptData.prompt,
@@ -1930,7 +1938,7 @@ ${typographyProfile.hierarchy}
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
     } else if (provider === 'google') {
-      imageUrl = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model)
+      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model))
     } else if (provider === 'ideogram') {
       imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
     } else {
@@ -2981,11 +2989,12 @@ ${typographyProfile.hierarchy}
     // - gemini-3-pro-image-preview: $0.1344/image (1K/2K), $0.24/image (4K)
     if (creationMode === 'scratch' || templateUrl) {
       const imageProvider: AIProvider = provider === 'google' ? 'gemini' : 'gemini' // All image gen uses Gemini now
-      // Use actual model from request, default to Flash
-      const imageModel = model || 'gemini-2.5-flash-image'
+      // Use actual model that ran (may differ from request model after TIER 3 upgrade), default to Flash
+      const imageModel = imageActualModel || model || 'gemini-2.5-flash-image'
       // Estimate input tokens from prompt length (~4 chars per token)
       const estimatedInputTokens = Math.ceil(prompt.length / 4)
-      const requestedResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
+      const rawResolution = effectiveDesignData?.resolution || '1K'
+      const requestedResolution = (rawResolution === '512px' ? '1K' : rawResolution) as '1K' | '2K' | '4K'
 
       await usageTracker.track(
         'image_generation',
@@ -3743,7 +3752,7 @@ ${prompt}`
     console.error('Gemini Vision API error:', response.status, errorText)
     // Fallback to regular Gemini generation if template adaptation fails
     console.log('Falling back to regular Gemini generation with proper context')
-    return generateWithGemini(prompt, null, undefined, format, resolution || '1K')
+    return (await generateWithGemini(prompt, null, undefined, format, resolution || '1K')).imageBase64
   }
 
   const data = await response.json()
@@ -3754,7 +3763,7 @@ ${prompt}`
 
   if (!imagePart?.inlineData?.data) {
     console.log('No image in template adaptation response, falling back with proper context')
-    return generateWithGemini(prompt, null, undefined, format, resolution || '1K')
+    return (await generateWithGemini(prompt, null, undefined, format, resolution || '1K')).imageBase64
   }
 
   // Convert base64 to data URL
@@ -3770,9 +3779,11 @@ async function generateWithGemini(
   systemPrompt?: string,
   format?: import('@/lib/config/creative-formats').CreativeFormat | null,
   resolution?: string,
-  modelId?: string,  // Model ID from request (e.g., 'gemini-3-pro-image-preview')
-  retryCount: number = 0  // Retry counter for dimension drift auto-upgrade (Tier 3)
-): Promise<string> {
+  modelId?: string,           // Model ID from request (e.g., 'gemini-3-pro-image-preview')
+  retryCount: number = 0,     // Retry counter for dimension drift auto-upgrade (Tier 3)
+  thinkingLevel?: 'minimal' | 'High',  // Flash 3.1 only: 'minimal' (fast) | 'High' (quality)
+  useImageSearch?: boolean             // Flash 3.1 only: enable Google Image Search grounding (default true)
+): Promise<{ imageBase64: string; actualModel: string }> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     throw new Error('Gemini API key not configured')
@@ -3783,21 +3794,62 @@ async function generateWithGemini(
 
   // Model capability constraints with their API endpoints
   // All models support generationConfig.imageConfig for aspect ratio control
-  const GEMINI_MODEL_CAPABILITIES: Record<string, { supportedSizes: string[]; endpoint: string; supportsImageConfig: boolean }> = {
-    'gemini-2.5-flash-image': { supportedSizes: ['1K'], endpoint: 'gemini-2.5-flash-image', supportsImageConfig: true },
-    'gemini-2.0-flash-preview-image-generation': { supportedSizes: ['1K'], endpoint: 'gemini-2.0-flash-preview-image-generation', supportsImageConfig: true },
-    'gemini-3-pro-image-preview': { supportedSizes: ['1K', '2K', '4K'], endpoint: 'gemini-3-pro-image-preview', supportsImageConfig: true },
+  const GEMINI_MODEL_CAPABILITIES: Record<string, {
+    supportedSizes: string[]
+    endpoint: string
+    supportsImageConfig: boolean
+    supportsImageSize: boolean     // Can use imageSize param (Flash 2.5 = false, others = true)
+    supportsThinking: boolean      // Can control thinking level (Flash 3.1 only)
+    supportsImageSearch: boolean   // Google Image Search grounding (Flash 3.1 only)
+  }> = {
+    'gemini-2.5-flash-image': {
+      supportedSizes: ['1K'],
+      endpoint: 'gemini-2.5-flash-image',
+      supportsImageConfig: true,
+      supportsImageSize: false,      // Confirmed: returns 400 if imageSize is sent
+      supportsThinking: false,
+      supportsImageSearch: false,
+    },
+    'gemini-2.0-flash-preview-image-generation': {
+      supportedSizes: ['1K'],
+      endpoint: 'gemini-2.0-flash-preview-image-generation',
+      supportsImageConfig: true,
+      supportsImageSize: false,
+      supportsThinking: false,
+      supportsImageSearch: false,
+    },
+    'gemini-3.1-flash-image-preview': {              // Nano Banana 2
+      supportedSizes: ['512px', '1K', '2K', '4K'],
+      endpoint: 'gemini-3.1-flash-image-preview',
+      supportsImageConfig: true,
+      supportsImageSize: true,
+      supportsThinking: true,        // thinkingLevel: 'minimal' | 'High'
+      supportsImageSearch: true,     // Google Image Search grounding (exclusive)
+    },
+    'gemini-3-pro-image-preview': {
+      supportedSizes: ['1K', '2K', '4K'],
+      endpoint: 'gemini-3-pro-image-preview',
+      supportsImageConfig: true,
+      supportsImageSize: true,
+      supportsThinking: false,       // Always thinks (level not configurable)
+      supportsImageSearch: false,
+    },
   }
 
-  // Validate and constrain resolution based on model capabilities
-  // Use requested model or default to Flash
-  const currentModel = modelId && GEMINI_MODEL_CAPABILITIES[modelId] ? modelId : 'gemini-2.5-flash-image'
-  const requestedSize = (resolution || '1K').toUpperCase()
-  const supportedSizes = GEMINI_MODEL_CAPABILITIES[currentModel]?.supportedSizes || ['1K']
-  const geminiImageSize = supportedSizes.includes(requestedSize) ? requestedSize : supportedSizes[0]
+  // Auto-override model if the selected format requires a specific model (e.g., ultra aspect ratios)
+  const effectiveModelId = format?.requiredModel || modelId
 
-  if (requestedSize !== geminiImageSize) {
-    console.warn(`[Generate] Resolution ${requestedSize} not supported by ${currentModel}, using ${geminiImageSize}`)
+  // Validate and constrain resolution based on model capabilities
+  // Use effectiveModelId (may be overridden by format.requiredModel) or default to Flash
+  const currentModel = effectiveModelId && GEMINI_MODEL_CAPABILITIES[effectiveModelId] ? effectiveModelId : 'gemini-2.5-flash-image'
+  const requestedSize = resolution || '1K'
+  const supportedSizes = GEMINI_MODEL_CAPABILITIES[currentModel]?.supportedSizes || ['1K']
+  // Case-insensitive match — '1K'/'2K'/'4K' are uppercase; '512px' is lowercase
+  const matchedSize = supportedSizes.find(s => s.toLowerCase() === requestedSize.toLowerCase())
+  const geminiImageSize = matchedSize || supportedSizes[0]
+
+  if (!matchedSize) {
+    console.warn(`[Generate] Resolution "${requestedSize}" not supported by ${currentModel}, clamping to ${geminiImageSize}`)
   }
 
   const modelEndpoint = GEMINI_MODEL_CAPABILITIES[currentModel]?.endpoint || 'gemini-2.5-flash-image'
@@ -3859,7 +3911,7 @@ async function generateWithGemini(
   console.log('[Generate] ... (truncated)')
 
   // Build request body with imageConfig for aspect ratio control
-  // All Gemini image models support aspectRatio, but only Pro supports imageSize
+  // Flash 2.5 ignores imageSize (always 1K). Flash 3.1 and Pro respect it.
   let requestBody: Record<string, unknown>
 
   console.log('[Generate] Using model with imageConfig - model:', currentModel, ', aspectRatio:', geminiAspectRatio, ', imageSize:', geminiImageSize)
@@ -3869,14 +3921,35 @@ async function generateWithGemini(
     aspectRatio: geminiAspectRatio,
   }
 
-  // Only Pro model supports imageSize parameter
-  // CONFIRMED: Flash models (gemini-2.5-flash-image, gemini-2.0-flash-preview-image-generation)
-  // reject imageSize with 400 Bad Request error
-  if (currentModel === 'gemini-3-pro-image-preview') {
+  // Add imageSize only for models that respect it (Pro and Flash 3.1)
+  // Flash 2.5 / Flash 2.0 silently ignore imageSize (always output 1K) — skip for clarity
+  const modelCaps = GEMINI_MODEL_CAPABILITIES[currentModel]
+  if (modelCaps?.supportsImageSize) {
     imageConfig.imageSize = geminiImageSize
-    console.log(`[IMAGE SIZE] Adding imageSize="${geminiImageSize}" to Pro model`)
+    console.log(`[IMAGE SIZE] Adding imageSize="${geminiImageSize}" to ${currentModel}`)
   } else {
-    console.log(`[IMAGE SIZE] Flash model will use aspectRatio only (imageSize not supported)`)
+    console.log(`[IMAGE SIZE] ${currentModel} uses aspectRatio only (imageSize not supported)`)
+  }
+
+  // Build generationConfig — include thinkingConfig for Flash 3.1 when level is provided
+  const generationConfig: Record<string, unknown> = {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: imageConfig,
+  }
+  if (modelCaps?.supportsThinking && thinkingLevel) {
+    generationConfig.thinkingConfig = { thinkingLevel }
+    console.log(`[THINKING] Adding thinkingConfig.thinkingLevel="${thinkingLevel}" to ${currentModel}`)
+  }
+
+  // Build tools array — Flash 3.1 gets Google Image Search grounding
+  const tools: Record<string, unknown>[] = []
+  if (modelCaps?.supportsImageSearch && useImageSearch !== false) {
+    tools.push({
+      google_search: {
+        searchTypes: { webSearch: {}, imageSearch: {} },
+      },
+    })
+    console.log(`[IMAGE SEARCH] Adding Google Image Search grounding tool for ${currentModel}`)
   }
 
   requestBody = {
@@ -3886,10 +3959,8 @@ async function generateWithGemini(
         parts: [{ text: sanitizedPrompt }],
       },
     ],
-    generationConfig: {
-      responseModalities: ['TEXT', 'IMAGE'],
-      imageConfig: imageConfig,
-    },
+    generationConfig,
+    ...(tools.length > 0 && { tools }),
   }
 
   // Add system instruction if provided (works for both model types)
@@ -4022,13 +4093,17 @@ async function generateWithGemini(
     // If drift exceeds 5% threshold AND this is a Flash model AND we haven't retried yet
     // Then auto-upgrade to Pro model for perfect quality
     const DRIFT_THRESHOLD = 0.05  // 5% - anything above this triggers Pro upgrade
-    const isFlashModel = currentModel !== 'gemini-3-pro-image-preview'
+    const isFlashModel = currentModel !== 'gemini-3-pro-image-preview' // Flash 2.5 and Flash 3.1 are both flash
     const shouldRetry = maxDrift > DRIFT_THRESHOLD && isFlashModel && retryCount < 1
 
     if (shouldRetry) {
       console.warn(`[TIER 3] ⚠️ DIMENSION DRIFT TOO HIGH: ${(maxDrift * 100).toFixed(2)}% > ${(DRIFT_THRESHOLD * 100)}% threshold`)
       console.warn(`[TIER 3] 🔄 AUTO-UPGRADING to Pro model for quality (retry ${retryCount + 1}/1)`)
-      console.warn(`[TIER 3] 💰 Cost impact: $0.039 → $0.1344 per image (3.4x increase justified by quality)`)
+      const tierRes = (resolution === '512px' ? '1K' : resolution || '1K') as '1K' | '2K' | '4K'
+      const tierSourceCost = calculateImageCost('gemini', currentModel, 1, tierRes)
+      const tierTargetCost = calculateImageCost('gemini', 'gemini-3-pro-image-preview', 1, tierRes)
+      const tierMultiplier = (tierTargetCost / tierSourceCost).toFixed(1)
+      console.warn(`[TIER 3] 💰 Cost impact: $${tierSourceCost.toFixed(4)} → $${tierTargetCost.toFixed(4)} per image (${tierMultiplier}x increase justified by quality)`)
 
       // Recursive retry with Pro model (retryCount+1 prevents infinite loops)
       return await generateWithGemini(
@@ -4053,7 +4128,7 @@ async function generateWithGemini(
   }
 
   // For production, upload to Supabase Storage instead
-  return `data:${mimeType};base64,${imageData}`
+  return { imageBase64: `data:${mimeType};base64,${imageData}`, actualModel: currentModel }
 }
 
 async function generateWithIdeogram(

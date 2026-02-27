@@ -61,6 +61,11 @@ export type CreativeFormatId =
   | 'resume'
   | 'report_cover'
   | 'book_cover'
+  // Ultra Formats (Flash 3.1 exclusive — new aspect ratios)
+  | 'ultra_wide'
+  | 'ultra_tall'
+  | 'wide_banner'
+  | 'tall_banner'
   // Custom
   | 'custom'
 
@@ -83,6 +88,8 @@ export interface CreativeFormat {
   popular?: boolean
   new?: boolean
   useCases?: string[]
+  /** Auto-forces this Gemini model when format is selected (e.g., ultra aspect ratios) */
+  requiredModel?: string
 }
 
 // ============================================================================
@@ -556,6 +563,59 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 2133,
     description: 'Book or ebook cover',
     useCases: ['Books', 'Ebooks', 'Guides', 'Manuals'],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Ultra Formats — Nano Banana 2 (Flash 3.1) Exclusive
+  // These aspect ratios (8:1, 1:8, 4:1, 1:4) are only supported by gemini-3.1-flash-image-preview
+  // ---------------------------------------------------------------------------
+  ultra_wide: {
+    id: 'ultra_wide',
+    label: 'Ultra Wide Banner',
+    category: 'marketing',
+    aspectRatio: '8:1',
+    width: 3840,
+    height: 480,
+    description: 'Ultra-wide panoramic billboard or header banner',
+    new: true,
+    useCases: ['Billboard strips', 'Panoramic banners', 'Website headers'],
+    requiredModel: 'gemini-3.1-flash-image-preview',
+  },
+  ultra_tall: {
+    id: 'ultra_tall',
+    label: 'Ultra Tall Banner',
+    category: 'marketing',
+    aspectRatio: '1:8',
+    width: 480,
+    height: 3840,
+    description: 'Ultra-tall tower or pole banner',
+    new: true,
+    useCases: ['Tower banners', 'Pole displays', 'Vertical strips'],
+    requiredModel: 'gemini-3.1-flash-image-preview',
+  },
+  wide_banner: {
+    id: 'wide_banner',
+    label: 'Leaderboard Banner',
+    category: 'marketing',
+    aspectRatio: '4:1',
+    width: 1920,
+    height: 480,
+    description: 'Wide leaderboard ad or website banner',
+    new: true,
+    useCases: ['Leaderboard ads', 'Web banners', 'Event headers'],
+    requiredModel: 'gemini-3.1-flash-image-preview',
+  },
+  tall_banner: {
+    id: 'tall_banner',
+    label: 'Roll-Up Banner',
+    category: 'marketing',
+    aspectRatio: '1:4',
+    width: 480,
+    height: 1920,
+    description: 'Tall roll-up or vertical strip banner',
+    new: true,
+    useCases: ['Roll-up banners', 'Vertical ads', 'Portrait strips'],
+    requiredModel: 'gemini-3.1-flash-image-preview',
   },
 
   // ---------------------------------------------------------------------------

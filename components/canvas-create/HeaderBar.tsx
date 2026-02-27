@@ -4,7 +4,7 @@ import { useCreativeStore } from '@/stores/creative-store'
 import { useVerticals } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { FormatDropdown } from './FormatDropdown'
-import { Sparkles, Loader2, Wand2, Image, Info, LayoutGrid, FileText, Palette, Building2 } from 'lucide-react'
+import { Sparkles, Loader2, Wand2, Image, Info, LayoutGrid, FileText, Palette, Building2, Globe } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -35,6 +35,7 @@ const getModelDisplayName = (slug: string) => {
     'ideogram': 'Design Forge',
     'google': 'Vision Studio',
     'gemini': 'Vision Studio',
+    'nano-banana-2': 'Vision 2',
     'gemini-3-pro-image-preview': 'Vision Pro',
   }
   return names[slug] || slug
@@ -58,6 +59,12 @@ interface HeaderBarProps {
   // Mobile panel control (Bar 3)
   activePanel?: 'details' | 'style' | 'generate' | null
   onPanelChange?: (panel: 'details' | 'style' | 'generate' | null) => void
+  // Flash 3.1 (Nano Banana 2) thinking level
+  thinkingLevel?: 'minimal' | 'High'
+  onThinkingLevelChange?: (level: 'minimal' | 'High') => void
+  // Flash 3.1 (Nano Banana 2) image search toggle
+  useImageSearch?: boolean
+  onImageSearchChange?: (value: boolean) => void
 }
 
 export function HeaderBar({
@@ -78,7 +85,16 @@ export function HeaderBar({
   // Mobile panel control (Bar 3)
   activePanel,
   onPanelChange,
+  // Flash 3.1 thinking level
+  thinkingLevel = 'minimal',
+  onThinkingLevelChange,
+  // Flash 3.1 image search toggle
+  useImageSearch = true,
+  onImageSearchChange,
 }: HeaderBarProps) {
+
+  // Flash 3.1 model check — show Quality/Speed toggle only for Nano Banana 2
+  const isFlash31 = selectedModel?.model_id === 'gemini-3.1-flash-image-preview'
   // Use hook verticals as fallback if props not provided
   const { verticals: hookVerticals } = useVerticals()
   const verticals = propVerticals || hookVerticals
@@ -353,11 +369,76 @@ export function HeaderBar({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                {isFlash31 && (
+                  <SelectItem value="512px" className="text-xs">512px</SelectItem>
+                )}
                 <SelectItem value="1K" className="text-xs">1K</SelectItem>
                 <SelectItem value="2K" className="text-xs">2K</SelectItem>
                 <SelectItem value="4K" className="text-xs">4K</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Quality/Speed Toggle — Flash 3.1 (Nano Banana 2) only */}
+            {isFlash31 && onThinkingLevelChange && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center p-0.5 bg-muted/50 rounded-lg border">
+                    <button
+                      onClick={() => onThinkingLevelChange('minimal')}
+                      className={cn(
+                        'px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                        thinkingLevel === 'minimal'
+                          ? 'bg-white shadow-sm text-primary'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Fast
+                    </button>
+                    <button
+                      onClick={() => onThinkingLevelChange('High')}
+                      className={cn(
+                        'px-2 py-1 rounded-md text-[11px] font-medium transition-all',
+                        thinkingLevel === 'High'
+                          ? 'bg-white shadow-sm text-violet-600'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Quality
+                    </button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">
+                    Fast: quick generation · Quality: deeper thinking for complex layouts
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Web Search Toggle — Flash 3.1 (Nano Banana 2) only */}
+            {isFlash31 && onImageSearchChange && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onImageSearchChange(!useImageSearch)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all border',
+                      useImageSearch
+                        ? 'bg-white shadow-sm text-primary border-primary/30'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
+                    )}
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span>Web</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">
+                    Web Search: AI looks up real-world images before generating for more accurate visuals
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
 
           {/* Right: Generate Button - Desktop only */}

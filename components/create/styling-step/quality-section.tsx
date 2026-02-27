@@ -13,12 +13,17 @@ import {
 // Note: Collapsible removed - content is always visible when this section's tab is active
 
 const RESOLUTION_ICONS: Record<ResolutionId, React.ElementType> = {
+  '512px': Gauge,
   '1K': Monitor,
   '2K': Image,
   '4K': Maximize2,
 }
 
 const RESOLUTION_COLORS: Record<ResolutionId, { bg: string; text: string }> = {
+  '512px': {
+    bg: 'bg-green-100 dark:bg-green-900/50',
+    text: 'text-green-600 dark:text-green-400',
+  },
   '1K': {
     bg: 'bg-blue-100 dark:bg-blue-900/50',
     text: 'text-blue-600 dark:text-blue-400',

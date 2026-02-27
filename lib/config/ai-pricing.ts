@@ -45,6 +45,19 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
       cachedInputPerMillion: 0.03,     // Fixed: was 0.075, official is $0.03
     },
 
+    // Gemini 3.1 Flash Image Preview - Nano Banana 2
+    // Official pricing: $30/1M image output tokens (same rate as 2.5 Flash Image)
+    // 1K/2K = 1,120 tokens → $0.0336 per image (13% cheaper than 2.5 Flash at 1290 tokens)
+    // 4K = 2,000 tokens → $0.06 per image
+    // Exclusive: thinking mode, Google Image Search, 512px, ultra aspect ratios (8:1, 1:8, 4:1, 1:4)
+    'gemini-3.1-flash-image-preview': {
+      inputPerMillion: 0.30,
+      outputPerMillion: 2.50,           // Text output (thinking tokens)
+      imageOutputPerMillion: 30.00,     // Image output tokens
+      imageGeneration: 0.0336,          // $0.0336 per image (1120 tokens @ $30/1M) at 1K
+      cachedInputPerMillion: 0.03,
+    },
+
     // ============================================================
     // Text Models (Gemini 2.5 Flash family)
     // ============================================================
@@ -252,6 +265,14 @@ export function calculateImageCost(
   // At $120/M tokens: 1K/2K = $0.1344, 4K = $0.24
   if (model === 'gemini-3-pro-image-preview') {
     const cost = resolution === '4K' ? 0.24 : 0.1344
+    return cost * imageCount
+  }
+
+  // Resolution-based pricing for Gemini 3.1 Flash Image Preview (Nano Banana 2)
+  // Based on output tokens: 1K/2K = 1,120 tokens, 4K = 2,000 tokens
+  // At $30/1M tokens: 1K/2K = $0.0336, 4K = $0.06
+  if (model === 'gemini-3.1-flash-image-preview') {
+    const cost = resolution === '4K' ? 0.06 : 0.0336
     return cost * imageCount
   }
 

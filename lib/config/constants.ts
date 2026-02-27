@@ -87,7 +87,14 @@ export type LogoCategory = keyof typeof LOGO_CATEGORIES
 
 // AI Providers
 export const AI_PROVIDERS = {
-  google: { label: 'Google Gemini', models: ['gemini-2.0-flash-preview-image-generation'] },
+  google: {
+    label: 'Google Gemini',
+    models: [
+      'gemini-2.5-flash-image',
+      'gemini-3.1-flash-image-preview',
+      'gemini-3-pro-image-preview',
+    ],
+  },
   ideogram: { label: 'Ideogram', models: ['ideogram-v2'] },
 } as const
 

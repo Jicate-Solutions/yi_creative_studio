@@ -74,42 +74,46 @@ function LoginContent() {
 
   async function onSubmit(data: LoginForm) {
     setIsLoading(true)
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    })
-
-    setIsLoading(false)
-
-    if (error) {
-      toast.error(error.message)
-      return
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      toast.success('Welcome back!')
+      // Use redirectTo if provided, otherwise go to dashboard
+      router.push(redirectTo || ROUTES.dashboard)
+      router.refresh()
+    } catch {
+      toast.error('Unable to connect to authentication service. Please check your internet connection and try again.')
+    } finally {
+      setIsLoading(false)
     }
-
-    toast.success('Welcome back!')
-    // Use redirectTo if provided, otherwise go to dashboard
-    router.push(redirectTo || ROUTES.dashboard)
-    router.refresh()
   }
 
   async function signInWithGoogle() {
     setIsGoogleLoading(true)
+    try {
+      // Pass the redirectTo as the 'next' param in the callback URL
+      const callbackUrl = redirectTo
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+        : `${window.location.origin}/auth/callback`
 
-    // Pass the redirectTo as the 'next' param in the callback URL
-    const callbackUrl = redirectTo
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
-      : `${window.location.origin}/auth/callback`
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: callbackUrl,
-      },
-    })
-
-    if (error) {
-      toast.error(error.message)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl,
+        },
+      })
+      if (error) {
+        toast.error(error.message)
+        setIsGoogleLoading(false)
+      }
+    } catch {
+      toast.error('Unable to connect to authentication service. Please check your internet connection and try again.')
       setIsGoogleLoading(false)
     }
   }

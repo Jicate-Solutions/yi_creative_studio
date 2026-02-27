@@ -79,9 +79,15 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Supabase unreachable (e.g. network timeout, paused free-tier project)
+    // Treat as unauthenticated — protected routes redirect to login, public routes continue
+    console.error('[Middleware] Supabase auth check failed — continuing as unauthenticated')
+  }
 
   // Redirect unauthenticated users to login (but not for API routes)
   const isSuperAdminRoute =

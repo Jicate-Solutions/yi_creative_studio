@@ -123,6 +123,11 @@ export function CanvasCreatePage({
   // Selected model tracking
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
 
+  // Flash 3.1 (Nano Banana 2) thinking level: 'minimal' = fast, 'High' = quality
+  const [thinkingLevel, setThinkingLevel] = useState<'minimal' | 'High'>('minimal')
+  // Flash 3.1 (Nano Banana 2) image search grounding — default ON
+  const [useImageSearch, setUseImageSearch] = useState(true)
+
   // Post-generation modals and actions
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [shuffleModalOpen, setShuffleModalOpen] = useState(false)
@@ -403,6 +408,8 @@ export function CanvasCreatePage({
         customDimensions: formData.customDimensions || null,
         language: (formData.formData?.language as string) || 'en',
         userFormData: formData.formData,
+        // Flash 3.1 only: thinkingLevel controls quality vs speed, useImageSearch enables grounding
+        ...(modelToUse.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
       }
 
       // Call original /api/generate endpoint
@@ -524,7 +531,7 @@ export function CanvasCreatePage({
     if (formData.creationMode === 'scratch') {
       if (options.theme) updateTheme(options.theme)
       if (options.style) updateStyle(options.style)
-      if (options.resolution) updateResolution(options.resolution as '1K' | '2K' | '4K')
+      if (options.resolution) updateResolution(options.resolution as '512px' | '1K' | '2K' | '4K')
     }
 
     // Clear previous image
@@ -656,6 +663,16 @@ export function CanvasCreatePage({
     // streaming removed - using synchronous fetch now
   ])
 
+  // Model change handler — auto-resets 512px resolution when switching away from NB2
+  const handleModelChange = useCallback((modelId: string) => {
+    const newModel = models.find(m => m.id === modelId)
+    if (newModel?.model_id !== 'gemini-3.1-flash-image-preview' &&
+        formData.designData?.resolution === '512px') {
+      updateResolution('1K')
+    }
+    selectModel(modelId)
+  }, [models, selectModel, formData.designData?.resolution, updateResolution])
+
   // Desktop layout - Canva-style tight panels
   if (!isMobile) {
     return (
@@ -666,7 +683,7 @@ export function CanvasCreatePage({
           isGenerating={isGenerating}
           models={models}
           selectedModel={selectedModel}
-          onModelChange={selectModel}
+          onModelChange={handleModelChange}
           isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
           hasGeneratedImage={!!generatedImage}
@@ -675,7 +692,11 @@ export function CanvasCreatePage({
           selectedVertical={selectedVertical}
           onVerticalChange={selectVertical}
           resolution={formData.designData?.resolution || '2K'}
-          onResolutionChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
+          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+          thinkingLevel={thinkingLevel}
+          onThinkingLevelChange={setThinkingLevel}
+          useImageSearch={useImageSearch}
+          onImageSearchChange={setUseImageSearch}
         />
 
         {/* Main Content - Canva-style layout */}
@@ -864,7 +885,7 @@ export function CanvasCreatePage({
           isGenerating={isGenerating}
           models={models}
           selectedModel={selectedModel}
-          onModelChange={selectModel}
+          onModelChange={handleModelChange}
           isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
           hasGeneratedImage={!!generatedImage}
@@ -873,7 +894,11 @@ export function CanvasCreatePage({
           selectedVertical={selectedVertical}
           onVerticalChange={selectVertical}
           resolution={formData.designData?.resolution || '2K'}
-          onResolutionChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
+          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+          thinkingLevel={thinkingLevel}
+          onThinkingLevelChange={setThinkingLevel}
+          useImageSearch={useImageSearch}
+          onImageSearchChange={setUseImageSearch}
           // Mobile panel control (Bar 3)
           activePanel={activePanel}
           onPanelChange={setActivePanel}
@@ -1031,12 +1056,15 @@ export function CanvasCreatePage({
             <Label className="text-sm font-medium">Resolution</Label>
             <Select
               value={formData.designData?.resolution || '2K'}
-              onValueChange={(val) => updateResolution(val as '1K' | '2K' | '4K')}
+              onValueChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
             >
               <SelectTrigger className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                {selectedModel?.model_id === 'gemini-3.1-flash-image-preview' && (
+                  <SelectItem value="512px">512px - Thumbnail</SelectItem>
+                )}
                 <SelectItem value="1K">1K - Standard</SelectItem>
                 <SelectItem value="2K">2K - High Quality</SelectItem>
                 <SelectItem value="4K">4K - Ultra HD</SelectItem>
