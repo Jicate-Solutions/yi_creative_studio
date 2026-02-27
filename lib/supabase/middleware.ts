@@ -84,11 +84,16 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Redirect unauthenticated users to login (but not for API routes)
+  const isSuperAdminRoute =
+    request.nextUrl.pathname.startsWith('/super-admin') ||
+    request.nextUrl.pathname.startsWith('/admin')
+
   if (!user && !isPublicRoute && !isApiRoute) {
     let redirectResponse: NextResponse
 
-    // Check if Yi Connect SSO is enabled
-    if (isYiConnectSSOEnabled()) {
+    // Super-admin routes always use local login (bypass Yi Connect SSO)
+    // because super admins are internal platform administrators, not Yi Connect members
+    if (isYiConnectSSOEnabled() && !isSuperAdminRoute) {
       // Redirect to Yi Connect for authentication
       const yiConnectUrl = getYiConnectLoginUrl(
         request.nextUrl.pathname,
@@ -96,7 +101,7 @@ export async function updateSession(request: NextRequest) {
       )
       redirectResponse = NextResponse.redirect(yiConnectUrl)
     } else {
-      // Use local login page (legacy behavior)
+      // Use local login page: for super-admin routes + when SSO is disabled
       const url = request.nextUrl.clone()
       url.pathname = '/auth/login'
       url.searchParams.set('redirectTo', request.nextUrl.pathname)
