@@ -1938,7 +1938,7 @@ ${typographyProfile.hierarchy}
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
     } else if (provider === 'google') {
-      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model))
+      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model, 0, thinkingLevel, useImageSearch))
     } else if (provider === 'ideogram') {
       imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
     } else {
