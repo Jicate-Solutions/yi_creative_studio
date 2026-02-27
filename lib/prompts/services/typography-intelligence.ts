@@ -352,7 +352,7 @@ export async function generateTypographyIntelligence(
         model: 'claude-haiku-4-5',
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
-        estimatedCostUsd: (response.usage.input_tokens * 0.001 / 1000000) + (response.usage.output_tokens * 0.005 / 1000000),
+        estimatedCostUsd: (response.usage.input_tokens / 1_000_000 * 1.00) + (response.usage.output_tokens / 1_000_000 * 5.00),
         durationMs: latency,
         success: true,
         metadata: {

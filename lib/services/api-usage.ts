@@ -216,7 +216,7 @@ export function createUsageTracker(params: {
         promptLength?: number
         success?: boolean
         errorMessage?: string
-        resolution?: '1K' | '2K' | '4K'  // For resolution-based pricing (Gemini 3 Pro)
+        resolution?: '512px' | '1K' | '2K' | '4K'  // For resolution-based pricing (Gemini 3 Pro / NB2)
       }
     ) => {
       // Calculate cost based on whether this is image or text generation

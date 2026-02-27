@@ -4092,9 +4092,11 @@ async function generateWithGemini(
     // TIER 3 AUTO-RETRY LOGIC
     // If drift exceeds 5% threshold AND this is a Flash model AND we haven't retried yet
     // Then auto-upgrade to Pro model for perfect quality
+    // Exception: skip TIER 3 for 512px — user explicitly chose cheap/fast preview, not a drift bug
     const DRIFT_THRESHOLD = 0.05  // 5% - anything above this triggers Pro upgrade
     const isFlashModel = currentModel !== 'gemini-3-pro-image-preview' // Flash 2.5 and Flash 3.1 are both flash
-    const shouldRetry = maxDrift > DRIFT_THRESHOLD && isFlashModel && retryCount < 1
+    const is512px = resolution === '512px'  // User's intentional low-res choice — never upgrade
+    const shouldRetry = maxDrift > DRIFT_THRESHOLD && isFlashModel && retryCount < 1 && !is512px
 
     if (shouldRetry) {
       console.warn(`[TIER 3] ⚠️ DIMENSION DRIFT TOO HIGH: ${(maxDrift * 100).toFixed(2)}% > ${(DRIFT_THRESHOLD * 100)}% threshold`)
