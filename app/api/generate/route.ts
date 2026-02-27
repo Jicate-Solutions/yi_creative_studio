@@ -13,6 +13,7 @@ import {
 import { resolveColorConfig, buildResolvedColorNarrative, isValidHex, type ResolvedColors } from '@/lib/utils/resolve-color-config'
 import { verifyImageColors, formatVerificationLog, type ColorVerificationResult } from '@/lib/utils/color-verification'
 import { calculateInitiativeContrast, type InitiativeContrastInfo } from '@/lib/utils/color-contrast'
+import { fetchWithRetry, NetworkError, TimeoutError } from '@/lib/utils/fetch-with-retry'
 // Lazy load sharp to reduce cold start time (40-60MB native binary)
 // Only loaded when actually needed for template processing
 let sharpInstance: typeof sharp | null = null
@@ -3906,18 +3907,48 @@ async function generateWithGemini(
     { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
   ]
 
-  // Use the selected Gemini model for image generation
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
+  // Use the selected Gemini model for image generation with retry logic
+  let response: Response
+
+  try {
+    response = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
+      {
+        maxRetries: 3,
+        baseDelay: 2000,      // 2s, 4s, 8s exponential backoff
+        timeout: 120000,      // 2 minutes for image generation
+        retryableStatuses: [408, 429, 500, 502, 503, 504],
+        requestId: `gemini-${Date.now()}`
+      }
+    )
+  } catch (error) {
+    // Categorize error for better user feedback
+    if (error instanceof NetworkError) {
+      console.error('=== GEMINI NETWORK ERROR ===')
+      console.error('After 3 retries with exponential backoff')
+      console.error('Error:', error.message)
+      console.error('Cause:', error.cause)
+      console.error('============================')
+      throw new Error('Network error connecting to Gemini API after 3 retries. Please check your internet connection and try again.')
+    } else if (error instanceof TimeoutError) {
+      console.error('=== GEMINI TIMEOUT ERROR ===')
+      console.error('Request exceeded 2 minute timeout')
+      console.error('Error:', error.message)
+      console.error('============================')
+      throw new Error('Gemini API request timed out after 2 minutes. The service may be overloaded. Please try again.')
+    } else {
+      // Re-throw other errors (auth, validation, etc.)
+      throw error
     }
-  )
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
@@ -4066,21 +4097,72 @@ async function generateWithIdeogram(
     imageRequest.negative_prompt = negativePrompt
   }
 
-  const response = await fetch('https://api.ideogram.ai/generate', {
-    method: 'POST',
-    headers: {
-      'Api-Key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      image_request: imageRequest,
-    }),
-  })
+  // Use Ideogram API with retry logic
+  let response: Response
+
+  try {
+    response = await fetchWithRetry(
+      'https://api.ideogram.ai/generate',
+      {
+        method: 'POST',
+        headers: {
+          'Api-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_request: imageRequest,
+        }),
+      },
+      {
+        maxRetries: 3,
+        baseDelay: 2000,      // 2s, 4s, 8s exponential backoff
+        timeout: 120000,      // 2 minutes for image generation
+        retryableStatuses: [408, 429, 500, 502, 503, 504],
+        requestId: `ideogram-${Date.now()}`
+      }
+    )
+  } catch (error) {
+    // Categorize error for better user feedback
+    if (error instanceof NetworkError) {
+      console.error('=== IDEOGRAM NETWORK ERROR ===')
+      console.error('After 3 retries with exponential backoff')
+      console.error('Error:', error.message)
+      console.error('Cause:', error.cause)
+      console.error('==============================')
+      throw new Error('Network error connecting to Ideogram API after 3 retries. Please check your internet connection and try again.')
+    } else if (error instanceof TimeoutError) {
+      console.error('=== IDEOGRAM TIMEOUT ERROR ===')
+      console.error('Request exceeded 2 minute timeout')
+      console.error('Error:', error.message)
+      console.error('==============================')
+      throw new Error('Ideogram API request timed out after 2 minutes. The service may be overloaded. Please try again.')
+    } else {
+      // Re-throw other errors (auth, validation, etc.)
+      throw error
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Ideogram API error:', errorText)
-    throw new Error('Failed to generate image with Ideogram')
+    console.error('=== IDEOGRAM API ERROR ===')
+    console.error('Status:', response.status)
+    console.error('Status Text:', response.statusText)
+    console.error('Response Body:', errorText)
+    console.error('API Key (last 4 chars):', apiKey.slice(-4))
+    console.error('==========================')
+
+    // Parse error for more specific message
+    let errorMessage = 'Failed to generate image with Ideogram'
+    try {
+      const errorJson = JSON.parse(errorText)
+      if (errorJson.error?.message) {
+        errorMessage = `Ideogram API: ${errorJson.error.message}`
+      }
+    } catch {
+      // Keep default message if parse fails
+    }
+
+    throw new Error(errorMessage)
   }
 
   const data = await response.json()
