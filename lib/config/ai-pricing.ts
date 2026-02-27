@@ -252,7 +252,7 @@ export function calculateImageCost(
   provider: AIProvider,
   model: string,
   imageCount: number = 1,
-  resolution: '1K' | '2K' | '4K' = '1K'
+  resolution: '512px' | '1K' | '2K' | '4K' = '1K'
 ): number {
   const pricing = getModelPricing(provider, model)
   if (!pricing?.imageGeneration) {
@@ -269,8 +269,8 @@ export function calculateImageCost(
   }
 
   // Resolution-based pricing for Gemini 3.1 Flash Image Preview (Nano Banana 2)
-  // Based on output tokens: 1K/2K = 1,120 tokens, 4K = 2,000 tokens
-  // At $30/1M tokens: 1K/2K = $0.0336, 4K = $0.06
+  // Based on output tokens: 512px/1K/2K = 1,120 tokens, 4K = 2,000 tokens
+  // At $30/1M tokens: 512px/1K/2K = $0.0336, 4K = $0.06
   if (model === 'gemini-3.1-flash-image-preview') {
     const cost = resolution === '4K' ? 0.06 : 0.0336
     return cost * imageCount
@@ -287,7 +287,7 @@ export function estimateGenerationCost(params: {
   provider: AIProvider
   model: string
   includesImage?: boolean
-  resolution?: '1K' | '2K' | '4K'
+  resolution?: '512px' | '1K' | '2K' | '4K'
 }): number {
   // Rough token estimation: ~4 characters per token
   const estimatedInputTokens = Math.ceil(params.promptLength / 4)
