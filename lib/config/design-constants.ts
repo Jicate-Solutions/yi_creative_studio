@@ -1675,6 +1675,7 @@ export interface DesignData {
   colorConfig: ColorConfig // NEW: Color configuration
   typography: TypographyConfig // NEW v4.3: Typography configuration
   stripShape?: LogoStripShape // NEW v3.11: Logo strip shape for event posters with logo bands
+  visualDirection?: string // Free-text visual brief: e.g. "tech digital green circuits"
 }
 
 export const DEFAULT_DESIGN_DATA: DesignData = {

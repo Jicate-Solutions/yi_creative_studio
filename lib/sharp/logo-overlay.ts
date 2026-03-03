@@ -2564,9 +2564,12 @@ export async function createEnhanced4RowFooterStrip(
   const bgB = bgColor.b
   const bgA = bgColor.alpha
 
+  // v24.16: Solid fill at uniform bgA (0.7) — matches Row 3 initiative bar density
+  // Rounded top corners preserved via SVG path; gradient removed for visual consistency
   const roundedTopSVG = `
     <svg width="${stripWidth}" height="${footerHeight}">
-      <path d="M 0,${borderRadius} Q 0,0 ${borderRadius},0 L ${stripWidth - borderRadius},0 Q ${stripWidth},0 ${stripWidth},${borderRadius} L ${stripWidth},${footerHeight} L 0,${footerHeight} Z" fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
+      <path d="M 0,${borderRadius} Q 0,0 ${borderRadius},0 L ${stripWidth - borderRadius},0 Q ${stripWidth},0 ${stripWidth},${borderRadius} L ${stripWidth},${footerHeight} L 0,${footerHeight} Z"
+            fill="rgba(${bgR},${bgG},${bgB},${bgA})"/>
     </svg>
   `
 

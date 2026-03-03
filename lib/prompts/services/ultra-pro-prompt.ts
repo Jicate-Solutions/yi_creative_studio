@@ -135,16 +135,19 @@ When creating backgrounds, think cinematically with three distinct depth layers:
    - Rule: Create emotional depth - what FEELING should the viewer get?
    - Sophistication: Minimalist uses simple gradients, Balanced uses moderate atmospheres, Rich uses immersive scenes
 
-CINEMATIC COMPOSITION QUESTIONS (Ask yourself before finalizing):
-- Does the background FEEL like the event type? (Workshop = hands-on energy, Conference = professional prestige)
+CINEMATIC COMPOSITION (v30.1 — Think Like a Director):
+- Don't ask "what type of event is this?" — ask "what does THIS SPECIFIC event LOOK like?"
+- A "Blood Donation Drive" should look like a blood donation drive:
+  warm clinical setting, red cross imagery, donor chairs, IV bags, heroic atmosphere
+- A "Menstrual Health Workshop" should look like a menstrual health workshop:
+  intimate educational space, anatomical charts, empowering feminine energy
+- NEVER default to "professional setting" — find the REAL setting for THIS event
+
+Ask yourself:
 - Is there visual depth? (Blurred background + crisp midground + subtle foreground = cinema-quality)
 - Do the layers work together or fight each other?
 - Would this design make someone STOP and look, or is it generic?
-
-Example Cinematic Scenes:
-- Nature theme: "Deep misty forest (background) → Clean text zone (midground) → Gentle leaf overlay (foreground)"
-- Tech theme: "Holographic data streams (background) → Solid gradient text zone (midground) → Circuit pattern overlay (foreground)"
-- Energy theme: "Explosive radial burst (background) → High-contrast text area (midground) → Motion blur streaks (foreground)"
+- Could this background be REUSED for a completely different event? If YES → it's too generic. REDESIGN.
 
 CRITICAL CUSTOM COLOR ENFORCEMENT (v5.3):
 When custom colors are explicitly provided by the user, you MUST use them exclusively:
@@ -213,7 +216,12 @@ export async function generateUltraProPrompt(
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
   resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
-  dualStripeMode?: boolean // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
+  dualStripeMode?: boolean, // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
+  promptStyleOptions?: {
+    temperatureOverride?: number | null // v31.0: Override dynamic temperature
+    creativeDirection?: string          // v31.0: Prompt style creative direction
+    modelGuidance?: string              // v31.0: Model-specific prompt tuning guidance
+  }
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
@@ -352,14 +360,17 @@ These colors are NON-NEGOTIABLE - override any other color suggestions in this p
 GENERATION SEED: ${variationSeed}
 This seed FORCES unique creative output. Do NOT fall back to safe, predictable designs.
 
-CREATIVE TWIST REQUIREMENT:
+CREATIVE TWIST REQUIREMENT (v30.1):
 Your design MUST include ONE unexpected visual element that makes it MEMORABLE.
-Ask yourself: "What would make someone stop scrolling and LOOK at this design?"
+The twist should be IMPOSSIBLE TO REUSE on a different event.
 
-Examples of Creative Twists:
-- Instead of a standard networking background, use "magnetic field lines pulling diverse silhouettes together"
-- Instead of a tech gradient, use "holographic data fragments floating in zero gravity"
-- Instead of corporate blue, use "deep space noir with bioluminescent accents"
+Find what's UNEXPECTED about THIS specific event:
+- A blood donation event → "life flowing through translucent veins visible beneath warm skin"
+- A menstrual health workshop → "breaking-taboo imagery with flowers growing from educational diagrams"
+- A tree planting drive → "roots and branches forming a DNA helix connecting earth to sky"
+- A coding hackathon → "lines of code raining down like the Matrix but forming real software UIs"
+
+Ask: "Would this twist work on ANY other event?" If yes → it's not specific enough. RETHINK.
 
 ANTI-PATTERN ENFORCEMENT:
 Before finalizing, check your design against this list. If ANY apply, REDESIGN:
@@ -375,12 +386,27 @@ Before finalizing, check your design against this list. If ANY apply, REDESIGN:
 YOUR GOAL: Create something the viewer has NEVER seen before for this type of event.
 ` : ''
 
+  // Build visual direction section (user's free-text visual brief)
+  const visualDirectionSection = compiledData.visualDirection
+    ? `\nUSER VISUAL DIRECTION (highest priority — override theme defaults):\n"${compiledData.visualDirection}"\nThe visualScene field MUST reflect this exact visual. Treat it as a direct creative brief from the user.\n`
+    : ''
+
+  // v31.0: Build creative style section
+  const creativeStyleSection = promptStyleOptions?.creativeDirection
+    ? `\nCREATIVE STYLE (v31.0 — Pipeline-Level Creative Mode):\n${promptStyleOptions.creativeDirection}\nApply this creative approach to ALL visual decisions — scene, composition, color, typography.\n`
+    : ''
+
+  // v31.0: Build model guidance section
+  const modelGuidanceSection = promptStyleOptions?.modelGuidance
+    ? `\nMODEL-SPECIFIC APPROACH (v31.0):\n${promptStyleOptions.modelGuidance}\n`
+    : ''
+
   // Build the full prompt for the AI
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
-${creativityEnforcement}
+${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}
 ${colorBriefSection}USER'S CREATIVE BRIEF:
 ${userBrief}
-${designContextSection}
+${designContextSection}${visualDirectionSection}
 SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
 TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
@@ -388,14 +414,20 @@ ${logoStripInstructions}
 
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
-  // Call the appropriate AI provider with dynamic temperature
+  // v31.0: Use style temperature override or format-based dynamic temperature
+  const effectiveTemperature = promptStyleOptions?.temperatureOverride ?? tempConfig.ultraProPrompt
+  if (promptStyleOptions?.temperatureOverride != null) {
+    console.log(`[Ultra-Pro Prompt] v31.0 Style temperature override: ${effectiveTemperature} (was: ${tempConfig.ultraProPrompt})`)
+  }
+
+  // Call the appropriate AI provider with temperature
   let llmResponse: LLMResponse
 
   try {
     if (provider === 'gemini') {
-      llmResponse = await callGemini(prompt, tempConfig.ultraProPrompt, tempConfig.topP)
+      llmResponse = await callGemini(prompt, effectiveTemperature, tempConfig.topP)
     } else {
-      llmResponse = await callClaude(prompt, tempConfig.ultraProPrompt)
+      llmResponse = await callClaude(prompt, effectiveTemperature)
     }
   } catch (error) {
     console.error('[Ultra-Pro Prompt] AI call failed:', error)
@@ -454,10 +486,15 @@ export async function generateUltraProPromptSafe(
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
   resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
-  dualStripeMode?: boolean // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
+  dualStripeMode?: boolean, // v6.0: Whether dual-stripe header mode is enabled (primary + vertical logos)
+  promptStyleOptions?: {
+    temperatureOverride?: number | null
+    creativeDirection?: string
+    modelGuidance?: string
+  }
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {
@@ -515,19 +552,9 @@ async function callClaude(
           cache_control: { type: 'ephemeral' as const },
         },
       ],
-      messages: [
-        {
-          role: 'user' as const,
-          content: userContent,
-        },
-      ],
+      messages: [{ role: 'user' as const, content: userContent }],
     } : {
-      messages: [
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ],
+      messages: [{ role: 'user' as const, content: prompt }],
     }),
   })
 
@@ -538,9 +565,6 @@ async function callClaude(
     throw new Error('No text response from Claude')
   }
 
-  const text = textBlock.text
-
-  // Extract token usage from Claude's response
   const tokenUsage: TokenUsage = {
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
@@ -550,12 +574,7 @@ async function callClaude(
 
   console.log('[Ultra-Pro Prompt] Token usage:', JSON.stringify(tokenUsage))
 
-  return {
-    text,
-    tokenUsage,
-    model: modelName,
-    durationMs,
-  }
+  return { text: textBlock.text, tokenUsage, model: modelName, durationMs }
 }
 
 async function callGemini(

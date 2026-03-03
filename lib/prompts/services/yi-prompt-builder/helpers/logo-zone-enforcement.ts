@@ -152,24 +152,28 @@ CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
 }
 
 /**
- * Build spatial composition guidance (v24.6 - Percentage-Only, No Pixel Leakage)
+ * Build spatial composition guidance (v25.3 - Conservative Header + Real Footer)
  *
- * v24.6: RESTORED structural approach but with ZERO pixel values in output
+ * v25.3: CONSERVATIVE HEADER BOUNDARY fixes v25.2 conflict (spatial constraints said 26%,
+ * layout_composition_rules said 40% → Gemini chose the lower/less-safe 26%)
  *
- * Key Changes:
- * - Pixel values logged to console ONLY (for backend debugging)
- * - Prompt text uses PERCENTAGE values only (40%, 70%, etc.)
- * - Maintains the effective zone enforcement from old working version
- * - Removes trigger words that Gemini might render
+ * Header strategy (v25.3): contentStartY = MAX(realSharpHeader+30, headerPercent×canvasHeight)
+ * → Takes the LARGER boundary for the header — always >= the percentage-based value (40%)
+ * → Keeps 226px buffer above real logo rows (not just 30px) — absorbs Gemini imprecision
+ * → Consistent with layout_composition_rules "40%" — no mixed signals
  *
- * @param canvasWidth - Canvas width in pixels (for logging only)
- * @param canvasHeight - Canvas height in pixels (for logging only)
- * @param headerHeight - Header zone height in pixels (for logging only)
- * @param footerHeight - Footer zone height in pixels (for logging only)
- * @param headerPercent - Header zone percentage (used in prompt)
- * @param footerPercent - Footer zone percentage (used in prompt)
- * @param engine - Optional engine type for model-aware constraints (v24.7)
- * @returns Percentage-based spatial constraints (no pixel values for Flash, explicit for Pro)
+ * Footer strategy (v25.2): contentEndPx = real Sharp footer position - 30px buffer
+ * → Uses actual Sharp footer height (gives Gemini ~27% more vertical space vs old hardcoded 70%)
+ *
+ * @param canvasWidth - Canvas width in pixels
+ * @param canvasHeight - Canvas height in pixels
+ * @param headerHeight - ACTUAL Sharp header height in pixels (used in MAX comparison)
+ * @param footerHeight - ACTUAL Sharp footer height in pixels (used for real footer boundary)
+ * @param headerPercent - Conservative header percentage (e.g., 40) — sets minimum content start
+ * @param footerPercent - Footer zone percentage (kept for reference)
+ * @param engine - Optional engine type for model-aware constraints
+ * @param contentEndPx - Explicit pixel where content MUST end (canvasHeight - footerHeight - 30px buffer)
+ * @returns Pixel-precise spatial constraints: conservative header + real footer boundaries
  */
 export function buildPixelPreciseSpatialConstraints(
   canvasWidth: number,
@@ -178,240 +182,133 @@ export function buildPixelPreciseSpatialConstraints(
   footerHeight: number,
   headerPercent: number,
   footerPercent: number,
-  engine?: 'yi_vision' | 'yi_craft'
+  engine?: 'yi_vision' | 'yi_craft',
+  contentEndPx?: number
 ): string {
-  // v24.7: Pro model (yi_craft) needs STRICTER enforcement with different language
-  // Pro ignores percentage-based prose guidance, needs explicit pixel boundaries
+  // v25.3: CONSERVATIVE header boundary — take MAX of real Sharp value and percentage-based value
+  //
+  // WHY: Gemini is imprecise. The real Sharp header (e.g., 350px) + 30px buffer = 380px gives
+  // only 30px clearance. If Gemini overshoots by 31px, content lands in the logo zone.
+  //
+  // The percentage-based boundary (CONTENT_START=40% = 576px) had a 226px buffer above the
+  // actual logo rows — generous enough to absorb Gemini's placement imprecision and match
+  // what layout_composition_rules hardcodes ("40% content zone").
+  //
+  // FOOTER: Use the real Sharp value (contentEndPx) — giving Gemini MORE space (79% vs 70%)
+  // HEADER: Use MAX(real+buffer, percentage) — keeping conservative 40% boundary for header
+  //
+  // This resolves the v25.2 conflict where spatial constraints said "26%" but layout rules
+  // said "40%", causing Gemini to use the lower (less safe) value.
+  const realHeaderStartY = headerHeight + 30                       // e.g., 350+30 = 380px (26%)
+  const percentBasedStartY = Math.floor(canvasHeight * (headerPercent / 100))  // e.g., 576px (40%)
+  const contentStartY = Math.max(realHeaderStartY, percentBasedStartY)  // e.g., max(380,576)=576px
+
+  const computedContentEndY = canvasHeight - footerHeight - 30  // Real Sharp footer + buffer
+  const resolvedContentEndPx = contentEndPx ?? computedContentEndY
+  const availablePx = resolvedContentEndPx - contentStartY
+
+  const contentStartPercent = Math.round((contentStartY / canvasHeight) * 100)
+  const contentEndPercent = Math.round((resolvedContentEndPx / canvasHeight) * 100)
+  const contentHeightPercent = contentEndPercent - contentStartPercent
+
+  // v25.3: Log which boundary won (real vs percentage) for debugging
+  console.log(`[buildPixelPreciseSpatialConstraints] v25.3 Conservative Header Boundary:`, {
+    engine: engine ?? 'default',
+    canvas: `${canvasWidth}x${canvasHeight}`,
+    headerHeight: `${headerHeight}px (actual Sharp)`,
+    footerHeight: `${footerHeight}px (actual Sharp)`,
+    realHeaderStartY: `${realHeaderStartY}px`,
+    percentBasedStartY: `${percentBasedStartY}px (${headerPercent}%)`,
+    contentStartY: `${contentStartY}px → used ${contentStartY === percentBasedStartY ? 'percentage-based (conservative)' : 'real value (Sharp header taller than percentage)'}`,
+    contentEndPx: `${resolvedContentEndPx}px (${contentEndPercent}%) — real Sharp footer`,
+    availablePx: `${availablePx}px available for content`,
+  })
+
   if (engine === 'yi_craft') {
     return buildProModelSpatialConstraints(
       canvasWidth,
       canvasHeight,
-      headerHeight,
-      footerHeight,
-      headerPercent,
-      footerPercent
+      contentStartY,
+      resolvedContentEndPx,
+      availablePx,
+      contentStartPercent,
+      contentEndPercent
     )
   }
 
-  // v24.10: Flash model (yi_vision) - UNIFIED with Pro model zones
-  // Both models now use same 40%-70% content zone for consistency
-  const UNIFIED_HEADER_ZONE_PERCENT = 40
-  const UNIFIED_FOOTER_ZONE_PERCENT = 70
-
-  const unifiedHeaderHeight = Math.floor(canvasHeight * (UNIFIED_HEADER_ZONE_PERCENT / 100))
-  const unifiedFooterStartY = Math.floor(canvasHeight * (UNIFIED_FOOTER_ZONE_PERCENT / 100))
-
-  const contentStartY = unifiedHeaderHeight + 30
-  const contentEndY = unifiedFooterStartY - 30
-  const contentHeightPx = contentEndY - contentStartY
-
-  const contentStartPercent = UNIFIED_HEADER_ZONE_PERCENT  // 40%
-  const contentEndPercent = UNIFIED_FOOTER_ZONE_PERCENT    // 70%
-  const contentHeightPercent = contentEndPercent - contentStartPercent  // 30%
-
-  // v24.10: Log pixel values for backend debugging ONLY
-  console.log(`[v24.10 Unified Zones - Flash] Content zone 40%-70%:`, {
-    canvas: `${canvasWidth}x${canvasHeight}`,
-    headerZone: `0-${unifiedHeaderHeight}px (0-${UNIFIED_HEADER_ZONE_PERCENT}%)`,
-    contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,
-    footerZone: `${unifiedFooterStartY}-${canvasHeight}px (${UNIFIED_FOOTER_ZONE_PERCENT}-100%)`,
-  })
-
-  // v24.14: INVISIBLE GUIDELINES approach with concrete visual analogies
-  // Reframed from "three areas" to "single canvas + invisible text positioning rule"
+  // Flash model (yi_vision) — v32.0: Simplified zone enforcement without verbose pixel values
+  // Uses percentage-based language that Gemini follows more reliably
   return `
-VISUAL COMPOSITION - SINGLE CANVAS CONCEPT:
+(DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
-Design ONE continuous visual that spans the entire canvas (0% to 100%) without interruption.
-Think of it as a single photograph, gradient, or artistic scene - NOT as separate sections.
+CANVAS LAYOUT RULE:
+The top ${contentStartPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
+The bottom ${100 - contentEndPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
 
-VISUAL ANALOGIES (concrete examples of "single canvas"):
-• A sunset gradient: Deep orange at top → warm yellow in middle → pink at bottom (ONE continuous gradient, no bands)
-• A studio photograph: Professional photography backdrop that flows seamlessly from top to bottom
-• An oil painting: A single artistic composition painted across the entire canvas
-• A skyscape: Blue sky gradually transitioning to horizon (ONE unified scene)
-• An atmospheric scene: Misty forest or urban landscape that spans the full frame
+ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed in the middle ${contentHeightPercent}% of the canvas (between ${contentStartPercent}% and ${contentEndPercent}% from the top).
 
-Key principle: These examples show backgrounds with NO horizontal dividing lines or section breaks.
+The top ${contentStartPercent}% and bottom ${100 - contentEndPercent}% should contain ONLY smooth background artwork — no text, no labels, no icons.
 
-AVOID (per Gemini documentation - list unwanted elements):
-horizontal lines, section dividers, band separators, stripe patterns, visible zones, segmented backgrounds, border lines between areas, gradient bands that create divisions
+BACKGROUND DESIGN:
+Create ONE continuous background that flows seamlessly from top to bottom — like a single photograph or painting.
+Do NOT create visible bands, stripes, or section dividers. The background is ONE unified scene.
 
-INVISIBLE TEXT PLACEMENT RULE:
-This is purely a TEXT POSITIONING guideline - NOT a visual division. The background design itself remains continuous.
-
-All text content positions in the vertical center region (${contentStartPercent}% to ${contentEndPercent}% from top).
-This is an INVISIBLE rule - imagine placing text stickers on a painting. The painting underneath stays unified.
-
-Example visualization:
-• Imagine painting a blue gradient from dark blue (top) to light blue (bottom) across the ENTIRE canvas (0-100%)
-• The gradient flows seamlessly without any breaks
-• Now place text stickers ONLY in the middle region (${contentStartPercent}-${contentEndPercent}%)
-• The blue gradient UNDERNEATH remains ONE continuous flow from 0% to 100%
-
-TEXT-FREE REGIONS (background continues naturally):
-• Top ${UNIFIED_HEADER_ZONE_PERCENT}%: Continue the same visual design (no text overlay). Simple, clean background.
-• Bottom ${100 - UNIFIED_FOOTER_ZONE_PERCENT}%: Continue the same visual design (no text overlay). Natural fade or ground texture.
-
-TEXT POSITIONING WITHIN ${contentStartPercent}-${contentEndPercent}% REGION:
-All text elements position here - headlines, details, speakers, date, time, venue.
-Available height: ${contentHeightPercent}% of total canvas.
-
-Text hierarchy:
-• Main headline: Position around ${contentStartPercent + 2}% from top
-• Supporting text: Distribute between ${contentStartPercent + 5}% and ${contentEndPercent - 5}%
-• Keep text horizontally centered (25% to 75% width range)
-
-CONTENT DENSITY HANDLING:
-When extensive content (many speakers, details):
-• Use tighter line spacing, smaller supporting text sizes
-• Prioritize: Event name, date, time, venue (larger). Speaker names, details (smaller).
-• ALL text must fit within ${contentStartPercent}-${contentEndPercent}% vertical range
-• If still overflowing: Omit lowest-priority details
-
-CRITICAL - SINGLE CANVAS VISUALIZATION:
-Imagine you're creating a single piece of art (gradient/sky/atmospheric scene/etc.) that fills the entire canvas from edge to edge.
-This art has NO horizontal divisions or band separations - it's ONE unified visual.
-
-Now imagine placing text stickers ONLY in the middle vertical region (${contentStartPercent}-${contentEndPercent}%).
-The artwork underneath remains ONE continuous piece from 0% to 100%.
-The text stickers are positioned in the middle - they DON'T change the background, which stays unified.
-
-This is the EXACT approach you must take:
-1. Design one continuous background visual (like the examples: sunset gradient, studio photo, oil painting, skyscape)
-2. Position text in the middle region (invisible guideline)
-3. Top and bottom: The SAME background continues seamlessly (no text overlay, but same visual flow)
+TEXT PLACEMENT:
+Place the event headline starting just below the ${contentStartPercent}% mark.
+All supporting text (date, time, venue, speakers) fits between ${contentStartPercent}% and ${contentEndPercent}%.
+Keep text horizontally centered between 25% and 75% width.
+If content is extensive, use smaller fonts and tighter spacing — never push text outside the safe zone.
 `
 }
 
 /**
  * Build AGGRESSIVE spatial constraints for Pro model (gemini-3-pro-image-preview)
- * v24.10: UNIFIED zones - Both Flash and Pro now use same 40%-70% content zone
+ * v25.2: Now uses ACTUAL Sharp pixel values passed from buildPixelPreciseSpatialConstraints
  *
  * Key strategy:
- * - Layer 1: Opening warning block (repeated 3x)
- * - Layer 2: Explicit forbidden zones with blocklist
- * - Layer 3: Allowed content zone (positive framing)
- * - Layer 4: Pre-render checklist
- * - Layer 5: Specific word blocklist for header
+ * - Layer 1: ABSOLUTE CANVAS BOUNDARY block with "WILL NOT APPEAR" language
+ * - Layer 2: Single-canvas visualization to prevent visible zone bands
+ * - Layer 3: Content region with pixel-precise boundaries
+ * - Layer 4: Content overflow handling with priority rules
+ * - Layer 5: Pre-render verification checklist
  *
- * v24.10 UNIFIED Zone Configuration (both models):
- * - Header zone: 0-40% (FORBIDDEN - no text)
- * - Content zone: 40-70% (ALL text must be here)
- * - Footer zone: 70-100% (FORBIDDEN - no text)
- *
- * Pixel values for 1080x1440 canvas:
- * - Header: 0-576px (40%)
- * - Content: 606px-978px (42%-68% with padding)
- * - Footer: 1008px-1440px (70%-100%)
- *
- * Pro model uses more aggressive language/formatting than Flash
- * but both enforce the same zone boundaries.
+ * v25.2 Change: Receives pre-computed contentStartY/contentEndY/availablePx
+ * instead of re-computing from hardcoded 40%/70% percentages.
  */
 function buildProModelSpatialConstraints(
   canvasWidth: number,
   canvasHeight: number,
-  headerHeight: number,
-  footerHeight: number,
-  headerPercent: number,
-  footerPercent: number
+  contentStartY: number,
+  contentEndY: number,
+  availablePx: number,
+  contentStartPercent: number,
+  contentEndPercent: number
 ): string {
-  // v24.10: UNIFIED zones for both Flash and Pro models
-  // Header: 0-40% (FORBIDDEN)
-  // Content: 40-70% (ALL text here)
-  // Footer: 70-100% (FORBIDDEN)
-  const PRO_HEADER_ZONE_PERCENT = 40
-  const PRO_FOOTER_ZONE_PERCENT = 70  // v24.10: Content ends at 70%, footer starts at 70%
-
-  const proHeaderHeight = Math.floor(canvasHeight * (PRO_HEADER_ZONE_PERCENT / 100))
-  const proFooterStartY = Math.floor(canvasHeight * (PRO_FOOTER_ZONE_PERCENT / 100))
-
-  const contentStartY = proHeaderHeight + 30  // Use Pro header height (40%)
-  const contentEndY = proFooterStartY - 30    // Use Pro footer start (70%)
-
-  const contentStartPercent = PRO_HEADER_ZONE_PERCENT  // 40% for Pro
-  const contentEndPercent = PRO_FOOTER_ZONE_PERCENT    // 70% for Pro
-  const footerStartPercent = PRO_FOOTER_ZONE_PERCENT   // 70% for Pro
-
-  console.log(`[v24.10 Unified Zones - Pro] Content zone 40%-70%:`, {
-    canvas: `${canvasWidth}x${canvasHeight}`,
-    headerZone: `0-${proHeaderHeight}px (0-${PRO_HEADER_ZONE_PERCENT}%)`,
-    contentZone: `${contentStartY}-${contentEndY}px (${contentStartPercent}-${contentEndPercent}%)`,
-    footerZone: `${proFooterStartY}-${canvasHeight}px (${footerStartPercent}-100%)`,
-  })
-
-  // v24.14: Pro model with INVISIBLE GUIDELINES approach (NO divider lines) + visual analogies
+  // v32.0: Simplified Pro model constraints — percentage-based, no verbose pixel values
   return `
-SEAMLESS FULL-CANVAS DESIGN REQUIREMENT:
-Create ONE continuous, flowing background from top to bottom - like a single photograph or painting.
+(DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
-VISUAL ANALOGIES (concrete examples):
-• A sunset gradient: Deep orange at top → warm yellow in middle → pink at bottom (ONE continuous gradient, no bands)
-• A studio photograph: Professional photography backdrop that flows seamlessly from top to bottom
-• An oil painting: A single artistic composition painted across the entire canvas
-• A skyscape: Blue sky gradually transitioning to horizon (ONE unified scene)
-• An atmospheric scene: Misty forest or urban landscape that spans the full frame
+CANVAS LAYOUT RULE:
+The top ${contentStartPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
+The bottom ${100 - contentEndPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
 
-AVOID (per Gemini documentation - list unwanted elements):
-horizontal lines, section dividers, band separators, stripe patterns, visible zones, segmented backgrounds, border lines between areas, gradient bands that create divisions
+ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed between ${contentStartPercent}% and ${contentEndPercent}% from the top.
 
-CRITICAL TEXT PLACEMENT RULE (INVISIBLE GUIDELINE):
-ALL TEXT MUST BE BETWEEN ${contentStartY}px AND ${contentEndY}px (${contentStartPercent}%-${contentEndPercent}% from top)
+The top and bottom reserved areas should contain ONLY smooth background artwork — no text, no labels, no icons, no UI elements.
 
-Canvas: ${canvasWidth}px × ${canvasHeight}px
+BACKGROUND DESIGN:
+Create ONE continuous background that flows seamlessly from top to bottom — like a single photograph or painting.
+Do NOT create visible bands, stripes, or section dividers. The background is ONE unified scene.
 
-TOP REGION (0px - ${proHeaderHeight}px / 0% - ${PRO_HEADER_ZONE_PERCENT}%):
-Keep this area clear of text. Design flows naturally from the top edge. No text in this region.
-Suitable elements: sky, gradients, clouds, solid colors, atmospheric lighting.
-DO NOT place text above ${contentStartY}px.
+TEXT PLACEMENT:
+Place the event headline starting just below the ${contentStartPercent}% mark.
+All supporting text (date, time, venue, speakers) fits between ${contentStartPercent}% and ${contentEndPercent}%.
+Keep text horizontally centered between 25% and 75% width.
 
-CONTENT REGION (${contentStartY}px - ${contentEndY}px / ${contentStartPercent}% - ${contentEndPercent}%):
-✅ Event title starts at ${contentStartY}px (${contentStartPercent}% from top)
-✅ Date/time/venue between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.2)}px-${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px
-✅ Additional details between ${Math.round(contentStartY + (contentEndY - contentStartY) * 0.6)}px-${contentEndY}px
-✅ ALL text elements MUST fit within this ${contentEndY - contentStartY}px tall area
-
-CONTENT OVERFLOW HANDLING:
-When event has extensive content (speakers, dress code, entry limits, etc.):
-
-PRIORITY 1 - ESSENTIAL (always visible, larger size):
-• Event headline/title
-• Date, Time, Venue
-
-PRIORITY 2 - SUPPORTING (smaller size, tighter spacing):
-• Speaker names and designations
-• Dress code, entry limits
-• Additional details
-
-FITTING RULES:
-• COMPRESS text with tighter spacing to fit in ${contentEndY - contentStartY}px area
-• Use SMALLER fonts for supporting details when content is extensive
-• NEVER expand into top region (0-${proHeaderHeight}px) or bottom region (${proFooterStartY}-${canvasHeight}px)
-• If content STILL doesn't fit: Omit lowest-priority details
-
-BOTTOM REGION (${proFooterStartY}px - ${canvasHeight}px / ${footerStartPercent}% - 100%):
-Keep this area clear of text. Continue the background naturally - seamless flow from content area.
-Suitable elements: ground textures, gradients, subtle fade.
-DO NOT place text below ${contentEndY}px.
-
-PRE-RENDER VERIFICATION:
-Before generating, verify EVERY text element fits within ${contentStartY}-${contentEndY}px range.
-Top and bottom regions must be TEXT-FREE for overlay compatibility.
-
-WORD BLOCKLIST FOR TOP REGION:
-These words belong in content region, NOT in top region: "Infographic", "Info", "Overview", "About", "Summary", descriptive labels.
-
-CRITICAL - SINGLE CANVAS VISUALIZATION:
-Imagine you're creating a single piece of art (gradient/sky/atmospheric scene/etc.) that fills the entire canvas from edge to edge.
-This art has NO horizontal divisions or band separations - it's ONE unified visual.
-
-Now imagine placing text stickers ONLY in the middle vertical region (${contentStartY}-${contentEndY}px).
-The artwork underneath remains ONE continuous piece from 0px to ${canvasHeight}px.
-The text stickers are positioned in the middle - they DON'T change the background, which stays unified.
-
-This is the EXACT approach you must take:
-1. Design one continuous background visual (like the examples: sunset gradient, studio photo, oil painting, skyscape)
-2. Position text in the middle region (invisible guideline)
-3. Top and bottom: The SAME background continues seamlessly (no text overlay, but same visual flow)
+CONTENT PRIORITY (when space is tight):
+1. Event headline/title (largest, most prominent)
+2. Date, Time, Venue (medium size)
+3. Speaker names and details (smaller, tighter spacing)
+4. If content overflows: use smaller fonts, never push outside the safe zone.
 `
 }

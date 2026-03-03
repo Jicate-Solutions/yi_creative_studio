@@ -127,6 +127,8 @@ export function CanvasCreatePage({
   const [thinkingLevel, setThinkingLevel] = useState<'minimal' | 'High'>('minimal')
   // Flash 3.1 (Nano Banana 2) image search grounding — default ON
   const [useImageSearch, setUseImageSearch] = useState(true)
+  // v31.0: Prompt style — creative mode for the AI pipeline
+  const [promptStyle, setPromptStyle] = useState<import('@/lib/config/prompt-styles').PromptStyleId>('auto')
 
   // Post-generation modals and actions
   const [exportModalOpen, setExportModalOpen] = useState(false)
@@ -410,6 +412,8 @@ export function CanvasCreatePage({
         userFormData: formData.formData,
         // Flash 3.1 only: thinkingLevel controls quality vs speed, useImageSearch enables grounding
         ...(modelToUse.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
+        // v31.0: Prompt style — only send if not 'auto' (default)
+        ...(promptStyle !== 'auto' && { promptStyle }),
       }
 
       // Call original /api/generate endpoint
@@ -449,7 +453,7 @@ export function CanvasCreatePage({
           designData: formData.designData,
         } as unknown as Json,
         prompt_used: '', // Prompt is generated server-side
-        title: (formData.formData as any)?.eventName || `${selectedVertical?.name || 'Creative'}`,
+        title: (formData.formData as any)?.eventName || (formData.formData as any)?.postHeadline || (formData.formData as any)?.title || `${selectedVertical?.name || 'Creative'}`,
         logo_config: formData.logosPlacements as unknown as Json,
         prevention_applied: result.preventionApplied ?? null,
         prevention_holdout: result.preventionHoldout ?? false,
@@ -462,7 +466,8 @@ export function CanvasCreatePage({
         .single()
 
       if (saveError) {
-        console.error('Failed to save creative to database:', saveError)
+        console.error('Failed to save creative to database:', JSON.stringify(saveError, null, 2))
+        console.error('DB error code:', saveError.code, '| message:', saveError.message, '| details:', saveError.details, '| hint:', saveError.hint)
         console.error('Creative insert attempted:', JSON.stringify(creativeInsert, null, 2))
         toast.error('Image generated but failed to save to gallery', {
           description: 'Please check the console for details or contact support.',
@@ -614,7 +619,7 @@ export function CanvasCreatePage({
           designData: formData.designData,
         } as unknown as Json,
         prompt_used: '', // Prompt is generated server-side
-        title: (formData.formData as any)?.eventName || `${selectedVertical?.name || 'Creative'}`,
+        title: (formData.formData as any)?.eventName || (formData.formData as any)?.postHeadline || (formData.formData as any)?.title || `${selectedVertical?.name || 'Creative'}`,
         logo_config: formData.logosPlacements as unknown as Json,
         prevention_applied: result.preventionApplied ?? null,
         prevention_holdout: result.preventionHoldout ?? false,
@@ -697,6 +702,8 @@ export function CanvasCreatePage({
           onThinkingLevelChange={setThinkingLevel}
           useImageSearch={useImageSearch}
           onImageSearchChange={setUseImageSearch}
+          promptStyle={promptStyle}
+          onPromptStyleChange={setPromptStyle}
         />
 
         {/* Main Content - Canva-style layout */}
@@ -899,6 +906,8 @@ export function CanvasCreatePage({
           onThinkingLevelChange={setThinkingLevel}
           useImageSearch={useImageSearch}
           onImageSearchChange={setUseImageSearch}
+          promptStyle={promptStyle}
+          onPromptStyleChange={setPromptStyle}
           // Mobile panel control (Bar 3)
           activePanel={activePanel}
           onPanelChange={setActivePanel}

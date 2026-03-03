@@ -161,6 +161,13 @@ export function buildInstagramPrompt(
   data: InstagramFormData,
   options: EnhancedBuildOptions = {}
 ): string {
+  // Resolve headline: postTitle is the canonical field but older form versions send postHeadline.
+  // Ultra-Pro primaryText is the AI-enhanced fallback when neither field has a value.
+  const resolvedTitle = data.postTitle
+    || (data as any).postHeadline
+    || (options as any).ultraProContext?.primaryText
+    || 'Announcement'
+
   // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
   const postContext = getInstagramContext(
     data.postType,
@@ -306,7 +313,7 @@ ${typographyRules}
 
 <subject>
 An eye-catching social media graphic that will STOP THE SCROLL.
-Main Message: "${data.postTitle}"
+Main Message: "${resolvedTitle}"
 Goal: ${postContext.goal}
 Critical: Must capture attention within 0.5-1 second of viewing in feed.
 This is a mobile-first platform - design for thumb-scrolling users.
@@ -318,7 +325,7 @@ Layout: ${options.designContext?.layoutSuggestion || postContext.layout}
 Structure:
 - BACKGROUND: ${options.designContext?.backgroundSetting || postContext.background} ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'})` : ''}
 - VISUALS: ${options.designContext?.visualElements?.join(', ') || postContext.visualTreatment}
-- HEADLINE: "${data.postTitle}" - LARGE, BOLD, instantly readable on phone screen
+- HEADLINE: "${resolvedTitle}" - LARGE, BOLD, instantly readable on phone screen
 ${data.postCaption ? `- SUPPORTING TEXT: "${data.postCaption}" - smaller but still readable on mobile` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
 - LOGO AREA: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} with clean background` : 'Small brand element'}
@@ -328,7 +335,7 @@ Text Sizing Rule: All text must be readable on a phone screen WITHOUT zooming
 </composition>
 
 <text_content>
-<text role="headline" prominence="LARGEST" style="bold thick sans-serif, maximum contrast, ${postContext.headlineStyle}">${data.postTitle}</text>
+<text role="headline" prominence="LARGEST" style="bold thick sans-serif, maximum contrast, ${postContext.headlineStyle}">${resolvedTitle}</text>
 ${data.postCaption ? `<text role="supporting" prominence="medium" style="clean sans-serif, readable on mobile">${data.postCaption}</text>` : ''}
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="button-style or arrow indicator, ${postContext.ctaStyle}">${data.callToAction}</text>` : ''}
 ${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}

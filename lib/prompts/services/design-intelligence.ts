@@ -30,7 +30,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import {
   generateFallbackContext,
   validateDesignContext,
-  mergeAIContextWithPreset,
   type AIEventAnalysis,
 } from './yi-prompt-builder/context-helpers'
 import { getTemperatureConfig } from './prompt-optimization/config'
@@ -41,11 +40,12 @@ import {
 } from './prompt-optimization/cache'
 
 // v6.0: Content-aware element mapping for maximum creativity
+// v30.0: Removed getContentRelatedElements — keyword matching replaced by dynamic AI thinking
 import {
-  getContentRelatedElements,
   generateUniquenessSeed,
   getCreativityDirective,
 } from './content-element-mapper'
+import type { ContentElements } from './content-element-mapper'
 
 // v6.0 Phase 2: Color personality for dynamic background generation
 // v25.0: Import FormalityLevel for formal event handling
@@ -227,17 +227,17 @@ This seed FORCES you to create something UNIQUE. Do NOT recycle designs.
 
 ${creativityDirective}
 
-=== CONTENT-SPECIFIC VISUAL ELEMENTS (USE THESE) ===
-Based on the event content, you MUST incorporate elements from this curated list:
+=== DYNAMIC VISUAL THINKING (v29.0 — AI-DRIVEN) ===
+Do NOT reuse generic visual elements (lotus flowers, silhouettes, DNA strands, etc.) across different events.
+Instead, THINK DEEPLY about THIS SPECIFIC EVENT and invent UNIQUE visuals:
 
-RECOMMENDED VISUAL ELEMENTS (pick 2-3):
-${contentElements.elements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+1. What is the LITERAL subject of this event? (e.g., menstrual health, coding workshop, leadership retreat)
+2. What VISUAL METAPHOR captures its essence? (not a generic symbol — something SPECIFIC to this event)
+3. What MOOD and ATMOSPHERE does this event evoke? (professional? intimate? celebratory? educational?)
+4. What would make someone INSTANTLY understand this event's topic from the visual alone?
 
-RECOMMENDED BACKGROUND TREATMENTS (pick 1):
-${contentElements.backgrounds.map((b, i) => `${i + 1}. ${b}`).join('\n')}
-
-RECOMMENDED DECORATIVE ACCENTS (pick 1-2):
-${contentElements.decorativeAccents.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+GENERATE 3-5 ORIGINAL visual elements that are UNIQUE TO THIS EVENT.
+Do NOT fall back on category-generic imagery. Every event deserves its own visual identity.
 
 === ABSOLUTELY BANNED PATTERNS (v6.0 - ZERO TOLERANCE) ===
 If you use ANY of these, the design will be REJECTED:
@@ -261,38 +261,40 @@ If you use ANY of these, the design will be REJECTED:
 
 CRITICAL: This is an Indian organization platform (Young Indians / Yi). ALL human representations MUST be Indian characters.
 
-When generating ANY of the following, they MUST have Indian ethnicity and features:
-- Silhouettes of people → Indian body types and attire silhouettes
+When generating people, they MUST have Indian ethnicity and features:
 - Audience members → Indian crowd with diverse South Asian representation
-- Participants, students, professionals → Indian individuals
-- Performers, dancers, musicians → Indian performers
-- Hands, figures, or human forms → Indian skin tones
-- Group gatherings or crowds → Diverse Indian crowd (various ages, genders)
-- Stylized portraits or illustrations → Indian facial features
+- Participants, students, professionals → Indian individuals in dynamic poses
+- Performers, dancers, musicians → Indian performers in action
+- Group gatherings → Diverse Indian crowd (various ages, genders) shown in FULL DETAIL
 
-VISUAL CUES TO INCLUDE (where appropriate):
-- South Asian facial features
-- Indian attire: kurta, sari, western-casual, formal Indian business wear
-- Diverse Indian skin tones (fair to dark brown spectrum)
-- Cultural elements like bindis, traditional jewelry (where contextually appropriate)
+REPRESENT PEOPLE AS:
+✅ Full-figure illustrations with visible faces and expressions
+✅ Dynamic action poses (speaking, collaborating, creating, learning)
+✅ Photorealistic or detailed illustrated depictions
+✅ Close-up portraits or expressive headshots
+✅ Indian attire: kurta, sari, western-casual, formal Indian business wear
+✅ Diverse Indian skin tones (fair to dark brown spectrum)
 
-ABSOLUTELY FORBIDDEN:
+ABSOLUTELY FORBIDDEN (v32.0):
+❌ Silhouettes of ANY kind (unless the event is literally about shadow art)
+❌ Faceless outlines or shadow figures
+❌ Generic dark figure shapes against backgrounds
 ❌ Western/Caucasian default characters
 ❌ Blonde hair or European features as default
-❌ Generic "diverse stock photo" crowd without Indian representation
-❌ Light-skinned European silhouettes
 
 This applies to ALL formats: event posters, flyers, social media, certificates.
 
-=== CREATIVITY REQUIREMENT ===
-If your FIRST idea matches any banned pattern, IMMEDIATELY reject it and think deeper.
-Ask yourself: "What visual metaphor would SURPRISE and DELIGHT the viewer?"
+=== CREATIVITY REQUIREMENT (v32.0) ===
+If your FIRST idea involves silhouettes, generic icons, or category-default imagery, IMMEDIATELY reject it.
+Ask yourself: "What SCENE would make someone instantly understand THIS SPECIFIC event?"
 
-Example transformation:
-- BAD: "Networking event" → handshake icon
-- GOOD: "Networking event" → "Magnetic field visualization where diverse profile silhouettes are drawn together by invisible connection forces, with relationship threads forming a living constellation"
+THINK IN SCENES, NOT SYMBOLS:
+- BAD: "Women's health event" → silhouettes of women + green background + lotus
+- GOOD: "Menstrual Health Awareness" → "A warm, intimate classroom with anatomical educational charts in soft pink and teal, a confident woman educator at a whiteboard, sanitary products displayed as educational props"
+- BAD: "Leadership Summit" → silhouettes climbing stairs + gold accents
+- GOOD: "Youth Leadership Summit" → "A vibrant roundtable discussion with young professionals debating over laptops and whiteboards, sticky notes covering glass walls, city skyline through floor-to-ceiling windows"
 
-YOU MUST BE BOLD. BE UNEXPECTED. BE MEMORABLE.
+YOU MUST BE SPECIFIC. BE SCENE-BASED. BE MEMORABLE.
 `
 }
 
@@ -446,14 +448,12 @@ Colors that convey the story's emotion:
     - What color adds EMOTIONAL depth ?
       - What color creates ENERGY / ACTION ?
 
-** Color Psychology Application **:
-  - Leadership / Achievement → Gold(#FFD700), amber, deep blue
-    - Environment / Growth → Forest green(#0B6D41), earth tones, sky blue
-      - Innovation / Tech → Electric blue(#0066FF), cyan, purple
-        - Health / Caring → Soft green(#34C759), healing blue, warm white
-          - Energy / Sports → Red(#FF3B30), orange, electric yellow
-            - Culture / Heritage → Rich burgundy, gold, traditional colors
-              - Youth / Modern → Vibrant, saturated, bold colors
+** COLOR DERIVATION (v30.1 — Think Like a Cinematographer) **:
+  Do NOT pick colors from a category menu. DERIVE colors from THIS EVENT'S reality:
+  - What color is the MAIN SUBJECT? (blood=crimson, trees=deep green, code=cyan, menstrual health=soft pink/teal)
+  - What color is the ENVIRONMENT where this happens? (hospital=clean white, forest=earth tones, auditorium=deep blue)
+  - What EMOTION should the viewer feel? (urgency=red, calm=blue, hope=gold, empowerment=warm amber)
+  - Two different "health" events should have DIFFERENT colors based on their specific subject matter
 
    - How many colors in headline ? (2 - 4 based on complexity)
    - Color rhythm: Alternating / Gradient / Emphasis - based
@@ -492,13 +492,14 @@ Generate decorations that enhance the narrative:
     - What imagery creates emotional connection ?
       - Sophistication level: Refined / Balanced / Playful
 
-        ** Element Examples by Context (RICH DESCRIPTION REQUIRED) **:
-  - Climate + Leadership → "Translucent, crystalline geometric leaves with fine gold veins" (NOT just "leaves")
-    - Tech + Innovation → "Holographic neural nodes connected by glowing cyan data streams" (NOT just "lines")
-      - Health + Community → "Soft, warm-lit silhouettes of caring hands forming a protective circle"
-        - Sports + Energy → "Explosive motion-blur streaks in fiery orange cutting through deep navy"
-          - Culture + Heritage → "Intricate gold foil paisley patterns overlaid on rich burgundy velvet texture"
-            - Youth + Celebration → "Suspended 3D confetti particles with depth-of-field blur and sparkle effects"
+        ** ELEMENT CONSTRUCTION (v30.1 — Be a Set Designer) **:
+  Instead of picking from a category menu, BUILD elements from THIS EVENT'S reality:
+  - What TOOLS does this event use? (scalpel, laptop, paintbrush, megaphone, sanitary pad, blood bag)
+  - What TEXTURES exist at this event? (medical steel, wooden podium, digital screen, fabric, clinical tile)
+  - What LIGHT sources exist? (fluorescent clinical, warm stage spotlights, outdoor sun, neon screens)
+  Describe elements as a set designer would: materials, textures, lighting, scale.
+  ALWAYS use MULTI-WORD visual descriptions, never single keywords.
+  Example: NOT "health symbols" → "anatomical educational wall chart with soft pink diagrams on clean white background"
 
               ** Placement Strategy **:
   - Where do decorations support(not distract from) story ?
@@ -523,20 +524,29 @@ Design content flow that tells the story:
   - Negative space: How much breathing room supports the mood ?
     - Spatial density: Minimal / Balanced / Rich(based on sophistication)
 
-      === DOMAIN - SPECIFIC DESIGN GUIDANCE(Reference) ===
+      === VISUAL THINKING METHOD (v30.1 — Ideogram-Style Scene Thinking) ===
 
-** AI / Tech Events **: Clean sans - serif, electric blue accents, minimalist gradients, refined glassmorphism
-    ** Sports Events **: Bold condensed fonts, high - energy colors(red, orange), dynamic diagonal stripes
-      ** Medical / Health **: Humanist sans - serif, trust blue(#007AFF), healing green, pulse line motifs
-        ** Cultural / Traditional **: Elegant serifs, rich golds, deep maroons, traditional motifs, ornate borders
-          ** Corporate / Business **: Professional sans - serif, corporate blue, charcoal, subtle geometric grids
-            ** Education / Academic **: Scholarly serifs, academic navy, wisdom gold, geometric frames, academic crests
-              ** Entertainment / Party **: Bold display fonts, vibrant multi - color, confetti, sparkles, energetic lines
-                ** Environment / Sustainability **: Clean slab serifs, deep forest green(#0B3D2E), stone textures, refined leaf motifs
-                  ** Fun Activity / Kids **: ROUNDED sans - serif(Nunito, Quicksand) or playful display, bright primary colors, soft shapes
-                    ** Social Awareness / Cause **: HUMANIST sans - serif(Open Sans) for approachability, clear hierarchy, hopeful visuals
-                      ** Cultural / Arts **: DECORATIVE SERIF or CUSTOM SCRIPT, rich textures, traditional patterns, artistic composition
-                        ** Environment / Sustainability **: Clean slab serifs, deep forest green(#0B3D2E), stone textures, refined leaf motifs
+Do NOT think in event categories. Think in SCENES.
+
+WRONG approach: "This is a health event → use healing green + medical imagery"
+RIGHT approach: "This is about menstrual health education → visualize: a warm, intimate
+  classroom setting with anatomical educational charts in soft pink and teal, a confident
+  woman educator, sanitary products tastefully displayed as educational props, empowering
+  atmosphere of knowledge-sharing"
+
+For EVERY event, answer these 3 questions:
+1. SCENE: If you were PHOTOGRAPHING this event, what would you see?
+   (Describe the actual physical scene, not abstract concepts)
+2. HERO OBJECT: What ONE specific object represents THIS event?
+   (Not "health symbols" — the ACTUAL object: stethoscope, menstrual cup, yoga mat, blood bag, etc.)
+3. ATMOSPHERE: What does the AIR feel like at this event?
+   (Not "professional" — the ACTUAL feeling: "the focused hush of a medical lecture hall"
+   or "the buzzing excitement of a startup pitch room")
+
+TWO EVENTS IN THE SAME CATEGORY MUST LOOK DIFFERENT:
+- "Blood Donation Drive" → warm clinical setting, red cross, donor chairs, IV bags, heroic sacrifice
+- "Menstrual Health Workshop" → intimate educational space, anatomical charts, empowering feminine energy
+Both are "health" — but they look COMPLETELY DIFFERENT because they ARE different events.
 
 ANALYZE THE FOLLOWING CREATIVE BRIEF:
   { brief }
@@ -884,7 +894,11 @@ function validateContextMatchesEvent(
 export async function generateDesignContext(
   input: DesignBrief,
   resolvedColors?: ResolvedColors,
-  eventProfile?: EventProfile | null
+  eventProfile?: EventProfile | null,
+  promptStyleOptions?: {
+    temperatures?: { eventContext?: number | null; storytelling?: number | null }
+    creativeDirection?: string // v31.0: Prompt style creative direction
+  }
 ): Promise<DesignIntelligenceResult> {
   const startTime = Date.now()
   const MAX_ATTEMPTS = 2
@@ -897,21 +911,75 @@ export async function generateDesignContext(
   const uniquenessSeed = generateUniquenessSeed()
   const creativityDirective = getCreativityDirective(uniquenessSeed)
 
-  // Get content-related visual elements based on event name/type
-  let contentElements = getContentRelatedElements(
-    input.eventName || '',
-    input.eventType,
-    uniquenessSeed
-  )
+  // v30.0: Removed keyword-based content element matching —
+  // Storytelling Fusion provides elements via dynamic AI thinking
+  let contentElements: ContentElements = {
+    elements: [], backgrounds: [], decorativeAccents: [], matchedCategories: []
+  }
 
-  console.log('[Design Intelligence] 🎨 Creativity Enhancement Active:', {
+  console.log('[Design Intelligence] 🎨 v30.0 Dynamic Visual Intelligence Active:', {
     seed: uniquenessSeed,
-    matchedCategories: contentElements.matchedCategories,
-    elementsCount: contentElements.elements.length
+    mode: 'ai-driven (no keyword presets)'
   })
 
   // NEW: Declare aiEventContext early so storytelling fusion can use it
   let aiEventContext: AIEventContext | null = null
+
+  // ============================================================
+  // v1.0: AI EVENT CONTEXT ANALYSIS (GLOBAL EVENT UNDERSTANDING)
+  // ============================================================
+  // NEW: Use Claude Sonnet to analyze event context from ALL form data
+  // This replaces hardcoded keyword detection with intelligent AI analysis
+  // ORDERING FIX: Must run BEFORE storytelling fusion so aiEventContext is populated
+  // when fuseStorytellingContext() runs — it was previously always null at fusion time.
+  if (shouldUseAIEventAnalysis()) {
+    try {
+      console.log('[Design Intelligence] 🤖 AI Event Analysis: Starting comprehensive context analysis')
+
+      // Build form data from the design brief
+      // FIX: Use additionalContext (clean tagline/description) NOT details (cleanedPrompt)
+      // Same noisy-input fix applied to getContentRelatedElements and storytelling fusion.
+      const formData: EventFormData = {
+        eventName: input.eventName || '',
+        eventDescription: input.additionalContext || '',
+        venue: input.venue,
+        date: input.date,
+        time: input.time,
+        speakers: input.guestName ? [{
+          name: input.guestName,
+          designation: input.guestDesignation,
+        }] : [],
+        organizationName: input.organizationName,
+        verticalName: input.verticalName,
+        initiativeText: input.initiativeText,
+        theme: input.theme,
+        style: input.style,
+        targetAudience: input.targetAudience,
+      }
+
+      aiEventContext = await analyzeEventContext(formData, {
+        temperature: promptStyleOptions?.temperatures?.eventContext,
+        creativeDirection: promptStyleOptions?.creativeDirection,
+      })
+
+      console.log('[Design Intelligence] ✅ AI Event Analysis Complete')
+      console.log(`[Design Intelligence]   → Matched Preset: ${aiEventContext.matchedPreset} (${(aiEventContext.presetConfidence * 100).toFixed(0)}% confidence)`)
+      console.log(`[Design Intelligence]   → Custom Enhancements: ${aiEventContext.customEnhancements.length}`)
+      console.log(`[Design Intelligence]   → Key Visuals: ${aiEventContext.keyVisuals.length}`)
+      console.log(`[Design Intelligence]   → Reasoning: ${aiEventContext.reasoning}`)
+
+      // v24.14: AI Event Context ALWAYS enriches Design Intelligence (no fast path)
+      // Both AI systems work together for maximum creativity
+      if (aiEventContext.presetConfidence >= 0.5) {
+        console.log('[Design Intelligence] 🤖 AI Event Context will enrich Design Intelligence analysis')
+        console.log(`[Design Intelligence]   → Confidence: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%`)
+        console.log(`[Design Intelligence]   → Will inject AI insights into Design Intelligence prompt`)
+      }
+    } catch (error) {
+      console.error('[Design Intelligence] ⚠️ AI Event Analysis failed:', error)
+      // Continue with normal flow if AI analysis fails
+    }
+  }
 
   // v26.0: STORYTELLING FUSION (replaces deduplication)
   // Unifies Event Understanding, AI Context, and Content Mapper into cohesive narrative
@@ -921,13 +989,18 @@ export async function generateDesignContext(
     console.log('[Design Intelligence] 🎭 Storytelling Fusion ENABLED')
 
     try {
+      // v29.0: Pass empty contentElements — storytelling fusion now thinks purely
+      // from event context + AI analysis, not keyword-matched preset elements
       storytellingContext = await fuseStorytellingContext({
         eventProfile,
         aiEventContext,
-        contentElements,
+        contentElements: { elements: [], backgrounds: [], decorativeAccents: [], matchedCategories: [] },
         eventName: input.eventName || '',
-        eventDescription: input.details || input.additionalContext,
-        formatId: input.formatId || ''
+        eventDescription: input.additionalContext || '',
+        formatId: input.formatId || '',
+        uniquenessSeed,
+        temperature: promptStyleOptions?.temperatures?.storytelling,
+        creativeDirection: promptStyleOptions?.creativeDirection,
       })
 
       // Override contentElements with cohesive story elements
@@ -1007,56 +1080,6 @@ export async function generateDesignContext(
   }
   console.log('[Design Intelligence] ❌ Cache MISS - Calling LLM')
 
-  // ============================================================
-  // v1.0: AI EVENT CONTEXT ANALYSIS (GLOBAL EVENT UNDERSTANDING)
-  // ============================================================
-  // NEW: Use Claude Sonnet to analyze event context from ALL form data
-  // This replaces hardcoded keyword detection with intelligent AI analysis
-  if (shouldUseAIEventAnalysis()) {
-    try {
-      console.log('[Design Intelligence] 🤖 AI Event Analysis: Starting comprehensive context analysis')
-
-      // Build form data from the design brief
-      const formData: EventFormData = {
-        eventName: input.eventName || '',
-        eventDescription: input.details || input.additionalContext,
-        venue: input.venue,
-        date: input.date,
-        time: input.time,
-        speakers: input.guestName ? [{
-          name: input.guestName,
-          designation: input.guestDesignation,
-        }] : [],
-        organizationName: input.organizationName,
-        verticalName: input.verticalName,
-        initiativeText: input.initiativeText,
-        theme: input.theme,
-        style: input.style,
-        targetAudience: input.targetAudience,
-      }
-
-      aiEventContext = await analyzeEventContext(formData)
-
-      console.log('[Design Intelligence] ✅ AI Event Analysis Complete')
-      console.log(`[Design Intelligence]   → Matched Preset: ${aiEventContext.matchedPreset} (${(aiEventContext.presetConfidence * 100).toFixed(0)}% confidence)`)
-      console.log(`[Design Intelligence]   → Custom Enhancements: ${aiEventContext.customEnhancements.length}`)
-      console.log(`[Design Intelligence]   → Key Visuals: ${aiEventContext.keyVisuals.length}`)
-      console.log(`[Design Intelligence]   → Reasoning: ${aiEventContext.reasoning}`)
-
-      // v24.14: AI Event Context ALWAYS enriches Design Intelligence (no fast path)
-      // Both AI systems work together for maximum creativity
-      if (aiEventContext.presetConfidence >= 0.5) {
-        console.log('[Design Intelligence] 🤖 AI Event Context will enrich Design Intelligence analysis')
-        console.log(`[Design Intelligence]   → Confidence: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%`)
-        console.log(`[Design Intelligence]   → Will inject AI insights into Design Intelligence prompt`)
-        // Continue to inject AI context into prompt (existing logic at line 1022)
-      }
-    } catch (error) {
-      console.error('[Design Intelligence] ⚠️ AI Event Analysis failed:', error)
-      // Continue with normal flow if AI analysis fails
-    }
-  }
-
   // Attempt generation loop
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -1074,8 +1097,8 @@ export async function generateDesignContext(
 🤖 AI EVENT CONTEXT ANALYSIS (v1.0 - GLOBAL UNDERSTANDING):
 ========================================
 
-An AI analyzer has comprehensively analyzed ALL form data for this event.
-You MUST incorporate these insights into your design context.
+An AI analyzer has analyzed ALL form data for this event.
+Use these insights as CREATIVE INSPIRATION — not rigid constraints.
 
 MATCHED EVENT CATEGORY: ${aiEventContext.matchedPreset || 'None'}
 CONFIDENCE: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%
@@ -1083,10 +1106,10 @@ CONFIDENCE: ${(aiEventContext.presetConfidence * 100).toFixed(0)}%
 AI REASONING:
 ${aiEventContext.reasoning}
 
-CUSTOM ENHANCEMENTS (MUST INCLUDE):
+SUGGESTED ENHANCEMENTS (adapt creatively):
 ${aiEventContext.customEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 
-KEY VISUAL ELEMENTS (PRIORITIZE THESE):
+SUGGESTED VISUAL ELEMENTS (use as starting points, then innovate):
 ${aiEventContext.keyVisuals.map((kv, i) => `${i + 1}. ${kv}`).join('\n')}
 
 VISUAL DIRECTION:
@@ -1098,52 +1121,52 @@ ${aiEventContext.moodAtmosphere}
 COLOR GUIDANCE:
 ${aiEventContext.colorGuidance}
 
-⚠️ CRITICAL: The AI has analyzed the COMPLETE event context (name, description, venue, speakers, etc.)
-These insights are based on COMPREHENSIVE understanding, not just keywords.
-Your design context MUST reflect these AI-identified themes and enhancements.
+These insights come from comprehensive analysis. Use them as a FOUNDATION for your own creative interpretation — NOT as a checklist to copy verbatim. Your job is to CREATE something UNIQUE that captures this event's spirit.
 
 `
         prompt += aiContextBrief
         console.log('[Design Intelligence] 🤖 AI Event Context injected into prompt')
       }
 
-      // v24.12.3: EVENT DOMAIN ENFORCEMENT - Visuals MUST match event content, not presets
-      // This ensures "Faculty Development Programme" gets educational visuals, not tech visuals
+      // v29.0: Replaced hardcoded keyword→domain→visual mapping with dynamic AI thinking
+      // The AI Event Context Analyzer (Claude) already identifies the event's true domain.
+      // Hardcoded domain mappings were causing the SAME visuals for every event in a category.
       const eventDomainInstruction = `
 
 ========================================
-⚠️ CRITICAL - EVENT DOMAIN ENFORCEMENT (v24.12.3):
+⚠️ EVENT VISUAL IDENTITY (v29.0 — DYNAMIC):
 ========================================
 
-BEFORE generating any visual elements, you MUST:
-
-1. ANALYZE THE EVENT NAME: "${input.eventName}"
-   - What is this event LITERALLY about?
-   - What DOMAIN does it belong to?
-
-2. DOMAIN DETECTION (based on event name keywords):
-   - Words like "Faculty", "Development", "Training", "Workshop", "Learning", "Education", "Academic", "Programme", "Seminar", "College", "University" → EDUCATION/ACADEMIC domain
-   - Words like "Blood", "Health", "Medical", "Hospital", "Donation", "Wellness", "Doctor", "Care" → HEALTH/MEDICAL domain
-   - Words like "Tech", "AI", "Digital", "Software", "Hackathon", "Code", "Data", "Innovation" → TECHNOLOGY domain
-   - Words like "Business", "Corporate", "Meeting", "Conference", "Summit", "Leadership" → CORPORATE domain
-
-3. MATCH VISUALS TO DETECTED DOMAIN:
-   - EDUCATION domain → Books, graduation caps, classrooms, knowledge growth, academic settings, learning metaphors, intellectual imagery
-   - HEALTH domain → Medical symbols, healthcare imagery, wellness visuals, caring hands
-   - TECHNOLOGY domain → Digital interfaces, neural networks, data streams, futuristic elements
-   - CORPORATE domain → Professional settings, business environments, geometric patterns
-
-4. ❌ FORBIDDEN VISUAL MISMATCH:
-   - Do NOT generate tech/AI visuals (neural networks, data interfaces, futuristic tech) for EDUCATION domain events
-   - Do NOT generate education visuals for TECHNOLOGY domain events
-   - The domain is determined by EVENT NAME CONTENT, NOT by color palette, NOT by theme preset
-
 EVENT: "${input.eventName}"
-→ DETECT THE DOMAIN FROM THIS NAME AND MATCH ALL VISUALS ACCORDINGLY.
+
+Think about what THIS SPECIFIC event is about. Not the category — the ACTUAL event.
+Two "health" events can look completely different:
+- "Blood Donation Drive" → dynamic, urgent, life-saving energy
+- "Menstrual Health Awareness" → intimate, educational, empowering
+
+DO NOT map event keywords to preset visual categories.
+Instead, REASON about what makes THIS event unique and create visuals that could ONLY belong to this event.
 
 `
       prompt += eventDomainInstruction
-      console.log('[Design Intelligence v24.12.3] ✅ Event domain enforcement added for: "${input.eventName}"')
+      console.log('[Design Intelligence v29.0] ✅ Dynamic event identity added for: "${input.eventName}"')
+
+      // v31.0: Inject prompt style creative direction
+      if (promptStyleOptions?.creativeDirection) {
+        prompt += `
+
+========================================
+🎨 CREATIVE STYLE DIRECTIVE (v31.0):
+========================================
+
+${promptStyleOptions.creativeDirection}
+
+Apply this creative approach to ALL your design decisions — visual elements, colors, composition, typography, and mood.
+This style directive should influence your entire creative output for this design.
+
+`
+        console.log('[Design Intelligence v31.0] ✅ Creative style directive injected')
+      }
 
       // v24.12.4: PREMIUM PROFESSIONAL BACKGROUND enhancement
       const premiumBackgroundInstruction = `
@@ -1290,54 +1313,35 @@ VISUAL ELEMENTS COME FROM EVENT DETAILS ONLY:
       }
 
       // v6.5 Phase 1: Inject Event Understanding insights from Stage 1
-      // v6.5.1: Lowered threshold from 0.6 to 0.4 to use fallback Event Understanding profiles
-      // Fallback profiles (confidence ~0.5) still provide valuable event context vs random themes
+      // v32.0: Reduced injection — only concept + characteristics, NOT individual visual arrays
+      // Visual arrays were being treated as DIRECT instructions by Gemini, causing convergence
       if (eventProfile && eventProfile.confidence >= 0.4) {
+        const selectedConceptObj = eventProfile.concepts.find(c => c.name === eventProfile.selectedConcept)
         const eventBrief = `
 
 ========================================
-EVENT CONCEPT ANALYSIS (FROM STAGE 1 - SEMANTIC UNDERSTANDING):
+EVENT CONCEPT DIRECTION (v32.0 — DO NOT USE LITERALLY):
 ========================================
 
 EVENT: "${input.eventName}"
 
-LITERAL MEANING:
-${eventProfile.literalMeaning}
+LITERAL MEANING: ${eventProfile.literalMeaning}
 
-METAPHORICAL INTERPRETATIONS:
-${eventProfile.metaphoricalMeanings.map(m => `- ${m}`).join('\n')}
-
-SELECTED VISUAL CONCEPT: ${eventProfile.selectedConcept}
-Concept Description: ${eventProfile.concepts.find(c => c.name === eventProfile.selectedConcept)?.description || ''}
-
-PRIMARY VISUAL ASSOCIATIONS (USE THESE):
-${eventProfile.visualAssociations.primary.map(v => `- ${v}`).join('\n')}
-
-SECONDARY VISUAL OPTIONS (IF NEEDED):
-${eventProfile.visualAssociations.secondary.map(v => `- ${v}`).join('\n')}
-
-ABSTRACT REPRESENTATIONS:
-${eventProfile.visualAssociations.abstract.map(v => `- ${v}`).join('\n')}
+SELECTED CONCEPT: "${eventProfile.selectedConcept}"
+${selectedConceptObj?.description ? `Concept Approach: ${selectedConceptObj.description}` : ''}
 
 EVENT CHARACTERISTICS:
 - Formality Level: ${eventProfile.formality}
 - Energy Level: ${eventProfile.energyLevel}
 - Emotional Tone: ${eventProfile.emotionalTone}
 
-CRITICAL INSTRUCTIONS FOR USING EVENT UNDERSTANDING:
-1. The visual elements MUST reflect the event's CONCEPTUAL meaning, not just generic event imagery
-2. Use the PRIMARY visual associations as your main inspiration
-3. DO NOT default to generic business/corporate imagery (handshakes, business cards, suits)
-4. THINK: What does "${input.eventName}" MEAN conceptually? Use the literal and metaphorical meanings above
-5. The backgroundSetting and iconicImagery MUST include elements from the visual associations
-6. The selected concept "${eventProfile.selectedConcept}" should guide your entire design approach
-7. Confidence in this analysis: ${(eventProfile.confidence * 100).toFixed(0)}% - Trust these insights
-
-⚠️ CRITICAL: Event name "${input.eventName}" has specific conceptual meaning. Generate visuals that match THIS SPECIFIC concept, not generic event templates.
+⚠️ CRITICAL (v32.0): Do NOT render the concept literally.
+Create an ORIGINAL SCENE that captures the same FEELING and ENERGY as the concept above.
+Ask yourself: "What would a photograph of THIS SPECIFIC event look like?"
+Then design the poster around that real-world scene — not around abstract symbols or silhouettes.
 `
         prompt += eventBrief
-        console.log(`[Design Intelligence] 🎯 Injected Event Understanding: ${eventProfile.selectedConcept} (confidence: ${eventProfile.confidence})`)
-        console.log(`[Design Intelligence] Primary visuals: ${eventProfile.visualAssociations.primary.slice(0, 3).join(', ')}`)
+        console.log(`[Design Intelligence v32.0] 🎯 Injected Event Concept (reduced): ${eventProfile.selectedConcept} (confidence: ${eventProfile.confidence})`)
 
         // v24.12.7: UNIVERSAL BOTANICAL PROHIBITION - applies to ALL formality levels
         // This prevents Design Intelligence from generating leaves/trees/botanical for any event

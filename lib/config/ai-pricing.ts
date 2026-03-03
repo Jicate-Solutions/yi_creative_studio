@@ -20,7 +20,7 @@
 // PRICING CONSTANTS
 // ============================================================
 
-export type AIProvider = 'gemini' | 'claude'
+export type AIProvider = 'gemini' | 'claude' | 'openai'
 
 export interface ModelPricing {
   inputPerMillion: number           // USD per 1M input tokens
@@ -31,6 +31,26 @@ export interface ModelPricing {
 }
 
 export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
+  openai: {
+    // GPT-4.1 - Primary text model for ultra-pro prompt generation
+    // Quality-first choice: supports temperature 0–2, native JSON schema, 1M context
+    // Pricing: https://openai.com/api/pricing (as of Q1 2026)
+    'gpt-4.1': {
+      inputPerMillion: 2.00,
+      outputPerMillion: 8.00,
+      cachedInputPerMillion: 0.50,
+    },
+    'gpt-4.1-mini': {
+      inputPerMillion: 0.40,
+      outputPerMillion: 1.60,
+      cachedInputPerMillion: 0.10,
+    },
+    'gpt-4.1-nano': {
+      inputPerMillion: 0.10,
+      outputPerMillion: 0.40,
+      cachedInputPerMillion: 0.025,
+    },
+  },
   gemini: {
     // ============================================================
     // Image Generation Models
@@ -140,6 +160,12 @@ export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
       inputPerMillion: 0.80,
       outputPerMillion: 4.00,
       cachedInputPerMillion: 0.08,
+    },
+    // Sonnet 4.6 - Latest balanced model (ultra-pro prompt generation)
+    'claude-sonnet-4-6': {
+      inputPerMillion: 3.00,
+      outputPerMillion: 15.00,
+      cachedInputPerMillion: 0.30,
     },
     // Sonnet 4.5 - Balanced (latest)
     'claude-sonnet-4-5-20251022': {

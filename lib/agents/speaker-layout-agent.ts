@@ -429,10 +429,13 @@ function generatePromptContext(
 
   // List each speaker
   speakerDetails.forEach((speaker, i) => {
+    const fullIdentity = speaker.designation
+      ? `${speaker.name}, ${speaker.designation}`
+      : speaker.name
     const photoStatus = speaker.hasPhoto
       ? 'Has photo - will be overlaid in post-processing'
       : 'Text only - render name and designation prominently'
-    lines.push(`- Speaker ${i + 1} (${speaker.name}): ${photoStatus}`)
+    lines.push(`- Speaker ${i + 1} (${fullIdentity}): ${photoStatus}`)
   })
 
   lines.push('')

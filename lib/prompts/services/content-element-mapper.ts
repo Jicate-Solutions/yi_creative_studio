@@ -177,6 +177,30 @@ const CONTENT_ELEMENT_CATEGORIES: ElementCategory[] = [
     ]
   },
   {
+    keywords: /\b(health|hygiene|menstrual|wellness|medical|women.?s health|nutrition|sanitation|medicine|doctor|physician|clinic|hospital|patient|therapy|mental health|wellbeing|care|nursing)\b/i,
+    elements: [
+      'lotus flower blooming from water symbolizing purity and renewal',
+      'human silhouette surrounded by healing light radiating outward',
+      'abstract DNA strand entwined with nature elements and green leaves',
+      'hands cradling glowing sphere representing care and protection',
+      'butterfly emerging from chrysalis representing transformation and health',
+      'flowing ribbon forming the shape of a heart representing awareness',
+      'tree of life with roots as veins and leaves as healing symbols',
+    ],
+    backgrounds: [
+      'soft teal-to-white gradient evoking clinical cleanliness and calm',
+      'nature-inspired environment with soft greens and healing botanicals',
+      'warm sunrise atmosphere symbolizing hope and wellness',
+      'serene spa-like environment with gentle water and light elements'
+    ],
+    decorativeAccents: [
+      'subtle leaf and botanical patterns along edges at 8% opacity',
+      'small cross or caduceus motifs as corner decorations',
+      'flowing organic curves framing the composition',
+      'circular mandala patterns suggesting wholeness and balance'
+    ]
+  },
+  {
     keywords: /\b(strategy|plan|roadmap|vision|goal|objective|mission)\b/i,
     elements: [
       'chess pieces mid-game on a board of strategic possibilities',
@@ -520,31 +544,57 @@ const CONTENT_ELEMENT_CATEGORIES: ElementCategory[] = [
 // ============================================================
 
 /**
- * Get content-related visual elements based on event name and type
+ * Get content-related visual elements based on event name and type.
+ *
+ * Priority rule: if eventDescription (tagline/topic) matches a category, those elements
+ * take priority and NAME-only matches are discarded. This prevents a generic name like
+ * "Women Leadership Forum" from overriding a specific topic like "Menstrual Health & Hygiene".
+ *
  * @param eventName - The event title/name to analyze
  * @param eventType - Optional event type for additional context
+ * @param eventDescription - Optional tagline / topic description (clean user text, NOT AI prompt)
  * @param uniquenessSeed - Optional seed for deterministic randomization
  * @returns Object with elements, backgrounds, and decorative accents
  */
 export function getContentRelatedElements(
   eventName: string,
   eventType?: string,
+  eventDescription?: string,
   uniquenessSeed?: string
 ): ContentElements {
-  const searchText = `${eventName} ${eventType || ''}`.toLowerCase()
+  const nameText = `${eventName} ${eventType || ''}`.toLowerCase()
+  const descText = (eventDescription || '').toLowerCase()
   const matchedCategories: string[] = []
   let elements: string[] = []
   let backgrounds: string[] = []
   let decorativeAccents: string[] = []
 
-  // Find all matching categories
+  // Separate description-matched from name-only-matched categories.
+  // Description (tagline/topic) is the specific intent of the event — it wins when present.
+  const descMatchedCategories: typeof CONTENT_ELEMENT_CATEGORIES[number][] = []
+  const nameOnlyMatchedCategories: typeof CONTENT_ELEMENT_CATEGORIES[number][] = []
+
   for (const category of CONTENT_ELEMENT_CATEGORIES) {
-    if (category.keywords.test(searchText)) {
-      matchedCategories.push(category.keywords.source)
-      elements = [...elements, ...category.elements]
-      backgrounds = [...backgrounds, ...category.backgrounds]
-      decorativeAccents = [...decorativeAccents, ...category.decorativeAccents]
+    const matchesDesc = descText.length > 0 && category.keywords.test(descText)
+    const matchesName = category.keywords.test(nameText)
+    if (matchesDesc) {
+      descMatchedCategories.push(category)
+    } else if (matchesName) {
+      nameOnlyMatchedCategories.push(category)
     }
+  }
+
+  // If description matched specific categories, use ONLY those (discard name-only matches).
+  // If description had no matches, fall back to name-only matches.
+  const activeCategories = descMatchedCategories.length > 0
+    ? descMatchedCategories
+    : nameOnlyMatchedCategories
+
+  for (const category of activeCategories) {
+    matchedCategories.push(category.keywords.source)
+    elements = [...elements, ...category.elements]
+    backgrounds = [...backgrounds, ...category.backgrounds]
+    decorativeAccents = [...decorativeAccents, ...category.decorativeAccents]
   }
 
   // If no matches, provide creative fallbacks based on generic analysis

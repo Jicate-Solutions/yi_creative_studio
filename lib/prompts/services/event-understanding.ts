@@ -143,6 +143,19 @@ ANALYSIS GUIDELINES:
    - Think creatively about the specific event name
    - Consider the literal and metaphorical layers
 
+6. ANTI-CONVERGENCE RULES (v32.0 — CRITICAL)
+   - NEVER suggest "silhouettes" of people in visualAssociations (silhouettes are BANNED)
+   - NEVER suggest "lotus flowers" unless the event is literally about lotus/nature
+   - NEVER suggest "circular motifs" or "mandala patterns" as default decorative elements
+   - NEVER suggest "flowing ribbons" or "abstract waves" as filler
+   - Think in SCENES not CATEGORIES — describe what THIS SPECIFIC event literally looks like
+   - Two "leadership" events must have COMPLETELY DIFFERENT visuals
+   - visualAssociations.primary should be SCENE DESCRIPTIONS, not generic icons/symbols:
+     WRONG: "human silhouettes in professional attire", "lotus flower symbolizing purity"
+     RIGHT: "a bustling workshop room with flip charts and animated discussion groups"
+     WRONG: "converging leaders", "crown/laurel wreath"
+     RIGHT: "a round table with diverse professionals debating over laptops, city view through glass walls"
+
 EXAMPLES:
 
 Event: "PATHFINDER"

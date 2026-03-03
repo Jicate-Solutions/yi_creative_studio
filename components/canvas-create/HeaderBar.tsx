@@ -4,7 +4,8 @@ import { useCreativeStore } from '@/stores/creative-store'
 import { useVerticals } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { FormatDropdown } from './FormatDropdown'
-import { Sparkles, Loader2, Wand2, Image, Info, LayoutGrid, FileText, Palette, Building2, Globe } from 'lucide-react'
+import { Sparkles, Loader2, Wand2, Image, Info, LayoutGrid, FileText, Palette, Building2, Globe, Crown, Film, Zap, Minus } from 'lucide-react'
+import { PROMPT_STYLE_OPTIONS, type PromptStyleId } from '@/lib/config/prompt-styles'
 import {
   Select,
   SelectContent,
@@ -65,6 +66,9 @@ interface HeaderBarProps {
   // Flash 3.1 (Nano Banana 2) image search toggle
   useImageSearch?: boolean
   onImageSearchChange?: (value: boolean) => void
+  // v31.0: Prompt style selector
+  promptStyle?: PromptStyleId
+  onPromptStyleChange?: (style: PromptStyleId) => void
 }
 
 export function HeaderBar({
@@ -91,6 +95,9 @@ export function HeaderBar({
   // Flash 3.1 image search toggle
   useImageSearch = true,
   onImageSearchChange,
+  // v31.0: Prompt style
+  promptStyle = 'auto',
+  onPromptStyleChange,
 }: HeaderBarProps) {
 
   // Flash 3.1 model check — show Quality/Speed toggle only for Nano Banana 2
@@ -229,6 +236,36 @@ export function HeaderBar({
               </button>
             </div>
           </div>
+
+          {/* v31.0: Prompt Style - Mobile compact selector */}
+          {onPromptStyleChange && (
+            <div className="flex items-center gap-1.5">
+              <Select value={promptStyle} onValueChange={(v) => onPromptStyleChange(v as PromptStyleId)}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROMPT_STYLE_OPTIONS.map((style) => {
+                    const IconMap: Record<string, React.ElementType> = {
+                      Wand2, Palette, Sparkles, Film, Zap, Crown, Minus,
+                    }
+                    const Icon = IconMap[style.icon] || Wand2
+                    return (
+                      <SelectItem key={style.id} value={style.id}>
+                        <div className="flex items-center gap-1.5">
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium">{style.name}</span>
+                            <span className="text-[10px] text-muted-foreground">{style.description}</span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Bar 2: Actions with prominent Generate button */}
           <div className="flex items-center gap-1.5">
@@ -377,6 +414,31 @@ export function HeaderBar({
                 <SelectItem value="4K" className="text-xs">4K</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* v31.0: Prompt Style Selector - Desktop */}
+            {onPromptStyleChange && (
+              <Select value={promptStyle} onValueChange={(v) => onPromptStyleChange(v as PromptStyleId)}>
+                <SelectTrigger className="w-[120px] h-8 text-xs" data-tour="prompt-style-selector">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROMPT_STYLE_OPTIONS.map((style) => {
+                    const IconMap: Record<string, React.ElementType> = {
+                      Wand2, Palette, Sparkles, Film, Zap, Crown, Minus,
+                    }
+                    const Icon = IconMap[style.icon] || Wand2
+                    return (
+                      <SelectItem key={style.id} value={style.id}>
+                        <div className="flex items-center gap-1.5">
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="text-xs">{style.name}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Quality/Speed Toggle — Flash 3.1 (Nano Banana 2) only */}
             {isFlash31 && onThinkingLevelChange && (

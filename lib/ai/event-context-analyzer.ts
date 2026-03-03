@@ -1,14 +1,13 @@
 /**
- * AI Event Context Analyzer v1.0
+ * AI Event Context Analyzer v2.0 (v30.0 Pipeline Upgrade)
  *
  * Uses Claude Sonnet to intelligently analyze event context from form data.
- * This is a GLOBAL solution that understands ANY event type automatically,
- * without relying on hardcoded keyword detection.
+ * This is a GLOBAL solution that understands ANY event type automatically.
  *
- * APPROACH: Hybrid (Category Match + Custom Enhancements)
- * - Claude identifies the best matching preset from ~20 predefined categories
- * - PLUS generates event-specific custom enhancements
- * - This gives consistency from presets + creativity from AI customization
+ * APPROACH: Free-Form Dynamic Analysis (v30.0)
+ * - NO preset categories — Claude analyzes the event freely
+ * - Generates UNIQUE visual concepts for EACH specific event
+ * - Prevents visual convergence across different events
  *
  * TIMING: After Form Submit
  * - All form data is available for comprehensive analysis
@@ -49,13 +48,13 @@ export interface EventFormData {
  * AI-analyzed event context result
  */
 export interface AIEventContext {
-  /** The best matching preset category from predefined list */
+  /** v30.0: Always null — no preset matching */
   matchedPreset: string | null
 
-  /** Confidence in the preset match (0-1) */
+  /** v30.0: Always 0 — no preset confidence */
   presetConfidence: number
 
-  /** Event-specific visual enhancements that go BEYOND the preset */
+  /** Event-specific visual enhancements unique to THIS event */
   customEnhancements: string[]
 
   /** AI-generated visual direction tailored to this specific event */
@@ -90,89 +89,43 @@ export interface AIEventContext {
 
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514' // Claude Sonnet for quality analysis
 
-/**
- * Available preset categories that the AI can match to
- * These align with EVENT_CONTEXT_PRESETS in context-helpers.ts
- */
-const AVAILABLE_PRESETS = [
-  // Academic & Educational
-  'academic_inauguration',    // Student programme/course inaugurations
-  'workshop',                 // Training, hands-on sessions
-  'seminar',                  // Educational talks, lectures
-  'conference',               // Multi-speaker professional gatherings
-
-  // Professional & Business
-  'networking',               // Professional meetups, mixers
-  'panel_discussion',         // Expert discussions
-  'keynote',                  // Single prominent speaker
-  'masterclass',              // Expert-led skill sessions
-  'summit',                   // High-level strategic gatherings
-
-  // Ceremonial & Formal
-  'inauguration',             // Building/facility openings (not academic)
-  'award_ceremony',           // Recognition and awards
-  'celebration',              // Milestones, anniversaries
-  'graduation',               // Completion ceremonies
-
-  // Cause & Action
-  'awareness_campaign',       // Social causes, health drives
-  'blood_donation',           // Blood donation drives
-  'fundraiser',               // Charity events
-  'walkathon',                // Running/walking events
-  'marathon',                 // Competitive running
-
-  // Social & Cultural
-  'cultural_program',         // Dance, music, arts
-  'festival',                 // Festive celebrations (Diwali, Christmas, etc.)
-  'party',                    // Casual celebrations
-
-  // Special Formats
-  'product_launch',           // New product/service announcements
-  'tech_event',               // Technology focused
-  'health_camp',              // Medical camps
-
-  // Fallback
-  'general',                  // When no specific category matches
-]
-
 // ============================================================================
-// PROMPT TEMPLATE
+// PROMPT TEMPLATE (v30.0 — Free-Form Dynamic Analysis)
 // ============================================================================
 
-const ANALYSIS_PROMPT = `You are an intelligent event context analyzer. Your job is to understand the FULL context of an event from form data and provide:
+const ANALYSIS_PROMPT = `You are a visual storytelling expert who creates UNIQUE poster concepts.
 
-1. The BEST MATCHING preset category from the available list
-2. CUSTOM ENHANCEMENTS specific to THIS event that go beyond the preset
-3. VISUAL DIRECTION tailored to the specific event context
+Your job: Analyze THIS SPECIFIC EVENT and generate completely original visual concepts.
 
-## Available Preset Categories:
-${AVAILABLE_PRESETS.map(p => `- ${p}`).join('\n')}
+## CRITICAL ANTI-CONVERGENCE RULES:
 
-## CRITICAL RULES:
+1. **DO NOT** fall back on generic stock imagery:
+   - NO generic silhouettes of people (unless the event is literally about silhouette art)
+   - NO lotus flowers (unless the event is about lotus flowers)
+   - NO abstract ripple patterns
+   - NO generic podium/microphone imagery
+   - NO "diverse group of professionals" unless specifically relevant
 
-1. **Read ALL form data** - The event name alone is not enough. Consider:
-   - Event description for context
-   - Venue for setting
-   - Speakers for formality level
-   - Organization/Vertical for branding context
-   - Date/time for seasonal considerations
+2. **Think LITERALLY about the event topic**:
+   - "Menstrual Health Awareness" → menstrual health education visuals, NOT generic women empowerment imagery
+   - "Blood Donation Drive" → blood donation specific imagery (blood bags, donor arm, life-saving metaphor)
+   - "AI Hackathon for Climate" → code + environmental fusion, NOT generic tech imagery
+   - "BDS Inaugural Program" → dental-specific imagery, NOT generic graduation
 
-2. **Match preset with CONFIDENCE** - Only match if you're confident (>0.7)
-   - If uncertain, use 'general' preset with low confidence
-   - Some events are truly unique and won't match any preset
+3. **Each event is UNIQUE** — even two health events should look different:
+   - "Mental Health Workshop" vs "Menstrual Health Awareness" should have COMPLETELY different visuals
+   - The visual must make someone INSTANTLY understand what THIS specific event is about
 
-3. **CUSTOM ENHANCEMENTS are KEY** - This is where you add value:
-   - For "BDS Inaugural Induction Program": preset = 'academic_inauguration', but ADD "dental equipment icons, tooth models, medical blue theme"
-   - For "AI Hackathon for Climate": preset = 'tech_event', but ADD "environmental green accents, sustainability symbols, code + leaves fusion"
+4. **Be HYPER-SPECIFIC, not generic**:
+   - BAD: "professional atmosphere with warm lighting"
+   - GOOD: "menstrual cup and sanitary pad education display with anatomical diagram in soft pink and teal medical setting"
 
-4. **Be SPECIFIC, not generic**:
-   - BAD: "professional atmosphere"
-   - GOOD: "dental clinic ambiance with sterilization blue lighting and medical precision aesthetic"
-
-5. **Consider the AUDIENCE**:
-   - Students → youthful, aspirational imagery
-   - Professionals → sophisticated, premium feel
-   - Mixed → balance of approachability and professionalism
+5. **Consider ALL form data** — not just the event name:
+   - Event description for the REAL topic
+   - Venue for physical setting
+   - Speakers for expertise domain
+   - Organization/Vertical for community context
+   - Date/time for seasonal mood
 
 ## Event Form Data to Analyze:
 
@@ -191,22 +144,20 @@ TARGET AUDIENCE: {audience}
 ## Required Output (JSON):
 
 {
-  "matchedPreset": "preset_name or null if truly unique",
-  "presetConfidence": 0.0-1.0,
   "customEnhancements": [
-    "Enhancement 1: specific visual addition for THIS event",
-    "Enhancement 2: another specific addition",
-    "Enhancement 3: etc."
+    "Enhancement 1: a SPECIFIC visual addition unique to THIS event",
+    "Enhancement 2: another specific visual element",
+    "Enhancement 3: a creative visual metaphor for THIS event's message"
   ],
-  "visualDirection": "Detailed visual direction for image generation, specific to THIS event's context",
-  "colorGuidance": "Recommended color palette with reasoning",
+  "visualDirection": "Detailed, hyper-specific visual direction for image generation. Describe the EXACT scene, objects, colors, and mood that represent THIS event's unique identity. Minimum 2 sentences.",
+  "colorGuidance": "Specific color palette with reasoning tied to THIS event's topic (not generic 'professional blue')",
   "keyVisuals": [
-    "Specific visual element 1 (e.g., 'students in academic regalia with dental tools')",
-    "Specific visual element 2",
-    "Specific visual element 3"
+    "Specific visual 1: describe an actual object/scene that represents THIS event",
+    "Specific visual 2: another concrete visual element",
+    "Specific visual 3: a unique visual metaphor"
   ],
-  "moodAtmosphere": "Description of the mood and atmosphere to evoke",
-  "reasoning": "Brief explanation of why you chose this preset and enhancements"
+  "moodAtmosphere": "The specific emotional atmosphere THIS event should evoke (tied to its topic, not generic)",
+  "reasoning": "Why these visuals uniquely represent THIS specific event and not any other event"
 }
 
 CRITICAL: Return ONLY valid JSON. No markdown, no explanations outside JSON.`
@@ -216,18 +167,20 @@ CRITICAL: Return ONLY valid JSON. No markdown, no explanations outside JSON.`
 // ============================================================================
 
 /**
- * Analyze event context using Claude Sonnet
+ * Analyze event context using Claude Sonnet (v30.0 — Free-Form)
  *
- * This function takes all available form data and uses AI to:
- * 1. Identify the best matching preset category
- * 2. Generate event-specific custom enhancements
- * 3. Provide tailored visual direction
+ * This function takes all available form data and uses AI to generate
+ * UNIQUE visual concepts without constraining to preset categories.
  *
  * @param formData - All available form data
- * @returns AI-analyzed event context
+ * @returns AI-analyzed event context with unique visuals
  */
 export async function analyzeEventContext(
-  formData: EventFormData
+  formData: EventFormData,
+  options?: {
+    temperature?: number | null // v31.0: Prompt style temperature override
+    creativeDirection?: string   // v31.0: Prompt style creative direction
+  }
 ): Promise<AIEventContext> {
   const startTime = Date.now()
 
@@ -238,8 +191,16 @@ export async function analyzeEventContext(
     return createFallbackContext(formData, startTime)
   }
 
-  // Build the prompt with form data
-  const prompt = buildPrompt(formData)
+  // Build the prompt with form data + optional creative direction
+  let prompt = buildPrompt(formData)
+
+  // v31.0: Inject creative style direction if provided
+  if (options?.creativeDirection) {
+    prompt += `\n\nCREATIVE STYLE DIRECTION:\n${options.creativeDirection}\nApply this creative approach to your visual analysis. Let it influence your visual choices, color guidance, and mood.`
+  }
+
+  // v31.0: Use style temperature or default to 1.0
+  const temperature = options?.temperature ?? 1.0
 
   try {
     const anthropic = new Anthropic({ apiKey })
@@ -247,6 +208,7 @@ export async function analyzeEventContext(
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 1024,
+      temperature, // v31.0: Configurable via prompt style (default: 1.0)
       messages: [
         {
           role: 'user',
@@ -278,13 +240,16 @@ export async function analyzeEventContext(
       totalTokens: response.usage.input_tokens + response.usage.output_tokens,
     }
 
-    console.log(`[Event Context Analyzer] ✅ Analysis complete in ${durationMs}ms`)
-    console.log(`[Event Context Analyzer] Matched preset: ${parsed.matchedPreset} (${(parsed.presetConfidence * 100).toFixed(0)}% confidence)`)
-    console.log(`[Event Context Analyzer] Custom enhancements: ${parsed.customEnhancements.length}`)
+    console.log(`[Event Context Analyzer] v30.0 Free-form analysis complete in ${durationMs}ms`)
+    console.log(`[Event Context Analyzer] Visual direction: ${parsed.visualDirection.substring(0, 80)}...`)
+    console.log(`[Event Context Analyzer] Key visuals: ${parsed.keyVisuals.length}`)
     console.log(`[Event Context Analyzer] Token usage: ${tokenUsage.totalTokens} tokens`)
 
     return {
       ...parsed,
+      // v30.0: Always null/0 — no preset matching to prevent convergence
+      matchedPreset: null,
+      presetConfidence: 0,
       tokenUsage,
       durationMs,
     }
@@ -346,8 +311,8 @@ function parseResponse(jsonText: string): Omit<AIEventContext, 'tokenUsage' | 'd
 
     // Validate and provide defaults
     return {
-      matchedPreset: parsed.matchedPreset || null,
-      presetConfidence: typeof parsed.presetConfidence === 'number' ? parsed.presetConfidence : 0.5,
+      matchedPreset: null, // v30.0: no preset matching
+      presetConfidence: 0,
       customEnhancements: Array.isArray(parsed.customEnhancements) ? parsed.customEnhancements : [],
       visualDirection: parsed.visualDirection || '',
       colorGuidance: parsed.colorGuidance || '',
@@ -374,6 +339,7 @@ function parseResponse(jsonText: string): Omit<AIEventContext, 'tokenUsage' | 'd
 
 /**
  * Create a fallback context when AI analysis fails
+ * v30.0: No keyword→preset matching — generic safe fallback only
  */
 function createFallbackContext(
   formData: EventFormData,
@@ -381,34 +347,11 @@ function createFallbackContext(
 ): AIEventContext {
   const durationMs = Date.now() - startTime
 
-  // Simple keyword-based fallback
-  const eventName = (formData.eventName || '').toLowerCase()
-  let matchedPreset: string | null = 'general'
-
-  // Basic keyword matching as fallback
-  if (eventName.includes('inaugur') || eventName.includes('induction')) {
-    if (eventName.includes('programme') || eventName.includes('program') || eventName.includes('batch') || eventName.includes('student')) {
-      matchedPreset = 'academic_inauguration'
-    } else {
-      matchedPreset = 'inauguration'
-    }
-  } else if (eventName.includes('workshop') || eventName.includes('training')) {
-    matchedPreset = 'workshop'
-  } else if (eventName.includes('conference')) {
-    matchedPreset = 'conference'
-  } else if (eventName.includes('seminar')) {
-    matchedPreset = 'seminar'
-  } else if (eventName.includes('blood') && eventName.includes('donat')) {
-    matchedPreset = 'blood_donation'
-  } else if (eventName.includes('marathon') || eventName.includes('run')) {
-    matchedPreset = 'marathon'
-  }
-
-  console.log(`[Event Context Analyzer] ⚠️ Using fallback - matched: ${matchedPreset}`)
+  console.log('[Event Context Analyzer] v30.0 Using generic fallback (AI unavailable)')
 
   return {
-    matchedPreset,
-    presetConfidence: 0.5,
+    matchedPreset: null,
+    presetConfidence: 0,
     customEnhancements: [],
     visualDirection: 'Professional event design with appropriate thematic elements',
     colorGuidance: 'Use brand colors with complementary accents',

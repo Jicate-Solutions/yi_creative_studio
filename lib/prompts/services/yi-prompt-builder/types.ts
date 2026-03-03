@@ -681,6 +681,7 @@ export interface DesignBrief {
   verticalName?: string
   initiativeText?: string
   targetAudience?: string
+  additionalVisualBrief?: string // Free-text user visual direction injected into visualScene
 }
 
 export interface DesignIntelligenceResult {

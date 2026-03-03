@@ -35,7 +35,7 @@ import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, get
 import { calculateSpeakerCardDimensions, calculateBlockDimensions, scaleToFitSafeZone, getLayoutStrategy } from '@/lib/sharp/speaker-dimensions'
 import { analyzeSpeakerLayout, type SpeakerLayoutDecision } from '@/lib/agents/speaker-layout-agent'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
-import type { DesignData, CustomizationData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, Enhanced4RowStripMode, ResolutionId } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
   DIMENSION_QUALITY,
@@ -52,6 +52,7 @@ import {
   type DesignContext,
 } from '@/lib/prompts'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
+import { getPromptStyleConfig } from '@/lib/config/prompt-styles'
 import { getFormatZones, getFormatCategory, shouldEnforceZones } from '@/lib/config/format-zones'
 import { shouldApplyLogoBars } from '@/lib/config/format-logo-bar-config'
 import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
@@ -289,6 +290,7 @@ export async function POST(request: NextRequest) {
       useXmlPrompts, // New flag to opt-in to XML-structured prompts (Gemini-optimized)
       thinkingLevel, // Flash 3.1 only: 'minimal' (fast) | 'High' (quality)
       useImageSearch, // Flash 3.1 only: whether to enable Google Image Search grounding
+      promptStyle, // v31.0: Named creative mode (auto, creative, stunning, cinematic, bold, elegant, minimal)
     } = body as {
       prompt: string
       model: string
@@ -315,6 +317,7 @@ export async function POST(request: NextRequest) {
       useXmlPrompts?: boolean // Enable XML-structured prompts (v2 Gemini-optimized system)
       thinkingLevel?: 'minimal' | 'High' // Flash 3.1 only: thinking mode control
       useImageSearch?: boolean // Flash 3.1 only: enable Google Image Search grounding (default true)
+      promptStyle?: string // v31.0: Prompt style ID (auto, creative, stunning, cinematic, bold, elegant, minimal)
     }
 
     // SECURITY: Verify user has editor+ role for this specific organization
@@ -519,6 +522,16 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       // creativeId will be set after creation if needed
     })
+
+    // ========================================================
+    // v31.0: PROMPT STYLE CONFIGURATION
+    // ========================================================
+    const styleConfig = getPromptStyleConfig(promptStyle || 'auto')
+    const modelGuidance = styleConfig.modelGuidance[model] || ''
+    if (styleConfig.id !== 'auto') {
+      console.log(`[v31.0 Prompt Style] Active: "${styleConfig.name}" (${styleConfig.id})`)
+      console.log(`[v31.0 Prompt Style] Model guidance for ${model}: ${modelGuidance.substring(0, 80)}...`)
+    }
 
     // ========================================================
     // PREVENTION CHECK - Pre-check against learned patterns
@@ -746,7 +759,7 @@ export async function POST(request: NextRequest) {
 
           eventProfile = await generateEventUnderstanding({
             eventName,
-            description: compiledData.description || formDataContent.description || undefined,
+            description: [compiledData.tagline, compiledData.description].filter(Boolean).join('. ') || formDataContent.description || undefined,
             venue: (formDataContent.venue || compiledData.venue) ?? undefined,
             eventType: (formDataContent.eventType || parsedContent.eventType) ?? undefined,
             speakers: speakers.length > 0 ? speakers : undefined,
@@ -1040,7 +1053,9 @@ export async function POST(request: NextRequest) {
         eventType: formDataContent.eventType || parsedContent.eventType,
         eventName: formDataContent.eventName || compiledData.eventName || parsedContent.eventName || 'Event',
         organizationName: compiledData.organizationName || 'Yi Creatives',
-        details: cleanedPrompt || compiledData.description || '', // Use compiled description for design context
+        details: cleanedPrompt
+          || [compiledData.tagline, compiledData.description].filter(Boolean).join('. ')
+          || '', // Use compiled description for design context; tagline injected for accurate visual context
         theme: useCustomThemeGeneration ? undefined : finalTheme,  // Don't pass theme if AI generating custom
         style: finalStyle,
         requestCustomTheme: useCustomThemeGeneration,  // v6.0 Phase 3: NEW flag for AI custom theme
@@ -1089,7 +1104,18 @@ export async function POST(request: NextRequest) {
       // Generate AI-powered design context
       // v6.0 Phase 2: Pass resolvedColors for color-aware background generation
       // v6.5 Phase 1: Pass eventProfile from Stage 1 for concept-driven design
-      const designContextResult = await generateDesignContextSafe(designBrief, resolvedColors, eventProfile)
+      const designContextResult = await generateDesignContextSafe(
+        designBrief,
+        resolvedColors,
+        eventProfile,
+        styleConfig.id !== 'auto' ? {
+          temperatures: {
+            eventContext: styleConfig.temperatures.eventContext,
+            storytelling: styleConfig.temperatures.storytelling,
+          },
+          creativeDirection: styleConfig.creativeDirection || undefined,
+        } : undefined
+      )
 
       // CRITICAL: Sanitize Design Context to filter risky single-word keywords
       // Prevents Gemini from rendering visual guidance as visible text labels
@@ -1155,7 +1181,14 @@ export async function POST(request: NextRequest) {
       const dualStripeMode = (logoStripMode?.enabled || false) && !!verticalSlug
       console.log('[Generate] Dual-Stripe Mode:', dualStripeMode ? 'YES (20% text start)' : 'NO (15% text start)')
 
-      const ultraProResult = await generateUltraProPromptSafe(compiledData, 'gemini', designContext, logoStripMode?.enabled || false, resolvedColors, dualStripeMode)
+      const ultraProResult = await generateUltraProPromptSafe(
+        compiledData, 'claude', designContext, logoStripMode?.enabled || false, resolvedColors, dualStripeMode,
+        styleConfig.id !== 'auto' ? {
+          temperatureOverride: styleConfig.temperatures.ultraPro,
+          creativeDirection: styleConfig.creativeDirection || undefined,
+          modelGuidance: modelGuidance || undefined,
+        } : undefined
+      )
       const ultraProPrompt = ultraProResult.prompt
 
       console.log('[Generate] === ULTRA-PRO RESULT ===')
@@ -1218,7 +1251,9 @@ export async function POST(request: NextRequest) {
             unifiedOptimization = await optimizeTypographyAndColors({
               eventType: formDataContent.eventType || parsedContent.eventType || 'professional',
               eventName: formDataContent.eventName || compiledData.eventName || 'Event',
-              eventDescription: cleanedPrompt || compiledData.description || undefined,
+              eventDescription: cleanedPrompt
+                || [compiledData.tagline, compiledData.description].filter(Boolean).join('. ')
+                || undefined,
               targetMood: designContext?.moodDirection || themeInference?.inferredMood || 'professional',
               brandColors: {
                 primary: resolvedColors.primaryColor,
@@ -1710,8 +1745,34 @@ export async function POST(request: NextRequest) {
         // Photo overlay zones are controlled separately via multiSpeakerLayout or speakerPhotoZoneCoordinates
         // The overlay function will filter to only speakers WITH photos using getSpeakersWithPhotos()
 
+        // v29.0: Inject speaker data from designData into userFormData
+        // Speaker data lives in designData.customization.speakerPhoto.speakers (design panel),
+        // NOT in userFormData (form fields). The event-poster builder looks for speakers in
+        // rawData (userFormData), so we must inject them here for <text role="speaker_name"> tags.
+        const enrichedFormData: Record<string, unknown> = { ...(userFormData || {}) }
+
+        if (!enrichedFormData.speakers && originalSpeakerPhotoConfig?.speakers?.length) {
+          const injectedSpeakers = originalSpeakerPhotoConfig.speakers
+            .map((s: any) => ({
+              name: s.name || '',
+              designation: s.designation || '',
+            }))
+            .filter((s: any) => s.name?.trim())
+
+          if (injectedSpeakers.length > 0) {
+            enrichedFormData.speakers = injectedSpeakers
+            console.log(`[Generate] Injected ${injectedSpeakers.length} speaker(s) from designData into formData`)
+          }
+        }
+
+        // Also inject single-speaker fields for backward compatibility
+        if (!enrichedFormData.speakerName && (enrichedFormData.speakers as any)?.[0]?.name) {
+          enrichedFormData.speakerName = (enrichedFormData.speakers as any)[0].name
+          enrichedFormData.speakerDesignation = (enrichedFormData.speakers as any)[0].designation
+        }
+
         // Build XML-structured prompt using YiPromptBuilder
-        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, userFormData || {}, {
+        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, enrichedFormData, {
           ...buildOptions,
           // v6.5: Pass calculated speaker photo coordinates to prompt builder
           speakerPhotoZoneCoordinates,
@@ -1728,7 +1789,7 @@ export async function POST(request: NextRequest) {
         storedPromptForRegeneration = finalXmlPrompt
 
         // CRITICAL: Validate speaker text presence in XML tags
-        const formSpeakers = (userFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
+        const formSpeakers = (enrichedFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
         if (formSpeakers && formSpeakers.length > 0) {
           const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/);
 
@@ -2009,7 +2070,7 @@ ${typographyProfile.hierarchy}
       // Content: 40% to 70% (ALL text must be here)
       // Footer: 70% to 100% (FORBIDDEN - no text)
       const headerEndPercent = 40 // v24.10: Unified header zone
-      const footerStartPercent = 70 // v24.10: Unified footer zone
+      const footerStartPercent = 78 // v26.1: Updated to match CONTENT_END cap (was outdated 70%)
 
       const violations = await detectTextInForbiddenZones(
         imageBuffer,
@@ -2029,9 +2090,69 @@ ${typographyProfile.hierarchy}
           )
         }
 
-        // Note: Auto-retry with increased padding could be added here
-        // For now, we log violations and continue with logo overlay
-        // The logo overlay may still cover the violating text
+        // v32.0: Auto-retry ONCE on critical header violation
+        const headerViolation = violations.find(v => v.zoneType === 'header' && v.severity === 'critical')
+        if (headerViolation && storedPromptForRegeneration) {
+          console.log('[v32.0 Zone Retry] 🔄 Critical header violation detected — retrying generation with stronger zone instructions')
+
+          const zoneRetryPrompt = storedPromptForRegeneration + `
+
+<instruction>(DO NOT RENDER) CRITICAL ZONE RETRY (v32.0):
+Your previous generation placed text/content in the TOP 40% of the canvas (detected at ${headerViolation.detectedTextY}%).
+This area is PHYSICALLY COVERED by logo overlays and your content WILL BE HIDDEN.
+
+ABSOLUTE RULE: ALL text, headlines, titles, and content elements MUST start BELOW the 40% mark (below 576px on a 1440px canvas).
+The top 40% should contain ONLY smooth background artwork — NO text, NO labels, NO icons, NO UI elements.
+Generate ONLY atmospheric background design in the top 576 pixels.
+</instruction>`
+
+          try {
+            const retrySystemInstruction = YiPromptBuilder.getSystemInstruction()
+            const retryResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
+
+            const retryResult = await generateWithGemini(
+              zoneRetryPrompt,
+              effectiveDesignData || null,
+              retrySystemInstruction,
+              selectedFormat,
+              retryResolution,
+              model,
+              0,
+              thinkingLevel,
+              useImageSearch
+            )
+
+            // Resize retry result to exact format dimensions
+            let retryImageUrl = retryResult.imageBase64
+            if (formatDimensions) {
+              retryImageUrl = await resizeImageToExactDimensions(
+                retryImageUrl,
+                formatDimensions.width,
+                formatDimensions.height,
+                'fill'
+              )
+            }
+
+            // Verify retry result
+            const retryResponse = await fetch(retryImageUrl)
+            if (retryResponse.ok) {
+              const retryBuffer = Buffer.from(await retryResponse.arrayBuffer())
+              const retryViolations = await detectTextInForbiddenZones(retryBuffer, headerEndPercent, footerStartPercent)
+              const retryHeaderViolation = retryViolations.find(v => v.zoneType === 'header')
+
+              if (!retryHeaderViolation) {
+                console.log('[v32.0 Zone Retry] ✅ Retry succeeded — no header violations')
+                imageUrl = retryImageUrl
+                imageBuffer = retryBuffer
+                if (retryResult.actualModel) imageActualModel = retryResult.actualModel
+              } else {
+                console.warn('[v32.0 Zone Retry] ⚠️ Retry still has header violation — using original (logo bars will cover)')
+              }
+            }
+          } catch (retryError) {
+            console.error('[v32.0 Zone Retry] ❌ Retry failed, continuing with original:', retryError)
+          }
+        }
       } else {
         console.log('[Spatial Verification] ✓ No violations detected')
       }
@@ -2285,18 +2406,20 @@ ${typographyProfile.hierarchy}
             adjustedFrom: null as number | null,
           }
           try {
-            // Step 1: Detect violations
+            // Step 1: Detect violations using format-zone boundaries (not logo strip pixel heights)
+            // v26.2: Use format-zones.ts boundaries (40% header, 78% footer) to match prompt instructions
+            const detectionZones = getFormatZones(formatId || 'event_poster')
             const violations = await detectTextInForbiddenZones(
               imageBuffer,
-              logoStripZoneCoordinates.headerReservePercent,
-              100 - logoStripZoneCoordinates.footerReservePercent  // Fix: Convert height to start position
+              detectionZones.headerZone.end,                    // 40% for poster_portrait
+              Math.max(detectionZones.footerZone.start, 78)     // 78% (v26.1 CONTENT_END cap)
             )
 
             const headerViolation = violations.find(v => v.zoneType === 'header')
 
             if (headerViolation) {
               const actualTextY = headerViolation.detectedTextY
-              const requiredSafeZone = logoStripZoneCoordinates.headerReservePercent
+              const requiredSafeZone = detectionZones.headerZone.end  // 40% — matches prompt instructions
 
               console.log(`[v24.0 Spatial Strategy] Text detected at ${actualTextY.toFixed(1)}%, required safe zone: ${requiredSafeZone}%`)
 
@@ -2395,8 +2518,8 @@ ${typographyProfile.hierarchy}
             // This prevents "footer moving to middle" issue
             if (footerViolation) {
               const detectedFooterTextY = footerViolation.detectedTextY
-              const footerStartPercent = 100 - logoStripZoneCoordinates.footerReservePercent
-              console.log(`[v24.8 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}% (footer zone: ${footerStartPercent}%-100%)`)
+              const footerZoneStart = Math.max(detectionZones.footerZone.start, 78)
+              console.log(`[v24.8 Footer Strategy] Text detected at ${detectedFooterTextY.toFixed(1)}% (footer zone: ${footerZoneStart}%-100%)`)
               console.log(`[v24.8 Footer Strategy] ✅ STATIC footer position - keeping at bottom, logo bar will overlay`)
               // footerOffset stays 0 - footer does NOT move
             } else {
@@ -4069,13 +4192,22 @@ async function generateWithGemini(
 
     console.log(`[DIMENSION CHECK] ${currentModel} returned: ${actualWidth}x${actualHeight} for ${geminiAspectRatio} @ ${geminiImageSize}`)
 
-    // CRITICAL FIX: Use format-specific dimensions (e.g., event_poster 1080x1440)
-    // NOT generic DIMENSION_QUALITY (which has 3:4 = 896x1200)
-    // Format dimensions are what Sharp resizes to, so drift check must match those
-    const expectedWidth = format?.width || 1024
-    const expectedHeight = format?.height || 1024
-
-    console.log(`[TIER 3] Format-specific dimensions: ${format?.label} = ${expectedWidth}x${expectedHeight} (ignoring generic DIMENSION_QUALITY)`)
+    // DIMENSION_QUALITY reflects Gemini's actual native output sizes for all resolutions.
+    // Sharp then resizes to the format's canonical dimensions (e.g. 1024 → 1080 for Instagram).
+    // Always use DIMENSION_QUALITY as the TIER 3 expected baseline so drift = 0% for correct output.
+    // Previously excluded 1K, causing a false 5.19% drift (format=1080 vs Gemini=1024) that
+    // triggered a pointless 4x Pro upgrade — Pro also returns 1024px and Sharp resizes it anyway.
+    let expectedWidth = format?.width || 1024
+    let expectedHeight = format?.height || 1024
+    const effectiveResolution = (resolution || '1K') as ResolutionId
+    if (format?.aspectRatio && DIMENSION_QUALITY[format.aspectRatio as keyof typeof DIMENSION_QUALITY]) {
+      const dqEntry = DIMENSION_QUALITY[format.aspectRatio as keyof typeof DIMENSION_QUALITY][effectiveResolution]
+      if (dqEntry) {
+        expectedWidth = dqEntry.width
+        expectedHeight = dqEntry.height
+      }
+    }
+    console.log(`[TIER 3] Expected dimensions: ${format?.label} @ ${effectiveResolution} = ${expectedWidth}x${expectedHeight}`)
 
     // Calculate drift percentage (width and height separately)
     const widthDrift = Math.abs(actualWidth - expectedWidth) / expectedWidth

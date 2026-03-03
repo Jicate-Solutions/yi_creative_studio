@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Layers, Palette, Paintbrush, Check } from 'lucide-react'
+import { Layers, Palette, Paintbrush, Check, Sparkles } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -245,6 +246,29 @@ export function LogosStylePanel() {
             })
           }}
         />
+      </div>
+
+      {/* Visual Direction - free-text visual brief */}
+      <div className="rounded-lg border bg-card p-2.5">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Visual Direction</span>
+        </div>
+        <Textarea
+          placeholder="Describe visual… e.g. 'tech network glowing circuits'"
+          value={formData.designData?.visualDirection ?? ''}
+          onChange={(e) =>
+            updateFormData({
+              designData: {
+                ...formData.designData,
+                visualDirection: e.target.value,
+              },
+            })
+          }
+          className="h-16 resize-none text-xs"
+          maxLength={300}
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Optional — guides the AI background visual</p>
       </div>
 
       {/* Typography - Inline typography controls */}

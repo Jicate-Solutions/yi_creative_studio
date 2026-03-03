@@ -24,6 +24,13 @@ export async function detectTextInForbiddenZones(
 
   const violations: ZoneViolation[] = []
 
+  // Tolerance to avoid false positives at zone boundaries.
+  // Math.floor pixel rounding can place the extraction edge slightly below the
+  // exact percentage boundary, so content right at the edge (e.g. 77.99% vs 78%)
+  // would be incorrectly flagged. A 0.5% tolerance ensures only content that is
+  // clearly inside the forbidden zone triggers a violation.
+  const BOUNDARY_TOLERANCE_PERCENT = 0.15
+
   // Convert percentages to pixel coordinates
   const headerEndPx = Math.floor((height * headerEndPercent) / 100)
   const footerStartPx = Math.floor((height * footerStartPercent) / 100)
@@ -43,13 +50,16 @@ export async function detectTextInForbiddenZones(
     // Calculate actual text Y position as percentage
     const actualTextY = (headerTextInfo.firstTextRow / height) * 100
 
-    violations.push({
-      zoneType: 'header',
-      detectedTextY: actualTextY, // Actual position where text starts
-      forbiddenRangeStart: 0,
-      forbiddenRangeEnd: headerEndPercent,
-      severity: 'critical',
-    })
+    // Only flag if text is clearly inside the header forbidden zone (not at the boundary edge)
+    if (actualTextY < headerEndPercent - BOUNDARY_TOLERANCE_PERCENT) {
+      violations.push({
+        zoneType: 'header',
+        detectedTextY: actualTextY, // Actual position where text starts
+        forbiddenRangeStart: 0,
+        forbiddenRangeEnd: headerEndPercent,
+        severity: 'critical',
+      })
+    }
   }
 
   // Repeat for footer zone
@@ -69,13 +79,17 @@ export async function detectTextInForbiddenZones(
     // footerTextInfo.firstTextRow is relative to footer region, so add footerStartPx offset
     const actualTextY = ((footerStartPx + footerTextInfo.firstTextRow) / height) * 100
 
-    violations.push({
-      zoneType: 'footer',
-      detectedTextY: actualTextY, // Actual position where text starts, not midpoint
-      forbiddenRangeStart: footerStartPercent,
-      forbiddenRangeEnd: 100,
-      severity: 'critical',
-    })
+    // Only flag if text is clearly inside the footer forbidden zone (not at the boundary edge)
+    // Content at footerStartPercent - 0.5% to footerStartPercent + 0.5% is "at the boundary"
+    if (actualTextY > footerStartPercent + BOUNDARY_TOLERANCE_PERCENT) {
+      violations.push({
+        zoneType: 'footer',
+        detectedTextY: actualTextY, // Actual position where text starts, not midpoint
+        forbiddenRangeStart: footerStartPercent,
+        forbiddenRangeEnd: 100,
+        severity: 'critical',
+      })
+    }
   }
 
   return violations

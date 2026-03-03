@@ -69,6 +69,9 @@ export interface CompiledFormData {
   alignment: 'center' | 'left' | 'right' | 'asymmetric' | null
   fontStyle: 'serif' | 'sans' | 'slab' | 'mono' | 'script' | 'display' | null
 
+  // Visual direction: free-text user brief for background visual
+  visualDirection: string | null
+
   // Raw form data for reference
   rawFormData: Record<string, unknown>
 }
@@ -82,7 +85,7 @@ export interface CompiledFormData {
  * This handles dynamic form fields that might use different naming conventions.
  */
 const FIELD_ALIASES: Record<string, string[]> = {
-  eventName: ['title', 'eventName', 'eventTitle', 'name', 'event_name', 'event', 'postTitle'],
+  eventName: ['title', 'eventName', 'eventTitle', 'name', 'event_name', 'event', 'postTitle', 'postHeadline'],
   eventType: ['eventType', 'type', 'event_type', 'category'],
   date: ['date', 'eventDate', 'event_date'],
   time: ['time', 'eventTime', 'event_time', 'startTime', 'start_time'],
@@ -91,7 +94,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   speakerName: ['speaker', 'guestName', 'speakerName', 'guest', 'chief_guest', 'chiefGuest', 'speaker_name', 'guest_name'],
   speakerDesignation: ['designation', 'guestDesignation', 'speakerDesignation', 'title', 'role', 'position', 'speaker_designation'],
   organizationName: ['organization', 'organizationName', 'org', 'company', 'institution', 'organization_name'],
-  description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message', 'postCaption'],
+  description: ['description', 'additionalInfo', 'details', 'about', 'info', 'content', 'message', 'postCaption', 'eventCaption', 'eventDescription'],
   tagline: ['tagline', 'slogan', 'subtitle', 'subheading', 'motto', 'eventTagline'],
   eventNote: ['eventNote', 'note', 'additionalNote', 'footerNote', 'extraInfo', 'announcement', 'additionalDetails'],
   // NEW v4.0: Design intensity aliases
@@ -141,6 +144,12 @@ export function compileFormData(
         break // Use first matching alias
       }
     }
+    // Phase 2: mark ALL present aliases for this field as used (prevent sibling leak to customFields)
+    for (const alias of aliases) {
+      if (formData[alias] !== undefined && formData[alias] !== null && formData[alias] !== '') {
+        usedKeys.add(alias)
+      }
+    }
     // If not found, set to null
     if (!extractedFields[standardField]) {
       extractedFields[standardField] = null
@@ -177,8 +186,10 @@ export function compileFormData(
   const customFields: Record<string, string> = {}
   for (const [key, value] of Object.entries(formData)) {
     if (!usedKeys.has(key) && value !== undefined && value !== null && value !== '') {
-      // Skip internal fields
-      if (key.startsWith('_') || key === 'language') continue
+      // Skip internal/meta fields
+      if (key.startsWith('_') || key === 'language' || key === 'designData') continue
+      // Skip objects — they stringify to "[object Object]" which poisons AI briefs
+      if (typeof value === 'object') continue
       customFields[key] = String(value).trim()
     }
   }
@@ -239,6 +250,9 @@ export function compileFormData(
     // NEW v4.2: Typography and Layout controls
     alignment: (extractedFields.alignment as any) || null,
     fontStyle: (extractedFields.fontStyle as any) || null,
+
+    // Visual direction: free-text user brief for background visual
+    visualDirection: designData?.visualDirection?.trim() || null,
 
     // Raw form data for reference
     rawFormData: formData,
