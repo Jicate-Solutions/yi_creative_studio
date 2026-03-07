@@ -13,6 +13,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { getFormatLabel } from '@/lib/config/creative-formats'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,7 +164,7 @@ export function FeedbackTable({
                     </p>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] h-5">
-                        {item.creative_type?.replace(/_/g, ' ')}
+                        {getFormatLabel(item.creative_type)}
                       </Badge>
                       {item.issue_categories?.length > 0 && (
                         <span className="text-[10px] text-orange-500">

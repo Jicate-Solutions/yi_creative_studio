@@ -20,7 +20,7 @@ import {
 import { BUSINESS_CARD_EXAMPLES } from '../examples'
 
 // Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -127,6 +127,21 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     ? `Brand minimal: white/light background, ${options.brandContext.primaryColor} accent, ${options.brandContext.accentColor || 'black'} text`
     : data.colorScheme || 'Professional minimal (black, white, one accent color)'
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Business card: 1050x600 (standard 3.5"x2" at 300dpi)
+  const CANVAS_WIDTH_BC = 1050
+  const CANVAS_HEIGHT_BC = 600
+  const headerPercentBC = 10 // Top 10% reserved (compact format)
+  const footerPercentBC = 30 // Bottom 30% reserved
+  const headerHeightBC = Math.floor(CANVAS_HEIGHT_BC * (headerPercentBC / 100))
+  const footerHeightBC = Math.floor(CANVAS_HEIGHT_BC * (footerPercentBC / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH_BC, CANVAS_HEIGHT_BC, headerHeightBC, footerHeightBC, headerPercentBC, footerPercentBC
+  )
+
+  console.log('[BusinessCard v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a professional business card design</task>
 
@@ -137,6 +152,10 @@ Orientation: ${data.orientation || 'Horizontal'}
 Purpose: Professional networking, personal branding, contact information exchange
 Style Variant: ${data.style || 'minimal'}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -172,6 +191,7 @@ The card should reflect professionalism and be memorable but not gimmicky.
 Layout: Clean, balanced ${data.orientation || 'horizontal'} layout
 Visual Style: ${styleContext.visualStyle}
 
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 10-70% of canvas height. Header (0-10%) and footer (70-100%) are for background/logo overlays ONLY.
 CRITICAL PRINT MARGINS: No text within 3mm of ANY edge (will be trimmed)
 
 Content Hierarchy:

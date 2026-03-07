@@ -76,7 +76,7 @@ function Card({
       aria-disabled={disabled || undefined}
       className={cn(
         // Base styles with responsive padding
-        "text-card-foreground flex flex-col gap-4 md:gap-6 rounded-xl py-4 md:py-6",
+        "text-card-foreground flex flex-col gap-3 md:gap-4 rounded-xl py-3 md:py-4",
         // Background - Premium glass effect with subtle blur on pastel background
         !glass && "bg-card backdrop-blur-sm shadow-[var(--shadow-card)]",
         // Glass effect variant
@@ -124,7 +124,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-3 md:px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-4 md:[.border-b]:pb-6",
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-3 md:px-5 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-3 md:[.border-b]:pb-4",
         className
       )}
       {...props}
@@ -169,7 +169,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-3 md:px-6", className)}
+      className={cn("px-3 md:px-5", className)}
       {...props}
     />
   )
@@ -179,7 +179,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-3 md:px-6 [.border-t]:pt-4 md:[.border-t]:pt-6", className)}
+      className={cn("flex items-center px-3 md:px-5 [.border-t]:pt-3 md:[.border-t]:pt-4", className)}
       {...props}
     />
   )

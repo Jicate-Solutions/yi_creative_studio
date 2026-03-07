@@ -144,7 +144,7 @@ export function analyzeColorPersonality(
       secondaryMood: 'intense',
       energyLevel: 'very high',
       visualElements: [
-        'motion blur effects',
+        'dynamic energy radiations',
         'explosive radial patterns',
         'kinetic energy lines',
         'fire/heat metaphors',
@@ -154,7 +154,7 @@ export function analyzeColorPersonality(
       backgroundStyle: 'High-energy dynamic environment with motion - think explosive energy fields, speed trails, or kinetic action scenes',
       lightingStyle: 'Dramatic neon glow, motion-based light streaks, fire/heat luminescence',
       depthLayers: {
-        foreground: 'Motion blur overlays or energy streaks (20-30% opacity)',
+        foreground: 'Dynamic energy streaks or light trails (20-30% opacity)',
         midground: 'Text content with dynamic energy framing',
         background: 'Kinetic atmospheric scene - speed trails, explosion radials, or power station visuals'
       }

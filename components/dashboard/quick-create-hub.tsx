@@ -55,10 +55,10 @@ export function QuickCreateHub() {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
 
     return (
-        <div className="h-full glass-card rounded-3xl p-6 relative overflow-hidden group flex flex-col">
+        <div className="h-full glass-card rounded-2xl p-4 relative overflow-hidden group flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-                <h3 className="text-foreground font-semibold text-lg tracking-tight">Creation Hub</h3>
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-foreground font-semibold text-sm tracking-tight">Creation Hub</h3>
                 <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" asChild>
                     <Link href={ROUTES.templates}>
                         Customize
@@ -66,7 +66,7 @@ export function QuickCreateHub() {
                 </Button>
             </div>
 
-            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+            <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
                 {CREATIVE_TOOLS.filter(t => t.id !== 'more').map((tool, index) => (
                     <Link
                         key={tool.id}
@@ -80,7 +80,7 @@ export function QuickCreateHub() {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.4, delay: 0.1 * index }}
                             className={cn(
-                                "h-full rounded-2xl overflow-hidden relative flex flex-col justify-between p-5 transition-all duration-300",
+                                "h-full rounded-2xl overflow-hidden relative flex flex-col justify-between p-4 transition-all duration-300",
                                 "bg-white/60 dark:bg-white/5 border border-black/[0.04] dark:border-white/[0.06]",
                                 "hover:bg-white dark:hover:bg-white/10 hover:scale-[1.02]",
                                 "shadow-sm hover:shadow-xl hover:shadow-black/[0.08]",
@@ -90,12 +90,12 @@ export function QuickCreateHub() {
                             {/* Icon & Label Top */}
                             <div className="flex items-start justify-between">
                                 <div className={cn(
-                                    "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300",
+                                    "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
                                     "bg-gradient-to-br from-muted/80 to-muted/40 border border-black/[0.04] dark:border-white/[0.08]",
                                     "group-hover/card:from-primary/15 group-hover/card:to-primary/5 group-hover/card:border-primary/20",
                                 )}>
                                     <tool.icon className={cn(
-                                        "w-5 h-5 transition-colors duration-300",
+                                        "w-4 h-4 transition-colors duration-300",
                                         hoveredId === tool.id ? "text-primary" : "text-muted-foreground"
                                     )} />
                                 </div>

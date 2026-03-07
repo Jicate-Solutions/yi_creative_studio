@@ -88,7 +88,11 @@ FORMAT CATEGORY: ${getCategoryName(input.formatId)}
 ${input.eventName ? `EVENT/CONTENT TITLE: ${input.eventName}` : `CONTENT TITLE: ${input.formatName || 'Design'}`}
 FULL DESCRIPTION: ${input.details || ''}
 ${input.venue ? `VENUE: ${input.venue}` : ''}
+${input.targetAudience ? `TARGET AUDIENCE: ${input.targetAudience}` : ''}
 ADDITIONAL CONTEXT: ${input.additionalContext || ''}
+${input.additionalVisualBrief ? `USER VISUAL DIRECTION (HIGHEST PRIORITY — this is the user's direct creative brief for the background visual):
+"${input.additionalVisualBrief}"
+Your CONCEPT 1 (SCENE-BASED) MUST reflect this visual direction. The user has explicitly described what they want to see.` : ''}
 THEME: ${input.theme || ''}
 STYLE: ${input.style || ''}
 HOST ORGANIZATION: ${input.organizationName || ''} (For branding only - NOT the event theme)
@@ -227,17 +231,19 @@ This seed FORCES you to create something UNIQUE. Do NOT recycle designs.
 
 ${creativityDirective}
 
-=== DYNAMIC VISUAL THINKING (v29.0 — AI-DRIVEN) ===
+=== DYNAMIC VISUAL THINKING (v38.0 — CONCEPT-FIRST) ===
 Do NOT reuse generic visual elements (lotus flowers, silhouettes, DNA strands, etc.) across different events.
-Instead, THINK DEEPLY about THIS SPECIFIC EVENT and invent UNIQUE visuals:
+Instead, consider WHICH CREATIVE APPROACH best serves THIS EVENT:
 
 1. What is the LITERAL subject of this event? (e.g., menstrual health, coding workshop, leadership retreat)
-2. What VISUAL METAPHOR captures its essence? (not a generic symbol — something SPECIFIC to this event)
-3. What MOOD and ATMOSPHERE does this event evoke? (professional? intimate? celebratory? educational?)
-4. What would make someone INSTANTLY understand this event's topic from the visual alone?
+2. What SINGLE OBJECT could be the HERO of this poster? Not a generic symbol — the REAL object from this event's world. (For graduation: the cap. For blood donation: the blood bag. For coding: the terminal screen.)
+3. What VISUAL METAPHOR captures its DEEPER meaning? (graduation cap becoming a bird = freedom. Tree roots forming a handshake = community.)
+4. Could the EVENT'S ATMOSPHERE alone tell the story? (An empty stage set for convocation. A workshop table with tools laid out.)
+5. What EMOTION is at the core? Could a CLOSE-UP detail capture it? (Hands receiving a diploma. Eyes lit by a screen.)
 
-GENERATE 3-5 ORIGINAL visual elements that are UNIQUE TO THIS EVENT.
-Do NOT fall back on category-generic imagery. Every event deserves its own visual identity.
+Choose the approach that is LEAST OBVIOUS for this event type.
+GENERATE 3-5 ORIGINAL visual elements that support your chosen approach.
+Do NOT fall back on category-generic imagery.
 
 === ABSOLUTELY BANNED PATTERNS (v6.0 - ZERO TOLERANCE) ===
 If you use ANY of these, the design will be REJECTED:
@@ -284,17 +290,29 @@ ABSOLUTELY FORBIDDEN (v32.0):
 
 This applies to ALL formats: event posters, flyers, social media, certificates.
 
-=== CREATIVITY REQUIREMENT (v32.0) ===
+=== CREATIVITY REQUIREMENT (v38.0) ===
 If your FIRST idea involves silhouettes, generic icons, or category-default imagery, IMMEDIATELY reject it.
-Ask yourself: "What SCENE would make someone instantly understand THIS SPECIFIC event?"
+Ask yourself: "What is the LEAST OBVIOUS but most POWERFUL way to visualize THIS SPECIFIC event?"
 
-THINK IN SCENES, NOT SYMBOLS:
-- BAD: "Women's health event" → silhouettes of women + green background + lotus
-- GOOD: "Menstrual Health Awareness" → "A warm, intimate classroom with anatomical educational charts in soft pink and teal, a confident woman educator at a whiteboard, sanitary products displayed as educational props"
-- BAD: "Leadership Summit" → silhouettes climbing stairs + gold accents
-- GOOD: "Youth Leadership Summit" → "A vibrant roundtable discussion with young professionals debating over laptops and whiteboards, sticky notes covering glass walls, city skyline through floor-to-ceiling windows"
+THINK IN CONCEPTS, NOT JUST SCENES:
+Example — "Menstrual Health Awareness" visualized through different creative lenses:
+- SCENE: "A warm classroom with anatomical charts in soft pink and teal, a confident woman educator at a whiteboard"
+- OBJECT-HERO: "A giant sanitary pad unfurled like a banner against a teal sky, with empowered women figures walking confidently beneath it"
+- CONCEPTUAL: "A lotus flower blooming from an open biology textbook, petals forming anatomical shapes, in warm educational pink tones"
+- CLOSE-UP: "Close-up of a young woman's hands confidently holding a menstrual cup, warm studio lighting, educational posters softly blurred behind"
+- ENVIRONMENTAL: "A clean health education room with anatomical charts, whiteboard with diagrams, and a table set with educational pamphlets"
 
-YOU MUST BE SPECIFIC. BE SCENE-BASED. BE MEMORABLE.
+ALL FIVE are valid. The BEST choice depends on what feels most UNEXPECTED for this event while still being instantly understandable.
+
+YOU MUST BE SPECIFIC. BE CONCEPT-DRIVEN. BE MEMORABLE.
+
+=== PROFESSIONAL TEMPLATE STRUCTURE (v33.0) ===
+While being creative with VISUALS, maintain STRUCTURAL DISCIPLINE for information:
+- Event details (date, time, venue) MUST appear in a VISUALLY DISTINCT INFO CONTAINER
+  (colored bar, rounded card, badge strip, or contrast panel) — NOT floating text on a gradient
+- The poster must look DESIGNED (structured, grid-based) not GENERATED (artsy, amorphous)
+- A viewer scrolling Instagram must extract WHO, WHAT, WHEN, WHERE in 3 seconds
+- Think: "Canva Pro template with AI-quality visuals" — not "AI art with text added on top"
 `
 }
 
@@ -337,29 +355,45 @@ You think like a HUMAN ARTIST who reads event context, understands the VISUAL NA
 
 You must analyze the FULL CONTEXT, not just the event type.
 
-=== CRITICAL: CREATIVE VARIATION (v5.3) ===
+=== CRITICAL: CREATIVE CONCEPT DIVERSITY (v38.0) ===
 
-Each generation should explore DIFFERENT creative directions while remaining event-appropriate:
-- VARY visual elements (don't always use handshake for networking events - explore connection nodes, conversation bubbles, digital interfaces, etc.)
-- EXPLORE different composition styles (try asymmetrical layouts, minimalist approaches, rich layered designs)
-- SUGGEST diverse color palettes (not just navy/gold for professional events - consider deep teal/copper, charcoal/rose gold, forest green/amber)
-- PROVIDE unique background settings (rooftop terraces, modern lounges, co-working spaces, NOT just generic hotel ballrooms)
-- THINK beyond obvious visual metaphors (networking ≠ always handshake; climate ≠ always earth/leaves)
+CONCEPT BRAINSTORMING (Think Like a Design Team):
+Before generating your design context, brainstorm 3 fundamentally DIFFERENT visual concepts for this event:
+
+CONCEPT 1 — SCENE-BASED: What does the event PHYSICALLY look like? Describe the real scene with real Indian people doing the activity.
+CONCEPT 2 — OBJECT-HERO: What ONE symbolic object could DOMINATE the canvas? (e.g., a stethoscope for a health camp, a graduation cap for convocation, a paintbrush for an art workshop.) The object fills most of the frame; people are secondary or absent.
+CONCEPT 3 — CONCEPTUAL: What visual METAPHOR captures the event's deeper meaning? (e.g., books unfolding into wings = graduation as freedom; roots forming a network = community building.)
+
+Then SELECT the concept using this priority:
+1. PREFER CONCEPT 1 (SCENE-BASED) — real scenes with Indian people are the most impactful. But make them CREATIVE and VISUALLY STUNNING — not corporate stock photos. Add dramatic lighting, dynamic action, vibrant energy, and unexpected creative elements.
+2. Use CONCEPT 2 (OBJECT-HERO) only if the event is product/tool-focused (e.g., blood donation → blood bag, cooking class → utensils).
+3. Use CONCEPT 3 (CONCEPTUAL) only for abstract/philosophical events where no physical scene exists (e.g., "Mindfulness Meditation").
+IMPORTANT: Abstract neural pathways, geometric nodes, hexagonal patterns are NOT acceptable as primary backgrounds — they look generic and fail to communicate the specific event.
+Your backgroundSetting and visualElements MUST reflect the SELECTED concept — not the obvious default.
+
+ADDITIONAL VARIATION TECHNIQUES:
+- VARY visual elements (don't always use handshake for networking events)
+- EXPLORE different composition styles (asymmetrical, minimalist, rich layered)
+- SUGGEST diverse color palettes (not just navy/gold for professional events)
+- PROVIDE unique background settings (NOT just generic hotel ballrooms)
+- THINK beyond obvious visual metaphors
 
 Generate fresh, distinctive creative direction that feels DIFFERENT from typical designs while perfectly capturing the event's story.
 
 === CINEMATIC QUALITY STANDARDS (v6.0 - MOMENTUM) ===
 You are NOT creating a flat vector graphic. You are creating a CINEMATIC VISUAL EXPERIENCE.
-1. LIGHTING IS EVERYTHING:
+1. LIGHTING SETS THE MOOD:
    - NEVER just say "professional lighting".
-   - SPECIFY: "Volumetric god-rays from top-right", "Neon rim lighting outlining the subject", "Soft diffused studio key light with cool fill", "Cinematic shallow depth of field (bokeh)".
-2. TEXTURE IS LIFE:
+   - SPECIFY: "Warm natural light from a classroom window", "Conference hall stage spotlights", "Clean clinical fluorescent lighting", "Dramatic side-lighting for depth".
+   - Match lighting to the SCENE (classroom = warm daylight, conference = stage spots, clinic = clean white light).
+2. TEXTURE ADDS REALISM:
    - AVOID flat colors.
-   - SPECIFY: "Matte finish cardstock texture", "Frosted glassmorphism with grain", "Brushed metal surfaces", "Fabric mesh patterns", "Liquid chrome distortions".
+   - SPECIFY: "Wooden desk surface texture", "Whiteboard with marker traces", "Matte finish walls", "Premium paper grain on surfaces".
+   - Textures should be SCENE-APPROPRIATE (classroom textures for education, clinical textures for health).
 3. BAN LIST (DO NOT USE):
    - ❌ NO "Generic blue/orange gradients" (unless uniquely described like "Deep abyssal blue fading to bioluminescent teal").
    - ❌ NO "Standard handshake icons" for networking (Use "interconnected constellation nodes" or "magnetic field lines").
-   - ❌ NO "Stock photo happy people" (Use "dynamic silhouettes", "motion-blurred crowds", or "stylized portraits").
+   - ❌ NO "Stock photo happy people" (Use "authentic candid moments", "purposeful focused expressions", or "stylized portraits with sharp detail").
 
 === 7 - STEP STORY - DRIVEN DESIGN FRAMEWORK ===
 
@@ -467,21 +501,33 @@ Colors that convey the story's emotion:
 
 Create a visual world that supports the story:
 
-** Background Treatment ** (choose based on mood):
-- ** Linear Gradient **: Simple, clean(formal events, minimalist mood)
-    - ** Radial Gradient **: Spotlight focus(singular theme, centered narrative)
-      - ** Sunburst Radial **: Achievement, celebration(leadership, success stories)
-        - ** Mesh Gradient **: Complex, artistic(creative, multi - layered narratives)
-          - ** Atmospheric **: Immersive depth(festive, experiential events)
+** Background Treatment ** (choose based on event type):
+- ** Scene-Based **: A real environment/setting where this event would take place (PREFERRED for most events)
+    - ** Thematic Still Life **: Arrangement of event-related objects and tools (great for workshops/seminars)
+      - ** Environmental **: Real-world setting with event-relevant context (outdoors, venues, spaces)
+        - ** Gradient + Elements **: Color gradient as base with concrete thematic objects layered on top
+          - ** Linear Gradient **: Simple, clean gradient (only for minimalist/formal events)
 
-            ** Gradient Specification **:
-  - Describe gradient in detail with color stops, direction, atmosphere
-    - Example: "Golden radial sunburst emanating from upper center (0%: bright gold #FFD700 → 50%: warm amber #FFA500 → 100%: deep navy #003366) with 12 subtle light rays at 3% opacity creating achievement spotlight effect"
+            ** Scene Specification **:
+  - Describe the ENVIRONMENT in detail: What room/space? What objects are visible? What's the lighting?
+    - Example: "A warm, well-lit classroom with soft pink and teal walls, anatomical health charts pinned on the wall, a clean whiteboard with educational diagrams, wooden desks with educational materials and health pamphlets arranged neatly"
 
-      ** Atmospheric Elements **:
-  - Depth layers: How many visual layers ? (1 - 3)
-    - Light rays: Subtle / Prominent / None
-      - Particles: Subtle atmospheric particles / None
+      ** Scene Elements **:
+  - What CONCRETE OBJECTS are in this scene? (list 3-5 specific items with materials/colors)
+    - What ENVIRONMENT is this? (classroom, conference hall, clinic, workshop, outdoor venue)
+      - What LIGHTING matches this scene? (classroom daylight, stage spots, clinical white, warm ambient)
+
+      ** INDIAN SETTING MANDATE (v37.0) **:
+  This is an Indian organization platform (Young Indians / Yi). The background scene MUST be recognizably Indian:
+  - School/Vidyalaya venue → Indian classroom: green chalkboards, wooden benches in rows, ceiling fans, open corridors with tiled floors
+  - College/University venue → Indian campus: seminar halls with wooden chairs, notice-board corridors, banyan tree courtyard
+  - Hotel/Convention venue → Indian event hall: chandeliered banquet, fabric-draped stage, marigold garland decoration
+  - Community Hall/Auditorium → Indian sabha: plastic/metal chairs, decorated stage with podium, banner backdrop, tube lights
+  - Office/Corporate → Indian workspace: glass-front building, open-plan desks with monitors, whiteboard walls
+  - Outdoor/Ground → Indian outdoor venue: shamiana tent, string lights, open-air stage on maidan
+  - If TARGET AUDIENCE is "school students" → environment MUST be a school, NOT a corporate setting
+  - If TARGET AUDIENCE is "professionals" → modern Indian office/IT park, NOT Western Silicon Valley
+  - BANNED: Western campuses with brick facades and ivy, American cubicle offices, European conference halls
 
 ## STEP 6: DECORATIVE ELEMENTS(Story - Specific)
 
@@ -569,6 +615,8 @@ ANALYZE THE FOLLOWING CREATIVE BRIEF:
   3. ** MICRO - DETAIL > MACRO - CLUTTER **: Use one high - quality visual element instead of many busy ones
   4. ** SACROSANCT ZONES **: Keep top 15 % (Logo Zone) and bottom 10 % (Contact Zone) clean
   5. ** TYPOGRAPHY HIERARCHY **: One hero size(Massive), one primary size(Medium), everything else (Small / Clean)
+  6. ** STRUCTURED INFO BLOCKS **: Event details (date, time, venue) MUST appear in a VISUALLY DISTINCT container (info card, colored bar, badge strip) — NOT floating text on a gradient. This is the difference between a professional Canva template and AI-generated art.
+  7. ** TEMPLATE THINKING **: The design must look like a REUSABLE TEMPLATE — swap the event name/date and the layout still works. Clear visual zones, consistent grid alignment, predictable information placement.
 
     === CRITICAL RULES ===
       - Be HYPER - SPECIFIC: NEVER use single nouns like "leaves". Use "translucent geometric leaves".
@@ -606,7 +654,7 @@ CREATE a fusion theme that captures the event's unique character.
 Examples of Custom Theme Creation:
 - "AI + Sustainability Workshop" → Theme: "Bio-Digital Convergence"
   Description: "Where organic growth meets digital innovation"
-  Visual Language: "Living technology aesthetic with bio-luminescent circuits and flowing data streams merging with botanical patterns"
+  Visual Language: "Workshop space with living plants growing alongside laptop screens and robotic arms — organic meets digital in a real maker-lab setting"
 
 - "Youth Leadership Gala" → Theme: "Rising Phoenix Elegance"
   Description: "Youthful energy refined with sophisticated prestige"
@@ -614,11 +662,11 @@ Examples of Custom Theme Creation:
 
 - "Startup Networking Night" → Theme: "Neon Hustle Energy"
   Description: "Dynamic entrepreneurial vibe meets urban tech culture"
-  Visual Language: "Electric neon accents on dark urban backdrop with magnetic connection lines and startup launch trajectories"
+  Visual Language: "Dimly-lit co-working space with neon signage, whiteboards covered in startup pitch notes, and energy drink cans on desks"
 
 - "Climate Action Conference" → Theme: "Earthrise Authority"
   Description: "Environmental urgency meets leadership gravitas"
-  Visual Language: "Deep ocean blues rising to atmospheric whites with crystalline earth formations and authoritative geometric patterns"
+  Visual Language: "Outdoor summit venue with a globe prop, national flags on poles, and a podium against a mountain-and-sky backdrop"
 
 Your Custom Theme Must:
 1. Have a memorable name (2-4 words that evoke the event's essence)
@@ -646,12 +694,12 @@ Your visualElements/iconicImagery fields MUST be VISUAL DESCRIPTIONS, never sing
 ❌ Domain terms: "professional", "creative", "modern", "digital", "smart"
 ❌ Generic descriptors: "elements", "symbols", "icons", "graphics"
 
-✅ CORRECT (Multi-word VISUAL descriptions that Gemini renders as SHAPES, not text):
-✅ "Interconnected geometric nodes with glowing cyan pathways creating network visualization"
-✅ "Radial sunburst pattern with translucent light rays at 5% opacity emanating from center"
-✅ "Flowing organic leaf shapes with frosted glass effect and subtle shadow depth"
-✅ "Holographic neural network nodes connected by animated data stream lines"
-✅ "Constellation of hexagonal shapes linked by relationship lines in isometric perspective"
+✅ CORRECT (Multi-word VISUAL descriptions — creative, fun, visually stunning scene elements):
+✅ "Indian women high-fiving over glowing laptop screens at a vibrant hackathon with colorful post-it walls and neon code projections"
+✅ "An Indian speaker on a stage with dramatic spotlights, audience silhouettes cheering, and oversized presentation screens showing bold graphics"
+✅ "Indian students in a sunlit creative workshop painting on canvases with splashes of color flying through the air"
+✅ "Close-up of Indian hands assembling a robot prototype with sparks flying, tools scattered, and a victory trophy glowing in the background"
+✅ "Indian youth celebrating at a rooftop event with fairy lights, confetti bursts, city skyline, and giant illuminated event signage"
 
 🔍 VALIDATION CHECKPOINT (Apply to EVERY visualElement before finalizing):
 Ask yourself: "If Gemini renders this element, will it create VISUAL SHAPES/PATTERNS or TEXT?"
@@ -659,12 +707,12 @@ Ask yourself: "If Gemini renders this element, will it create VISUAL SHAPES/PATT
 → If answer is "SHAPES", keep it
 
 📝 EXAMPLES OF PROPER TRANSFORMATION:
-"innovation" → "Holographic 3D brain visualization with neural pathways and synaptic connections"
-"networking" → "Constellation of interconnected circular nodes with relationship link lines"
-"celebration" → "Explosive radial particle burst with confetti-like geometric shapes in motion"
-"leadership" → "Ascending staircase visualization with guiding light beam and upward momentum"
-"tech" → "Circuit board pattern with glowing trace lines and microchip geometric elements"
-"ai" → "Neural network visualization with interconnected nodes and data flow animations"
+"innovation" → "Indian engineers celebrating a breakthrough with holographic prototypes floating above their workbench as sparks and light trails fill the room"
+"networking" → "Indian professionals exchanging ideas in a rooftop lounge at golden hour with city lights twinkling and connecting thread-lights overhead"
+"celebration" → "Exuberant Indian crowd tossing colorful powder into the air at an outdoor celebration with stage lights painting the sky"
+"leadership" → "A confident Indian woman commanding the stage with dramatic backlighting, silhouetted audience reaching upward, and bold projection screens"
+"tech" → "Indian developers in a neon-lit hackathon space with floating holographic code, glowing keyboards, and energetic creative chaos"
+"ai" → "Indian researchers surrounded by swirling data visualizations projected in mid-air, faces lit by the glow of discovery"
 
 ⚠️ CRITICAL: This is NOT optional. Single-word visualElements will cause TEXT to appear in the generated image instead of visual elements. This breaks user trust and creates content they never approved.
 
@@ -701,9 +749,9 @@ CRITICAL RULES FOR ACCURACY:
       }
     },
     "decorativeElements": {
-      "corners": "corner treatment description",
-        "patterns": "pattern description with opacity",
-          "accents": "accent elements description"
+      "corners": "corner treatment using event-specific objects (NOT abstract shapes)",
+        "patterns": "SCENE-BASED texture from event setting (e.g. chalkboard texture, clinical tile, wooden podium grain) — NEVER abstract waves, geometric shapes, hexagons, mesh, or flowing lines",
+          "accents": "CONCRETE objects from event domain (e.g. stethoscope, laptop, microphone) — NEVER abstract accents like flowing lines or particles"
     },
     "creativeTwist": "ONE unexpected visual element that makes this design UNIQUE",
 
@@ -756,7 +804,7 @@ CRITICAL RULES FOR ACCURACY:
       "placementStrategy": "Guide for where elements should go (e.g., 'Corners only', 'Background texture', 'Flowing across')",
       "thematicElements": [
         { 
-          "element": "HIGHLY DETAILED visual element description (e.g., 'Translucent neon neural nodes with glowing edges')", 
+          "element": "HIGHLY DETAILED real-world object or scene element (e.g., 'Educational anatomical wall chart with soft pink diagrams pinned to a classroom corkboard')", 
           "placement": "Specific location (e.g., 'Top-right corner bleeding off edge')",
           "opacity": 0.1,
           "reasoning": "Why this element tells the story"
@@ -941,7 +989,7 @@ export async function generateDesignContext(
       // Same noisy-input fix applied to getContentRelatedElements and storytelling fusion.
       const formData: EventFormData = {
         eventName: input.eventName || '',
-        eventDescription: input.additionalContext || '',
+        eventDescription: [input.additionalContext, input.additionalVisualBrief ? `Visual concept: ${input.additionalVisualBrief}` : ''].filter(Boolean).join('. ') || '',
         venue: input.venue,
         date: input.date,
         time: input.time,
@@ -1175,31 +1223,45 @@ This style directive should influence your entire creative output for this desig
 🎨 PREMIUM PROFESSIONAL BACKGROUND (v24.12.4)
 ========================================
 
-ALL posters MUST have PROFESSIONAL, IMMERSIVE backgrounds:
+ALL posters MUST have PROFESSIONAL, SCENE-BASED backgrounds that TELL THE EVENT'S STORY:
 
-MANDATORY BACKGROUND QUALITIES:
-1. DEPTH & DIMENSION: Multiple visual layers (foreground, midground, background)
-2. RICH TEXTURES: Subtle grain, gradient meshes, atmospheric effects
-3. VISUAL SOPHISTICATION: High-end design aesthetics, not generic flat backgrounds
-4. DYNAMIC COMPOSITION: Organic shapes, color transitions, and depth layers for engaging visuals WITHOUT lines
-5. PROFESSIONAL POLISH: Google AI Studio quality - refined, polished, premium feel
+MANDATORY BACKGROUND APPROACH:
+1. SCENE-BASED: The background depicts a REAL ENVIRONMENT or SETTING related to the event topic
+2. CONCRETE OBJECTS: Include recognizable objects, tools, and equipment from the event domain
+3. DEPTH OF FIELD: Foreground objects crisp, background environment softly blurred (professional photography style)
+4. THEMATIC STORYTELLING: The background alone should communicate what kind of event this is
+5. PROFESSIONAL POLISH: Premium Canva template quality — structured, intentional, marketing-ready
 
-BACKGROUND RENDERING REQUIREMENTS:
-- Create FULL-BLEED immersive designs that fill the entire canvas
-- Use LAYERED visual elements (particles, shapes, gradients, light effects)
-- Include ATMOSPHERIC depth (subtle bokeh, light rays, environmental cues)
-- Apply PREMIUM textures (fine grain, subtle noise, professional finish)
-- Ensure VISUAL RICHNESS even in "clean" areas
+SCENE EXAMPLES (match to event topic — Indian people OPTIONAL but encouraged):
+- Menstrual Health Awareness → An Indian female doctor explaining anatomy to students in a warm classroom with charts on walls, educational materials, whiteboard with health diagrams
+- AI/Tech Workshop → Indian professionals collaborating around monitors showing code, circuit boards, whiteboards with architecture diagrams
+- Leadership Summit → An Indian speaker at a podium in a prestigious conference hall with projection screens, microphones, and attendees
+- Blood Donation Drive → Indian donors and nurses in a clean clinical setting with blood bag stands, donor chairs, red cross signage
+- Road Safety Awareness → Indian youth in safety vests at a zebra crossing with traffic signs, cones, and a school bus
+- Environmental Campaign → Indian volunteers planting saplings with solar panels, recycling bins, and green energy props
+- Cultural Festival → Indian performers on a festive stage with instruments, decorative banners, and art displays
 
-AVOID AT ALL COSTS:
-❌ Plain solid color backgrounds
-❌ Simple two-tone gradients
-❌ Generic minimalist designs
-❌ Empty/blank negative space
-❌ "Template-looking" backgrounds
+WHAT TO USE vs WHAT TO AVOID:
+✅ Real environments and settings where the event would take place
+✅ Concrete objects and tools relevant to the event topic
+✅ Professional depth-of-field (sharp foreground, soft background)
+✅ Color palette that matches the event mood
 
-GOAL: Every poster should look like a PREMIUM, PROFESSIONALLY DESIGNED piece.
-The background should feel IMMERSIVE and VISUALLY ENGAGING.
+❌ Abstract waves, flowing lines, mesh patterns, dot grids
+❌ Generic geometric shapes with no thematic meaning
+❌ Atmospheric particles, bokeh circles, god-rays as primary elements
+❌ Plain solid color backgrounds with no scene/setting
+❌ Non-Indian or Western-looking faces — if people appear, they MUST look Indian/South Asian
+
+PEOPLE IN SCENES (optional but powerful):
+When people would enhance the visual story, include INDIAN PEOPLE (South Asian features, skin tones, culturally appropriate attire) actively engaged in the event activity.
+Example: A road safety poster shows Indian youth at a crossing; a health workshop shows an Indian educator with students.
+If people are not needed (e.g., abstract tech themes), the environment + objects alone are sufficient.
+
+GOAL: The background should be a VISUAL STORY. A viewer should look at the poster background and
+immediately understand: "This is a health education event" or "This is a tech conference."
+The scene tells the story — the text confirms it.
+Information blocks (date/time/venue) should sit in visually distinct containers, not float on gradients.
 
 `
       prompt += premiumBackgroundInstruction
@@ -1378,59 +1440,55 @@ Academic events should use PROFESSIONAL geometric elements, not nature metaphors
         prompt += universalBotanicalProhibition
         console.log('[Design Intelligence] v24.12.7: 🚫 Universal botanical prohibition added')
 
-        // v25.0: Add formality-aware guidelines for premium/exclusive events
-        // This suppresses metaphorical/botanical output in favor of literal professional imagery
+        // v35.0: Add formality-aware guidelines for premium/exclusive events
+        // Changed from "LITERAL IMAGERY REQUIRED" → "BOLD PROFESSIONAL IMAGERY"
+        // Premium events (graduation, awards, summits) deserve cinematic, bold compositions
         if (eventProfile.formality === 'premium' || eventProfile.formality === 'exclusive') {
           const formalityBrief = `
 
 ========================================
-🎯 FORMAL EVENT MODE (v25.0 - LITERAL IMAGERY REQUIRED)
+🎯 PREMIUM EVENT MODE (v35.0 - BOLD PROFESSIONAL IMAGERY)
 ========================================
 
 EVENT FORMALITY: ${eventProfile.formality.toUpperCase()}
 
-⚠️ CRITICAL OVERRIDE FOR FORMAL EVENTS:
+This is a premium formal event. Generate DRAMATICALLY STAGED, VISUALLY BOLD imagery
+with institutional prestige and gravitas — NOT generic stock-photo environments.
 
-This is a PREMIUM/EXCLUSIVE formal event. The AI must generate LITERAL, PROFESSIONAL imagery
-rather than creative metaphors or botanical/nature-based concepts.
+AVOID (Anti-patterns for premium events):
+❌ "Gardens of potential" or "forests of growth" — no botanical nature metaphors
+❌ "Ascending botanical paths" or "leaf-shaped stairways" — no nature-based concepts
+❌ Soft, muted, plain auditorium stock-photo compositions
+❌ Floating clip-art objects on plain gradient backgrounds
+❌ Generic stock-photography aesthetic — Gemini should surpass this
 
-MANDATORY GUIDELINES:
+PREFERRED IMAGERY for premium events (aim for Behance-featured quality):
+✅ Bold, dramatically lit environments with cinematic depth and theatrical lighting
+✅ Conceptual compositions that feel PRESTIGIOUS and POWERFUL, not just documentary
+✅ Graduation/Convocation: REAL South Indian graduates in caps and gowns — faces full of emotion, human moments anchoring the scene. Bold conceptual enhancements welcome (light rays, wings metaphors) but REAL HUMAN FACES must anchor the scene.
+   SCENE VARIETY (v35.4 — DO NOT always generate the same scene — rotate for freshness):
+   Choose ONE of these distinct compositions based on the event's emotional context:
+   - Option A (Intimate): Close-up of Indian graduate's proud face + hands receiving diploma with proud family visible behind in warm blur
+   - Option B (Celebration): Group of Indian graduates tossing mortarboards skyward against a golden-hour sky — joyful outdoor energy
+   - Option C (Threshold): Graduates walking OUT through grand university doors into bright hopeful light — symbolic launch into the world
+   - Option D (Conceptual): Open books unfolding into wings as Indian graduates ascend upward into radiant light — achievement as flight
+   ❌ AVOID defaulting to "grand auditorium wide-shot with stage and rows of empty seats" — this is the least emotionally resonant option
+✅ Award ceremonies: Bold dramatic spotlight compositions, powerful trophy/award staging
+✅ Summit/Conference: Epic venue architecture with cinematic dramatic lighting, bold silhouettes
+✅ The scene should feel like a world-class event — the best night of someone's life
+✅ Cinematic depth: three-layer compositions (foreground elements + midground focus + background)
+✅ Use the event's brand colors boldly — not timidly
 
-1. PRIORITIZE LITERAL IMAGERY over metaphorical concepts
-   - For MoU signing: Show actual documents, pens, handshakes, conference settings
-   - For seminars: Show professional presentation environments, microphones, audience
-   - For ceremonies: Show podiums, stages, ribbons, official proceedings
+COLOR APPLICATION:
+- Colors should feel BOLD and CONFIDENT, not restrained or muted
+- Use event brand colors as dominant dramatic elements, not just accents
+- Warm golden stage lighting, dramatic shadows, and cinematic highlights are encouraged
 
-2. ABSOLUTELY AVOID (These will be REJECTED):
-   ❌ "Gardens of potential" or "forests of growth"
-   ❌ "Ascending botanical paths" or "leaf-shaped stairways"
-   ❌ Nature metaphors (trees, flowers, leaves, vines) unless directly event-related
-   ❌ Abstract conceptual representations
-   ❌ Whimsical or playful interpretations
-
-3. PREFERRED IMAGERY for formal events:
-   ✅ Elegant conference rooms with premium lighting
-   ✅ Formal documents being signed with quality pens
-   ✅ Professional handshakes in sophisticated settings
-   ✅ Podiums with microphones in well-lit venues
-   ✅ Executive boardroom atmospheres
-   ✅ Clean, minimal professional backgrounds
-
-4. COLOR APPLICATION:
-   - Colors should be ELEGANT and RESTRAINED
-   - Use colors as subtle accents, not overwhelming themes
-   - Professional tones: navy, charcoal, burgundy, forest green (as accent, NOT botanical)
-
-5. TYPOGRAPHY & LAYOUT:
-   - Clean, professional sans-serif fonts
-   - Formal hierarchy (no playful arrangements)
-   - Sophisticated, corporate aesthetics
-
-REASON: Events like "${input.eventName}" require institutional gravitas and professional credibility,
-NOT creative metaphors that undermine the event's formal nature.
+REASON: Events like "${input.eventName}" deserve visually spectacular compositions that
+feel premium because they ARE premium — not because they are plain and conservative.
 `
           prompt += formalityBrief
-          console.log(`[Design Intelligence] v25.0: 🎩 FORMAL EVENT MODE ACTIVATED - Literal imagery required (formality: ${eventProfile.formality})`)
+          console.log(`[Design Intelligence] v35.0: 🎯 PREMIUM EVENT MODE ACTIVATED - Bold professional imagery (formality: ${eventProfile.formality})`)
         }
       } else if (eventProfile) {
         console.log(`[Design Intelligence] ⚠️ Event Understanding available but confidence too low (${eventProfile.confidence}) - skipping injection`)
@@ -1587,20 +1645,19 @@ async function callGemini(
   // Get format-specific temperature config (v5.3)
   const tempConfig = getTemperatureConfig(formatId || 'event_poster')
 
-  // v25.0: Adjust temperature based on event formality
-  // Premium/exclusive events need lower temperature for literal, predictable output
+  // v35.0: Temperature is format-driven, NOT formality-driven
+  // Premium/exclusive events deserve BOLD compositions — do not reduce temperature
+  // Only 'professional' events get a mild cap to keep output structured
   let temperature = tempConfig.designIntelligence
   let topP = tempConfig.topP
 
-  if (formality === 'premium' || formality === 'exclusive') {
-    temperature = 0.7  // Conservative for formal events
-    topP = 0.90        // More focused sampling
-    console.log(`[Design Intelligence] v25.0: 🎛️ Temperature reduced to ${temperature} for ${formality} event (was ${tempConfig.designIntelligence})`)
-  } else if (formality === 'professional') {
+  if (formality === 'professional') {
     temperature = Math.min(tempConfig.designIntelligence, 1.0) // Cap at 1.0 for professional
     topP = Math.min(tempConfig.topP, 0.95)
-    console.log(`[Design Intelligence] v25.0: 🎛️ Temperature adjusted to ${temperature} for professional event`)
+    console.log(`[Design Intelligence] v35.0: 🎛️ Temperature adjusted to ${temperature} for professional event`)
   }
+  // v35.0: premium/exclusive → no temperature override. Full creative config applies.
+  // Graduation, awards, summits need BOLD imagery, not conservative literal output.
 
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({

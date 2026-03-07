@@ -51,7 +51,7 @@ import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { DesignContextForPrompt } from '../types'
 
 // Import logo zone enforcement helper (v3.5)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import dynamic color description builder (v5.4)
@@ -472,6 +472,47 @@ export function buildFlyerPrompt(
     ? buildBackgroundSettingSection(options.designContext)
     : ''
 
+  // v33.5: Creative twist — unique visual signature
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.5: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements.
+</visual_storytelling>
+`
+    : ''
+
   // Determine colors - use brand colors if available, then event context, then fallback
   let colorScheme: string
   if (options.brandContext?.primaryColor) {
@@ -514,6 +555,25 @@ export function buildFlyerPrompt(
     }
   }
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Flyer dimensions vary by size (A4: 1240x1754, A5: 878x1240)
+  const flyerDims = flyerSize === 'A5' ? { w: 878, h: 1240 } : { w: 1240, h: 1754 }
+  const flyerHeaderPercent = 30 // Top 30% reserved (portrait flyer)
+  const flyerFooterPercent = 30 // Bottom 30% reserved — content ends at 70%
+  const flyerHeaderHeight = Math.floor(flyerDims.h * (flyerHeaderPercent / 100))
+  const flyerFooterHeight = Math.floor(flyerDims.h * (flyerFooterPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    flyerDims.w,
+    flyerDims.h,
+    flyerHeaderHeight,
+    flyerFooterHeight,
+    flyerHeaderPercent,
+    flyerFooterPercent
+  )
+
+  console.log('[Flyer v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a professional print-ready promotional flyer</task>
 
@@ -524,6 +584,10 @@ Purpose: Physical/digital distribution, drive action, communicate offer
 Usage: Print distribution, digital sharing, marketing material
 Layout Approach: ${sizeContext.layoutAdvice}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -547,14 +611,22 @@ ${designContextDecorativeSection}
 
 ${designContextBackgroundSection}
 
+${creativeTwistSection}
+
+${sceneNarrativeSection}
+
+${storytellingSection}
+
 ${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
 
 ` : ''}<subject>
-A professional marketing flyer for: "${data.flyerTitle}"
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, story-driven marketing flyer: ${options.designContext.storytellingContext.visualNarrative}`
+  : `A professional marketing flyer for: "${data.flyerTitle}"`}
 Print Size: ${flyerSize} - ${sizeContext.textGuidance}
 Must communicate value proposition and drive specific action.
-Designed for both print and digital use.
 ${useAIBackground ? `Event Context: ${moodDescription}` : ''}
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
 ${hasSpeakerPhoto ? 'Speaker photos will be overlaid in the lower section (70%-90%)' : ''}
 </subject>
 
@@ -563,11 +635,12 @@ Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
 Zone Structure (optimized for ${flyerSize}${hasSpeakerPhoto ? ', speaker photo enabled' : ''}):
-- HEADER (0-15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
-- HEADLINE (15-40%): "${data.flyerTitle}" - bold, attention-grabbing
-- CONTENT (40-${CONTENT_ZONE_END}%): Key information, benefits, details
-${hasSpeakerPhoto ? `- SPEAKER PHOTO ZONE (${CONTENT_ZONE_END}-90%): RESERVED for speaker photo overlays - keep background clean/simple
-- ACTION (90-100%): CTA, contact info` : '- ACTION (80-100%): CTA, contact info, event details'}
+- HEADER ZONE (0-30%): Reserved for logo overlays. Clean background artwork ONLY — NO text here.
+- CONTENT ZONE (30-70%): ALL text goes here — headline, date, venue, details, CTA
+- FOOTER ZONE (70-100%): Reserved for logo overlays. NO text here.
+${hasSpeakerPhoto ? `- NOTE: Speaker photos will be overlaid in footer zone by post-processing — keep that area clean.` : ''}
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 30-70% of canvas height. Header (0-30%) and footer (70-100%) are for background/logo overlays ONLY.
+- TEXT GROUPING (MANDATORY): Group headline, date, venue, and key details as a compact cluster in CONTENT zone. Do NOT scatter text across all zones.
 
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
@@ -594,7 +667,7 @@ ${data.price ? `<text role="price" prominence="prominent" style="highlighted, ba
 ${customFieldsText.length > 0 ? customFieldsText.map(text => `<text role="detail" prominence="medium" style="clear, readable">${text}</text>`).join('\n') : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
 ${contactInfo.length > 0 ? `<text role="contact" prominence="small" style="clean, readable">${contactInfo.join(' | ')}</text>` : ''}
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, below contact info, part of the grouped text cluster">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>
@@ -779,6 +852,60 @@ export function buildFlyerPromptWithAgent(
     }
   }
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints (second function)
+  const flyerDims2 = flyerSize === 'A5' ? { w: 878, h: 1240 } : { w: 1240, h: 1754 }
+  const flyerHeaderPercent2 = 30
+  const flyerFooterPercent2 = 30
+  const flyerHeaderHeight2 = Math.floor(flyerDims2.h * (flyerHeaderPercent2 / 100))
+  const flyerFooterHeight2 = Math.floor(flyerDims2.h * (flyerFooterPercent2 / 100))
+
+  const pixelPreciseConstraints2 = buildPixelPreciseSpatialConstraints(
+    flyerDims2.w, flyerDims2.h, flyerHeaderHeight2, flyerFooterHeight2, flyerHeaderPercent2, flyerFooterPercent2
+  )
+
+  console.log('[Flyer Agent v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
+  // v33.5: Creative twist — unique visual signature
+  const creativeTwistSection2 = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection2 = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.5: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection2 = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements.
+</visual_storytelling>
+`
+    : ''
+
   return `
 <task>Generate a professional print-ready promotional flyer</task>
 
@@ -789,6 +916,10 @@ Purpose: Physical/digital distribution, drive action, communicate offer
 Usage: Print distribution, digital sharing, marketing material
 Layout Approach: ${sizeContext.layoutAdvice}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints2}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -808,14 +939,22 @@ ${langContext}
 
 ${aiBackgroundSection}
 
+${creativeTwistSection2}
+
+${sceneNarrativeSection2}
+
+${storytellingSection2}
+
 ${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
 
 ` : ''}<subject>
-A professional marketing flyer for: "${data.flyerTitle}"
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, story-driven marketing flyer: ${options.designContext.storytellingContext.visualNarrative}`
+  : `A professional marketing flyer for: "${data.flyerTitle}"`}
 Print Size: ${flyerSize} - ${sizeContext.textGuidance}
 Must communicate value proposition and drive specific action.
-Designed for both print and digital use.
 ${useAIBackground ? `Event Context: ${moodDescription}` : ''}
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
 ${options.agentRecommendation ? `Agent Analysis: ${options.agentRecommendation.rationale}` : ''}
 ${hasSpeakerPhoto ? 'Speaker photos will be overlaid in the lower section (70%-90%)' : ''}
 </subject>
@@ -825,11 +964,12 @@ Layout: Clear vertical hierarchy with defined zones
 Size-Specific: ${sizeContext.layoutAdvice}
 
 Zone Structure (optimized for ${flyerSize}${hasSpeakerPhoto ? ', speaker photo enabled' : ''}):
-- HEADER (0-15%): Clean background area ${options.logoAwareness?.hasLogo ? `in ${options.logoAwareness.logoPosition}` : 'at top'}
-- HEADLINE (15-40%): "${data.flyerTitle}" - bold, attention-grabbing
-- CONTENT (40-${CONTENT_ZONE_END}%): Key information, benefits, details
-${hasSpeakerPhoto ? `- SPEAKER PHOTO ZONE (${CONTENT_ZONE_END}-90%): RESERVED for speaker photo overlays - keep background clean/simple
-- ACTION (90-100%): CTA, contact info` : '- ACTION (80-100%): CTA, contact info, event details'}
+- HEADER ZONE (0-30%): Reserved for logo overlays. Clean background artwork ONLY — NO text here.
+- CONTENT ZONE (30-70%): ALL text goes here — headline, date, venue, details, CTA
+- FOOTER ZONE (70-100%): Reserved for logo overlays. NO text here.
+${hasSpeakerPhoto ? `- NOTE: Speaker photos will be overlaid in footer zone by post-processing — keep that area clean.` : ''}
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 30-70% of canvas height. Header (0-30%) and footer (70-100%) are for background/logo overlays ONLY.
+- TEXT GROUPING (MANDATORY): Group headline, date, venue, and key details as a compact cluster in CONTENT zone. Do NOT scatter text across all zones.
 
 Content Elements:
 ${data.flyerDescription ? `- Description: "${data.flyerDescription}"` : ''}
@@ -856,7 +996,7 @@ ${data.price ? `<text role="price" prominence="prominent" style="highlighted, ba
 ${customFieldsText.length > 0 ? customFieldsText.map(text => `<text role="detail" prominence="medium" style="clear, readable">${text}</text>`).join('\n') : ''}
 <text role="cta" prominence="prominent" style="button-style, high contrast">${data.callToAction || 'Contact Us Today'}</text>
 ${contactInfo.length > 0 ? `<text role="contact" prominence="small" style="clean, readable">${contactInfo.join(' | ')}</text>` : ''}
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, below contact info, part of the grouped text cluster">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

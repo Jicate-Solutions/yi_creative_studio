@@ -143,7 +143,7 @@ function SignupContent() {
           <div className="flex justify-center mb-3 sm:mb-4">
             <Logo size="lg" />
           </div>
-          <CardTitle className="text-xl sm:text-2xl">Create your account</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Create your account</CardTitle>
           <CardDescription>
             Start creating stunning brand creatives today
           </CardDescription>

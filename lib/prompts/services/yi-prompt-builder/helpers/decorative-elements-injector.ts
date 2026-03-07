@@ -75,16 +75,16 @@ export function buildDecorativeElementsSection(
   // Priority 3: Generic visual pool (v5.5 - NOT event-specific)
   else if (eventType) {
     const genericPool = [
-      'dynamic composition with depth',
-      'modern professional setting',
-      'engaging visual hierarchy',
-      'bold graphic elements',
-      'contemporary design aesthetic',
-      'clean geometric patterns',
-      'sophisticated visual balance',
-      'layered design elements',
-      'refined spatial composition',
-      'strategic focal points'
+      'scene-based background showing the real environment where this event takes place',
+      'concrete objects and tools related to the event topic arranged in the background',
+      'a realistic setting that tells the viewer what kind of event this is',
+      'event-specific environment with relevant props and equipment visible',
+      'thematic scene with professional depth-of-field (sharp foreground, soft background)',
+      'recognizable objects from the event domain placed naturally in a realistic setting',
+      'professional environment photograph style with event-relevant visual elements',
+      'themed workspace or venue setting with topic-specific objects and tools',
+      'story-driven background that communicates the event purpose visually',
+      'real-world scene with objects that match the event subject matter'
     ]
 
     // Randomize selection for variety
@@ -174,10 +174,10 @@ ${iconicImagery.map((el, i) => `  ${i + 1}. ${el}`).join('\n')}`
 - IMPACT: One large, high-quality focal element is better than many small busy ones`
     : finalSophistication === 'playful' || sophistication === 'rich'
       ? `DESIGN STRATEGY: IMMERSIVE RICHNESS
-- FULL CANVAS: These elements should define the visual atmosphere of the entire design
-- MULTIPLE LAYERS: Combine elements at different opacities and scales for visual depth
-- DYNAMIC: Create energy through color transitions, organic shapes, and depth WITHOUT lines or dividers
-- AMBIENT ATMOSPHERE: Include subtle high-end textures like "fine architectural grain," "photographic noise," or "subtle textured patterns (paper grain, fabric texture, fine noise)" to fill the voids and add premium depth`
+- SCENE-BASED: Create a REAL ENVIRONMENT or SETTING that tells the event's story
+- DEPTH OF FIELD: Foreground scene elements sharp, background softly blurred for professional look
+- CONCRETE OBJECTS: Fill the scene with recognizable objects and tools from the event domain — NOT abstract waves, dots, mesh, or flowing lines
+- PREMIUM FINISH: Apply subtle surface textures (wood grain on desks, matte on walls, paper texture on materials) for photographic realism`
       : `DESIGN STRATEGY: BALANCED ELEGANCE
 - VISUAL HARMONY: Elements support the design without overwhelming it
 - LAYERED DEPTH: Use 2-3 opacity layers for visual interest
@@ -267,9 +267,9 @@ CRITICAL INSTRUCTIONS:
     ? `- MINIMALIST CANVAS: Clean solid-color or very soft two-tone gradients
 - SOPHISTICATED MATTE: AVOID busy textures; use smooth, high-end "Apple-style" finishes
 - FOCUS: The background acts as a stage for the single focal element and text`
-    : `- DEPTH and DIMENSION: Use layers, gradients, lighting effects
-- ATMOSPHERIC QUALITY: The background should feel like a rich environment
-- PROFESSIONAL RICHNESS: Multi-layered textures and ambient particles`;
+    : `- DEPTH and DIMENSION: Use scene-based depth with foreground objects and background environment
+- THEMATIC QUALITY: The background should depict a REAL SETTING related to the event topic
+- PROFESSIONAL RICHNESS: Photographic quality with concrete objects and realistic textures`;
 
   return `
 <background_atmosphere mode="${sophistication}">

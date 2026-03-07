@@ -10,6 +10,7 @@ import type {
   ExtractedSpeaker,
 } from '@/types/extraction.types'
 import { EXTRACTION_CONFIG } from '@/types/extraction.types'
+import { mapExtractionFieldId } from '@/lib/utils/field-extraction-mapping'
 
 interface UseFieldExtractionProps {
   organizationId: string
@@ -148,27 +149,16 @@ export function useFieldExtraction({
         : extractionResult.fields
 
       const updates: Record<string, unknown> = {}
+      const updateConfidence: Record<string, number> = {}
 
       fieldsToApply.forEach((field) => {
-        // Map extracted field IDs to form field IDs
-        // Handle common variations
-        const fieldMappings: Record<string, string[]> = {
-          eventName: ['eventName', 'eventTitle', 'title'],
-          eventTitle: ['eventTitle', 'eventName', 'title'],
-          eventDate: ['eventDate', 'date'],
-          eventTime: ['eventTime', 'time', 'startTime'],
-          eventEndTime: ['eventEndTime', 'endTime'],
-          venue: ['venue', 'eventVenue', 'location'],
-          eventDescription: ['eventDescription', 'description'],
-          eventTagline: ['eventTagline', 'tagline', 'subtitle'],
+        const targetFieldId = mapExtractionFieldId(field.fieldId)
+        // Dedup: keep the highest-confidence value when multiple extracted fields
+        // map to the same form field (e.g. eventName + eventTitle → both → 'eventName')
+        if (!updates[targetFieldId] || field.confidence > (updateConfidence[targetFieldId] ?? 0)) {
+          updates[targetFieldId] = field.value
+          updateConfidence[targetFieldId] = field.confidence
         }
-
-        // Use the extracted field ID directly, or try to find a mapping
-        const possibleIds = fieldMappings[field.fieldId] || [field.fieldId]
-
-        // Use the first field ID (the canonical one)
-        const targetFieldId = possibleIds[0]
-        updates[targetFieldId] = field.value
       })
 
       updateFormData(updates)

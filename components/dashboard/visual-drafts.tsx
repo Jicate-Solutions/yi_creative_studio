@@ -18,6 +18,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ROUTES } from '@/lib/config/constants'
+import { getFormatLabel } from '@/lib/config/creative-formats'
 import { cn } from '@/lib/utils'
 
 interface Creative {
@@ -58,7 +59,7 @@ export function VisualDrafts({
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-1 bg-primary/50 rounded-full" />
                     <div>
-                        <h2 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                        <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
                             Recent Projects
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-muted-foreground border border-slate-200 dark:border-slate-700">
                                 {creatives.length}
@@ -219,7 +220,7 @@ function AssetCard({
                     </Link>
                     <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[10px] sm:text-xs text-muted-foreground font-medium truncate">
-                            {creative.creative_type?.replace('_', ' ') || 'Image'}
+                            {getFormatLabel(creative.creative_type)}
                         </p>
                         <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
                         <p className="text-[10px] sm:text-xs text-muted-foreground truncate">

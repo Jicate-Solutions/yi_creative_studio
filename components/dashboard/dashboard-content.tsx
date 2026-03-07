@@ -72,7 +72,7 @@ export function DashboardContent({ initialData, initialPreferences }: DashboardC
 
   return (
     <motion.div
-      className="max-w-[1600px] mx-auto space-y-8"
+      className="max-w-[1600px] mx-auto space-y-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -83,31 +83,31 @@ export function DashboardContent({ initialData, initialPreferences }: DashboardC
          Tablet: 2 Columns
          Mobile: 1 Column
       */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8 auto-rows-[minmax(100px,auto)]">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5 auto-rows-[minmax(100px,auto)]">
 
         {/* ZONE A: HERO (Span 3 Cols) */}
-        <div className="md:col-span-3 lg:col-span-3 h-[320px]">
+        <div className="md:col-span-3 lg:col-span-3 h-[260px]">
           <StudioHero />
         </div>
 
         {/* ZONE B: VITALS (Span 1 Col) */}
-        <div className="md:col-span-1 lg:col-span-1 h-[320px]">
+        <div className="md:col-span-1 lg:col-span-1 h-[260px]">
           <StudioVitals credits={initialData.credits} />
         </div>
 
         {/* ZONE C: CREATION HUB (Span 2 Cols) */}
-        <div className="md:col-span-2 lg:col-span-2 min-h-[200px] lg:h-[450px]">
+        <div className="md:col-span-2 lg:col-span-2 min-h-[180px] lg:h-[380px]">
           <QuickCreateHub />
         </div>
 
         {/* ZONE D: INSPIRATION SPARK (Span 2 Cols) */}
-        <div className="md:col-span-1 lg:col-span-2 min-h-[200px] lg:h-[450px]">
+        <div className="md:col-span-1 lg:col-span-2 min-h-[180px] lg:h-[380px]">
           <InspirationSpark />
         </div>
       </div>
 
       {/* ZONE E: GALLERY (Full Width) */}
-      <div className="pt-8">
+      <div className="pt-5">
         <VisualDrafts creatives={galleryCreatives} />
       </div>
 

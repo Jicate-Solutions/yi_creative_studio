@@ -122,6 +122,11 @@ const FORMAT_CATEGORY_CONTEXT: Record<string, {
     fieldFocus: ['headline', 'caption', 'callToAction', 'hashtags', 'targetAudience'],
     avoidFields: ['venue', 'registrationInfo', 'certificateNumber'],
   },
+  'social_media': {
+    description: 'Social media content for platforms like Instagram, Facebook, LinkedIn, Twitter',
+    fieldFocus: ['headline', 'caption', 'callToAction', 'hashtags', 'targetAudience'],
+    avoidFields: ['venue', 'registrationInfo', 'certificateNumber'],
+  },
   'video': {
     description: 'Video thumbnails and covers for YouTube, TikTok, etc.',
     fieldFocus: ['title', 'subtitle', 'viewerHook', 'callToAction'],
@@ -177,9 +182,10 @@ export const FIELD_GENERATION_SYSTEM_PROMPT = `You are an expert creative design
 4. Avoid date/time for social media, marketing materials, video covers
 
 ### Field ID Conventions
-- Use camelCase (e.g., eventTitle, speakerName, callToAction)
+- Use camelCase (e.g., eventName, speakerName, callToAction)
 - Be descriptive but concise
 - Don't use generic IDs like field1, field2
+- IMPORTANT: For event name/title use 'eventName' (never 'eventTitle') — this is the canonical ID used by the form system
 
 ### Field Type Rules
 - Use "text" for short single-line inputs (titles, names, etc.)
@@ -201,7 +207,8 @@ Set suggestable=true for fields where AI can generate good content:
 - NOT for: dates, times, names, contact info, specific data
 
 ### Format-Specific Rules
-- Social Media: Focus on headline, caption, CTA, hashtags (NO venue, NO registration)
+- Social Media (non-Instagram): Focus on headline, caption, CTA, hashtags (NO venue, NO registration)
+- Instagram Post: Treat like Event Poster — include eventName, eventDate, eventTime, venue, eventDescription, targetAudience (same fields as event posters)
 - Certificates: Focus on recipient, achievement, authority, date (NO hashtags)
 - Event Posters: Include date, time, venue, speaker (NO hashtags)
 - Marketing: Focus on headline, message, offer, CTA (NO venue details)
@@ -244,7 +251,7 @@ Return ONLY valid JSON with no additional text. Use this exact structure:
 ### Event Poster for Health Camp
 {
   "fields": [
-    {"id": "eventTitle", "label": "Event Title", "type": "text", "required": true, "placeholder": "e.g., Free Health Check-up Camp", "maxLength": 80, "suggestable": true},
+    {"id": "eventName", "label": "Event Name", "type": "text", "required": true, "placeholder": "e.g., Free Health Check-up Camp", "maxLength": 80, "suggestable": true},
     {"id": "eventDescription", "label": "Event Description", "type": "textarea", "required": false, "placeholder": "Describe the health services offered...", "rows": 3, "suggestable": true},
     {"id": "eventDate", "label": "Event Date", "type": "date", "required": false, "placeholder": "", "suggestable": false},
     {"id": "eventTime", "label": "Event Time", "type": "time", "required": false, "suggestable": false},
@@ -279,7 +286,12 @@ Remember: Generate fields that will result in IMPACTFUL creatives. The fields sh
 export function buildFieldGenerationPrompt(input: GenerateFieldsInput): string {
   const format = getFormatById(input.formatId as CreativeFormatId)
   const verticalContext = VERTICAL_CONTEXTS[input.verticalSlug] || VERTICAL_CONTEXTS['events']
-  const categoryContext = FORMAT_CATEGORY_CONTEXT[format?.category || 'print']
+  // Format-level overrides: some formats need a different category's fields
+  const FORMAT_CATEGORY_OVERRIDES: Record<string, string> = {
+    'instagram_post': 'print',  // Use event-poster-style fields (date, time, venue)
+  }
+  const effectiveCategory = FORMAT_CATEGORY_OVERRIDES[input.formatId] || format?.category || 'print'
+  const categoryContext = FORMAT_CATEGORY_CONTEXT[effectiveCategory]
 
   return `Generate form fields for the following creative:
 
@@ -381,7 +393,11 @@ export function validateGeneratedSchema(data: unknown): GeneratedSchema | null {
 
 export function getDefaultSchemaForFormat(formatId: string): GeneratedSchema {
   const format = getFormatById(formatId as CreativeFormatId)
-  const category = format?.category || 'print'
+  // Format-level overrides for default fallback fields
+  const FORMAT_DEFAULTS_OVERRIDES: Record<string, string> = {
+    'instagram_post': 'print',  // Use event-poster-style defaults
+  }
+  const category = FORMAT_DEFAULTS_OVERRIDES[formatId] || format?.category || 'print'
 
   // Default fields based on category
   const categoryDefaults: Record<string, DynamicSchemaField[]> = {

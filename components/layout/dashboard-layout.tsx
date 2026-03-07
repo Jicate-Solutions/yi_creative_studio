@@ -110,7 +110,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
           <div className={cn(
             "flex flex-1 flex-col w-full",
             // Add margin for fixed sidebar on desktop (when not in create/analytics mode)
-            !createModeActive && !analyticsModeActive && sidebarOpen && (sidebarCollapsed ? "md:ml-16" : "md:ml-64")
+            !createModeActive && !analyticsModeActive && sidebarOpen && (sidebarCollapsed ? "md:ml-16" : "md:ml-56")
           )}>
             {/* Impersonation Banner (Super Admin) */}
             <ImpersonationBanner />
@@ -127,7 +127,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             <main className={cn(
               'flex-1',
               createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
-              !createModeActive && 'p-2 sm:p-3 md:p-3',
+              !createModeActive && 'p-2 sm:p-3 md:p-4',
               // Add bottom padding for mobile navbar (64px navbar + safe area)
               !createModeActive && 'pb-20 md:pb-6',
               className
@@ -137,7 +137,7 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
 
             {/* Application Footer - Hidden in create mode for cleaner workspace */}
             {!createModeActive && (
-              <footer className="hidden md:flex items-center justify-center py-3 bg-muted/20">
+              <footer className="hidden md:flex items-center justify-center py-2 bg-muted/20">
                 <p className="text-[11px] text-muted-foreground/70">
                   Developed by <span className="font-medium text-muted-foreground">Roja</span> • Powered by{" "}
                   <span className="font-medium text-muted-foreground">JICATE Solutions Private Limited</span>

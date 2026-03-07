@@ -53,18 +53,26 @@ export default function LandingPage() {
 
   return (
     <div ref={containerRef} className="min-h-screen bg-yi text-foreground dark:text-white selection:bg-primary selection:text-white overflow-x-hidden scroll-smooth">
+      {/* Hide bug reporter on public landing page */}
+      <style>{`
+        .bug-reporter-sdk.bug-reporter-floating-btn,
+        button.bug-reporter-floating-btn,
+        [data-bug-reporter-button],
+        #bug-reporter-button,
+        .bug-reporter-button { display: none !important; }
+      `}</style>
       <CreativeCursor />
       {/* Navigation - Floating Pill */}
       <nav className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 w-[95%] sm:w-[90%] max-w-6xl z-50 rounded-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl shadow-primary/10 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/15">
         <div className="px-3 sm:px-4">
-          <div className="flex items-center justify-between h-16 sm:h-[4.5rem]">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo Section */}
             <div className="flex items-center gap-3 pl-2 sm:pl-4">
-              <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
-                <Sparkles className="h-5 w-5" />
+              <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
+                <Sparkles className="h-4 w-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-base sm:text-lg font-extrabold tracking-tighter text-foreground dark:text-white uppercase leading-none">Yi Creative</span>
+                <span className="text-sm sm:text-base font-extrabold tracking-tighter text-foreground dark:text-white uppercase leading-none">Yi Creative</span>
                 <span className="text-xs font-bold text-muted-foreground/60 dark:text-white/40 tracking-[0.2em] sm:tracking-[0.3em] uppercase leading-none mt-0.5">Studio</span>
               </div>
             </div>
@@ -73,7 +81,7 @@ export default function LandingPage() {
             <div className="hidden sm:flex items-center gap-1 sm:gap-2 pr-2 sm:pr-3">
               <div className="hidden lg:flex items-center bg-slate-100/50 dark:bg-white/5 rounded-full px-2 py-1.5 mr-2 border border-slate-200/50 dark:border-white/5">
                 {['Features', 'Pricing', 'Showcase'].map((item) => (
-                  <Link key={item} href={`#${item.toLowerCase()}`} className="px-5 py-2 rounded-full text-xs font-extrabold uppercase tracking-widest text-foreground/70 dark:text-white/70 hover:text-foreground dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-all">
+                  <Link key={item} href={`#${item.toLowerCase()}`} className="px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest text-foreground/70 dark:text-white/70 hover:text-foreground dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-all">
                     {item}
                   </Link>
                 ))}
@@ -83,10 +91,10 @@ export default function LandingPage() {
 
               <div className="flex items-center gap-2 pl-2 border-l border-slate-200/50 dark:border-white/10 ml-1">
                 <Link href={ROUTES.login}>
-                  <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-100/50 dark:hover:bg-white/5 h-10 px-5">Login</Button>
+                  <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-100/50 dark:hover:bg-white/5 h-9 px-4">Login</Button>
                 </Link>
                 <Link href={ROUTES.signup}>
-                  <Button size="sm" className="btn-primary rounded-full px-6 h-10 text-xs font-extrabold uppercase tracking-widest shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all">
+                  <Button size="sm" className="btn-primary rounded-full px-5 h-9 text-xs font-extrabold uppercase tracking-widest shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all">
                     Join Now
                   </Button>
                 </Link>
@@ -98,7 +106,7 @@ export default function LandingPage() {
               <ThemeToggle />
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
                     <Menu className="h-5 w-5" />
                     <span className="sr-only">Open menu</span>
                   </Button>
@@ -133,13 +141,13 @@ export default function LandingPage() {
                     {/* Auth Buttons */}
                     <div className="flex flex-col gap-3">
                       <Link href={ROUTES.login} onClick={() => setMobileMenuOpen(false)}>
-                        <Button variant="outline" className="w-full h-12 rounded-full font-semibold">
+                        <Button variant="outline" className="w-full h-10 rounded-full font-semibold">
                           <LogIn className="h-4 w-4 mr-2" />
                           Login
                         </Button>
                       </Link>
                       <Link href={ROUTES.signup} onClick={() => setMobileMenuOpen(false)}>
-                        <Button className="w-full h-12 rounded-full btn-primary font-semibold">
+                        <Button className="w-full h-10 rounded-full btn-primary font-semibold">
                           Get Started Free
                         </Button>
                       </Link>
@@ -158,11 +166,11 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section: The Architectural Shift */}
-      <section className="relative pt-32 pb-16 px-6 sm:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-12 px-6 sm:px-8 overflow-hidden">
         {/* Background Perspective Grid (Creative Soul Injection) */}
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(rgba(0,91,150,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.15)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(0,91,150,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,91,150,0.05)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(-200px)] opacity-30 h-[150%]" />
 
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-12 lg:gap-20">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-10 lg:gap-16">
           {/* Architectural Card Stack (Now on Left for Impact) */}
           {/* Studio Console: The Professional Workspace (Split Filled Look) */}
           <motion.div
@@ -173,7 +181,7 @@ export default function LandingPage() {
           >
 
             {/* The Console Container (Stripe-Clean) */}
-            <div className="relative h-[500px] md:h-[600px] bg-slate-950 rounded-[2rem] border border-slate-800/50 shadow-xl flex flex-col overflow-hidden">
+            <div className="relative h-[420px] md:h-[500px] bg-slate-950 rounded-[2rem] border border-slate-800/50 shadow-xl flex flex-col overflow-hidden">
               {/* Simplified Header (Browser-style) */}
               <div className="border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-sm">
                 <div className="px-6 py-4 flex items-center justify-between">
@@ -260,7 +268,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
-              className="text-[clamp(2.5rem,5vw,4.5rem)] text-slate-900 dark:text-white leading-[1.1] tracking-tight font-bold"
+              className="text-[clamp(2rem,4.5vw,3.5rem)] text-slate-900 dark:text-white leading-[1.1] tracking-tight font-bold"
             >
               Create On-Brand Creatives in 30 Seconds
             </motion.h1>
@@ -270,7 +278,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-              className="text-lg text-slate-600 dark:text-white/70 max-w-lg font-normal leading-relaxed"
+              className="text-base text-slate-600 dark:text-white/70 max-w-lg font-normal leading-relaxed"
             >
               AI-powered design for Young Indians chapters. Perfect brand compliance. No design skills required.
             </motion.p>
@@ -310,17 +318,17 @@ export default function LandingPage() {
               className="inline-flex items-center gap-6 sm:gap-8 py-4 px-6 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]"
             >
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">200+</div>
+                <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">200+</div>
                 <div className="text-xs text-muted-foreground mt-1">Active Creators</div>
               </div>
               <div className="h-10 w-px bg-slate-200 dark:bg-white/10" />
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">70+</div>
+                <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">70+</div>
                 <div className="text-xs text-muted-foreground mt-1">Yi Chapters</div>
               </div>
               <div className="h-10 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
               <div className="text-center hidden sm:block">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">15K+</div>
+                <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">15K+</div>
                 <div className="text-xs text-muted-foreground mt-1">Creatives</div>
               </div>
             </motion.div>
@@ -334,13 +342,13 @@ export default function LandingPage() {
             >
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                 <Link href={ROUTES.signup} className="w-full sm:w-auto">
-                  <Button size="lg" className="h-14 w-full sm:w-auto px-8 rounded-full text-sm font-semibold group">
+                  <Button size="lg" className="h-12 w-full sm:w-auto px-6 rounded-full text-sm font-semibold group">
                     Start Creating Free
                     <MoveRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
                 <Link href="#showcase">
-                  <Button variant="outline" size="lg" className="h-14 px-8 rounded-full text-sm font-semibold">
+                  <Button variant="outline" size="lg" className="h-12 px-6 rounded-full text-sm font-semibold">
                     Watch Demo
                   </Button>
                 </Link>
@@ -353,23 +361,6 @@ export default function LandingPage() {
             </motion.div>
           </motion.div>
         </div>
-
-        {/* Scroll Indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.5 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-        >
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Scroll to explore</span>
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            className="w-6 h-10 rounded-full border-2 border-slate-300 dark:border-white/20 flex items-start justify-center p-2"
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          </motion.div>
-        </motion.div>
       </section>
 
       {/* Stats Section: System Status */}
@@ -383,9 +374,9 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="py-12 px-6 bg-slate-50/30 dark:bg-black/10 flex flex-col items-center justify-center text-center group cursor-default hover:bg-white dark:hover:bg-white/[0.05] hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                className="py-8 px-5 bg-slate-50/30 dark:bg-black/10 flex flex-col items-center justify-center text-center group cursor-default hover:bg-white dark:hover:bg-white/[0.05] hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
               >
-                <div className="text-4xl md:text-5xl lg:text-6xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-primary to-primary/60 mb-3 tracking-tighter group-hover:scale-110 transition-transform duration-300">
+                <div className="text-3xl md:text-4xl lg:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-primary to-primary/60 mb-3 tracking-tighter group-hover:scale-110 transition-transform duration-300">
                   {stat.value}
                 </div>
                 <div className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.2em] text-foreground/70 dark:text-white/70 group-hover:text-primary transition-colors mb-2">
@@ -403,9 +394,9 @@ export default function LandingPage() {
       </section>
 
       {/* Chapter Logos Marquee */}
-      <section className="py-12 border-y border-white/5 glass-subtle overflow-hidden">
+      <section className="py-8 border-y border-white/5 glass-subtle overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-12">
+          <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-8">
             Trusted by 70+ Yi Chapters Across India
           </p>
 
@@ -439,14 +430,14 @@ export default function LandingPage() {
       <div className="light-blade-divider my-12" />
 
       {/* Architectural Bento Grid */}
-      <section className="py-20 px-6 sm:px-8" id="features">
+      <section className="py-14 px-6 sm:px-8" id="features">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-20 flex flex-col md:flex-row items-end justify-between gap-12">
+          <div className="mb-14 flex flex-col md:flex-row items-end justify-between gap-12">
             <div className="max-w-2xl">
-              <h2 className="text-yi-bold text-3xl md:text-4xl mb-6 uppercase leading-none text-slate-900 dark:text-white">
+              <h2 className="text-yi-bold text-2xl md:text-3xl mb-4 uppercase leading-none text-slate-900 dark:text-white">
                 CREATE <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">PROFESSIONAL</span><br />CREATIVES IN <span className="text-secondary">30 SECONDS</span>
               </h2>
-              <p className="text-lg text-slate-600 dark:text-white/70 font-semibold tracking-tight">Simple 3-step workflow. Brand consistency guaranteed.</p>
+              <p className="text-base text-slate-600 dark:text-white/70 font-semibold tracking-tight">Simple 3-step workflow. Brand consistency guaranteed.</p>
             </div>
             <div className="text-right text-xs font-extrabold uppercase tracking-[0.2em] sm:tracking-[0.4em] text-slate-400/50 dark:text-white/30 mb-2 whitespace-nowrap">
               01 // CORE ARCHITECTURE
@@ -454,7 +445,7 @@ export default function LandingPage() {
           </div>
 
           {/* New Workflow: How It Works */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20 relative">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14 relative">
             {/* Connector Line */}
             <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-white/10 to-transparent -translate-y-1/2 -z-10" />
 
@@ -464,7 +455,7 @@ export default function LandingPage() {
               { icon: Sparkles, step: '03', title: 'Generate & Download', desc: 'Get print-ready creatives in 30 seconds. Perfect for digital and print.' }
             ].map((item, i) => (
               <Link key={i} href={ROUTES.signup} className="group relative">
-                <div className="bg-slate-100/80 dark:bg-black/80 border border-slate-200/50 dark:border-white/5 p-8 rounded-3xl hover:border-primary/50 transition-colors">
+                <div className="bg-slate-100/80 dark:bg-black/80 border border-slate-200/50 dark:border-white/5 p-6 rounded-3xl hover:border-primary/50 transition-colors">
                   <div className="flex justify-between items-start mb-6">
                     <div className="w-12 h-12 rounded-xl bg-slate-200/60 dark:bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <item.icon className="h-6 w-6 text-foreground dark:text-white" />
@@ -478,7 +469,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="architectural-bento grid grid-cols-12 gap-8 auto-rows-[100px]">
+          <div className="architectural-bento grid grid-cols-12 gap-6 auto-rows-[100px]">
             {/* Feature 1: Large Module */}
             <Link href={ROUTES.create} className="col-span-12 lg:col-span-8 row-span-4 bento-module group overflow-hidden relative block">
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center opacity-10 group-hover:opacity-20 group-hover:scale-105 transition-all duration-1000 mix-blend-screen" />
@@ -564,14 +555,14 @@ export default function LandingPage() {
       </section >
 
       {/* Testimonials Section */}
-      <section className="py-24 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
+      <section className="py-16 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-y border-slate-200/40 dark:border-white/5">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
+          <div className="text-center mb-10 space-y-4">
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white"
+              className="text-2xl md:text-4xl font-extrabold uppercase tracking-tight text-slate-900 dark:text-white"
             >
               LOVED BY <span className="text-primary">70+ CHAPTERS.</span>
             </motion.h2>
@@ -580,7 +571,7 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="text-lg text-slate-700 dark:text-white/80 font-semibold"
+              className="text-base text-slate-700 dark:text-white/80 font-semibold"
             >
               Real results from Yi chapters across India
             </motion.p>
@@ -632,14 +623,14 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="min-w-[320px] sm:min-w-[420px] max-w-[420px] p-8 rounded-3xl snap-center bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300"
+                  className="min-w-[320px] sm:min-w-[420px] max-w-[420px] p-6 rounded-3xl snap-center bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 hover:-translate-y-2 hover:scale-[1.02] transition-all duration-300"
                 >
                   <p className="text-base sm:text-lg text-foreground/90 dark:text-white/90 mb-8 leading-relaxed font-medium">
                     "{testimonial.quote}"
                   </p>
 
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 flex items-center justify-center text-sm font-bold text-primary shadow-md">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 flex items-center justify-center text-sm font-bold text-primary shadow-md">
                       {testimonial.initials}
                     </div>
                     <div>
@@ -650,11 +641,11 @@ export default function LandingPage() {
 
                   <div className="flex gap-8 pt-6 border-t border-slate-200/40 dark:border-white/10">
                     <div>
-                      <div className="text-2xl font-extrabold text-primary mb-1">{testimonial.creativesGenerated}</div>
+                      <div className="text-xl font-extrabold text-primary mb-1">{testimonial.creativesGenerated}</div>
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Creatives</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-extrabold text-secondary mb-1">{testimonial.timeSaved}hrs</div>
+                      <div className="text-xl font-extrabold text-secondary mb-1">{testimonial.timeSaved}hrs</div>
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saved</div>
                     </div>
                   </div>
@@ -666,14 +657,14 @@ export default function LandingPage() {
       </section>
 
       {/* New Section: Creative Showcase (Full Visual Impact) */}
-      < section className="py-16 px-6 sm:px-8 relative overflow-hidden" id="showcase" >
+      < section className="py-12 px-6 sm:px-8 relative overflow-hidden" id="showcase" >
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-20 mb-20">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-14 mb-14">
             <div className="flex-1">
-              <h2 className="text-yi-bold text-3xl md:text-5xl mb-8 uppercase leading-[0.85] tracking-tighter text-slate-900 dark:text-white">
+              <h2 className="text-yi-bold text-2xl md:text-4xl mb-6 uppercase leading-[0.85] tracking-tighter text-slate-900 dark:text-white">
                 ONE PLATFORM, <br /><span className="text-secondary">30+ FORMATS</span>
               </h2>
-              <p className="text-lg text-slate-700 dark:text-white/80 font-semibold max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
+              <p className="text-base text-slate-700 dark:text-white/80 font-semibold max-w-xl">From social media to print-ready certificates. Every format you need for Yi initiatives.</p>
             </div>
             <div className="w-full lg:w-1/3 aspect-[4/5] rounded-[4rem] overflow-hidden relative group shadow-2xl border border-slate-200/50 dark:border-white/10">
               <img src="/images/yi-brand-showcase.png" alt="Yi Platform - 30+ Creative Formats" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2000ms]" />
@@ -685,7 +676,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
             {[
               '/images/showcase/diwali-greeting.png',
               '/images/showcase/birthday-post.png',
@@ -710,7 +701,7 @@ export default function LandingPage() {
               'Event Posters', 'Social Posts', 'Certificates', 'Instagram Stories',
               'LinkedIn Banners', 'Flyers', 'YouTube Thumbnails', 'Facebook Ads'
             ].map(tag => (
-              <span key={tag} className="px-6 py-3 rounded-full bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 text-xs font-bold text-foreground/70 dark:text-white/50 hover:text-foreground dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.05] hover:border-slate-300/60 dark:hover:border-white/10 transition-all cursor-default">
+              <span key={tag} className="px-4 py-2 rounded-full bg-slate-50/60 dark:bg-white/[0.03] border border-slate-200/40 dark:border-white/5 text-xs font-bold text-foreground/70 dark:text-white/50 hover:text-foreground dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.05] hover:border-slate-300/60 dark:hover:border-white/10 transition-all cursor-default">
                 {tag}
               </span>
             ))}
@@ -718,14 +709,14 @@ export default function LandingPage() {
         </div>
       </section >
       {/* CTA Section */}
-      < section className="py-20 px-6 sm:px-8 text-center relative overflow-hidden" >
+      < section className="py-14 px-6 sm:px-8 text-center relative overflow-hidden" >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[160px] -z-10" />
         <div className="max-w-4xl mx-auto relative z-10">
-          <h2 className="text-yi-bold text-4xl md:text-6xl mb-8 leading-none tracking-tighter uppercase text-slate-900 dark:text-white">
+          <h2 className="text-yi-bold text-3xl md:text-5xl mb-6 leading-none tracking-tighter uppercase text-slate-900 dark:text-white">
             READY TO <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">GENERATE?</span>
           </h2>
-          <p className="text-lg md:text-xl text-slate-700 dark:text-white/80 mb-10 font-semibold max-w-xl mx-auto">
+          <p className="text-base md:text-lg text-slate-700 dark:text-white/80 mb-8 font-semibold max-w-xl mx-auto">
             Join 70+ chapters already delivering brand excellence with Yi CreativeStudio.
           </p>
           <div className="flex flex-wrap justify-center gap-6 mb-16">
@@ -737,7 +728,7 @@ export default function LandingPage() {
             ))}
           </div>
           <Link href={ROUTES.signup} className="w-full sm:w-auto">
-            <Button size="lg" className="h-16 sm:h-20 px-8 sm:px-16 w-full sm:w-auto rounded-[2rem] btn-primary text-base sm:text-lg font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-2xl hover:scale-105 transition-transform">
+            <Button size="lg" className="h-12 sm:h-14 px-6 sm:px-10 w-full sm:w-auto rounded-[2rem] btn-primary text-sm sm:text-base font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.2em] shadow-2xl hover:scale-105 transition-transform">
               Join the studio now
             </Button>
           </Link>
@@ -745,13 +736,13 @@ export default function LandingPage() {
       </section >
 
       {/* Trust Indicators Bar */}
-      <section className="py-16 border-y border-white/5 glass-subtle">
+      <section className="py-10 border-y border-white/5 glass-subtle">
         <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-16">
+          <p className="text-center text-xs font-extrabold uppercase tracking-[0.3em] text-muted-foreground/70 dark:text-white/50 mb-10">
             ENTERPRISE-GRADE PLATFORM
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               {
                 icon: Shield,
@@ -775,10 +766,10 @@ export default function LandingPage() {
               }
             ].map((indicator, i) => (
               <div key={i} className="flex flex-col items-center text-center group">
-                <div className="w-16 h-16 rounded-2xl glass-card flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300">
-                  <indicator.icon className="h-7 w-7 text-primary" />
+                <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center mb-4 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300">
+                  <indicator.icon className="h-5 w-5 text-primary" />
                 </div>
-                <h4 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
+                <h4 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white mb-2">
                   {indicator.label}
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-white/75 leading-relaxed max-w-[200px] font-medium">
@@ -791,17 +782,17 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="pt-16 pb-12 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-t border-slate-200/40 dark:border-white/5">
+      <footer className="pt-10 pb-8 px-6 sm:px-8 bg-slate-50/30 dark:bg-black/10 border-t border-slate-200/40 dark:border-white/5">
         <div className="max-w-7xl mx-auto">
           {/* Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
             {/* Brand Column */}
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-primary" />
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-primary" />
                 </div>
-                <span className="text-xl font-extrabold tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
+                <span className="text-base font-extrabold tracking-tighter text-foreground dark:text-white uppercase">Yi Creative</span>
               </div>
               <p className="text-sm text-muted-foreground mb-6 max-w-md leading-relaxed">
                 AI-powered brand creative generation platform for Young Indians. Generate professional event posters, social posts, and marketing materials in 30 seconds.

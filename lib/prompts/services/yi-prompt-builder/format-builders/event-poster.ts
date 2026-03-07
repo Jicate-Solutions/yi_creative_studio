@@ -709,32 +709,15 @@ export function buildEventPosterPrompt(
   // Must be calculated BEFORE content zones so we can shrink to 40%-60% when speakers enabled
   const hasSpeakerPhotoEarly = options.speakerPhotoConfig?.enabled === true
 
-  // v24.50: DYNAMIC ZONE STRATEGY (40%-60% or 40%-70%)
-  // When speaker photos enabled: shrink content zone to 40%-60% (reserve 60%-90% for photo overlays)
-  // When no speaker photos: standard 40%-70% content zone
-  //
-  // Zone Layout (v24.50 - speaker-aware):
-  // - Header: 0-40% (FORBIDDEN - no text, reserved for branding/logos)
-  // - Content: 40-60% or 40-70% (ALL text - headline, tagline, date, venue)
-  // - Speaker Photos: 60-90% (RESERVED for Sharp overlays when enabled)
-  // - Footer: 90-100% (FORBIDDEN - no text, reserved for footer bar)
-  // v28.0 Fix: Dynamic CONTENT_START from actual Sharp header height — mirrors CONTENT_END pattern
-  // Real Sharp header (e.g. 350px for 1440px canvas → 24.3%) + 5% safety buffer → ~30%
-  // This grounds the FORBIDDEN TOP in physical reality so Gemini respects it
-  const _sharpHeaderPx = options.logoStripZoneCoordinates?.headerHeight ?? 0
-  const _dynamicStartPct = _sharpHeaderPx > 0
-    ? Math.ceil((_sharpHeaderPx / 1440) * 100) + 5  // +5% safety above actual bar
-    : 40  // safe fallback — original header forbidden boundary
-  const CONTENT_START = Math.max(_dynamicStartPct, 35)  // minimum 35% floor
-  // v25.2 Fix A: Dynamic CONTENT_END from actual Sharp footer height
-  // Real Sharp footer ≈ 268px for 1440px canvas → ~79% boundary (was hardcoded at 70%)
-  // Without this, Gemini uses only 432px (40–70%) when 590px (40–81%) is actually safe
-  const _sharpFooterPx = options.logoStripZoneCoordinates?.footerHeight ?? 0
-  const _dynamicEndPct = _sharpFooterPx > 0
-    ? Math.floor(((1440 - _sharpFooterPx - 30) / 1440) * 100)
-    : 78   // safe fallback (up from 70%) when logoStripZoneCoordinates not available
-  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : Math.min(_dynamicEndPct, 78)
-  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 20% or 30%+ available for text
+  // v33.4: STRICT FIXED ZONE STRATEGY — user-required clean logo areas
+  // Zone Layout (strict):
+  // - Header: 0-40% (FORBIDDEN — clean for logo overlays)
+  // - Content: 40-70% (ALL text — headline, tagline, date, venue, speakers)
+  // - Footer: 70-100% (FORBIDDEN — clean for logo overlays)
+  // Speaker photo mode shrinks content zone to 40-60%
+  const CONTENT_START = 40   // Fixed — header clean zone ends at exactly 40%
+  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : 70   // Fixed — footer clean zone starts at exactly 70%
+  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 30% available for text (or 20% with speaker photo)
 
   // Override calculated header start with center zone start
   const headerStartPercent = CONTENT_START
@@ -1164,6 +1147,15 @@ The event name "${eventName}" MUST be the LARGEST and most prominent text elemen
 3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
 4. Additional Details: SMALLEST supporting text
 
+SIZE RATIO GUIDE (v33.0 - PROPORTIONAL HIERARCHY):
+- HEADLINE: 100% reference size (fills 60-80% of content zone width)
+- TAGLINE: 40-50% of headline size
+- INFO CARD TEXT: 25-35% of headline size
+- SPEAKER NAMES: 30-40% of headline size
+- ADDITIONAL DETAILS: 20-25% of headline size
+THE 3x RULE: The headline MUST be at least 3x the visual size of the smallest text element.
+If the headline and body text look similar in size, the design has FAILED its hierarchy test.
+
 CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
 The event headline "${eventName}" MUST be:
 - Readable from 10 feet away
@@ -1180,7 +1172,62 @@ horizontal lines, vertical lines, diagonal lines, divider bars, section separato
 CREATE instead:
 ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
 
+NOTE: Information containers (info cards, detail bars, CTA buttons) are FOREGROUND content elements
+that sit ON TOP of the seamless background. They do not break the background continuity.
+
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
+
+SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
+
+The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
+
+SCENE EXAMPLES — choose LITERAL or CONCEPTUAL based on what creates STRONGER visual impact:
+
+LITERAL (real environment — grounded, documentary):
+- Health/Medical → Indian doctor explaining anatomy to students with charts and medical models
+- Road Safety → Indian youth in safety vests at a zebra crossing with traffic signs and cones
+- Technology → Indian professionals at monitors with code, circuit boards, and tech equipment
+- Leadership/Business → Indian speaker at a podium with attendees in a conference hall
+- Environmental → Indian volunteers planting saplings with banners and recycling props
+- Cultural/Arts → Indian performers on stage with instruments and colorful decorations
+- Graduation/Convocation → South Indian graduates in caps and gowns receiving diplomas on stage with proud families watching from the audience; emotional embrace between graduate and parents; group of graduates tossing mortarboards against a radiant sky
+
+CONCEPTUAL (visual metaphor — MORE MEMORABLE and shareable):
+- Graduation/Achievement → Indian graduates in caps and gowns bursting through open books into golden sky; mortarboard hats transforming into birds in flight; grand staircase of books ascending toward radiant light
+- Business/Leadership → A lone Indian leader silhouette at the apex of a grand staircase against an epic skyline; audience silhouettes forming a rising arrow; bold figure commanding the stage
+- Technology/Innovation → Human brain rendered as a glowing AI circuit city illuminated from within; robot and AI elements forming a human silhouette; neural network patterns as a living digital map
+- Environmental/Sustainability → Giant hands cradling a miniature Earth while a tree grows upward; Indian volunteers in a lush green natural landscape
+- Health/Medical → Medical healing symbols transforming into human figures embracing life and vitality; heartbeat line forming a human running silhouette
+- Road Safety → Bold graphic composition with traffic signs and road elements as a striking design system
+
+CONCEPT-AS-DEVICE (most powerful technique — the event's core symbol BECOMES the composition itself):
+- Leadership → audience silhouettes FORM the shape of a rising mountain peak or upward arrow
+- Graduation → open books UNFOLD into the shape of wings mid-flight
+- Technology → circuit board patterns BECOME a human brain or AI face
+- Environmental → a tree's root structure IS a map / human figure
+- Health → heartbeat waveform FORMS the shape of a running human silhouette
+
+SELECTION PRINCIPLE: Choose whichever treatment — literal or conceptual — creates a MORE STRIKING, MORE MEMORABLE poster for this specific event. Conceptual imagery often produces more shareable, Pinterest-worthy results.
+
+THE SCENE MUST INCLUDE:
+✅ A recognizable ENVIRONMENT (classroom, conference hall, workspace, clinic, road crossing, venue)
+✅ CONCRETE OBJECTS related to the topic (charts, equipment, tools, props, signage)
+✅ Professional DEPTH-OF-FIELD (foreground sharp, background soft)
+✅ LIGHTING that matches the setting (classroom daylight, stage spots, outdoor natural light)
+✅ When people appear: INDIAN/South Asian appearance, actively DOING the activity (not posing)
+
+THE SCENE MUST NOT INCLUDE:
+❌ Abstract waves, flowing lines, dot grids, mesh patterns, atmospheric particles
+❌ Generic geometric shapes with no connection to the event topic
+❌ Non-Indian or Western-looking faces — if people appear, they MUST look Indian/South Asian
+❌ Amorphous gradients with no concrete scene elements
+
+THE STORY TEST: Can a viewer understand what this event is about JUST from the background?
+"I see Indian students at a road crossing with safety vests and traffic signs" → Road Safety ✅
+"I see a workspace with monitors and circuit boards" → Tech event ✅
+"I see abstract pink and teal waves" → Could be anything ❌
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
 
 Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
 
@@ -1220,6 +1267,15 @@ The event name "${eventName}" MUST be the LARGEST and most prominent text elemen
 3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
 4. Additional Details: SMALLEST supporting text
 
+SIZE RATIO GUIDE (v33.0 - PROPORTIONAL HIERARCHY):
+- HEADLINE: 100% reference size (fills 60-80% of content zone width)
+- TAGLINE: 40-50% of headline size
+- INFO CARD TEXT: 25-35% of headline size
+- SPEAKER NAMES: 30-40% of headline size
+- ADDITIONAL DETAILS: 20-25% of headline size
+THE 3x RULE: The headline MUST be at least 3x the visual size of the smallest text element.
+If the headline and body text look similar in size, the design has FAILED its hierarchy test.
+
 CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
 The event headline "${eventName}" MUST be:
 - Readable from 10 feet away
@@ -1236,7 +1292,62 @@ horizontal lines, vertical lines, diagonal lines, divider bars, section separato
 CREATE instead:
 ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
 
+NOTE: Information containers (info cards, detail bars, CTA buttons) are FOREGROUND content elements
+that sit ON TOP of the seamless background. They do not break the background continuity.
+
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
+
+SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
+
+The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
+
+SCENE EXAMPLES — choose LITERAL or CONCEPTUAL based on what creates STRONGER visual impact:
+
+LITERAL (real environment — grounded, documentary):
+- Health/Medical → Indian doctor explaining anatomy to students with charts and medical models
+- Road Safety → Indian youth in safety vests at a zebra crossing with traffic signs and cones
+- Technology → Indian professionals at monitors with code, circuit boards, and tech equipment
+- Leadership/Business → Indian speaker at a podium with attendees in a conference hall
+- Environmental → Indian volunteers planting saplings with banners and recycling props
+- Cultural/Arts → Indian performers on stage with instruments and colorful decorations
+- Graduation/Convocation → South Indian graduates in caps and gowns receiving diplomas on stage with proud families watching from the audience; emotional embrace between graduate and parents; group of graduates tossing mortarboards against a radiant sky
+
+CONCEPTUAL (visual metaphor — MORE MEMORABLE and shareable):
+- Graduation/Achievement → Indian graduates in caps and gowns bursting through open books into golden sky; mortarboard hats transforming into birds in flight; grand staircase of books ascending toward radiant light
+- Business/Leadership → A lone Indian leader silhouette at the apex of a grand staircase against an epic skyline; audience silhouettes forming a rising arrow; bold figure commanding the stage
+- Technology/Innovation → Human brain rendered as a glowing AI circuit city illuminated from within; robot and AI elements forming a human silhouette; neural network patterns as a living digital map
+- Environmental/Sustainability → Giant hands cradling a miniature Earth while a tree grows upward; Indian volunteers in a lush green natural landscape
+- Health/Medical → Medical healing symbols transforming into human figures embracing life and vitality; heartbeat line forming a human running silhouette
+- Road Safety → Bold graphic composition with traffic signs and road elements as a striking design system
+
+CONCEPT-AS-DEVICE (most powerful technique — the event's core symbol BECOMES the composition itself):
+- Leadership → audience silhouettes FORM the shape of a rising mountain peak or upward arrow
+- Graduation → open books UNFOLD into the shape of wings mid-flight
+- Technology → circuit board patterns BECOME a human brain or AI face
+- Environmental → a tree's root structure IS a map / human figure
+- Health → heartbeat waveform FORMS the shape of a running human silhouette
+
+SELECTION PRINCIPLE: Choose whichever treatment — literal or conceptual — creates a MORE STRIKING, MORE MEMORABLE poster for this specific event. Conceptual imagery often produces more shareable, Pinterest-worthy results.
+
+THE SCENE MUST INCLUDE:
+✅ A recognizable ENVIRONMENT (classroom, conference hall, workspace, clinic, road crossing, venue)
+✅ CONCRETE OBJECTS related to the topic (charts, equipment, tools, props, signage)
+✅ Professional DEPTH-OF-FIELD (foreground sharp, background soft)
+✅ LIGHTING that matches the setting (classroom daylight, stage spots, outdoor natural light)
+✅ When people appear: INDIAN/South Asian appearance, actively DOING the activity (not posing)
+
+THE SCENE MUST NOT INCLUDE:
+❌ Abstract waves, flowing lines, dot grids, mesh patterns, atmospheric particles
+❌ Generic geometric shapes with no connection to the event topic
+❌ Non-Indian or Western-looking faces — if people appear, they MUST look Indian/South Asian
+❌ Amorphous gradients with no concrete scene elements
+
+THE STORY TEST: Can a viewer understand what this event is about JUST from the background?
+"I see Indian students at a road crossing with safety vests and traffic signs" → Road Safety ✅
+"I see a workspace with monitors and circuit boards" → Tech event ✅
+"I see abstract pink and teal waves" → Could be anything ❌
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
 
 Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
 
@@ -1490,11 +1601,13 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
   - If all content does NOT fit above ${_contentEndPx}px: reduce font sizes, tighten spacing, use 2-column layout
   - Priority when space is tight: Headline > Date/Time > Venue > Speaker > Note/Additional
   - NEVER push content downward to make it fit — compress it instead
+  - ⚠️ INFO CARD RULE (v35.3): The info card visual block (date + time + venue container panel) MUST be fully enclosed above ${_contentEndPx}px. Its TOP is typically around ${Math.floor(CANVAS_HEIGHT * (CONTENT_START + CENTER_ZONE_HEIGHT * 0.50) / 100)}px and its BOTTOM must not pass ${_contentEndPx - 30}px. The info card is NOT placed below the scene — it is overlaid ON the scene background within the content zone.
 
     1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.29):
   - CONTENT ZONE: ${CONTENT_START}% to ${CONTENT_END}% of canvas height (${Math.floor(1440 * CONTENT_START / 100)}px to ${Math.floor(1440 * CONTENT_END / 100)}px for 1440px canvas)
   - ALL TEXT MUST FIT within this ${CENTER_ZONE_HEIGHT}% vertical zone (${Math.floor(1440 * CENTER_ZONE_HEIGHT / 100)}px available height)
   - HEADER ZONE (0-${CONTENT_START}%): FORBIDDEN for text - reserved for logo overlays
+  - ⚠️ NEVER render any logo, logo placeholder, "LOGO" text, emoji icon (🍀, 🏷️, etc.), "[LOGO]", or any brand mark in the image — logos are composited programmatically AFTER generation. Leave header/footer zones as pure, clean background artwork only.
   ${hasSpeakerPhoto ? `- SPEAKER OVERLAY ZONE (60%-90%): FORBIDDEN for text - reserved for speaker photo overlays (864px to 1296px)` : ''}
   - FOOTER ZONE (${CONTENT_END}%-100%): FORBIDDEN for text - reserved for footer bar
   - Refer to <spatial_layout_constraints> above for EXACT Y-coordinate positioning
@@ -1519,6 +1632,66 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
   - "${eventName}" must remain the dominant focal point above this section
 ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
 
+    3A. INFORMATION ARCHITECTURE (v33.0 - MANDATORY):
+
+    THE INFORMATION CARD PATTERN:
+    Date, time, and venue MUST be presented as a UNIFIED VISUAL BLOCK — a distinct visual
+    container that is CLEARLY SEPARATED from the background. This is the #1 difference between
+    professional templates and AI-generated posters.
+
+    IMPLEMENTATION OPTIONS (pick the best match for the design mood):
+    a) COLORED BAR: A horizontal strip with a contrasting fill color containing date | time | venue
+       in a single line with separator dots or pipes
+    b) ROUNDED CARD: A semi-transparent or solid rounded rectangle containing stacked or inline
+       event details with subtle icon prefixes (calendar icon, clock icon, map pin)
+    c) BADGE STRIP: Individual pill-shaped badges for each data point arranged horizontally
+    d) CONTRAST PANEL: A partial-width panel with a background color that contrasts the main poster background
+
+    THE INFO CONTAINER MUST HAVE:
+    - A VISIBLE BOUNDARY (background fill, border, or shadow) separating it from the poster background
+    - CONSISTENT INTERNAL PADDING (text does not touch the container edges)
+    - GROUPED DATA (date + time + venue in ONE container, not scattered across the poster)
+
+    NOTE: This is a FOREGROUND content element — it sits ON TOP of the seamless background.
+    It does NOT break the background continuity.
+
+    ANTI-PATTERN: Date, time, and venue as individual floating text lines on a gradient
+    with no visual container = REJECTED.
+
+    3B. READING FLOW (v33.0 - MANDATORY):
+
+    The viewer's eye MUST follow a PREDICTABLE PATH through the poster:
+    STEP 1 (0.5s): Eye lands on HEADLINE — the largest, boldest element
+    STEP 2 (1.0s): Eye moves to TAGLINE — positioned directly below headline, smaller but clear
+    STEP 3 (1.5s): Eye finds INFO CARD — the visually distinct date/time/venue container
+    STEP 4 (2.5s): Eye sees SPEAKER/CONTEXT — names, designations, or additional details
+    STEP 5 (3.0s): Eye reaches CTA — registration info or action prompt
+
+    Achieved through: SIZE PROGRESSION, VISUAL WEIGHT, SPATIAL GAPS, ALIGNMENT CONSISTENCY.
+
+    3C. VERTICAL TEXT SPACING (v33.2 - MANDATORY - NO TEXT OVERLAP):
+
+    Text elements MUST follow this vertical arrangement within the content zone (${CONTENT_START}%-${CONTENT_END}%):
+
+    VERTICAL LAYOUT (top to bottom):
+    - ${CONTENT_START}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.35)}%: EVENT HEADLINE — largest, most prominent, takes up to 35% of content zone
+    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.35)}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.50)}%: TAGLINE/THEME — medium text, clearly BELOW headline with visible gap
+    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.50)}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.70)}%: INFO CARD (date/time/venue) — in distinct visual container
+    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.70)}%-${CONTENT_END - 2}%: ADDITIONAL DETAILS, CTA — smallest text
+
+    ⚠️ INFO CARD ABSOLUTE HARD LIMIT (v35.3):
+    The INFO CARD visual container (including its background box/panel) BOTTOM EDGE must NOT exceed ${CONTENT_END - 3}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px on a ${CANVAS_HEIGHT}px canvas).
+    The footer zone begins at EXACTLY ${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}px) and is PHYSICALLY COVERED by logo overlays — anything below is INVISIBLE.
+    If date/time/venue text is too long: SHRINK the font size. Do NOT push the card downward past ${CONTENT_END - 3}%.
+    The info card must be ENTIRELY above ${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px. No exceptions.
+
+    CRITICAL SPACING RULES:
+    ⚠️ HEADLINE and TAGLINE must NEVER overlap — minimum 3% vertical gap between them
+    ⚠️ Each text element must have its OWN vertical band — no two text roles share the same Y-range
+    ⚠️ If headline wraps to multiple lines, tagline starts BELOW the last line of headline
+    ⚠️ Reading order MUST match visual order: headline ABOVE tagline ABOVE info card ABOVE details
+    ⚠️ INFO CARD bottom edge MUST NOT exceed ${CONTENT_END - 3}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px) — footer is INVISIBLE below ${CONTENT_END}%
+
 4. FULL-CANVAS VISUAL FLOW (v24.12.2 - MANDATORY):
 
   ⚠️ CRITICAL: Create ONE CONTINUOUS visual design across the ENTIRE canvas (0% to 100%)
@@ -1535,6 +1708,13 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
   ❌ Do NOT use different background colors or styles for different zones
   ❌ Do NOT create visible bands, stripes, or horizontal divisions
   ❌ Do NOT treat header/footer as separate design areas
+  ❌ DO NOT place the scene inside a rounded rectangle, photo card, image frame, or bordered container (v35.4)
+  ❌ DO NOT use solid-color background in the top area with a "photo card" in the lower area — THIS IS THE MOST COMMON FAILURE MODE
+  ❌ The scene must have NO rounded corners, NO border, NO card-shadow — it IS the canvas itself, not a card on the canvas
+  ❌ NEVER create a "plain colored header area (with floating title text) + scene card below it" split layout
+  ✅ The scene artwork bleeds to ALL FOUR canvas edges — top, bottom, left, right — with ZERO frame or margin
+  ✅ Header (0-${CONTENT_START}%): Atmospheric TOP of scene (ceiling, sky, stage lights, upper architecture) — no text allowed but FULL of background artwork
+  ✅ Footer (${CONTENT_END}-100%): Atmospheric BOTTOM of scene (floor, ambient base) — no text allowed but FULL of background artwork
 
   TEXT vs VISUALS separation:
   - TEXT stays in ${CONTENT_START}%-${CONTENT_END}% zone (Sharp overlays cover 0-${CONTENT_START}% and ${CONTENT_END}-100%)
@@ -1723,15 +1903,18 @@ ${buildMultiColorTypographyInstructions(options.multiColorTypography)}
 
 ${EVENT_POSTER_EXAMPLES}
 
-QUALITY STANDARDS (v13.0 - TEXT READABILITY FOCUS):
+QUALITY STANDARDS (v33.0 - PROFESSIONAL TEMPLATE QUALITY):
 This poster passes the 3-SECOND TEXT READABILITY TEST:
 ✅ The event name "${eventName}" is INSTANTLY VISIBLE as the largest text (readable from 10ft)
 ✅ Headline is NEVER obscured by decorative elements or complex backgrounds
 ✅ Text is rendered ON TOP (foreground) with visual elements in background
 ✅ What, When, Where information is clear and legible
+✅ Date/time/venue appear in a VISUALLY DISTINCT INFO CARD or contrasting bar (NOT floating text)
 ✅ All text has sufficient contrast against backgrounds (WCAG AAA minimum)
 ✅ Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom
+✅ The poster looks DESIGNED (like a Canva Pro template) not GENERATED (like AI art)
 ✅ The call-to-action stands out and drives action
+✅ A user could swap the event name and date and reuse this layout (TEMPLATE TEST passes)
 
 TEXT PROMINENCE VALIDATION (v13.0):
 - Event headline "${eventName}" MUST be larger than ANY other text element
@@ -1791,11 +1974,11 @@ ${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 CREATIVE DIRECTION:
 ${sophistication === 'minimalist'
       ? `AI MUST focus on PROFESSIONAL MINIMALISM. Use vast negative space (40%+). AVOID busy or immersive backgrounds. Use a clean, solid color or very subtle matte gradient as the background. Integrate ONLY ONE or TWO high-impact visual elements subtly. The design should feel elite, quiet, and powerful.`
-      : `UNLEASH VISUAL IMPACT. The AI has full creative control over creating rich, layered, atmospheric backgrounds. Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType}-themed visual elements throughout the design. Do not fear complexity. Fill the canvas with texture, light, and depth.`
+      : `UNLEASH VISUAL IMPACT with STRUCTURAL INTENTION. The AI has full creative control over creating rich, layered backgrounds — but ALL visual elements must SUPPORT the information hierarchy, not compete with it. Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType}-themed visual elements throughout the design. CRITICAL: The background is RICH, but the information delivery is STRUCTURED. Date/time/venue appear in a visually distinct info card or bar. The poster looks like a premium Canva template — organized complexity, not visual chaos.`
     }
 Control the visual mood, color harmony, and professional finish.Style the typography with appropriate sizes, weights, and high - contrast rendering.
 
-The image contains no human faces or figures(photos added separately) and no logos(added via post - processing).Only the exact text listed above appears in the image.
+The image may include INDIAN PEOPLE (South Asian appearance) actively doing the event activity in the background scene when it enhances the visual story. No logos appear (added via post-processing). Only the exact text listed above appears in the image.
 
 The goal is a visually stunning poster that immediately communicates "${data.eventType || 'professional event'}" through ${sophistication === 'minimalist' ? 'clean, professional minimalism' : 'rich visual language'}${options.logoStripMode?.enabled
       ? ', with a distinct header band at the top.'

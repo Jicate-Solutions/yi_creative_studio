@@ -200,6 +200,47 @@ Accent Elements: ${options.designContext.decorativeElements.accents}
 `
     : ''
 
+  // v33.5: Creative twist — unique visual signature (same pattern as instagram.ts)
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.5: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements.
+</visual_storytelling>
+`
+    : ''
+
   // Determine colors - use brand colors if available
   const colors = options.brandContext?.primaryColor
     ? `Brand social: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}`
@@ -209,8 +250,8 @@ Accent Elements: ${options.designContext.decorativeElements.accents}
   // Social post dimensions: 1080x1080 (square, universal)
   const CANVAS_WIDTH = 1080
   const CANVAS_HEIGHT = 1080
-  const headerPercent = 12 // Top 12% reserved for logos
-  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerPercent = 40 // v33.6: Top 40% reserved for logo overlays (matches Instagram)
+  const footerPercent = 30 // v33.6: Bottom 30% reserved — content ends at 70%
   const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
   const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
 
@@ -260,11 +301,21 @@ ${aiTypographySection}
 
 ${aiDecorativeSection}
 
+${creativeTwistSection}
+
+${sceneNarrativeSection}
+
+${storytellingSection}
+
 <subject>
-An attention-grabbing social media graphic for: "${data.postTitle}"
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, story-driven social media graphic: ${options.designContext.storytellingContext.visualNarrative}`
+  : `An attention-grabbing social media graphic for: "${data.postTitle}"`}
 Post Type: ${data.postType || 'Announcement'}
 Platform: ${platformName}
 Must capture attention within 0.5-1 second of viewing in a busy feed.
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
+The background must be a RICH, IMMERSIVE visual — NOT a generic gradient or plain color.
 </subject>
 
 <composition>
@@ -278,6 +329,8 @@ ${data.postCaption ? `- SUPPORTING: "${data.postCaption}" - smaller supporting t
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
 - LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} with clean background` : 'Subtle brand element in corner'}
 - BREATHING ROOM: Generous space around all elements
+- TEXT ZONE (MANDATORY): ALL text MUST be placed in the CENTER BAND (40-70% of canvas height). Header zone (0-40%) and footer zone (70-100%) are for background/logo overlays ONLY — NO text there.
+- TEXT GROUPING (MANDATORY): ALL text elements must be GROUPED TOGETHER as a compact cluster. Do NOT scatter headline at top and CTA at bottom. Stack all text vertically in one unified block.
 
 Text Sizing: All text must be readable on mobile phone without zooming
 </composition>
@@ -286,7 +339,7 @@ Text Sizing: All text must be readable on mobile phone without zooming
 <text role="headline" prominence="LARGEST" style="bold thick sans-serif, maximum contrast">${data.postTitle}</text>
 ${data.postCaption ? `<text role="supporting" prominence="medium" style="clean sans-serif, readable on mobile">${data.postCaption}</text>` : ''}
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="button-style, contrasting accent color">${data.callToAction}</text>` : ''}
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, below main text, part of the grouped text cluster">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

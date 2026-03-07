@@ -44,10 +44,10 @@ const INSPIRATION_STYLES = [
 
 export function InspirationSpark() {
     return (
-        <div className="h-full glass-card rounded-3xl p-6 relative overflow-hidden flex flex-col group">
+        <div className="h-full glass-card rounded-2xl p-4 relative overflow-hidden flex flex-col group">
 
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <div className="p-2 rounded-xl bg-primary/10 text-primary">
                         <Sparkles className="w-4 h-4" />

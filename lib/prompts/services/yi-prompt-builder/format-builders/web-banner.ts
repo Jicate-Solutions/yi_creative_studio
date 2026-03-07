@@ -25,7 +25,7 @@ import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { DesignContextForPrompt } from '../types'
 
 // Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -233,6 +233,22 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     ? `Brand advertising: ${options.brandContext.primaryColor} primary, ${options.brandContext.accentColor || 'contrasting'} for CTA`
     : data.colorScheme || 'Bold, contrasting (CTA should pop against background)'
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Web banner dimensions vary by size, use sizeContext
+  const bannerDims = sizeContext.dimensions.split('x').map(Number)
+  const CANVAS_WIDTH_BNR = bannerDims[0] || 728
+  const CANVAS_HEIGHT_BNR = bannerDims[1] || 90
+  const headerPercentBnr = 10 // Top 10% reserved (very horizontal format = small header)
+  const footerPercentBnr = 30 // Bottom 30% reserved
+  const headerHeightBnr = Math.floor(CANVAS_HEIGHT_BNR * (headerPercentBnr / 100))
+  const footerHeightBnr = Math.floor(CANVAS_HEIGHT_BNR * (footerPercentBnr / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH_BNR, CANVAS_HEIGHT_BNR, headerHeightBnr, footerHeightBnr, headerPercentBnr, footerPercentBnr
+  )
+
+  console.log('[WebBanner v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a high-converting web banner advertisement</task>
 
@@ -243,6 +259,10 @@ Purpose: Drive clicks, communicate value proposition, convert viewers
 Context: Will appear on websites alongside other content - must stand out
 Layout Strategy: ${sizeContext.layout}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -276,6 +296,7 @@ Size-specific: ${sizeContext.textGuidance}
 <composition>
 Layout: ${sizeContext.layout}
 Size-Specific Structure: ${sizeContext.structure}
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 10-70% of canvas height. Header (0-10%) and footer (70-100%) are for background/logo overlays ONLY.
 
 Flow: Left-to-right (for LTR audiences)
 - LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (clean background)` : 'Small brand element, left side'}
@@ -293,7 +314,7 @@ ${options.brandContext ? `Brand Integration: Use ${options.brandContext.primaryC
 ${data.valueProposition ? `<text role="value" prominence="medium" style="supporting, clean">${data.valueProposition}</text>` : ''}
 ${data.offerDetails ? `<text role="offer" prominence="prominent" style="highlighted, badge or special treatment">${data.offerDetails}</text>` : ''}
 <text role="cta" prominence="prominent" style="BUTTON style, contrasting color, obviously clickable, hover-inviting">${data.callToAction || 'Learn More'}</text>
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, near other text elements">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

@@ -116,13 +116,13 @@
      TYPOGRAPHY SCALE - Modular scale with 1.25 ratio
      ======================================== */
   --text-display: clamp(2.5rem, 6vw, 4rem);      /* Hero headlines */
-  --text-h1: 3rem;                                /* 48px - Page titles */
-  --text-h2: 2.25rem;                             /* 36px - Section headings */
-  --text-h3: 1.5rem;                              /* 24px - Subsection headings */
-  --text-h4: 1.25rem;                             /* 20px - Card titles */
-  --text-body-lg: 1.125rem;                       /* 18px - Large body */
-  --text-body: 1rem;                              /* 16px - Default body */
-  --text-body-sm: 0.875rem;                       /* 14px - Small body */
+  --text-h1: 2.25rem;                             /* 36px - Page titles */
+  --text-h2: 1.75rem;                             /* 28px - Section headings */
+  --text-h3: 1.25rem;                             /* 20px - Subsection headings */
+  --text-h4: 1rem;                                /* 16px - Card titles */
+  --text-body-lg: 1rem;                           /* 16px - Large body */
+  --text-body: 0.875rem;                          /* 14px - Default body */
+  --text-body-sm: 0.8125rem;                      /* 13px - Small body */
   --text-caption: 0.75rem;                        /* 12px - Captions/metadata */
   --text-tiny: 0.625rem;                          /* 10px - Tiny labels */
 

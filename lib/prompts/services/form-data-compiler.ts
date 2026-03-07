@@ -72,6 +72,9 @@ export interface CompiledFormData {
   // Visual direction: free-text user brief for background visual
   visualDirection: string | null
 
+  // Target audience (advanced field)
+  targetAudience: string | null
+
   // Raw form data for reference
   rawFormData: Record<string, unknown>
 }
@@ -103,6 +106,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   // NEW v4.2: Typography and Layout aliases
   alignment: ['alignment', 'textAlignment', 'layoutAlignment', 'text_alignment'],
   fontStyle: ['fontStyle', 'font_style', 'typography', 'typographyStyle', 'vibe'],
+  targetAudience: ['targetAudience', 'target_audience', 'audience'],
 }
 
 // ============================================================
@@ -254,6 +258,9 @@ export function compileFormData(
     // Visual direction: free-text user brief for background visual
     visualDirection: designData?.visualDirection?.trim() || null,
 
+    // Target audience (advanced field)
+    targetAudience: (extractedFields.targetAudience as string | null) || null,
+
     // Raw form data for reference
     rawFormData: formData,
   }
@@ -399,15 +406,49 @@ export function buildSceneNarrative(data: CompiledFormData): string {
     parts.push('featuring a speaker presentation')
   }
 
-  // Venue context (affects mood/atmosphere)
+  // v37.0: Indian venue-to-environment mapping
+  let venueMatched = false
   if (data.venue?.trim()) {
     const venue = data.venue.toLowerCase()
-    if (venue.includes('hotel') || venue.includes('convention')) {
-      parts.push('with an elegant corporate atmosphere')
-    } else if (venue.includes('university') || venue.includes('college')) {
-      parts.push('with an academic ambiance')
-    } else if (venue.includes('outdoor') || venue.includes('garden')) {
-      parts.push('with a fresh natural setting')
+    if (venue.includes('school') || venue.includes('vidyalaya') || venue.includes('vidya')) {
+      parts.push('set in an Indian school environment with green chalkboards, wooden benches, and ceiling fans')
+      venueMatched = true
+    } else if (venue.includes('college') || venue.includes('university') || venue.includes('institute') || venue.includes('iit') || venue.includes('nit')) {
+      parts.push('set in an Indian college campus with seminar halls, notice boards, and open courtyards')
+      venueMatched = true
+    } else if (venue.includes('hotel') || venue.includes('resort') || venue.includes('convention') || venue.includes('palace')) {
+      parts.push('set in an Indian hotel venue with chandeliers, fabric-draped stage, and marigold decorations')
+      venueMatched = true
+    } else if (venue.includes('hall') || venue.includes('auditorium') || venue.includes('sabha') || venue.includes('mandapam')) {
+      parts.push('set in an Indian community hall with rows of chairs, decorated stage, and banner backdrop')
+      venueMatched = true
+    } else if (venue.includes('office') || venue.includes('corporate') || venue.includes('tech park') || venue.includes('it park')) {
+      parts.push('set in an Indian corporate office with open workspaces and modern glass-front interiors')
+      venueMatched = true
+    } else if (venue.includes('outdoor') || venue.includes('garden') || venue.includes('park') || venue.includes('ground') || venue.includes('maidan')) {
+      parts.push('set in an Indian outdoor venue with shamiana tent, string lights, and open-air stage')
+      venueMatched = true
+    } else if (venue.includes('hospital') || venue.includes('clinic') || venue.includes('medical')) {
+      parts.push('set in an Indian medical facility with clean white interiors and bilingual signage')
+      venueMatched = true
+    }
+  }
+
+  // v37.0: Audience-based environment fallback when venue is missing or unmatched
+  if (!venueMatched && data.targetAudience?.trim()) {
+    const audience = data.targetAudience.toLowerCase()
+    if (audience.includes('school') || (audience.includes('student') && (audience.includes('child') || audience.includes('kid')))) {
+      parts.push('set in an Indian school campus with colorful classrooms, green chalkboards, wooden benches, ceiling fans, school corridors with notice boards, and a playground visible in the background')
+    } else if (audience.includes('college') || audience.includes('university')) {
+      parts.push('set in an Indian college campus with multi-story college buildings, seminar halls, open courtyards with students, heritage architecture with arched corridors, notice boards, canteen area, and a campus entrance gate visible in the background')
+    } else if (audience.includes('professional') || audience.includes('corporate') || audience.includes('business')) {
+      parts.push('set in a modern Indian corporate office with glass-front buildings, open workspaces, conference rooms, and a tech park environment')
+    } else if (audience.includes('parent') || audience.includes('famil')) {
+      parts.push('set in a warm Indian community gathering hall with decorated stage, rows of chairs, fabric drapes, and marigold decorations')
+    } else if (audience.includes('doctor') || audience.includes('medical') || audience.includes('health')) {
+      parts.push('set in an Indian hospital or medical campus with clean white interiors, medical equipment visible, and bilingual health signage')
+    } else if (audience.includes('women') || audience.includes('ladies')) {
+      parts.push('set in an Indian community center or cultural venue with vibrant decorations, comfortable seating, and warm ambient lighting')
     }
   }
 

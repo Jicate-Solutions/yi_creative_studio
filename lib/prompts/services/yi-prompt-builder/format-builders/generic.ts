@@ -22,7 +22,7 @@ import {
 import { getFormatZones } from '@/lib/config/format-zones' // v7.0: Format-aware zones
 
 // Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
@@ -227,9 +227,45 @@ export function buildGenericPrompt(
     sophistication
   )
 
-  // NEW v4.2: Build creative twist section
+  // NEW v4.2: Build creative twist section (v33.5: enhanced with full XML structure)
   const creativeTwistSection = options.designContext?.creativeTwist
-    ? `<creative_twist>${options.designContext.creativeTwist}</creative_twist>`
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.5: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements.
+</visual_storytelling>
+`
     : ''
 
   // Keep AI typography guidance for compatibility
@@ -255,6 +291,21 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     aspectRatio = '1.41:1 Landscape'
   }
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Generic uses default 1080x1080 square (may vary per format)
+  const CANVAS_WIDTH = 1080
+  const CANVAS_HEIGHT = 1080
+  const headerPercent = 30 // Top 30% reserved
+  const footerPercent = 30 // Bottom 30% reserved — content ends at 70%
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH, CANVAS_HEIGHT, headerHeight, footerHeight, headerPercent, footerPercent
+  )
+
+  console.log('[Generic v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   // Format the ID for display
   const formattedFormat = formatId
     .split('_')
@@ -273,11 +324,19 @@ Design approach: ${sophistication === 'minimalist' ? 'Clean, vast negative space
 
 ${creativeTwistSection}
 
+${sceneNarrativeSection}
+
+${storytellingSection}
+
 <format>
 Type: ${formattedFormat}
 Aspect Ratio: ${aspectRatio}
 Purpose: Professional marketing/communication material
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -304,8 +363,11 @@ ${aiTypographySection}
 ${hasSpeakerPhoto && speakerZoneContext ? `${speakerZoneContext}
 
 ` : ''}<subject>
-A professional graphic for: "${title}"
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, story-driven graphic: ${options.designContext.storytellingContext.visualNarrative}`
+  : `A professional graphic for: "${title}"`}
 ${description ? `Details: ${description}` : ''}
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
 The design should be visually appealing, clear, and effective for its purpose.
 ${hasSpeakerPhoto ? `Speaker photos will be overlaid in the lower section (${formatZones.speakerPhotoZone?.start || CONTENT_ZONE_END}%-${formatZones.speakerPhotoZone?.end || 90}%)` : ''}
 </subject>

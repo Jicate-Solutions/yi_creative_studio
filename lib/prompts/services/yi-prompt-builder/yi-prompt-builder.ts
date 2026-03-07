@@ -63,13 +63,30 @@ CREATIVE VISION: RICH, IMMERSIVE DESIGNS
 
 Your designs should be VISUALLY STUNNING - not plain templates, but rich, atmospheric compositions that immediately communicate what kind of event this is through visual language.
 
-BACKGROUND & ATMOSPHERE (BE CREATIVE HERE!):
-- Create DEPTH and DIMENSION: Use multiple layers, gradients, lighting effects, ambient glows
-- INTEGRATE visual elements THROUGHOUT the design, not just in corners
-- Build ATMOSPHERE: Neural networks can flow across backgrounds, medical symbols can create ambient patterns
-- Use MULTIPLE OPACITY LAYERS: Large blurred elements in back, smaller crisp elements in mid-ground
-- Let elements CREATE VISUAL FLOW and movement across the entire canvas
-- Think Google AI Studio quality - professional, rich, engaging
+BACKGROUND AS STORYTELLING SCENE (MANDATORY — NON-NEGOTIABLE):
+- Every poster MUST have a conceptual or scene-based background — flat colors and plain gradients are NEVER acceptable
+- Create a REAL ENVIRONMENT or CONCEPTUAL COMPOSITION that tells the event's story — not abstract patterns
+- The background should depict the SETTING where this event happens (classroom, conference hall, clinic, workshop space)
+- Include CONCRETE OBJECTS relevant to the topic: educational charts, medical equipment, tech devices, books, microphones
+- Use DEPTH: foreground objects crisp, background environment slightly blurred for professional depth-of-field
+- The viewer should understand WHAT this event is about from the background alone, even before reading any text
+- When the event story benefits from showing people, include INDIAN PEOPLE (South Asian features, skin tones) actively DOING the event activity (teaching, demonstrating, collaborating, presenting)
+- People are OPTIONAL but encouraged when they help tell the event's story visually
+- If people appear, they must look Indian/South Asian — never Western or generic
+- The scene should be so clear that viewers understand the event purpose WITHOUT reading any text
+- Think AWARD-WINNING EDITORIAL POSTER quality — bold, visually ambitious, Behance-worthy. Striking design with clear structure.
+- FULL CANVAS COMPOSITION (v35.2 — MANDATORY): The scene FILLS THE ENTIRE CANVAS as background artwork. It is NOT a foreground photo with empty space below it for text captions.
+- Human subjects are positioned MID-CANVAS (40–65% of canvas height). Atmospheric/environmental elements CONTINUE BEHIND the lower 65–100% zone where the info card appears.
+- Text is OVERLAID ON the background within the content zone (40–70%). There is NO empty/dark area below the people reserved for text — the background extends behind all text elements.
+- ❌ WRONG composition: [People photo in upper 65%] + [dark/empty lower zone with text as caption below photo]
+- ✅ CORRECT composition: [Rich scene background 0–100%] + [people mid-canvas 40–65%] + [text overlaid on background 40–70%]
+- ❌ ANTI-CARD RULE (v35.4): NEVER place the scene inside a rounded rectangle, photo card, image frame, or any contained box with borders or rounded corners
+- ❌ NEVER use a solid-color section at the top/header with a "scene card" in the lower area — this is the WRONG layout
+- ❌ The scene has NO frame, NO border, NO rounded corners, NO card-shadow — it IS the canvas itself
+- ✅ The scene bleeds to ALL 4 canvas edges (top, bottom, left, right) — no clipping, no containing
+- ✅ Header zone (0–40%): TOP portion of the scene (stage ceiling, sky, upper architecture, atmospheric light above people) — FORBIDDEN for TEXT but FULL of background artwork
+- ✅ Footer zone (70–100%): BOTTOM portion of the scene (stage floor, atmospheric base) — FORBIDDEN for TEXT but FULL of background artwork
+- "Forbidden zones" means forbidden for TEXT only — the background scene artwork MUST flow through ALL zones including header and footer
 
 VISUAL ELEMENTS from <visual_design_elements> section:
 - These define the VISUAL LANGUAGE of the design
@@ -77,6 +94,37 @@ VISUAL ELEMENTS from <visual_design_elements> section:
 - They should SPAN the canvas, creating context-rich atmosphere
 - An AI workshop should FEEL like technology through visual elements
 - A health camp should FEEL medical and caring through its visual language
+
+═══════════════════════════════════════════════════════════════════════════════
+PROFESSIONAL TEMPLATE DESIGN PHILOSOPHY (v33.0)
+═══════════════════════════════════════════════════════════════════════════════
+
+You are creating a PREMIUM CREATIVE POSTER — gallery quality, editorial art direction, Behance-featured. Think like a lead art director at a world-class creative agency:
+
+STRUCTURED LAYOUT PRINCIPLES:
+1. INFORMATION CARDS: Date, time, and venue MUST appear in a VISUALLY DISTINCT CONTAINER
+   (colored bar, rounded card, badge strip, or contrast panel) — NOT floating text on gradient
+2. CONTRAST BLOCKS: Use contrasting background fills behind information groups for scannability
+3. GRID DISCIPLINE: Elements align to an invisible grid — left edges align, spacing is consistent
+4. SCENE = THE CANVAS (v35.4): The visual scene IS the full-canvas background painting — NOT a separate block or zone.
+   The canvas has ONE unified background (the scene) with TEXT CONTAINERS overlaid on top of it.
+   A "visual zone" is NOT a distinct photo card or separate section — the scene spans ALL zones as a continuous background painting.
+
+INFORMATION DELIVERY HIERARCHY:
+- Level 1 (HERO): Event title — bold, massive, unmissable
+- Level 2 (SUPPORT): Tagline/theme — medium, complementary
+- Level 3 (DATA CARD): Date + Time + Venue — grouped in ONE visual container with distinct background
+- Level 4 (ACTION): CTA/registration — high contrast
+- Level 5 (CONTEXT): Speaker names, notes — smaller but legible
+
+THE CREATIVE TEST: Does this poster have a strong, distinctive visual identity that makes it immediately shareable and memorable? Is the composition bold and unexpected?
+If YES → excellent. If NO → elevate the visual ambition.
+
+ANTI-PATTERNS (signs of "AI-generated" look):
+- Text floating on atmospheric gradients with no structural container
+- Event details scattered as individual floating lines instead of grouped in a card
+- No clear separation between headline zone and details zone
+- Typography that "flows with the design" instead of sitting in clear blocks
 
 ═══════════════════════════════════════════════════════════════════════════════
 INSTRUCTION vs CONTENT SEPARATION (CRITICAL - ZERO TOLERANCE)
@@ -111,10 +159,11 @@ AI HAS FULL CREATIVE CONTROL OVER:
 - Style: Visual mood, color harmony, lighting effects, professional finish
 - Composition: Element positioning, visual flow, dynamic arrangements
 - Typography Styling: Font sizes, weights, effects, colors (NOT font family if specified)
-- Decorative Patterns: Abstract patterns, gradients, glows, textures that reinforce the event type
+- Scene Elements: Event-specific environments, objects, tools, and settings that tell the event's story (NOT abstract waves/dots/mesh/lines)
 
 AI MUST NOT GENERATE (strict boundaries):
-- Human faces or figures (speaker photos are overlaid via post-processing)
+- Non-Indian faces — when people appear in scenes, ALL must have Indian/South Asian appearance
+- Faces in the speaker photo overlay zone (60%-90%) when speaker photos are enabled
 - Exact text content (use ONLY values from <text role="..."> tags)
 - Logos or branding marks (added via Sharp post-processing)
 - Different font families than specified in brand_context
@@ -166,12 +215,15 @@ OUTPUT QUALITY
 ═══════════════════════════════════════════════════════════════════════════════
 
 Your outputs must be:
-- VISUALLY STUNNING: Rich, professional, agency-quality designs
+- PREMIUM CREATIVE QUALITY: Gallery-worthy, Behance-featured composition — bold, visually distinctive, and memorable
+- VISUALLY STUNNING: Rich backgrounds with structured information overlays
 - CONTEXTUALLY RELEVANT: Visual elements match the event type
+- INFORMATION-CLEAR: Every data point (date, time, venue) sits in a visually distinct block or card
 - Culturally appropriate for Indian audiences
 - Text is clear and legible (max 25 characters per element)
+- The poster is BOLD and MEMORABLE — a distinctive creative piece worth sharing, not a default template
 - FREE of instruction text rendered as visible content
-- FREE of AI-generated human faces
+- When people appear, they are INDIAN (South Asian) and actively engaged in the event activity
 `.trim()
 
 // ============================================================

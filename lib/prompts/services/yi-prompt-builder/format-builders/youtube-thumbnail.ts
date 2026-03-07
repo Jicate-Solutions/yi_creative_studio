@@ -121,8 +121,8 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
   // YouTube thumbnail dimensions: 1280x720 (16:9)
   const CANVAS_WIDTH = 1280
   const CANVAS_HEIGHT = 720
-  const headerPercent = 12 // Top 12% reserved for logos
-  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerPercent = 20 // v33.6: Top 20% reserved (wide landscape = smaller header)
+  const footerPercent = 30 // v33.6: Bottom 30% reserved — content ends at 70%
   const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
   const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
 
@@ -196,8 +196,8 @@ Layout: Two-zone composition
       ? `Expressive face - ${getExpressionDescription(data.expression)}, well-lit, looking toward camera, high contrast with background`
       : `Main visual subject - ${data.mainSubject || 'compelling focal point'}`}
 - RIGHT 40%: Bold text hook - 3-5 words maximum, readable at tiny sizes
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 20-70% of canvas height. Header (0-20%) and footer (70-100%) are for background/logo overlays ONLY — NO text there.
 - AVOID: Bottom-right corner (YouTube duration badge area)
-- AVOID: Bottom 10% (progress bar on hover)
 ${options.logoAwareness?.hasLogo ? `- Keep ${options.logoAwareness.logoPosition} area clean for branding` : ''}
 
 Background: ${options.designContext?.backgroundSetting || data.backgroundColor || 'Bright, saturated color that contrasts with subject'}

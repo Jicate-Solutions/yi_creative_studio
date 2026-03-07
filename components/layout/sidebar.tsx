@@ -173,13 +173,13 @@ export function Sidebar() {
         'hidden md:flex flex-col h-[100dvh] transition-all duration-300 ease-in-out',
         'fixed top-0 left-0 z-40',
         'bg-background/95 backdrop-blur-2xl border-r border-white/10 shadow-2xl',
-        isExpanded ? 'w-64' : 'w-[72px]'
+        isExpanded ? 'w-56' : 'w-16'
       )}
     >
       {/* Header: Logo */}
       <div className={cn(
         "flex flex-col items-center transition-all duration-300",
-        isExpanded ? "px-4 h-16 flex-row justify-between" : "px-0 pt-3 pb-2 gap-2"
+        isExpanded ? "px-3 h-14 flex-row justify-between" : "px-0 pt-2 pb-1.5 gap-1.5"
       )}>
         <div className={cn("transition-all duration-300 origin-center", isExpanded ? "scale-100" : "scale-90")}>
           <Logo showText={isExpanded} size="sm" />
@@ -299,7 +299,7 @@ export function Sidebar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
+                className="h-8 w-8 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
                 onClick={() => setSidebarCollapsed(false)}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -324,15 +324,15 @@ function NavLink({ item, isActive, collapsed }: NavLinkProps) {
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all duration-300 relative group',
+        'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-300 relative group',
         isActive
           ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 font-bold'
           : 'hover:bg-muted text-muted-foreground hover:text-foreground',
-        collapsed ? 'justify-center px-0 w-12 h-12 mx-auto' : ''
+        collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : ''
       )}
     >
       <item.icon className={cn(
-        'h-5 w-5 shrink-0 transition-all',
+        'h-4 w-4 shrink-0 transition-all',
         isActive ? 'scale-110' : 'group-hover:scale-110'
       )} />
 

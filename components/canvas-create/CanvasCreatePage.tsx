@@ -452,7 +452,7 @@ export function CanvasCreatePage({
           formData: formData.formData,
           designData: formData.designData,
         } as unknown as Json,
-        prompt_used: '', // Prompt is generated server-side
+        prompt_used: result.promptUsed || '', // v36.0: Store server-generated prompt for generation memory
         title: (formData.formData as any)?.eventName || (formData.formData as any)?.postHeadline || (formData.formData as any)?.title || `${selectedVertical?.name || 'Creative'}`,
         logo_config: formData.logosPlacements as unknown as Json,
         prevention_applied: result.preventionApplied ?? null,
@@ -618,7 +618,7 @@ export function CanvasCreatePage({
           formData: formData.formData,
           designData: formData.designData,
         } as unknown as Json,
-        prompt_used: '', // Prompt is generated server-side
+        prompt_used: result.promptUsed || '', // v36.0: Store server-generated prompt for generation memory
         title: (formData.formData as any)?.eventName || (formData.formData as any)?.postHeadline || (formData.formData as any)?.title || `${selectedVertical?.name || 'Creative'}`,
         logo_config: formData.logosPlacements as unknown as Json,
         prevention_applied: result.preventionApplied ?? null,
@@ -1088,16 +1088,16 @@ export function CanvasCreatePage({
               handleGenerate()
             }}
             disabled={isGenerating || !selectedFormat || !(panelMode === 'review' && isFormValid)}
-            className="w-full h-12 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md"
+            className="w-full h-10 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md"
           >
             {isGenerating ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="font-medium">Creating...</span>
               </>
             ) : (
               <>
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="h-4 w-4" />
                 <span className="font-medium">Generate Creative</span>
               </>
             )}

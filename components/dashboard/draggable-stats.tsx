@@ -305,10 +305,10 @@ function StatCardContent({ card, index, isDragging, isActive, dragHandleProps, s
       {/* Content */}
       <div className="relative z-10">
         {/* Header Row: Icon + Sparkline */}
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-2">
           {/* Icon */}
-          <div className="w-10 h-10 rounded-lg bg-background/50 flex items-center justify-center">
-            <Icon className="w-5 h-5 text-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-background/50 flex items-center justify-center">
+            <Icon className="w-4 h-4 text-foreground" />
           </div>
 
           {/* Sparkline (if available) */}
@@ -327,7 +327,7 @@ function StatCardContent({ card, index, isDragging, isActive, dragHandleProps, s
         <div className="flex items-baseline gap-2 mb-1">
           {/* Value with count-up animation */}
           <motion.div
-            className="text-2xl font-bold text-foreground"
+            className="text-xl font-bold text-foreground"
             key={displayValue}
           >
             {numericValue !== null ? displayValue.toLocaleString() : card.value}

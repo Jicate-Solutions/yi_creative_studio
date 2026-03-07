@@ -52,6 +52,7 @@ EXTRACTION RULES:
    - Look for the main title (usually prominent, often with emojis)
    - May include quotes: "Journey of Our Alumni"
    - Strip formatting emojis from the value but preserve the text
+   - Use 'eventName' as the ONLY field ID for the event name or title. NEVER use 'eventTitle' — it is not a valid field ID and causes duplicates.
 
 6. CONFIDENCE SCORING:
    - 0.95-1.0: Explicitly labeled (e.g., "Date: 28.01.2026", "Venue: Hall A")

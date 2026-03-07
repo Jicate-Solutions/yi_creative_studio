@@ -10,6 +10,7 @@ import {
 import { SmartPasteInput, ExtractionPreview } from '@/components/create/smart-paste'
 import { useFieldExtraction } from '@/hooks/use-field-extraction'
 import { useCreativeStore } from '@/stores/creative-store'
+import { mapExtractionFieldId } from '@/lib/utils/field-extraction-mapping'
 import { toast } from 'sonner'
 import { Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,43 +49,24 @@ export function SmartPasteSheet({
     [extractFields, verticalSlug, formatId]
   )
 
-  // Map extraction field IDs to form field IDs
-  const mapFieldId = (extractionFieldId: string): string => {
-    const fieldMappings: Record<string, string[]> = {
-      eventName: ['eventName', 'eventTitle', 'title'],
-      eventTitle: ['eventTitle', 'eventName', 'title'],
-      eventDate: ['eventDate', 'date'],
-      eventTime: ['eventTime', 'time'],
-      eventEndTime: ['eventEndTime', 'endTime'],
-      venue: ['venue', 'eventVenue', 'location'],
-      eventDescription: ['eventDescription', 'description'],
-      eventTagline: ['eventTagline', 'tagline', 'subtitle'],
-      registrationInfo: ['registrationInfo', 'registrationUrl'],
-      contactNumber: ['contactNumber', 'contact', 'phone'],
-      contactEmail: ['contactEmail', 'email'],
-      websiteUrl: ['websiteUrl', 'website'],
-      organizationName: ['organizationName', 'organization'],
-      targetAudience: ['targetAudience', 'audience'],
-      additionalDetails: ['additionalDetails', 'details'],
-    }
-
-    // Return the first form field that exists, or the original ID
-    const alternatives = fieldMappings[extractionFieldId] || [extractionFieldId]
-    return alternatives[0]
-  }
-
   // Apply selected extracted fields (merge with existing formData)
   const handleApply = useCallback(
     (selectedFieldIds: string[]) => {
       if (!extractionResult) return
 
       const updates: Record<string, string> = {}
+      const updateConfidence: Record<string, number> = {}
 
       for (const fieldId of selectedFieldIds) {
         const field = extractionResult.fields.find((f) => f.fieldId === fieldId)
         if (field?.value) {
-          const formFieldId = mapFieldId(field.fieldId)
-          updates[formFieldId] = field.value
+          const formFieldId = mapExtractionFieldId(field.fieldId)
+          // Dedup: if two extracted fields map to the same form field (e.g. eventName + eventTitle),
+          // keep the one with the higher confidence score.
+          if (!updates[formFieldId] || field.confidence > (updateConfidence[formFieldId] ?? 0)) {
+            updates[formFieldId] = field.value
+            updateConfidence[formFieldId] = field.confidence
+          }
         }
       }
 

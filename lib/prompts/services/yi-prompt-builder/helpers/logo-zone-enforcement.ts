@@ -140,14 +140,22 @@ export function buildZoneReminderSection(logoAwareness?: LogoAwarenessContext): 
 
   // v3.7: Use descriptive language that AI will NOT render as visible text
   // AVOID: "reserved for logos", "logo overlay", "brand logos" - Gemini renders these literally
+  // v35.5: Added full-canvas anti-card rules + corrected zone percentages (was wrong "15%")
+  // v33.2: Wrapped in <instruction> tags + removed raw percentage numbers (Gemini was rendering them as visible text)
   return `
+<instruction>(DO NOT RENDER — layout rules for the AI only)
 VISUAL LAYOUT REMINDER:
 
-The ${positionList} corners of this poster need clean, simple backgrounds. Keep these corner areas clear of text and detailed graphics.
+FULL CANVAS COMPOSITION: The visual scene IS the full-canvas background painting that spans ALL FOUR canvas edges (top to bottom, full width). It is NOT a photo card, bordered box, or rounded rectangle sitting on a solid-color background.
+ANTI-CARD RULE: NEVER place the scene inside a rounded rectangle, photo card, image frame, or any contained box. NEVER use a solid-color section at the top + a scene card below it.
+NEVER create a split layout: plain colored header area at the top + scene card in the lower portion.
+The scene artwork BLEEDS to all four canvas edges. The upper portion = TOP of scene (sky, ceiling, atmospheric light). The lower portion = BOTTOM of scene (floor, ambient base).
+Forbidden zones means forbidden for TEXT only — background artwork MUST flow through ALL zones continuously.
 
-For proper text placement in this design: The event title starts below the top header area (at least 15% down from the top). The title text is horizontally centered in the middle 50% of the image width, not extending into the corner areas. This spacing creates a professional look.
+TEXT PLACEMENT: All text, headlines, event names, dates, and details MUST be placed in the CENTER BAND of the canvas. The upper area is reserved for clean atmospheric background — NO text there. The lower area is reserved for footer — NO text there.
 
-CRITICAL: Keep corner areas completely empty. Generate ONLY clean backgrounds.
+CORNER AREAS: Keep ${positionList} corners clear of text and detailed graphics. Generate ONLY clean backgrounds in these corner regions.
+</instruction>
 `
 }
 
@@ -185,23 +193,10 @@ export function buildPixelPreciseSpatialConstraints(
   engine?: 'yi_vision' | 'yi_craft',
   contentEndPx?: number
 ): string {
-  // v25.3: CONSERVATIVE header boundary — take MAX of real Sharp value and percentage-based value
-  //
-  // WHY: Gemini is imprecise. The real Sharp header (e.g., 350px) + 30px buffer = 380px gives
-  // only 30px clearance. If Gemini overshoots by 31px, content lands in the logo zone.
-  //
-  // The percentage-based boundary (CONTENT_START=40% = 576px) had a 226px buffer above the
-  // actual logo rows — generous enough to absorb Gemini's placement imprecision and match
-  // what layout_composition_rules hardcodes ("40% content zone").
-  //
-  // FOOTER: Use the real Sharp value (contentEndPx) — giving Gemini MORE space (79% vs 70%)
-  // HEADER: Use MAX(real+buffer, percentage) — keeping conservative 40% boundary for header
-  //
-  // This resolves the v25.2 conflict where spatial constraints said "26%" but layout rules
-  // said "40%", causing Gemini to use the lower (less safe) value.
-  const realHeaderStartY = headerHeight + 30                       // e.g., 350+30 = 380px (26%)
+  // v33.4: STRICT zone enforcement — use passed headerPercent/contentEndPx directly
+  // User requires fixed 40% header, 70% footer. Do NOT override with conservative MAX.
   const percentBasedStartY = Math.floor(canvasHeight * (headerPercent / 100))  // e.g., 576px (40%)
-  const contentStartY = Math.max(realHeaderStartY, percentBasedStartY)  // e.g., max(380,576)=576px
+  const contentStartY = percentBasedStartY  // Strict: use exact passed percentage
 
   const computedContentEndY = canvasHeight - footerHeight - 30  // Real Sharp footer + buffer
   const resolvedContentEndPx = contentEndPx ?? computedContentEndY
@@ -211,15 +206,14 @@ export function buildPixelPreciseSpatialConstraints(
   const contentEndPercent = Math.round((resolvedContentEndPx / canvasHeight) * 100)
   const contentHeightPercent = contentEndPercent - contentStartPercent
 
-  // v25.3: Log which boundary won (real vs percentage) for debugging
-  console.log(`[buildPixelPreciseSpatialConstraints] v25.3 Conservative Header Boundary:`, {
+  // v33.4: Log strict boundary
+  console.log(`[buildPixelPreciseSpatialConstraints] v33.4 Strict Zone Boundary:`, {
     engine: engine ?? 'default',
     canvas: `${canvasWidth}x${canvasHeight}`,
     headerHeight: `${headerHeight}px (actual Sharp)`,
     footerHeight: `${footerHeight}px (actual Sharp)`,
-    realHeaderStartY: `${realHeaderStartY}px`,
-    percentBasedStartY: `${percentBasedStartY}px (${headerPercent}%)`,
-    contentStartY: `${contentStartY}px → used ${contentStartY === percentBasedStartY ? 'percentage-based (conservative)' : 'real value (Sharp header taller than percentage)'}`,
+    percentBasedStartY: `${percentBasedStartY}px (${headerPercent}%) — strict`,
+    contentStartY: `${contentStartY}px`,
     contentEndPx: `${resolvedContentEndPx}px (${contentEndPercent}%) — real Sharp footer`,
     availablePx: `${availablePx}px available for content`,
   })
@@ -242,6 +236,7 @@ export function buildPixelPreciseSpatialConstraints(
 (DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
 CANVAS LAYOUT RULE:
+DO NOT draw any logo, logo placeholder, "LOGO" text, emoji icon, or brand mark anywhere in the image — logos are composited programmatically as a separate overlay after generation. Render ONLY pure background artwork in the header and footer zones.
 The top ${contentStartPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
 The bottom ${100 - contentEndPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
 

@@ -57,7 +57,7 @@ const THEME_PRESETS = [
 ]
 
 export function LogosStylePanel() {
-  const { formData, updateTheme, setColorPalette, setUseBrandColors, setUseBrandFont, setEnhanced4RowEnabled, updateFormData, setCustomColors } = useCreativeStore()
+  const { formData, updateTheme, setColorPalette, setUseBrandColors, setUseBrandFont, setEnhanced4RowEnabled, updateFormData, setCustomColors, setDesignData } = useCreativeStore()
   const { currentOrganization } = useAuthStore()
   const { logos } = useLogos()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -258,11 +258,8 @@ export function LogosStylePanel() {
           placeholder="Describe visual… e.g. 'tech network glowing circuits'"
           value={formData.designData?.visualDirection ?? ''}
           onChange={(e) =>
-            updateFormData({
-              designData: {
-                ...formData.designData,
-                visualDirection: e.target.value,
-              },
+            setDesignData({
+              visualDirection: e.target.value,
             })
           }
           className="h-16 resize-none text-xs"

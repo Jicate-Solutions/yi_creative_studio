@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { getFormatLabel } from '@/lib/config/creative-formats'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { FeedbackStatusBadge } from './feedback-status-badge'
 import { FeedbackPriorityBadge } from './feedback-priority-badge'
@@ -99,7 +100,7 @@ export function FeedbackDetailModal({
                   {feedback.creative.title || 'Untitled Creative'}
                 </h3>
                 <p className="text-sm text-muted-foreground capitalize">
-                  {feedback.creative_type?.replace(/_/g, ' ')}
+                  {getFormatLabel(feedback.creative_type)}
                 </p>
                 {feedback.vertical && (
                   <Badge variant="outline" className="mt-1 text-xs">

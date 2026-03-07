@@ -41,6 +41,22 @@ import { buildEnhancedTypographyPrompt } from '../../../helpers/enhanced-typogra
 // Import decorative elements injector (v4.4)
 import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '../helpers/decorative-elements-injector'
 
+// Import color name helper for hex-free color descriptions
+import { describeColor } from '@/lib/utils/color-names'
+
+/**
+ * Strip hex color codes from text to prevent Gemini from rendering them as visible text.
+ * Same as event-poster.ts — colors are already enforced via <instruction>MANDATORY COLOR PALETTE</instruction>.
+ */
+function stripHexCodes(text: string): string {
+  return text.replace(/#[0-9a-fA-F]{6}\b/g, '').replace(/\s{2,}/g, ' ').trim()
+}
+
+/** Convert hex to descriptive color name (no raw hex in prompt) */
+function colorName(hex: string): string {
+  return describeColor(hex).name
+}
+
 // ============================================================
 // INSTAGRAM CONTEXTS (v6.0 Phase 2 & 3: Dynamic Color + Custom Themes)
 // ============================================================
@@ -83,7 +99,7 @@ function buildInstagramContextFromDesignIntelligence(
     background: enhancedBackground,
     visualTreatment: designContext.visualElements?.join(', ') || 'Eye-catching, scroll-stopping, engaging',
     style: themeInfo,
-    colors: userColors ? `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}` : 'Vibrant, saturated, high contrast for mobile feed',
+    colors: userColors ? `Primary: ${colorName(userColors.primaryColor)}, Secondary: ${colorName(userColors.secondaryColor || userColors.primaryColor)}, Accent: ${colorName(userColors.accentColor || userColors.primaryColor)}` : 'Vibrant, saturated, high contrast for mobile feed',
     mood: designContext.moodDirection || 'Engaging, scroll-stopping, shareable',
     goal: 'Stop the scroll and drive engagement',
     headlineStyle: designContext.typographyGuidance?.headlineStyle || 'extra-bold sans-serif, high contrast',
@@ -107,7 +123,7 @@ function buildDynamicInstagramColorContext(
     background: backgroundSetting,
     visualTreatment: `${colorPersonality.visualElements}, mobile-optimized, scroll-stopping`,
     style: `${colorPersonality.primaryMood}, ${colorPersonality.secondaryMood}, social media optimized`,
-    colors: `Primary: ${userColors.primaryColor}, Secondary: ${userColors.secondaryColor || userColors.primaryColor}, Accent: ${userColors.accentColor || userColors.primaryColor}`,
+    colors: `Primary: ${colorName(userColors.primaryColor)}, Secondary: ${colorName(userColors.secondaryColor || userColors.primaryColor)}, Accent: ${colorName(userColors.accentColor || userColors.primaryColor)}`,
     mood: `${colorPersonality.primaryMood}, engaging, shareable`,
     goal: 'Stop the scroll and drive engagement',
     headlineStyle: 'extra-bold sans-serif, high contrast for mobile',
@@ -161,12 +177,18 @@ export function buildInstagramPrompt(
   data: InstagramFormData,
   options: EnhancedBuildOptions = {}
 ): string {
-  // Resolve headline: postTitle is the canonical field but older form versions send postHeadline.
+  // Resolve headline: eventName is the canonical field (v33.0+), postTitle kept for backwards compat.
   // Ultra-Pro primaryText is the AI-enhanced fallback when neither field has a value.
-  const resolvedTitle = data.postTitle
-    || (data as any).postHeadline
+  const resolvedTitle = data.eventName
+    || data.postTitle
     || (options as any).ultraProContext?.primaryText
     || 'Announcement'
+
+  // Resolve event details: eventDescription, date, time, venue (v33.0+)
+  const resolvedCaption = data.eventDescription || data.postCaption || ''
+  const resolvedDate = data.eventDate || ''
+  const resolvedTime = data.eventTime || ''
+  const resolvedVenue = data.venue || ''
 
   // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
   const postContext = getInstagramContext(
@@ -204,22 +226,29 @@ export function buildInstagramPrompt(
   if (sophistication === 'rich') {
     // Override strict "Keep Clean" instructions with "Integration" instructions
     zoneReminderContext = `
-LOGO INTEGRATION GUIDANCE:
-- Logos in ${options.logoAwareness?.logoPosition || 'corners'} must be integrated into the background art.
-- Do NOT draw white boxes behind logos.
-- Ensure the background extends fully to the edges.
-- Use a subtle gradient or shadow if needed for logo contrast, but NO rigid bars.`
+LOGO PROHIBITION (CRITICAL):
+- NEVER render any logo, logo placeholder, "LOGO" text, "[LOGO]", emoji icon, or any brand mark anywhere in the image.
+- Logos are composited programmatically AFTER generation as a separate overlay.
+- Leave header and footer zones as pure, clean background artwork only.
+- The background art must extend fully to all edges with NO logo placeholders or empty boxes.`
 
     forbiddenZonesContext = forbiddenZonesContext.replace(/clean/gi, 'integrated')
   }
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
-  const aiTypographySection = options.designContext?.typographyGuidance
+  // v33.3: Enhanced with font category, alignment, and event-context-aware mood matching
+  const tg = options.designContext?.typographyGuidance
+  const aiTypographySection = tg
     ? `
 <ai_typography_guidance>
-Headline Style: ${options.designContext.typographyGuidance.headlineStyle}
-Body Style: ${options.designContext.typographyGuidance.bodyStyle}
-Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
+FONT STYLE (EVENT-CONTEXT-AWARE):
+- Font Category: ${tg.typographyStyle || 'sans'} (use high-quality ${tg.typographyStyle || 'sans-serif'} fonts that match the event mood)
+- Headline Style: ${tg.headlineStyle}
+- Body Style: ${tg.bodyStyle}
+- Hierarchy: ${tg.hierarchy}
+- Alignment: ${tg.alignment || 'center'}
+
+IMPORTANT: The font style MUST reflect the event's personality. Do NOT default to generic sans-serif if the event calls for a different typographic approach. Match the typography to the event's mood and formality.
 </ai_typography_guidance>
 `
     : ''
@@ -235,23 +264,68 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 
   const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
+  // v33.4: Creative twist — unique visual signature (same pattern as event poster)
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+This ONE element should make this design immediately recognizable and memorable.
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.4: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements. The background scene must tell the event's story cinematically.
+</visual_storytelling>
+`
+    : ''
+
   // Get platform-specific scroll-stop patterns and typography
   const scrollStopPatterns = getScrollStopPromptFragment('instagram')
   // Enhanced typography enforcement (v4.0) - combines original rules with strict enforcement
   const typographyRules = buildEnhancedTypographyPrompt('instagram_post', 1080)
   const antiPatterns = getPlatformAntiPatterns('instagram')
 
-  // Determine colors - use brand colors if available
+  // Determine colors - use brand colors if available (NO hex codes — Gemini renders them as visible text)
   const colors = options.brandContext?.primaryColor
-    ? `Brand colors: ${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'}`
+    ? `Brand colors: ${colorName(options.brandContext.primaryColor)}, ${colorName(options.brandContext.secondaryColor || '#ffffff')}`
     : postContext.colors
+
+  // v33.3: Event-context-aware body text style (used in text_content and style sections)
+  const bodyStyleAttr = options.designContext?.typographyGuidance?.bodyStyle || 'clean sans-serif'
 
   // v4.0: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
   // Instagram dimensions: 1080x1080 (square)
   const CANVAS_WIDTH = 1080
   const CANVAS_HEIGHT = 1080
-  const headerPercent = 12 // Top 12% reserved for logos
-  const footerPercent = 12 // Bottom 12% reserved for branding
+  const headerPercent = 40 // Top 40% reserved (matches event poster safety zone)
+  const footerPercent = 30 // Bottom 30% reserved (matches event poster, content zone 40-70%)
   const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
   const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
 
@@ -303,6 +377,12 @@ ${decorativeSection}
 
 ${backgroundSection}
 
+${creativeTwistSection}
+
+${sceneNarrativeSection}
+
+${storytellingSection}
+
 <platform_optimization>
 ${scrollStopPatterns}
 </platform_optimization>
@@ -312,33 +392,45 @@ ${typographyRules}
 </typography_hierarchy>
 
 <subject>
-An eye-catching social media graphic that will STOP THE SCROLL.
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, story-driven social media graphic: ${options.designContext.storytellingContext.visualNarrative}`
+  : 'An eye-catching social media graphic that will STOP THE SCROLL.'}
 Main Message: "${resolvedTitle}"
 Goal: ${postContext.goal}
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
 Critical: Must capture attention within 0.5-1 second of viewing in feed.
 This is a mobile-first platform - design for thumb-scrolling users.
+The background scene must be a RICH, IMMERSIVE visual that tells the event's story — NOT a generic gradient or plain color.
 </subject>
 
 <composition>
 Layout: ${options.designContext?.layoutSuggestion || postContext.layout}
 
 Structure:
-- BACKGROUND: ${options.designContext?.backgroundSetting || postContext.background} ${options.brandContext ? `incorporating brand colors (${options.brandContext.primaryColor}, ${options.brandContext.secondaryColor || 'white'})` : ''}
+- BACKGROUND: ${stripHexCodes((options.designContext?.backgroundSetting || postContext.background) as string)} ${options.brandContext?.primaryColor ? `incorporating brand colors (${colorName(options.brandContext.primaryColor)}, ${colorName(options.brandContext.secondaryColor || '#ffffff')})` : ''}
 - VISUALS: ${options.designContext?.visualElements?.join(', ') || postContext.visualTreatment}
-- HEADLINE: "${resolvedTitle}" - LARGE, BOLD, instantly readable on phone screen
-${data.postCaption ? `- SUPPORTING TEXT: "${data.postCaption}" - smaller but still readable on mobile` : ''}
+- TEXT ZONE: ALL text below MUST be placed in the CENTER BAND of the canvas (the middle section between the header and footer zones). The upper portion and lower portion are background/imagery only. NO text outside the center band.
+- TEXT GROUPING (MANDATORY): ALL text elements (headline, tagline, date, venue, CTA) must be GROUPED TOGETHER as a single unified text block in the center of the canvas. Do NOT scatter text — headline at top and date at bottom is WRONG. Stack all text vertically in one compact cluster.
+- HEADLINE: "${resolvedTitle}" - LARGE, BOLD, instantly readable on phone screen. Text should be overlaid DIRECTLY on the background scene with strong drop shadow or dark semi-transparent gradient behind it for contrast. Do NOT place text inside a white box, white card, or opaque rectangle.
+${resolvedCaption ? `- SUPPORTING TEXT: "${resolvedCaption}" - smaller but still readable on mobile` : ''}
+${resolvedDate ? `- DATE: "${resolvedDate}"${resolvedTime ? ` at ${resolvedTime}` : ''}` : ''}
+${resolvedVenue ? `- VENUE: "${resolvedVenue}"` : ''}
 ${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
-- LOGO AREA: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} with clean background` : 'Small brand element'}
-- BREATHING ROOM: Generous white/negative space - NOT cramped
+${(resolvedDate || resolvedVenue) ? `- EVENT DETAILS: Date, time, and venue MUST be rendered as visible text DIRECTLY BELOW the headline as a compact group. Keep all details CLOSE to the headline — do NOT push them to the bottom of the canvas. Style them to integrate with the background scene — use the scene's own colors and lighting for contrast. Do NOT use a solid white rectangle or opaque box behind the text. Instead use: a subtle dark gradient overlay on the scene, or a thin colored accent line, or direct text with drop shadow for readability.` : ''}
+- BREATHING ROOM: Generous spacing between text elements - NOT cramped
 
 Text Sizing Rule: All text must be readable on a phone screen WITHOUT zooming
 </composition>
 
 <text_content>
-<text role="headline" prominence="LARGEST" style="bold thick sans-serif, maximum contrast, ${postContext.headlineStyle}">${resolvedTitle}</text>
-${data.postCaption ? `<text role="supporting" prominence="medium" style="clean sans-serif, readable on mobile">${data.postCaption}</text>` : ''}
+(ALL text elements below must be vertically GROUPED TOGETHER as a single compact cluster in the CENTER BAND of the canvas. Stack headline, tagline, date, and venue close together — do NOT spread them across the full canvas height. The upper and lower portions are reserved for background imagery only — no text allowed there.)
+<text role="headline" prominence="LARGEST" style="${postContext.headlineStyle}, maximum contrast, bold weight">${resolvedTitle}</text>
+${resolvedCaption ? `<text role="supporting" prominence="medium" style="${bodyStyleAttr}, readable on mobile">${resolvedCaption}</text>` : ''}
+${(resolvedDate || resolvedVenue) ? `\n(MANDATORY — render these event details as visible text in the poster:)` : ''}
+${resolvedDate ? `<text role="date" prominence="medium" style="${bodyStyleAttr}, readable on mobile">${resolvedDate}${resolvedTime ? ` | ${resolvedTime}` : ''}</text>` : ''}
+${resolvedVenue ? `<text role="venue" prominence="small" style="${bodyStyleAttr}, readable on mobile">${resolvedVenue}</text>` : ''}
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="button-style or arrow indicator, ${postContext.ctaStyle}">${data.callToAction}</text>` : ''}
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, bottom 5-10%">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, below venue text, part of the grouped text cluster">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>
@@ -346,9 +438,10 @@ Visual Style: ${postContext.style}
 Color Palette: ${colors}
 Mood: ${postContext.mood}
 Typography:
-  - Headlines: BOLD, THICK sans-serif (NOT thin or light weight)
-  - Readable on phone without zooming
+  - Headlines: ${postContext.headlineStyle} (bold weight, NOT thin or light)
+  - Body: ${bodyStyleAttr}, readable on mobile
   - High contrast with background
+  - Font must match the event's personality and mood
 Energy: ${postContext.energy}
 </style>
 
@@ -360,12 +453,10 @@ ${INSTAGRAM_POST_EXAMPLES}
 - CLARITY TEST: Single clear focal point, not cluttered
 - ENGAGEMENT TEST: Design encourages like/comment/share
 - BRAND TEST: ${options.brandContext ? 'Brand colors properly integrated' : 'Professional, polished look'}
-${options.logoAwareness?.hasLogo ? '- Logo area with clean background' : ''}
 </quality_markers>
 
 <constraints>
 Avoid: Tiny text requiring zoom, cluttered composition with multiple competing elements, low contrast (text hard to read), boring/generic look that blends into feed, thin/light fonts that disappear, too much text (keep headline under 10 words), busy background under text, muted/dull colors that don't pop
-${options.logoAwareness?.hasLogo ? `Avoid: Complex elements in ${options.logoAwareness.logoPosition} area` : ''}
 Platform Anti-Patterns: ${antiPatterns.slice(0, 5).join(', ')}
 </constraints>
 
@@ -376,6 +467,8 @@ ${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 ` : ''}
 
 <render_constraints>
+MUST RENDER as visible text: ALL content inside <text role="headline">, <text role="date">, <text role="venue">, <text role="cta">, and <text role="supporting"> tags. These are REQUIRED poster elements — do not skip them.
+
 CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
 DO NOT render as visible text:
 - XML tag names (task, format, composition, style, constraints)

@@ -61,7 +61,7 @@ export function StudioHero() {
     const welcomeMessage = `${greeting}, ${firstName}`
 
     return (
-        <div className="relative w-full h-[320px] rounded-[2.5rem] overflow-hidden group">
+        <div className="relative w-full h-[260px] rounded-2xl overflow-hidden group">
             <AnimatePresence mode="popLayout">
                 <motion.div
                     key={current}
@@ -98,26 +98,26 @@ export function StudioHero() {
                     </div>
 
                     {/* Content Layer */}
-                    <div className="relative z-10 w-full h-full flex flex-col items-start justify-center text-left px-16">
+                    <div className="relative z-10 w-full h-full flex flex-col items-start justify-center text-left px-10">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.8, delay: 0.2 }}
-                            className="space-y-6"
+                            className="space-y-4"
                         >
                             {/* Text */}
                             <div className="space-y-2">
-                                <p className="text-white/70 text-lg font-medium tracking-wide uppercase">{welcomeMessage}</p>
-                                <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-white drop-shadow-2xl">
+                                <p className="text-white/70 text-base font-medium tracking-wide uppercase">{welcomeMessage}</p>
+                                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white drop-shadow-2xl">
                                     {SLIDES[current].title}
                                 </h1>
                             </div>
 
                             {/* Button */}
-                            <div className="pt-4">
+                            <div className="pt-2">
                                 <Button
                                     asChild
-                                    className={`relative h-14 pl-8 pr-8 rounded-full bg-gradient-to-r ${SLIDES[current].color} hover:brightness-110 text-white font-bold text-lg shadow-2xl transition-all duration-300 scale-100 hover:scale-105 border-none`}
+                                    className={`relative h-11 pl-6 pr-6 rounded-full bg-gradient-to-r ${SLIDES[current].color} hover:brightness-110 text-white font-bold text-sm shadow-2xl transition-all duration-300 scale-100 hover:scale-105 border-none`}
                                 >
                                     <Link href={SLIDES[current].link}>
                                         <Sparkles className="w-5 h-5 mr-2 fill-white/20" />

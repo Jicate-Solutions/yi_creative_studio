@@ -334,11 +334,10 @@ export function buildColorReference(
 ): string {
   const desc = describeColor(hex)
   return `
-${role} COLOR: ${desc.name} (${hex} or ${desc.rgb})
+${role} COLOR: ${desc.name}
   Personality: ${desc.personality.join(', ')}
   Mood: ${desc.mood}
   Visual equivalent: ${desc.visualEquivalents.join(', ')}
   NOT: ${desc.notEquivalents.join(', ')}
-  HSL: ${desc.hsl}
 `.trim()
 }

@@ -75,7 +75,7 @@ import {
 } from '@/lib/prompts/services/typography-intelligence'
 // validateLogoPositions removed - position locking is now user-controlled
 import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
-import { compileFormData, summarizeCompiledData } from '@/lib/prompts/services/form-data-compiler'
+import { compileFormData, summarizeCompiledData, buildSceneNarrative } from '@/lib/prompts/services/form-data-compiler'
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
@@ -421,9 +421,10 @@ export async function POST(request: NextRequest) {
 
     // NEW v3.2: Fetch organization brand_config to get font preference
     // This implements the hybrid approach: font family from org settings, AI controls sizing
+    // v36.0: Fetch org identity (name) for Context Bridge
     const { data: orgData } = await supabase
       .from('organizations')
-      .select('brand_config')
+      .select('name, brand_config')
       .eq('id', organizationId)
       .single()
 
@@ -511,6 +512,22 @@ export async function POST(request: NextRequest) {
           facebook: footerConfig.customSocial.facebook || '',
           twitter: footerConfig.customSocial.twitter || '',
         } : null),
+    }
+
+    // v36.0 — Context Bridge: Fetch vertical visual DNA
+    let verticalPresetContext: string | null = null
+    if (verticalSlug) {
+      try {
+        const { data: vpData } = await supabase
+          .from('vertical_presets')
+          .select('prompt_template, theme_config')
+          .eq('slug', verticalSlug)
+          .single()
+        if (vpData?.prompt_template) {
+          verticalPresetContext = vpData.prompt_template as string
+          console.log(`[v36.0 Context Bridge] Vertical DNA loaded for "${verticalSlug}" (${(verticalPresetContext as string).length} chars)`)
+        }
+      } catch { /* non-blocking — vertical context is optional enrichment */ }
     }
 
     // ========================================================
@@ -1047,12 +1064,28 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // v36.0 — Context Bridge: Build enriched context from org identity + vertical DNA
+      const orgIdentityLines = [
+        orgData?.name ? `Chapter: ${orgData.name}` : null,
+      ].filter(Boolean)
+
+      const bridgedAdditionalContext = [
+        ...orgIdentityLines,
+        verticalPresetContext,
+        compiledData.tagline || compiledData.description || '',
+      ].filter(Boolean).join('\n\n')
+
+      if (orgIdentityLines.length > 0 || verticalPresetContext) {
+        console.log(`[v36.0 Context Bridge] Org identity: ${orgIdentityLines.length} lines, Vertical DNA: ${verticalPresetContext ? 'YES' : 'NO'}`)
+      }
+
       const designBrief: DesignBrief = {
         // Event content - PRIORITY: User form data > Compiled data > Parsed
         // v5.0: REMOVED Ultra-Pro dependencies - Design Intelligence runs FIRST now
         eventType: formDataContent.eventType || parsedContent.eventType,
         eventName: formDataContent.eventName || compiledData.eventName || parsedContent.eventName || 'Event',
-        organizationName: compiledData.organizationName || 'Yi Creatives',
+        // v36.0: Use real org name from DB, fall back to form field
+        organizationName: orgData?.name || compiledData.organizationName || 'Yi Creatives',
         details: cleanedPrompt
           || [compiledData.tagline, compiledData.description].filter(Boolean).join('. ')
           || '', // Use compiled description for design context; tagline injected for accurate visual context
@@ -1064,11 +1097,13 @@ export async function POST(request: NextRequest) {
         guestName: formDataContent.guestName || compiledData.speakerName || parsedContent.guestName,
         guestDesignation: formDataContent.guestDesignation || compiledData.speakerDesignation || parsedContent.guestDesignation,
         venue: formDataContent.venue || compiledData.venue || parsedContent.venue,
-        additionalContext: compiledData.tagline || compiledData.description || '',
+        // v36.0: Use bridged context (org identity + vertical DNA + tagline/description)
+        additionalContext: bridgedAdditionalContext,
 
         // v4.2: Brand context for color-aware intelligence
         brandContext: {
-          organizationName: compiledData.organizationName || 'Organization',
+          // v36.0: Use real org name from DB
+          organizationName: orgData?.name || compiledData.organizationName || 'Organization',
           primaryColor: resolvedColors.primaryColor,
           secondaryColor: resolvedColors.secondaryColor,
           accentColor: resolvedColors.accentColor,
@@ -1099,6 +1134,12 @@ export async function POST(request: NextRequest) {
 
         // === LOGO AWARENESS (Smart Layout) ===
         logoSafeZoneGuidance: logoAwarenessContext.layoutGuidance || undefined,
+
+        // Target audience (flows from form → compiledData → design intelligence)
+        targetAudience: compiledData.targetAudience || undefined,
+
+        // v33.1: Pass visual direction to Design Intelligence for concept-aware background generation
+        additionalVisualBrief: compiledData.visualDirection || undefined,
       }
 
       // Generate AI-powered design context
@@ -1181,13 +1222,36 @@ export async function POST(request: NextRequest) {
       const dualStripeMode = (logoStripMode?.enabled || false) && !!verticalSlug
       console.log('[Generate] Dual-Stripe Mode:', dualStripeMode ? 'YES (20% text start)' : 'NO (15% text start)')
 
+      // v36.0 — Generation Memory: fetch org's recent successful prompts for this format
+      let recentOrgPrompts: string[] = []
+      if (organizationId && formatId) {
+        try {
+          const { data: recentCreatives } = await supabase
+            .from('creatives')
+            .select('prompt_used')
+            .eq('organization_id', organizationId)
+            .eq('creative_type', formatId)
+            .not('prompt_used', 'is', null)
+            .neq('prompt_used', '')
+            .order('created_at', { ascending: false })
+            .limit(3)
+          recentOrgPrompts = recentCreatives
+            ?.map(c => c.prompt_used as string)
+            .filter(Boolean) || []
+          if (recentOrgPrompts.length > 0) {
+            console.log(`[v36.0 Generation Memory] Found ${recentOrgPrompts.length} recent prompts for org=${organizationId}, format=${formatId}`)
+          }
+        } catch { /* non-blocking — generation memory is optional enrichment */ }
+      }
+
       const ultraProResult = await generateUltraProPromptSafe(
         compiledData, 'claude', designContext, logoStripMode?.enabled || false, resolvedColors, dualStripeMode,
         styleConfig.id !== 'auto' ? {
           temperatureOverride: styleConfig.temperatures.ultraPro,
           creativeDirection: styleConfig.creativeDirection || undefined,
           modelGuidance: modelGuidance || undefined,
-        } : undefined
+        } : undefined,
+        recentOrgPrompts.length > 0 ? recentOrgPrompts : undefined
       )
       const ultraProPrompt = ultraProResult.prompt
 
@@ -1451,6 +1515,12 @@ export async function POST(request: NextRequest) {
           // AI-analyzed layout decision for speaker photos based on TOTAL speakers
           // Prevents oversized photos when only some speakers have uploaded photos
           speakerLayoutContext: speakerLayoutDecision?.promptContext || undefined,
+
+          // NEW v33.5b: SCENE NARRATIVE — Direct injection into format builders
+          // buildSceneNarrative() maps venue/audience to specific Indian environment descriptions
+          // Previously only fed into Ultra-Pro (Claude) but never reached the Yi Prompt Builder
+          // Now Gemini directly sees "multi-story college buildings, seminar halls" etc.
+          sceneNarrative: buildSceneNarrative(compiledData) || undefined,
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(sanitizeForLogging(buildOptions), null, 2))
@@ -1804,9 +1874,13 @@ export async function POST(request: NextRequest) {
         }
 
         // v5.5: Validate that user colors made it into the final prompt
+        // Check for hex string OR color name (hex may be stripped by colorName() helper)
         if (resolvedColors.source !== 'fallback') {
-          const promptIncludesPrimary = finalXmlPrompt.includes(resolvedColors.primaryColor)
-          const promptIncludesSecondary = finalXmlPrompt.includes(resolvedColors.secondaryColor)
+          const { describeColor } = await import('@/lib/utils/color-names')
+          const primaryName = describeColor(resolvedColors.primaryColor).name
+          const secondaryName = describeColor(resolvedColors.secondaryColor).name
+          const promptIncludesPrimary = finalXmlPrompt.includes(resolvedColors.primaryColor) || finalXmlPrompt.includes(primaryName)
+          const promptIncludesSecondary = finalXmlPrompt.includes(resolvedColors.secondaryColor) || finalXmlPrompt.includes(secondaryName)
 
           if (!promptIncludesPrimary) {
             console.warn(`⚠️  [Color Flow] PRIMARY COLOR MISSING: ${resolvedColors.primaryColor} (${resolvedColors.source}) not found in final prompt`)
@@ -2069,8 +2143,8 @@ ${typographyProfile.hierarchy}
       // Header: 0% to 40% (FORBIDDEN - no text)
       // Content: 40% to 70% (ALL text must be here)
       // Footer: 70% to 100% (FORBIDDEN - no text)
-      const headerEndPercent = 40 // v24.10: Unified header zone
-      const footerStartPercent = 78 // v26.1: Updated to match CONTENT_END cap (was outdated 70%)
+      const headerEndPercent = 40 // v33.4: Strict — header clean zone 0-40%
+      const footerStartPercent = 70 // v33.4: Strict — footer clean zone 70-100% (was 78, reverted to strict)
 
       const violations = await detectTextInForbiddenZones(
         imageBuffer,
@@ -2090,21 +2164,27 @@ ${typographyProfile.hierarchy}
           )
         }
 
-        // v32.0: Auto-retry ONCE on critical header violation
+        // v32.1: Auto-retry ONCE on critical header violation
         const headerViolation = violations.find(v => v.zoneType === 'header' && v.severity === 'critical')
         if (headerViolation && storedPromptForRegeneration) {
-          console.log('[v32.0 Zone Retry] 🔄 Critical header violation detected — retrying generation with stronger zone instructions')
+          console.log('[v32.1 Zone Retry] 🔄 Critical header violation detected — retrying generation with stronger zone instructions')
 
-          const zoneRetryPrompt = storedPromptForRegeneration + `
+          // v33.4: Fixed strict 40% boundary — matches prompt and verification
+          const safeHeaderPercent = 40
+          console.log(`[v32.1 Zone Retry] Fixed boundary: ${safeHeaderPercent}% header, 70% footer (strict)`)
 
-<instruction>(DO NOT RENDER) CRITICAL ZONE RETRY (v32.0):
-Your previous generation placed text/content in the TOP 40% of the canvas (detected at ${headerViolation.detectedTextY}%).
-This area is PHYSICALLY COVERED by logo overlays and your content WILL BE HIDDEN.
+          // PREPEND the retry instruction so it has highest attention weight (not append)
+          const retryInstruction = `<instruction>(DO NOT RENDER) ⚠️ CRITICAL ZONE ENFORCEMENT — RETRY (v33.4):
+Your previous generation placed text/content in the TOP ${safeHeaderPercent}% of the canvas (detected at ${headerViolation.detectedTextY}%).
+This area is PHYSICALLY COVERED by logo overlay bars — your content is COMPLETELY HIDDEN there.
 
-ABSOLUTE RULE: ALL text, headlines, titles, and content elements MUST start BELOW the 40% mark (below 576px on a 1440px canvas).
-The top 40% should contain ONLY smooth background artwork — NO text, NO labels, NO icons, NO UI elements.
-Generate ONLY atmospheric background design in the top 576 pixels.
-</instruction>`
+ABSOLUTE RULE: ALL text, headlines, titles, event names, dates, venues, and speaker names MUST start BELOW the ${safeHeaderPercent}% mark.
+The top ${safeHeaderPercent}% must contain ONLY smooth atmospheric background artwork — ZERO text, ZERO labels, ZERO icons.
+This is non-negotiable. Any content above ${safeHeaderPercent}% will not be visible in the final output.
+</instruction>
+
+`
+          const zoneRetryPrompt = retryInstruction + storedPromptForRegeneration
 
           try {
             const retrySystemInstruction = YiPromptBuilder.getSystemInstruction()
@@ -2141,16 +2221,89 @@ Generate ONLY atmospheric background design in the top 576 pixels.
               const retryHeaderViolation = retryViolations.find(v => v.zoneType === 'header')
 
               if (!retryHeaderViolation) {
-                console.log('[v32.0 Zone Retry] ✅ Retry succeeded — no header violations')
+                console.log('[v32.1 Zone Retry] ✅ Retry succeeded — no header violations')
                 imageUrl = retryImageUrl
                 imageBuffer = retryBuffer
                 if (retryResult.actualModel) imageActualModel = retryResult.actualModel
               } else {
-                console.warn('[v32.0 Zone Retry] ⚠️ Retry still has header violation — using original (logo bars will cover)')
+                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation — using original (logo bars will cover)')
               }
             }
           } catch (retryError) {
-            console.error('[v32.0 Zone Retry] ❌ Retry failed, continuing with original:', retryError)
+            console.error('[v32.1 Zone Retry] ❌ Retry failed, continuing with original:', retryError)
+          }
+        }
+
+        // v35.3: Footer retry — if footer violation detected, retry with footer constraint
+        const footerViolationCheck = violations.find(v => v.zoneType === 'footer' && v.severity === 'critical')
+        if (footerViolationCheck && storedPromptForRegeneration) {
+          // Re-verify current imageBuffer (may have been updated by header retry)
+          let needsFooterRetry = true
+          try {
+            const currentViolations = await detectTextInForbiddenZones(imageBuffer, headerEndPercent, footerStartPercent)
+            needsFooterRetry = !!currentViolations.find(v => v.zoneType === 'footer')
+          } catch { /* use original needsFooterRetry = true */ }
+
+          if (needsFooterRetry) {
+            console.log(`[v35.3 Footer Retry] 🔄 Critical footer violation at ${footerViolationCheck.detectedTextY.toFixed(1)}% — retrying`)
+
+            const footerRetryInstruction = `<instruction>(DO NOT RENDER) ⚠️ FOOTER ZONE VIOLATION — RETRY (v35.3):
+Your previous generation placed text/content BELOW the ${footerStartPercent}% mark (detected at ${footerViolationCheck.detectedTextY.toFixed(1)}%).
+This area is PHYSICALLY COVERED by logo overlay bars — your content is COMPLETELY HIDDEN there.
+
+ABSOLUTE RULE: ALL text, headlines, event names, dates, venues MUST be positioned ABOVE the ${footerStartPercent}% mark.
+The bottom ${100 - footerStartPercent}% must contain ONLY smooth atmospheric background artwork — ZERO text, ZERO labels.
+Text belongs in the 40–${footerStartPercent}% zone — overlaid ON the background scene, NOT below it.
+This is non-negotiable. Any content below ${footerStartPercent}% will not be visible in the final output.
+</instruction>
+
+`
+            const footerRetryPrompt = footerRetryInstruction + storedPromptForRegeneration
+
+            try {
+              const footerRetrySystemInstruction = YiPromptBuilder.getSystemInstruction()
+              const footerRetryResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
+
+              const footerRetryResult = await generateWithGemini(
+                footerRetryPrompt,
+                effectiveDesignData || null,
+                footerRetrySystemInstruction,
+                selectedFormat,
+                footerRetryResolution,
+                model,
+                0,
+                thinkingLevel,
+                useImageSearch
+              )
+
+              let footerRetryImageUrl = footerRetryResult.imageBase64
+              if (formatDimensions) {
+                footerRetryImageUrl = await resizeImageToExactDimensions(
+                  footerRetryImageUrl,
+                  formatDimensions.width,
+                  formatDimensions.height,
+                  'fill'
+                )
+              }
+
+              const footerRetryResponse = await fetch(footerRetryImageUrl)
+              if (footerRetryResponse.ok) {
+                const footerRetryBuffer = Buffer.from(await footerRetryResponse.arrayBuffer())
+                const footerRetryViolations = await detectTextInForbiddenZones(footerRetryBuffer, headerEndPercent, footerStartPercent)
+                const retryFooterViolation = footerRetryViolations.find(v => v.zoneType === 'footer')
+
+                if (!retryFooterViolation) {
+                  console.log('[v35.3 Footer Retry] ✅ Retry succeeded — no footer violations')
+                  imageUrl = footerRetryImageUrl
+                  imageBuffer = footerRetryBuffer
+                  if (footerRetryResult.actualModel) imageActualModel = footerRetryResult.actualModel
+                } else {
+                  console.warn('[v35.3 Footer Retry] ⚠️ Retry still has footer violation — using best available')
+                }
+              }
+            } catch (footerRetryError) {
+              console.error('[v35.3 Footer Retry] ❌ Retry failed, continuing:', footerRetryError)
+            }
           }
         }
       } else {
@@ -3160,6 +3313,8 @@ Generate ONLY atmospheric background design in the top 576 pixels.
       success: true,
       imageUrl,
       thumbnailUrl, // Server-generated thumbnail for gallery preview
+      // v36.0: Return prompt for generation memory (truncated to 3000 chars)
+      promptUsed: storedPromptForRegeneration?.slice(0, 3000) || '',
       // v4.0: Include prevention action ID for fix validation tracking
       preventionActionId: preventionActionId || undefined,
       // v4.1: A/B testing data for prevention effectiveness measurement

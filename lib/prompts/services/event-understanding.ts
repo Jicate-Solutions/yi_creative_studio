@@ -401,15 +401,14 @@ export function generateFallbackEventProfile(input: EventUnderstandingInput): Ev
 // ============================================================================
 
 /**
- * Keywords that indicate formal/premium events where literal imagery is preferred
- * over creative metaphors. When detected, formality is boosted to 'premium'.
+ * Keywords that indicate events where LITERAL imagery is specifically required
+ * (document signings, ribbon cuttings, groundbreaking ceremonies).
+ * v35.0: Narrowed to only truly literal-required events — graduation, awards, summits
+ * etc. all deserve BOLD creative compositions, not stock-photo literal scenes.
  */
 const PREMIUM_EVENT_KEYWORDS = [
-  'mou', 'signing', 'ceremony', 'inauguration', 'launch',
-  'ribbon cutting', 'foundation', 'dedication', 'unveiling',
-  'agreement', 'partnership', 'collaboration', 'memorandum',
-  'groundbreaking', 'commencement', 'convocation', 'summit',
-  'award', 'felicitation', 'recognition', 'investiture'
+  'mou', 'signing', 'agreement', 'memorandum',
+  'ribbon cutting', 'groundbreaking',
 ]
 
 /**

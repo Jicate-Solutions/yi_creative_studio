@@ -49,11 +49,11 @@ export function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full px-4 py-3 md:px-8 md:py-4 pointer-events-none">
+    <header className="sticky top-0 z-50 w-full px-3 py-2 md:px-6 md:py-3 pointer-events-none">
       {/* Floating HUD Island */}
       <div className="mx-auto max-w-7xl pointer-events-auto">
         <div className={cn(
-          "relative h-16 md:h-18 px-4 md:px-6 flex items-center gap-4 rounded-[2.5rem]",
+          "relative h-12 md:h-14 px-3 md:px-5 flex items-center gap-3 rounded-[2.5rem]",
           "bg-background/40 backdrop-blur-3xl border border-white/10 dark:border-white/5 shadow-2xl transition-all duration-500",
           "shadow-[0_0_80px_rgba(245,158,11,0.08)]",
           "supports-[backdrop-filter]:bg-background/40"
@@ -106,7 +106,7 @@ export function TopNav() {
             <Button
               onClick={handleCreate}
               className={cn(
-                'rounded-2xl px-6 h-11 font-black shadow-lg shadow-primary/20',
+                'rounded-2xl px-4 h-9 font-black shadow-lg shadow-primary/20',
                 'bg-primary text-primary-foreground',
                 'hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98]',
                 'transition-all duration-300 group'
@@ -121,7 +121,7 @@ export function TopNav() {
               <Link href={ROUTES.billing}>
                 <div
                   className={cn(
-                    'flex items-center gap-2 rounded-2xl px-4 h-11',
+                    'flex items-center gap-2 rounded-2xl px-3 h-9',
                     'bg-amber-500/10 border border-amber-500/20',
                     'hover:border-amber-500/40 hover:bg-amber-500/15',
                     'hover:scale-[1.02] active:scale-[0.98]',
@@ -140,7 +140,7 @@ export function TopNav() {
             )}
 
             {/* Utilities (Theme, Profile) */}
-            <div className="flex items-center gap-2 h-11 bg-muted/20 rounded-2xl p-1 border border-border/10">
+            <div className="flex items-center gap-1.5 h-9 bg-muted/20 rounded-2xl p-0.5 border border-border/10">
               <ThemeToggle />
 
               <div suppressHydrationWarning>

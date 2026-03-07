@@ -125,7 +125,7 @@ function LoginContent() {
           <div className="flex justify-center mb-3 sm:mb-4">
             <Logo size="lg" />
           </div>
-          <CardTitle className="text-xl sm:text-2xl">Welcome back</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Welcome back</CardTitle>
           <CardDescription>
             Sign in to your account to continue
           </CardDescription>

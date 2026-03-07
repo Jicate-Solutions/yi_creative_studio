@@ -27,9 +27,9 @@ const titleVariants = cva(
   {
     variants: {
       size: {
-        default: 'text-2xl md:text-3xl',
-        lg: 'text-3xl md:text-4xl',
-        sm: 'text-xl md:text-2xl',
+        default: 'text-xl md:text-2xl',
+        lg: 'text-2xl md:text-3xl',
+        sm: 'text-lg md:text-xl',
       },
       gradient: {
         true: 'text-gradient-yi',
@@ -120,7 +120,7 @@ function PageHeader({
 
           {/* Description */}
           {description && (
-            <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
+            <p className="text-xs md:text-sm text-muted-foreground max-w-2xl">
               {description}
             </p>
           )}

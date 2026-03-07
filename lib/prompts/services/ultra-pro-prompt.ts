@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { CompiledFormData } from './form-data-compiler'
-import { buildTextBriefFromCompiled } from './form-data-compiler'
+import { buildTextBriefFromCompiled, buildSceneNarrative } from './form-data-compiler'
 import { safeJsonParse } from '@/lib/utils/json-repair'
 
 // Import prompt optimization utilities
@@ -110,16 +110,16 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Professional lighting and depth without over-generation.
 
 3. RICH MODE:
-   - Immersive, multi-layered, and atmospheric designs.
-   - Deep dimension with glows, textures, and many visual elements.
-   - High energy and vivid color harmony.
+   - Immersive scene-based designs with real environments and objects.
+   - Deep dimension through foreground/background depth of field, NOT abstract effects.
+   - High energy with vivid, event-specific visual storytelling.
 
 CINEMATIC DEPTH FRAMEWORK (v6.0 - STORYTELLING THROUGH LAYERS):
 When creating backgrounds, think cinematically with three distinct depth layers:
 
 1. FOREGROUND LAYER (10-30% opacity overlays):
    - Purpose: Adds visual interest without obscuring content
-   - Examples: Subtle leaf silhouettes, light ray overlays, flowing patterns, gentle particle effects
+   - Examples: Subtle leaf silhouettes, light ray overlays, event-specific object silhouettes, soft depth-of-field foreground elements
    - Rule: NEVER place solid/opaque elements here - text must remain legible
    - Sophistication: Minimalist uses 0-10%, Balanced uses 10-20%, Rich uses 20-30%
 
@@ -131,7 +131,7 @@ When creating backgrounds, think cinematically with three distinct depth layers:
 
 3. BACKGROUND LAYER (Deep atmospheric scene):
    - Purpose: Sets the mood and tells the event's story through environment
-   - Examples: "Deep forest atmosphere", "Kinetic energy fields", "Ocean depth scene", "Innovation hub skyline"
+   - Examples: "Classroom with anatomical charts on walls", "Conference hall with podium and chairs", "Medical clinic with donation equipment", "Tech workspace with monitors and code"
    - Rule: Create emotional depth - what FEELING should the viewer get?
    - Sophistication: Minimalist uses simple gradients, Balanced uses moderate atmospheres, Rich uses immersive scenes
 
@@ -148,6 +148,89 @@ Ask yourself:
 - Do the layers work together or fight each other?
 - Would this design make someone STOP and look, or is it generic?
 - Could this background be REUSED for a completely different event? If YES → it's too generic. REDESIGN.
+
+CREATIVE AMBITION TARGET (v34.0):
+Aim for BEHANCE-FEATURED, PINTEREST-WORTHY creative poster quality:
+- Bold visual metaphors are PREFERRED over generic literal scenes when they create stronger impact
+  (e.g., Graduation: graduates bursting through open books into golden sky >>> empty auditorium with chairs)
+- Unexpected, striking compositions that make someone STOP scrolling
+- Conceptual imagery (symbols, metaphors, surreal juxtapositions) is ENCOURAGED alongside realistic scenes
+- Dramatic color stories and editorial lighting over safe, muted palettes
+- Ask: "Would a design director at a top agency be proud to feature this in their portfolio?" If NO → push harder
+
+CONCEPT-AS-VISUAL-DEVICE (v34.1 — The Most Powerful Technique):
+The most memorable posters don't just SHOW the event — the event's core symbol BECOMES the design device itself:
+- "Pipes as battery cells" → the product IS the concept (longevity)
+- "Pipes as skyscraper foundations" → the product IS the architecture (strength)
+APPLY THIS TO EVENTS:
+- Leadership summit → audience silhouettes FORM the shape of a rising arrow / mountain peak
+- Graduation → open books UNFOLD into wings of a bird taking flight
+- Technology → circuit board patterns BECOME a human brain or city skyline
+- Environmental → a tree's root structure IS a map / human figure
+- Health/Fitness → heartbeat line FORMS the shape of a running human silhouette
+Ask: "What IS this event's core symbol? Can that symbol BECOME the background composition itself?"
+
+THINKING APPROACH (v35.2 — reason before generating):
+Before outputting the JSON, mentally work through:
+1. EVENT TYPE: What is this event's core category? (graduation, tech, leadership, health, cultural, community?)
+2. HUMAN STORY: Who are the participants? What milestone or achievement are they experiencing? What EMOTION should this poster evoke in the viewer?
+3. CONCEPT BRAINSTORM (v38.0 — Think Like a Design Team):
+   Before choosing a visual, brainstorm AT LEAST 3 different concepts using these CREATIVE LENSES:
+
+   LENS A — LITERAL SCENE (people in action):
+   Real people in a specific, emotionally charged moment of the event.
+   Example (Graduation): A single graduate hugging family with diploma, tears of joy, in an Indian college courtyard.
+
+   LENS B — OBJECT-AS-HERO (symbolic object dominates):
+   One event-specific object fills 60%+ of the canvas as the visual hero. People may be secondary or absent.
+   Example (Graduation): A graduation cap mid-air against a vivid golden sky, tassel catching wind, with campus rooftops below.
+
+   LENS C — CONCEPTUAL METAPHOR (the idea becomes the image):
+   The event's meaning is expressed through a visual metaphor or transformation.
+   Example (Graduation): Open books unfold into wings of a bird taking flight over an Indian cityscape.
+
+   LENS D — EMOTIONAL CLOSE-UP (intimate human detail):
+   A tight crop on hands, eyes, or a single gesture that captures the event's emotional core.
+   Example (Graduation): Close-up of brown hands receiving a rolled diploma tied with a gold ribbon, lens flare from stage light.
+
+   LENS E — ENVIRONMENTAL STORYTELLING (the setting tells the story):
+   The venue/space itself is the visual subject, with minimal human presence, telling the story through arrangement and atmosphere.
+   Example (Graduation): An Indian college auditorium stage set for convocation — empty podium with microphone, rows of chairs with one graduation cap left on a seat, golden evening light through tall windows.
+
+   RULES:
+   - Mentally generate concepts for AT LEAST 3 of the 5 lenses above.
+   - Then SELECT the most unexpected and visually striking one. Do NOT default to Lens A (literal scene) unless it genuinely produces the most creative result.
+   - If the user provides a "visualDirection" field, honor it — but still apply whichever lens best fits their description.
+   - The SELECTED lens determines your visualScene composition.
+4. SOUTH INDIAN CONTEXT: Are the human faces, clothing, and environment authentically South Indian? (Not generic Western settings or generic global stock-photo style)
+5. FULL CANVAS CHECK: Will the scene PAINT the entire canvas (0–100%) as a seamless background mural — NOT as a "photo card" or "rounded rectangle" sitting on a solid-color background? The header area (0–40%) shows the UPPER portion of the scene (ceiling, sky, stage top, atmospheric light above people). The footer area (70–100%) shows the LOWER portion (floor, ambient base, no text). ❌ FAILURE = plain solid color in header + scene inside a rounded card in the lower area. ✅ SUCCESS = continuous scene painting spanning all 4 canvas edges with text overlaid in 40–70%.
+6. VARIETY MANDATE (v38.0): Check which Creative Lens you are using. Is it the SAME lens as the most obvious default for this event type? (For graduation, Lens A/literal crowd scene is the default. For a workshop, Lens A/people-in-classroom is the default.) If you are using the obvious default lens, SWITCH to a different one. The CONCEPT LENS SELECTOR seed above suggests which lens to favor — follow it unless there is a strong reason not to.
+7. AUDIENCE LENS (v36.0): WHO will see this poster? The target audience MUST shape the visual language:
+   - School students (ages 8-16) → bright colors, illustration/cartoon style, relatable school environment (classroom, playground, school bus), simple bold visuals they instantly understand, NO corporate formality
+   - College students → trendy, modern, social-media-native aesthetics, campus life, aspirational energy
+   - Young professionals → polished, editorial, LinkedIn-worthy, urban settings, contemporary design
+   - Parents/families → warm, emotional, protective imagery, domestic settings, trust-building tone
+   - Corporate/business → formal, prestigious, conference-hall aesthetics, infographic clarity
+   - Community/general public → inclusive, vibrant, culturally grounded, accessible visual language
+   If "targetAudience" is provided in the brief, MATCH the visual style, complexity level, and environment to that audience's world. A child safety poster for school students looks COMPLETELY different from one for corporate HR.
+8. PHYSICAL ENVIRONMENT (v37.0 — Indian Context Engineering):
+   The full-canvas background MUST depict a recognizable INDIAN setting. Reason about WHERE this event happens:
+   IF VENUE IS PROVIDED → match it:
+   - School/Vidyalaya → green chalkboards, wooden benches, ceiling fans, school corridor, assembly ground with flagpole, students in white-shirt uniform
+   - College/University/Institute → wide corridors with notice boards, seminar halls, canteen with steel tables, banyan tree courtyard, students in casual Indian wear
+   - Hotel/Resort/Convention → chandeliered banquet hall, fabric backdrop stage, marigold garlands, registration desk with flowers
+   - Community Hall/Auditorium → plastic chairs facing decorated stage, banner behind podium, tube lights, terrazzo floor
+   - Office/IT Park → glass-front building, open-plan workspace, whiteboards with sticky notes, ID lanyards
+   - Outdoor/Ground → shamiana tent on maidan, banner-covered stage, string lights, chai stall nearby
+   IF NO VENUE → infer from AUDIENCE:
+   - School Students → Indian school environment (NOT corporate)
+   - College Students → Indian campus (NOT hotel ballroom)
+   - Young Professionals → Indian coworking space or IT park (NOT Western office)
+   - Parents/Families → Community hall or school auditorium (NOT boardroom)
+   - General Community → Open community hall or shamiana setup
+   NEVER: Western university campuses, American offices, European halls, generic glass-elevator lobbies.
+   ALWAYS: Indian architecture, Indian vegetation (neem, banyan, jasmine), Indian signage, Indian dress codes.
+Only after this reasoning, generate the JSON with superior contextual insight.
 
 CRITICAL CUSTOM COLOR ENFORCEMENT (v5.3):
 When custom colors are explicitly provided by the user, you MUST use them exclusively:
@@ -172,11 +255,11 @@ Return a valid JSON object with these exact fields:
 {
   "primaryText": "The main headline text that MUST appear prominently (user's event name exactly as provided)",
   "secondaryText": ["Array of ONLY essential text - LIMIT to: date, time, venue, speaker name/designation. DO NOT include: taglines, descriptions, registration details, topics, or long notes"],
-  "visualScene": "Description of the visual scene/background that complements the event type",
+  "visualScene": "A VIVID, SPECIFIC visual composition using whichever Creative Lens (A-E) produces the most striking result for this event. The scene MUST be grounded in INDIAN CONTEXT (Indian faces when people appear, South Asian appearance, Indian settings and architecture). COMPOSITION OPTIONS: (1) People-centered scenes with Indian faces in emotionally specific moments, (2) Object-as-hero where one symbolic item dominates the canvas with people secondary, (3) Conceptual metaphors where the event meaning becomes a visual transformation, (4) Emotional close-ups of hands/gestures/details, (5) Environmental storytelling where the Indian setting itself tells the story. CRITICAL (v36.0): Visual style MUST match TARGET AUDIENCE. PREFERENCE: Human presence is PREFERRED but NOT mandatory when another lens creates a MORE POWERFUL composition. A graduation cap soaring against golden sky can be MORE memorable than a generic crowd scene. Choose the lens that creates the most UNEXPECTED, scroll-stopping visual.",
   "designGuidance": "Creative direction for layout, typography, and visual treatment",
-  "textPlacementHints": "Where text should be positioned in the image",
+  "textPlacementHints": "MUST reference the 40–70% content zone. Example: 'Primary event name in the 50–60% vertical zone, overlaid on the lower atmospheric portion of the background scene. Secondary info card at 62–68%.' NEVER say 'lower 20-25%', 'bottom third', 'lower portion', or any position below 70%. Text is OVERLAID on the background — NOT placed below the scene in empty space.",
   "colorPaletteHints": "Color suggestions based on event type and mood",
-  "mustIncludeElements": ["Array of visual elements that must appear"],
+  "mustIncludeElements": ["Array of 3-5 CONCRETE, SPECIFIC visual elements that ground this design in reality. Elements must be EVENT-SPECIFIC objects, textures, or environmental details — NOT generic category symbols. When people appear, they MUST be Indian. Abstract patterns (waves, hexagons, mesh) remain BANNED — but symbolic objects (a graduation cap, a blood bag, a microphone) used as visual heroes are ENCOURAGED. Match elements to your chosen Creative Lens."],
   "enhancedPrompt": "A complete, detailed prompt combining all the above for image generation"
 }
 
@@ -221,7 +304,8 @@ export async function generateUltraProPrompt(
     temperatureOverride?: number | null // v31.0: Override dynamic temperature
     creativeDirection?: string          // v31.0: Prompt style creative direction
     modelGuidance?: string              // v31.0: Model-specific prompt tuning guidance
-  }
+  },
+  recentOrgPrompts?: string[] // v36.0: Recent org prompts for generation memory
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
@@ -355,35 +439,35 @@ These colors are NON-NEGOTIABLE - override any other color suggestions in this p
   // v6.0: Build creativity enforcement section
   const creativityEnforcement = isCreativeFormat ? `
 
-=== CREATIVITY ENFORCEMENT v6.0 (MANDATORY) ===
+=== CREATIVE CONCEPT DIVERSITY v38.0 (MANDATORY) ===
 
-GENERATION SEED: ${variationSeed}
-This seed FORCES unique creative output. Do NOT fall back to safe, predictable designs.
+CONCEPT LENS SELECTOR: ${variationSeed}
+This seed determines which Creative Lens to FAVOR for this generation:
+- Seeds ending in 0-1: FAVOR Lens B (Object-as-Hero)
+- Seeds ending in 2-3: FAVOR Lens C (Conceptual Metaphor)
+- Seeds ending in 4-5: FAVOR Lens D (Emotional Close-up)
+- Seeds ending in 6-7: FAVOR Lens E (Environmental Storytelling)
+- Seeds ending in 8-9: FAVOR Lens A (Literal Scene) — but make it EMOTIONALLY SPECIFIC, not generic
+"FAVOR" means start your brainstorm with that lens. If it genuinely does not fit this event, choose another — but you MUST justify why.
 
-CREATIVE TWIST REQUIREMENT (v30.1):
-Your design MUST include ONE unexpected visual element that makes it MEMORABLE.
-The twist should be IMPOSSIBLE TO REUSE on a different event.
-
-Find what's UNEXPECTED about THIS specific event:
-- A blood donation event → "life flowing through translucent veins visible beneath warm skin"
-- A menstrual health workshop → "breaking-taboo imagery with flowers growing from educational diagrams"
-- A tree planting drive → "roots and branches forming a DNA helix connecting earth to sky"
-- A coding hackathon → "lines of code raining down like the Matrix but forming real software UIs"
-
-Ask: "Would this twist work on ANY other event?" If yes → it's not specific enough. RETHINK.
+CONCEPT QUALITY CHECK (v38.0):
+Before finalizing your visualScene, answer these 3 questions:
+1. "Could this EXACT visual concept have been generated for a DIFFERENT event in the same category?" If YES → too generic, choose a different lens.
+2. "Does this concept use the MOST OBVIOUS visual interpretation?" If YES → deliberately explore a less obvious lens.
+3. "Would a senior art director say 'I have seen this before'?" If YES → push harder on conceptual boldness.
 
 ANTI-PATTERN ENFORCEMENT:
-Before finalizing, check your design against this list. If ANY apply, REDESIGN:
+❌ Generic crowd/audience scenes that could be any event of this type
 ❌ Blue-to-purple or orange-to-pink generic gradients
-❌ Random geometric shapes without meaning
 ❌ Stock photo aesthetic (perfect people, staged scenes)
 ❌ Default professional navy/gray palettes
+❌ Random geometric shapes without meaning
 ❌ Overused sunburst/radial patterns
 ❌ Generic cityscape silhouettes
 ❌ Floating spheres/cubes without purpose
 ❌ Bokeh backgrounds without connection to content
 
-YOUR GOAL: Create something the viewer has NEVER seen before for this type of event.
+YOUR GOAL: Each generation for the SAME event should look like it was designed by a DIFFERENT designer with a DIFFERENT creative philosophy.
 ` : ''
 
   // Build visual direction section (user's free-text visual brief)
@@ -401,12 +485,39 @@ YOUR GOAL: Create something the viewer has NEVER seen before for this type of ev
     ? `\nMODEL-SPECIFIC APPROACH (v31.0):\n${promptStyleOptions.modelGuidance}\n`
     : ''
 
+  // v36.0: Build generation memory section from recent org prompts
+  const generationMemorySection = recentOrgPrompts && recentOrgPrompts.length > 0
+    ? `\nORG VISUAL HISTORY (v36.0 — THIS CHAPTER'S RECENT POSTERS FOR REFERENCE):
+${recentOrgPrompts.map((p, i) => `[Recent #${i + 1}]: ${p.substring(0, 500)}`).join('\n')}
+Use these as style/tone reference — same org, same audience. Push for FRESH composition each time — never repeat the same scene, angle, or layout as a previous generation.\n`
+    : ''
+
+  if (recentOrgPrompts && recentOrgPrompts.length > 0) {
+    console.log(`[Ultra-Pro Prompt] v36.0 Generation Memory: ${recentOrgPrompts.length} recent prompts injected`)
+  }
+
+  // v36.0: Build audience context section
+  const audienceContextSection = compiledData.targetAudience
+    ? `\nTARGET AUDIENCE (v36.0 — MUST shape visual style):
+"${compiledData.targetAudience}"
+The visual scene, style, environment, and complexity MUST be designed for THIS specific audience. Match their world, their visual language, their level of understanding. A poster for school children looks nothing like one for corporate executives.\n`
+    : ''
+
+  // v37.0: Build Indian environment context from venue/audience mapping
+  const sceneNarrative = buildSceneNarrative(compiledData)
+  const sceneNarrativeSection = sceneNarrative.length > 30
+    ? `\nINDIAN ENVIRONMENT CONTEXT (v37.0):\n${sceneNarrative}\nThe visualScene MUST reflect this specific Indian environment.\n`
+    : ''
+  if (sceneNarrativeSection) {
+    console.log(`[Ultra-Pro Prompt] v37.0 Indian Environment Context injected (${sceneNarrative.length} chars)`)
+  }
+
   // Build the full prompt for the AI
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
-${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}
+${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}${generationMemorySection}
 ${colorBriefSection}USER'S CREATIVE BRIEF:
 ${userBrief}
-${designContextSection}${visualDirectionSection}
+${designContextSection}${visualDirectionSection}${audienceContextSection}${sceneNarrativeSection}
 SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
 TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
@@ -491,10 +602,11 @@ export async function generateUltraProPromptSafe(
     temperatureOverride?: number | null
     creativeDirection?: string
     modelGuidance?: string
-  }
+  },
+  recentOrgPrompts?: string[] // v36.0: Recent org prompts for generation memory
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions, recentOrgPrompts)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {

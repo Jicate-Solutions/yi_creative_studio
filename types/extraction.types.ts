@@ -5,8 +5,7 @@
 
 // Extractable field IDs (canonical names used across the app)
 export const EXTRACTABLE_FIELDS = [
-  'eventName',
-  'eventTitle',
+  'eventName',   // Canonical — covers both event name AND event title (eventTitle removed to prevent duplicates)
   'eventTagline',
   'eventDate',
   'eventTime',
@@ -27,7 +26,6 @@ export type ExtractableFieldId = (typeof EXTRACTABLE_FIELDS)[number]
 // Human-readable labels for extracted fields
 export const FIELD_LABELS: Record<string, string> = {
   eventName: 'Event Name',
-  eventTitle: 'Event Title',
   eventTagline: 'Tagline / Subtitle',
   eventDate: 'Event Date',
   eventTime: 'Start Time',

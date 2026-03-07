@@ -9,7 +9,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       data-slot="input"
       className={cn(
         // Base styles with touch-friendly height (44px)
-        "h-11 w-full min-w-0 rounded-lg px-4 py-2",
+        "h-9 w-full min-w-0 rounded-lg px-3 py-1.5",
         // Premium glass background for pastel backdrop
         "bg-white/80 dark:bg-slate-900/80",
         // Typography - 16px on mobile prevents iOS zoom, 14px on desktop

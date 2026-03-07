@@ -158,8 +158,8 @@ export function buildCertificatePrompt(
   // Certificate dimensions: 1754x1240 (A4 landscape)
   const CANVAS_WIDTH = 1754
   const CANVAS_HEIGHT = 1240
-  const headerPercent = 15 // Top 15% reserved for logos
-  const footerPercent = 10 // Bottom 10% reserved for footer elements
+  const headerPercent = 15 // Top 15% reserved for logos (landscape certificate)
+  const footerPercent = 30 // v33.6: Bottom 30% reserved — content ends at 70%
   const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
   const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
 

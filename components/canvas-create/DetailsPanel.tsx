@@ -26,6 +26,7 @@ import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
 import type { SuggestableField } from '@/types/suggestions'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
+import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
 import { resolveFieldId, getField } from '@/lib/config/field-registry'
 import { toast } from 'sonner'
 
@@ -119,8 +120,36 @@ export function DetailsPanel({
   // Schema is now loaded by CanvasCreatePage via generateDynamicSchema()
   // We just use the store's dynamicSchema and dynamicSchemaLoading state
 
-  // Get fields from dynamic schema
-  const fields = dynamicSchema.schema?.fields || []
+  // Get fields from dynamic schema, supplemented by any static format fields the AI omitted.
+  // The AI-generated schema (/api/generate-fields) does not reliably include every field
+  // defined in formatFieldSchemas.ts (e.g. targetAudience). We merge the two so no
+  // format-specific field is ever silently missing from the form.
+  //
+  // FIELD_ID_NORMALIZER: the AI sometimes generates variant IDs (e.g. 'eventTitle')
+  // that differ from the canonical static schema IDs ('eventName'). Normalising before
+  // dedup prevents them from appearing as two separate form fields.
+  const FIELD_ID_NORMALIZER: Record<string, string> = {
+    eventTitle:  'eventName',
+    title:       'eventName',
+    description: 'eventDescription',
+    date:        'eventDate',
+    time:        'eventTime',
+    startTime:   'eventTime',
+    location:    'venue',
+  }
+  const rawDynamicFields = dynamicSchema.schema?.fields || []
+  const seenNormIds = new Set<string>()
+  const dynamicFields = rawDynamicFields
+    .map((f) => ({ ...f, id: FIELD_ID_NORMALIZER[f.id] ?? f.id }))
+    .filter((f) => { if (seenNormIds.has(f.id)) return false; seenNormIds.add(f.id); return true })
+
+  const staticFormatFields = selectedFormat ? getFormatFields(selectedFormat.id) : []
+  const dynamicFieldIds = new Set(dynamicFields.map((f) => f.id))
+  const missingStaticFields = staticFormatFields
+    .filter((f) => !dynamicFieldIds.has(f.id))
+    .map((f) => ({ ...f, placeholder: f.placeholder || '' }))
+  const fields = [...dynamicFields, ...missingStaticFields]
+
   const requiredFields = fields.filter((f) => f.required)
   const optionalFields = fields.filter((f) => !f.required)
 

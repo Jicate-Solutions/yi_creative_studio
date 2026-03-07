@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
           <div className="flex justify-center mb-3 sm:mb-4">
             <Logo size="lg" />
           </div>
-          <CardTitle className="text-xl sm:text-2xl">
+          <CardTitle className="text-lg sm:text-xl">
             {submitted ? 'Check your email' : 'Reset your password'}
           </CardTitle>
           <CardDescription>

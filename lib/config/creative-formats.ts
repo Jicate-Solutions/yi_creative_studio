@@ -798,6 +798,20 @@ export const FORMAT_GUIDELINES: Partial<Record<CreativeFormatId, string>> = {
 }
 
 /**
+ * Get a human-readable label for a creative_type / format ID.
+ * Returns the official label from CREATIVE_FORMATS, or title-cases the ID as fallback.
+ */
+export function getFormatLabel(formatId: string | null | undefined): string {
+  if (!formatId) return 'Image'
+  const format = CREATIVE_FORMATS[formatId as CreativeFormatId]
+  if (format?.label) return format.label
+  // Fallback: title-case the snake_case ID (e.g. "instagram_post" → "Instagram Post")
+  return formatId
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
  * Get prompt guidelines for a format
  */
 export function getFormatGuidelines(formatId: CreativeFormatId): string {

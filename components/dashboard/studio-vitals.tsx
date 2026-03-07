@@ -26,14 +26,14 @@ export function StudioVitals({ credits, streak = { days: 7, active: true } }: St
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="h-full glass-card rounded-3xl p-6 relative overflow-hidden group"
+            className="h-full glass-card rounded-2xl p-4 relative overflow-hidden group"
         >
             {/* Header */}
-            <h3 className="text-foreground font-semibold text-lg tracking-tight mb-6">Studio Vitals</h3>
+            <h3 className="text-foreground font-semibold text-sm tracking-tight mb-3">Studio Vitals</h3>
 
-            <div className="flex flex-col items-center gap-8">
+            <div className="flex flex-col items-center gap-5">
                 {/* 1. Credit Ring */}
-                <div className="relative w-36 h-36 flex items-center justify-center">
+                <div className="relative w-28 h-28 flex items-center justify-center">
                     {/* Glow behind */}
                     <div className="absolute inset-2 bg-primary/10 blur-2xl rounded-full" />
 
@@ -64,7 +64,7 @@ export function StudioVitals({ credits, streak = { days: 7, active: true } }: St
 
                     {/* Inner Text */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-3xl font-bold tracking-tight text-foreground">
+                        <span className="text-xl font-bold tracking-tight text-foreground">
                             {credits.balance.toLocaleString()}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mt-1">Credits</span>

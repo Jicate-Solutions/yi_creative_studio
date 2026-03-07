@@ -368,6 +368,11 @@ export interface EnhancedBuildOptions {
   // Prevents oversized photos when only some speakers have uploaded photos
   speakerLayoutContext?: string
 
+  // NEW v33.5b: Scene narrative from venue/audience mapping
+  // Injected directly into format builders so Gemini sees specific Indian environment details
+  // Previously only fed into Ultra-Pro (Claude) but never reached the image generation prompt
+  sceneNarrative?: string
+
   // NEW v7.0: Logo Strip Zone Coordinates for 4-Row Enhanced Strip (v13.0: Now with color contrast)
   // Tells Gemini AI to reserve space for logo strips (header and footer)
   // This prevents text/content from overlapping with logo overlay areas
@@ -426,7 +431,15 @@ export interface EventPosterFormData {
 }
 
 export interface InstagramFormData {
-  postTitle: string
+  // v33.0+ event poster fields (primary)
+  eventName?: string
+  eventDescription?: string
+  eventDate?: string
+  eventTime?: string
+  venue?: string
+  targetAudience?: string
+  // Legacy social media fields (backward compat)
+  postTitle?: string
   postCaption?: string
   callToAction?: string
   postType?: 'announcement' | 'quote' | 'educational' | 'promotional' | 'motivational'

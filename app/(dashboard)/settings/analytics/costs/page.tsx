@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCostAsINR, convertToINR, USD_TO_INR } from '@/lib/services/currency'
-import { CREATIVE_FORMATS } from '@/lib/config/creative-formats'
+import { CREATIVE_FORMATS, getFormatLabel } from '@/lib/config/creative-formats'
 import { cn } from '@/lib/utils'
 import {
   Coins,
@@ -253,10 +253,7 @@ export default function TokenCostsPage() {
     setExpandedRows(newSet)
   }
 
-  const getFormatLabel = (formatId: string) => {
-    const format = CREATIVE_FORMATS[formatId as keyof typeof CREATIVE_FORMATS]
-    return format?.label || formatId
-  }
+  // getFormatLabel imported from @/lib/config/creative-formats
 
   const getStageLabel = (requestType: string) => {
     const labels: Record<string, string> = {

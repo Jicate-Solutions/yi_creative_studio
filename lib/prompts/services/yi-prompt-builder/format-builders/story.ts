@@ -26,7 +26,7 @@ import type { DesignContextForPrompt} from '../types'
 
 // Import logo zone enforcement helper (v3.4)
 // Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -212,6 +212,67 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
 
   const backgroundSection = buildBackgroundSettingSection(options.designContext, sophistication);
 
+  // v33.5: Creative twist — unique visual signature
+  const creativeTwistSection = options.designContext?.creativeTwist
+    ? `
+<creative_twist>
+UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
+Integrate this creative twist prominently into the background scene.
+</creative_twist>
+`
+    : ''
+
+  // v33.5b: Scene narrative — direct from venue/audience mapping (bypasses Design Intelligence)
+  const sceneNarrativeSection = options.sceneNarrative && options.sceneNarrative.length > 30
+    ? `
+<environment_context>
+INDIAN ENVIRONMENT (MANDATORY — from venue/audience mapping):
+${options.sceneNarrative}
+The background scene MUST show these specific architectural and environmental elements.
+</environment_context>
+`
+    : ''
+
+  // v33.5: Storytelling narrative — cinematic scene from storytelling fusion
+  const storytellingSection = options.designContext?.storytellingContext
+    ? `
+<visual_storytelling>
+CINEMATIC SCENE NARRATIVE:
+${options.designContext.storytellingContext.visualNarrative}
+
+STORY STRUCTURE:
+1. OPENING: ${options.designContext.storytellingContext.storyArc.opening}
+2. CLIMAX (HERO VISUAL): ${options.designContext.storytellingContext.storyArc.climax}
+3. RESOLUTION: ${options.designContext.storytellingContext.storyArc.resolution}
+
+HERO ELEMENT: ${options.designContext.storytellingContext.cohesiveElements.primaryElement}
+ATMOSPHERE: ${options.designContext.storytellingContext.cohesiveElements.atmosphericElements.join(', ')}
+
+Create ONE unified visual story — not disconnected clip-art elements.
+</visual_storytelling>
+`
+    : ''
+
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Story dimensions: 1080x1920 (9:16 portrait)
+  const CANVAS_WIDTH = 1080
+  const CANVAS_HEIGHT = 1920
+  const headerPercent = 25 // Top 25% reserved (portrait = medium header)
+  const footerPercent = 30 // Bottom 30% reserved — content ends at 70%
+  const headerHeight = Math.floor(CANVAS_HEIGHT * (headerPercent / 100))
+  const footerHeight = Math.floor(CANVAS_HEIGHT * (footerPercent / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+    headerHeight,
+    footerHeight,
+    headerPercent,
+    footerPercent
+  )
+
+  console.log('[Story v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   // Determine colors - use brand colors if available
   const colorScheme = options.brandContext?.primaryColor
     ? `Brand gradient: ${options.brandContext.primaryColor} to ${options.brandContext.secondaryColor || 'white'}`
@@ -227,6 +288,10 @@ Purpose: Capture attention in Stories feed, encourage swipe/tap action
 Viewing Context: Full-screen mobile, brief viewing time (3-5 seconds)
 Story Type: ${options.contentType || 'announcement'}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -250,29 +315,40 @@ ${decorativeSection}
 
 ${backgroundSection}
 
+${creativeTwistSection}
+
+${sceneNarrativeSection}
+
+${storytellingSection}
+
 <subject>
-A thumb-stopping story graphic for: "${data.storyHeadline}"
+${options.designContext?.storytellingContext?.visualNarrative
+  ? `A CINEMATIC, immersive story visual: ${options.designContext.storytellingContext.visualNarrative}`
+  : `A thumb-stopping story graphic for: "${data.storyHeadline}"`}
 Must capture attention and communicate message within 3 seconds.
 Full-screen immersive experience.
 Platform: ${data.platform || 'Instagram'} Stories
 Story Type: ${options.contentType || 'announcement'} - ${typeContext.mood}
+${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
 </subject>
 
 <composition>
 Layout: Full-bleed vertical design with safe zones
 
 CRITICAL SAFE ZONE RULES:
-- TOP: ${platformContext.topSafeZone}
-- CENTER 65%: SAFE ZONE - all important content goes here
-- BOTTOM: ${platformContext.bottomSafeZone}
+- HEADER ZONE (0-25%): Reserved for logo overlays + platform UI (${platformContext.topSafeZone}). NO text here.
+- CONTENT ZONE (25-70%): ALL text and important content goes here
+- FOOTER ZONE (70-100%): Reserved for logo overlays + platform UI (${platformContext.bottomSafeZone}). NO text here.
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 25-70% of canvas height. NO text in header or footer zones.
 
 Platform UI: ${platformContext.uiElements}
 Interaction: ${platformContext.interactionStyle}
 
 Content Placement:
-- Main headline centered in safe zone (middle 65%)
-${data.callToAction ? '- Swipe/tap indicator in lower portion of safe zone (NOT in bottom UI zone)' : ''}
-- Keep all critical content in middle 65%
+- Main headline centered in content zone (25-70%)
+${data.callToAction ? '- Swipe/tap indicator in lower portion of content zone (NOT in footer zone)' : ''}
+- Keep all critical content between 25-70%
+- TEXT GROUPING: ALL text elements (headline, CTA) must be GROUPED TOGETHER within the safe zone. Do NOT scatter text across the full height.
 ${options.logoAwareness?.hasLogo ? `- Logo in ${options.logoAwareness.logoPosition} within safe zone` : ''}
 
 Background: ${options.designContext?.backgroundSetting || data.backgroundStyle || 'Bold vibrant gradient'} filling entire frame
@@ -282,7 +358,7 @@ Visual Treatment: ${options.designContext?.visualElements?.join(', ') || typeCon
 <text_content>
 <text role="headline" prominence="LARGEST" style="${typeContext.textTreatment}, centered in safe zone, high contrast">${data.storyHeadline}</text>
 ${data.callToAction ? `<text role="cta" prominence="prominent" style="swipe-up indicator style, near bottom of safe zone (NOT in bottom UI zone)">${data.callToAction}</text>` : ''}
-${data.eventNote ? `<text role="note" prominence="small" style="footer text, above bottom UI zone">"${data.eventNote}"</text>` : ''}
+${data.eventNote ? `<text role="note" prominence="small" style="compact, within safe zone, near other text elements">"${data.eventNote}"</text>` : ''}
 </text_content>
 
 <style>

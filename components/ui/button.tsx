@@ -44,12 +44,12 @@ const buttonVariants = cva(
         "dark-cta": "bg-gradient-to-br from-[#FF6B35] to-[#FF8C5A] text-white shadow-[0_8px_24px_rgba(255,107,53,0.35)] hover:shadow-[0_12px_32px_rgba(255,107,53,0.45)] dark:from-[#FF6B35] dark:to-[#FF8C5A]",
       },
       size: {
-        default: "h-11 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-10 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-12 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-11",
-        "icon-sm": "size-10",
-        "icon-lg": "size-12",
+        default: "h-9 px-3 py-1.5 has-[>svg]:px-2.5",
+        sm: "h-8 rounded-md gap-1.5 px-2.5 has-[>svg]:px-2",
+        lg: "h-10 rounded-md px-5 has-[>svg]:px-3.5",
+        icon: "size-9",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10",
       },
     },
     defaultVariants: {

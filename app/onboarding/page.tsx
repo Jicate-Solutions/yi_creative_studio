@@ -222,7 +222,7 @@ function OnboardingContent() {
           <div className="flex justify-center mb-4">
             <Logo size="lg" />
           </div>
-          <CardTitle className="text-2xl">Get Started</CardTitle>
+          <CardTitle className="text-xl">Get Started</CardTitle>
           <CardDescription>
             Join an organization or create your own
           </CardDescription>

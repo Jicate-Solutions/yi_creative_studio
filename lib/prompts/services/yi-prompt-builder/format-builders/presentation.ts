@@ -25,7 +25,7 @@ import type { ResolvedColors } from '@/lib/utils/resolve-color-config'
 import type { DesignContextForPrompt } from '../types'
 
 // Import logo zone enforcement helper (v3.4)
-import { buildForbiddenZonesSection, buildZoneReminderSection } from '../helpers/logo-zone-enforcement'
+import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPreciseSpatialConstraints } from '../helpers/logo-zone-enforcement'
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import decorative elements injector (v4.4)
@@ -214,6 +214,20 @@ Hierarchy: ${options.designContext.typographyGuidance.hierarchy}
     ? `Brand professional: ${options.brandContext.primaryColor} accent, ${options.brandContext.secondaryColor || 'white'} text on dark OR dark text on light`
     : typeContext.colorAdvice
 
+  // v33.6: LAYER 1 OVERLAP PREVENTION - Build pixel-precise spatial constraints
+  // Presentation: 1920x1080 (16:9) or 1600x1200 (4:3)
+  const presDims = data.aspectRatio === '4:3' ? { w: 1600, h: 1200 } : { w: 1920, h: 1080 }
+  const headerPercentPres = 15 // Top 15% reserved (landscape presentation)
+  const footerPercentPres = 30 // Bottom 30% reserved
+  const headerHeightPres = Math.floor(presDims.h * (headerPercentPres / 100))
+  const footerHeightPres = Math.floor(presDims.h * (footerPercentPres / 100))
+
+  const pixelPreciseConstraints = buildPixelPreciseSpatialConstraints(
+    presDims.w, presDims.h, headerHeightPres, footerHeightPres, headerPercentPres, footerPercentPres
+  )
+
+  console.log('[Presentation v33.6] LAYER 1: Pixel-precise spatial constraints generated')
+
   return `
 <task>Generate a professional presentation title slide</task>
 
@@ -224,6 +238,10 @@ Purpose: Open a presentation, establish topic and presenter, set professional to
 Viewing Context: Projected on large screen, viewed from distance (back of conference room)
 Presentation Type: ${options.contentType || 'corporate'}
 </format>
+
+<spatial_layout_constraints>
+${pixelPreciseConstraints}
+</spatial_layout_constraints>
 
 ${logoContext}
 
@@ -265,6 +283,7 @@ ${data.subtitle ? `- SUBTITLE: "${data.subtitle}" - below title, lighter weight`
 ${data.presenterName ? `- PRESENTER: "${data.presenterName}${data.presenterTitle ? ', ' + data.presenterTitle : ''}" - lower section${options.speakerPhotoConfig?.enabled ? ' with clean background for photo' : ' (TEXT ONLY)'}` : ''}
 ${data.eventName ? `- EVENT: "${data.eventName}${data.presentationDate ? ' | ' + data.presentationDate : ''}" - bottom` : ''}
 - LOGO: ${options.logoAwareness?.hasLogo ? `${options.logoAwareness.logoPosition} (clean background)` : 'Organization logo in corner'}
+- TEXT ZONE (MANDATORY): ALL text MUST be placed between 15-70% of canvas height. Header (0-15%) and footer (70-100%) are for background/logo overlays ONLY.
 - SAFE MARGINS: 5% on all sides (for projector cropping)
 
 Background: ${options.designContext?.backgroundSetting || data.backgroundStyle || 'Professional dark gradient (deep blue, charcoal)'} suitable for projection
