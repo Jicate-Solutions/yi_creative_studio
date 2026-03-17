@@ -14,6 +14,7 @@ import {
   Megaphone,
   FileText,
   LayoutGrid,
+  GraduationCap,
 } from 'lucide-react'
 
 interface FormatCategoryTabsProps {
@@ -31,6 +32,7 @@ const categoryIcons: Record<FormatCategoryId | 'all', React.ElementType> = {
   presentations: Presentation,
   marketing: Megaphone,
   documents: FileText,
+  admission: GraduationCap,
 }
 
 /**

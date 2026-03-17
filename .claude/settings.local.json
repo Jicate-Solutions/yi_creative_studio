@@ -319,7 +319,8 @@
     "ask": [],
     "defaultMode": "plan",
     "additionalDirectories": [
-      "c:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio"
+      "c:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio",
+      "c:\\Users\\Admin\\Documents\\GitHub\\yicreatives-studio\\.git"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -145,11 +145,13 @@ function useIsMobile() {
 function LogoThumbnail({
   logo,
   placement,
+  isInstitutionMode,
 }: {
   logo: OrganizationLogo | undefined
   placement: LogoPlacement
+  isInstitutionMode?: boolean
 }) {
-  const isLocked = logo?.name && isLogoAutoLocked(logo.name)
+  const isLocked = !isInstitutionMode && logo?.name && isLogoAutoLocked(logo.name)
 
   return (
     <div className="flex items-center gap-2 rounded-md px-2 py-1.5 bg-muted/30">
@@ -551,7 +553,7 @@ export function GenerateSummaryCard({
           </div>
           <div className="flex flex-wrap gap-2">
             {logoData.map(({ placement, logo }) => {
-              const isLocked = logo?.name && isLogoAutoLocked(logo.name)
+              const isLocked = selectedFormat?.logoMode !== 'institution' && logo?.name && isLogoAutoLocked(logo.name)
               return (
                 <div
                   key={placement.logoId}

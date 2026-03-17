@@ -168,14 +168,14 @@ export function DetailsPanel({
     for (const id of possibleIds) {
       if (schemaFieldIds.includes(id)) {
         const value = (formData.formData[id] as string) || ''
-        if (value.trim()) return value.trim()
+        if (value.trim()) return value
       }
     }
 
     // Priority 2: Try all possible IDs in order
     for (const id of possibleIds) {
       const value = (formData.formData[id] as string) || ''
-      if (value.trim()) return value.trim()
+      if (value.trim()) return value
     }
 
     return ''

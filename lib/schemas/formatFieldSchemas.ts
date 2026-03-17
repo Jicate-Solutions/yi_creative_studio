@@ -21,6 +21,7 @@ export type FormatCategory =
   | 'marketing'
   | 'document'
   | 'presentation'
+  | 'admission'
 
 export interface DynamicField {
   id: string
@@ -1745,6 +1746,374 @@ const landscapePoster: FormatFieldSchema = {
 }
 
 // ============================================================================
+// Admission Campaign Format Schemas
+// ============================================================================
+
+// Shared base fields for all admission formats
+const admissionBaseFields: DynamicField[] = [
+  {
+    id: 'institutionName',
+    label: 'Institution Name',
+    type: 'text',
+    required: true,
+    suggestable: false,
+    maxLength: 120,
+    placeholder: 'e.g., Sri Ramakrishna College of Arts & Science',
+  },
+  {
+    id: 'courseName',
+    label: 'Course / Program',
+    type: 'select',
+    required: true,
+    suggestable: false,
+    options: [
+      'B.Sc', 'B.Com', 'B.A', 'B.Tech', 'B.E',
+      'M.Sc', 'M.Com', 'M.A', 'M.Tech', 'MBA',
+      'BCA', 'MCA', 'BBA', 'Polytechnic', 'ITI',
+      'All UG Programs', 'All PG Programs', 'All Programs',
+    ],
+  },
+  {
+    id: 'collegeName',
+    label: 'College / Campus Name',
+    type: 'text',
+    required: false,
+    suggestable: false,
+    maxLength: 120,
+    placeholder: 'e.g., Main Campus, Coimbatore',
+  },
+  {
+    id: 'tagline',
+    label: 'Tagline / Slogan',
+    type: 'text',
+    required: false,
+    suggestable: true,
+    maxLength: 120,
+    placeholder: 'e.g., Shape Your Future Here',
+  },
+  {
+    id: 'admissionYear',
+    label: 'Admission Year',
+    type: 'text',
+    required: false,
+    suggestable: false,
+    maxLength: 20,
+    placeholder: 'e.g., 2025–26',
+  },
+  {
+    id: 'contactInfo',
+    label: 'Contact Info',
+    type: 'text',
+    required: false,
+    suggestable: false,
+    maxLength: 120,
+    placeholder: 'e.g., +91 98765 43210 | admissions@college.edu',
+  },
+  {
+    id: 'websiteUrl',
+    label: 'Website',
+    type: 'text',
+    required: false,
+    suggestable: false,
+    maxLength: 90,
+    placeholder: 'e.g., www.college.edu',
+  },
+  {
+    id: 'note',
+    label: 'Additional Note',
+    type: 'text',
+    required: false,
+    suggestable: true,
+    maxLength: 120,
+    placeholder: 'e.g., Scholarships available, NAAC A++ Accredited',
+  },
+]
+
+const admissionDirectionBoard: FormatFieldSchema = {
+  formatId: 'admission_direction_board',
+  displayName: 'Direction Board',
+  category: 'admission',
+  designNotes: 'Ultra-wide 4:1 highway board. Maximum 5-6 words. Must be readable at 60 km/h.',
+  fields: [
+    {
+      id: 'institutionName',
+      label: 'Institution Name',
+      type: 'text',
+      required: true,
+      suggestable: false,
+      maxLength: 60,
+      placeholder: 'e.g., Sri Ramakrishna College',
+    },
+    {
+      id: 'directionText',
+      label: 'Direction / Distance',
+      type: 'text',
+      required: true,
+      suggestable: false,
+      maxLength: 40,
+      placeholder: 'e.g., 2 km Ahead, Turn Right',
+    },
+    {
+      id: 'tagline',
+      label: 'Tagline',
+      type: 'text',
+      required: false,
+      suggestable: true,
+      maxLength: 60,
+      placeholder: 'e.g., Admissions Open 2025',
+    },
+    {
+      id: 'contactInfo',
+      label: 'Contact / Website',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 60,
+      placeholder: 'e.g., www.college.edu',
+    },
+  ],
+}
+
+const admissionMainGate: FormatFieldSchema = {
+  formatId: 'admission_main_gate',
+  displayName: 'Main Gate Flex',
+  category: 'admission',
+  designNotes: 'Wide 3:1 gate banner. Institution name dominant, admission year prominent.',
+  fields: admissionBaseFields,
+}
+
+const admissionInstitutionFlex: FormatFieldSchema = {
+  formatId: 'admission_institution_flex',
+  displayName: 'Institution Flex',
+  category: 'admission',
+  designNotes: '2:1 outdoor flex for high-visibility locations. Bold imagery and key programs.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'keyPrograms',
+      label: 'Key Programs to Highlight',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 300,
+      rows: 2,
+      placeholder: 'e.g., B.Tech CS, MBA, B.Com CA — Top ranked programs',
+    },
+  ],
+}
+
+const admissionBusBack: FormatFieldSchema = {
+  formatId: 'admission_bus_back',
+  displayName: 'Bus Back Panel',
+  category: 'admission',
+  designNotes: '16:9 transit ad. Eye-catching at traffic stops. 3-4 key messages maximum.',
+  fields: admissionBaseFields,
+}
+
+const admissionBusSide: FormatFieldSchema = {
+  formatId: 'admission_bus_side',
+  displayName: 'Bus Side Panel (3×4 ft)',
+  category: 'admission',
+  designNotes: '3:4 portrait bus side panel. Bold course list with pill badges. Student imagery right half. Contact prominent at bottom.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'keyPrograms',
+      label: 'Key Programs / Colleges',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 400,
+      rows: 3,
+      placeholder: 'e.g., Dental | Nursing | Pharmacy | Engineering & Technology',
+    },
+    {
+      id: 'streamType',
+      label: 'Stream Focus',
+      type: 'select',
+      required: false,
+      suggestable: false,
+      options: ['Technical / Engineering', 'Medical / Paramedical', 'Arts & Science', 'All Streams'],
+    },
+  ],
+}
+
+const admissionStandee: FormatFieldSchema = {
+  formatId: 'admission_standee',
+  displayName: 'Admission Standee',
+  category: 'admission',
+  designNotes: 'Tall 2:5 standee. Top: branding. Middle: courses + USPs. Bottom: contact.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'streamType',
+      label: 'Stream Type',
+      type: 'select',
+      required: false,
+      suggestable: false,
+      options: ['Technical / Engineering', 'Medical / Paramedical', 'Arts & Science', 'Commerce', 'Management', 'All Streams'],
+    },
+  ],
+}
+
+const admissionStallFlex6x3: FormatFieldSchema = {
+  formatId: 'admission_stall_flex_6x3',
+  displayName: 'Stall Flex (6×3 ft)',
+  category: 'admission',
+  designNotes: '6×3 ft stall backdrop. 2:1 ratio. Education fair or campus stall use.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'keyPrograms',
+      label: 'Key Programs',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 300,
+      rows: 2,
+      placeholder: 'e.g., B.Sc CS, BCA, M.Sc Data Science',
+    },
+  ],
+}
+
+const admissionStallFlex8x6: FormatFieldSchema = {
+  formatId: 'admission_stall_flex_8x6',
+  displayName: 'Stall Flex (8×6 ft)',
+  category: 'admission',
+  designNotes: '8×6 ft larger stall backdrop. 4:3 ratio. More content area for multiple courses.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'keyPrograms',
+      label: 'Key Programs',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 450,
+      rows: 3,
+      placeholder: 'e.g., B.Tech, MBA, B.Sc, M.Sc, BCA, MCA',
+    },
+  ],
+}
+
+const admissionSocialPost: FormatFieldSchema = {
+  formatId: 'admission_social_post',
+  displayName: 'Admission Social Post',
+  category: 'admission',
+  designNotes: '4:5 vertical post for Instagram/Facebook/WhatsApp. Thumb-stopping design.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'platform',
+      label: 'Platform',
+      type: 'select',
+      required: false,
+      suggestable: false,
+      options: ['Instagram', 'Facebook', 'WhatsApp', 'LinkedIn', 'All Platforms'],
+    },
+    {
+      id: 'courseHighlights',
+      label: 'Course Highlights',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 300,
+      rows: 2,
+      placeholder: 'e.g., 100% Placement | Industry Mentors | Scholarship Available',
+    },
+  ],
+}
+
+const admissionOfficeFlex: FormatFieldSchema = {
+  formatId: 'admission_office_flex',
+  displayName: 'Office Placement Flex',
+  category: 'admission',
+  designNotes: '3:1 flex for admission office or placement cell corridor.',
+  fields: admissionBaseFields,
+}
+
+const admissionAchieversFlex: FormatFieldSchema = {
+  formatId: 'admission_achievers_flex',
+  displayName: '100 Years Achievers Flex',
+  category: 'admission',
+  designNotes: '2:3 portrait flex for centenary or achievers showcase. Rich legacy aesthetic.',
+  fields: [
+    ...admissionBaseFields,
+    {
+      id: 'yearMilestone',
+      label: 'Year Milestone',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 40,
+      placeholder: 'e.g., 100 Years of Excellence (1925–2025)',
+    },
+    {
+      id: 'achieversList',
+      label: 'Notable Achievers / Alumni',
+      type: 'textarea',
+      required: false,
+      suggestable: true,
+      maxLength: 450,
+      rows: 3,
+      placeholder: 'Names or accomplishments of notable alumni...',
+    },
+  ],
+}
+
+const admissionPhotoBooth: FormatFieldSchema = {
+  formatId: 'admission_photo_booth',
+  displayName: 'Photo Booth Backdrop',
+  category: 'admission',
+  designNotes: '16:9 landscape backdrop. Central area clean for subjects. Branding at edges.',
+  fields: [
+    {
+      id: 'institutionName',
+      label: 'Institution Name',
+      type: 'text',
+      required: true,
+      suggestable: false,
+      maxLength: 120,
+      placeholder: 'e.g., Sri Ramakrishna College',
+    },
+    {
+      id: 'themeName',
+      label: 'Event / Theme Name',
+      type: 'text',
+      required: false,
+      suggestable: true,
+      maxLength: 90,
+      placeholder: 'e.g., Admissions Open Day 2025',
+    },
+    {
+      id: 'eventDate',
+      label: 'Event Date',
+      type: 'date',
+      required: false,
+      suggestable: false,
+    },
+    {
+      id: 'tagline',
+      label: 'Tagline',
+      type: 'text',
+      required: false,
+      suggestable: true,
+      maxLength: 90,
+      placeholder: 'e.g., Your Journey Begins Here',
+    },
+    {
+      id: 'websiteUrl',
+      label: 'Website',
+      type: 'text',
+      required: false,
+      suggestable: false,
+      maxLength: 90,
+      placeholder: 'e.g., www.college.edu',
+    },
+  ],
+}
+
+// ============================================================================
 // Format Field Schemas Registry
 // ============================================================================
 
@@ -1799,6 +2168,20 @@ export const FORMAT_FIELD_SCHEMAS: Record<string, FormatFieldSchema> = {
   // Presentations
   presentation_16_9: presentation16x9,
   presentation_4_3: presentation4x3,
+
+  // Admission Campaign
+  admission_direction_board: admissionDirectionBoard,
+  admission_main_gate: admissionMainGate,
+  admission_institution_flex: admissionInstitutionFlex,
+  admission_bus_back: admissionBusBack,
+  admission_bus_side: admissionBusSide,
+  admission_standee: admissionStandee,
+  admission_stall_flex_6x3: admissionStallFlex6x3,
+  admission_stall_flex_8x6: admissionStallFlex8x6,
+  admission_social_post: admissionSocialPost,
+  admission_office_flex: admissionOfficeFlex,
+  admission_achievers_flex: admissionAchieversFlex,
+  admission_photo_booth: admissionPhotoBooth,
 }
 
 // ============================================================================
@@ -2036,7 +2419,7 @@ export const VERTICAL_FIELD_OVERRIDES: Record<string, DynamicField[]> = {
  */
 function normalizeFormatId(formatId: string): string {
   // Convert dashes to underscores
-  let normalized = formatId.replace(/-/g, '_')
+  const normalized = formatId.replace(/-/g, '_')
 
   // Try direct match first
   if (FORMAT_FIELD_SCHEMAS[normalized]) {

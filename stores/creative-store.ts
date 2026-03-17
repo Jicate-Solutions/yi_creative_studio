@@ -769,8 +769,10 @@ export const useCreativeStore = create<CreativeState>()(
           const logoType = detectLogoType(logo.name)
 
           // Yi Brand Guidelines 2025: Brand logos are auto-locked to their fixed positions
-          const autoLocked = isLogoAutoLocked(logo.name)
-          const autoLockedPosition = getAutoLockedPosition(logo.name)
+          // Exception: institution logoMode (admission formats) — institution's own logo takes priority
+          const isInstitutionMode = get().selectedFormat?.logoMode === 'institution'
+          const autoLocked = !isInstitutionMode && isLogoAutoLocked(logo.name)
+          const autoLockedPosition = !isInstitutionMode ? getAutoLockedPosition(logo.name) : null
 
           // Determine final position:
           // 1. If auto-locked (brand logo), use the locked position
@@ -849,7 +851,9 @@ export const useCreativeStore = create<CreativeState>()(
           }
 
           // Yi Brand Guidelines 2025: Brand logos are auto-locked and cannot be moved
-          if (placement?.logo?.name && isLogoAutoLocked(placement.logo.name)) {
+          // Exception: institution logoMode (admission formats) allows free logo positioning
+          const isInstitutionMode = state.selectedFormat?.logoMode === 'institution'
+          if (!isInstitutionMode && placement?.logo?.name && isLogoAutoLocked(placement.logo.name)) {
             // Silently reject - brand logos cannot have their position changed
             return state
           }

@@ -16,6 +16,7 @@ export type FormatCategoryId =
   | 'marketing'
   | 'documents'
   | 'video'
+  | 'admission'
 
 export type CreativeFormatId =
   // Social Media
@@ -66,6 +67,19 @@ export type CreativeFormatId =
   | 'ultra_tall'
   | 'wide_banner'
   | 'tall_banner'
+  // Admission Campaign
+  | 'admission_direction_board'
+  | 'admission_main_gate'
+  | 'admission_institution_flex'
+  | 'admission_bus_back'
+  | 'admission_bus_side'
+  | 'admission_standee'
+  | 'admission_stall_flex_6x3'
+  | 'admission_stall_flex_8x6'
+  | 'admission_social_post'
+  | 'admission_office_flex'
+  | 'admission_achievers_flex'
+  | 'admission_photo_booth'
   // Custom
   | 'custom'
 
@@ -90,6 +104,12 @@ export interface CreativeFormat {
   useCases?: string[]
   /** Auto-forces this Gemini model when format is selected (e.g., ultra aspect ratios) */
   requiredModel?: string
+  /**
+   * Controls Yi/CII logo lock behavior for this format.
+   * - 'yi_standard' (default): Yi=top-left, CII=top-right locks enforced (Yi chapter creatives)
+   * - 'institution': Lock enforcement disabled — institution's own logo can occupy any position
+   */
+  logoMode?: 'yi_standard' | 'institution'
 }
 
 // ============================================================================
@@ -139,6 +159,13 @@ export const FORMAT_CATEGORIES: Record<FormatCategoryId, FormatCategory> = {
     description: 'Letterheads, resumes, and report covers',
     color: '#388E3C', // Green
   },
+  admission: {
+    id: 'admission',
+    label: 'Admission Campaign',
+    icon: 'GraduationCap',
+    description: 'Flex banners, standees, and social posts for college admissions',
+    color: '#7B1FA2', // Purple
+  },
 }
 
 // Category order for display
@@ -149,6 +176,7 @@ export const FORMAT_CATEGORY_ORDER: FormatCategoryId[] = [
   'presentations',
   'marketing',
   'documents',
+  'admission',
 ]
 
 // ============================================================================
@@ -619,6 +647,156 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
   },
 
   // ---------------------------------------------------------------------------
+  // Admission Campaign Formats
+  // Physical flex/banner materials and digital posts for college admissions
+  // ---------------------------------------------------------------------------
+  admission_direction_board: {
+    id: 'admission_direction_board',
+    label: 'Direction Board',
+    category: 'admission',
+    aspectRatio: '4:1',
+    width: 1920,
+    height: 480,
+    description: 'Highway direction board for institution wayfinding',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Highway signage', 'Directional boards', 'Flex printing'],
+  },
+  admission_main_gate: {
+    id: 'admission_main_gate',
+    label: 'Main Gate Flex',
+    category: 'admission',
+    aspectRatio: '3:1',
+    width: 1920,
+    height: 640,
+    description: 'Main gate entrance flex banner',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Gate banners', 'Entrance flex', 'Admission season'],
+  },
+  admission_institution_flex: {
+    id: 'admission_institution_flex',
+    label: 'Institution Flex',
+    category: 'admission',
+    aspectRatio: '2:1',
+    width: 1920,
+    height: 960,
+    description: 'Large institution-facing flex (e.g., opposite temple/landmark)',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Outdoor flex', 'Institution branding', 'Admission campaigns'],
+  },
+  admission_bus_back: {
+    id: 'admission_bus_back',
+    label: 'Bus Back Panel',
+    category: 'admission',
+    aspectRatio: '16:9',
+    width: 1920,
+    height: 1080,
+    description: 'Bus backside advertisement panel',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Bus advertising', 'Transit media', 'Outdoor reach'],
+  },
+  admission_bus_side: {
+    id: 'admission_bus_side',
+    label: 'Bus Side Panel (3×4 ft)',
+    category: 'admission',
+    aspectRatio: '3:4',
+    width: 1080,
+    height: 1440,
+    description: 'Portrait bus side panel advertisement (3×4 ft)',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Bus side advertising', 'Transit media', 'Portrait outdoor reach'],
+  },
+  admission_standee: {
+    id: 'admission_standee',
+    label: 'Admission Standee',
+    category: 'admission',
+    aspectRatio: '2:5',
+    width: 800,
+    height: 2000,
+    description: 'Tall standee flex for admission stalls and lobbies',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Standees', 'Roll-up banners', 'Stall displays'],
+  },
+  admission_stall_flex_6x3: {
+    id: 'admission_stall_flex_6x3',
+    label: 'Stall Flex (6×3 ft)',
+    category: 'admission',
+    aspectRatio: '2:1',
+    width: 1920,
+    height: 960,
+    description: '6×3 ft backdrop flex for admission stalls',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Stall backdrops', 'Exhibition flex', 'Education fairs'],
+  },
+  admission_stall_flex_8x6: {
+    id: 'admission_stall_flex_8x6',
+    label: 'Stall Flex (8×6 ft)',
+    category: 'admission',
+    aspectRatio: '4:3',
+    width: 1440,
+    height: 1080,
+    description: '8×6 ft backdrop flex for larger admission stalls',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Large stall backdrops', 'Education fairs', 'Campus events'],
+  },
+  admission_social_post: {
+    id: 'admission_social_post',
+    label: 'Admission Social Post',
+    category: 'admission',
+    aspectRatio: '4:5',
+    width: 1080,
+    height: 1350,
+    description: 'Social media post for course/college admission campaigns',
+    popular: true,
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Instagram', 'Facebook', 'WhatsApp', 'Admission announcements'],
+  },
+  admission_office_flex: {
+    id: 'admission_office_flex',
+    label: 'Office Placement Flex',
+    category: 'admission',
+    aspectRatio: '3:1',
+    width: 1920,
+    height: 640,
+    description: 'Flex banner for admission office or placement cell',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Admission office', 'Placement cell', 'Corridor banners'],
+  },
+  admission_achievers_flex: {
+    id: 'admission_achievers_flex',
+    label: '100 Years Achievers Flex',
+    category: 'admission',
+    aspectRatio: '2:3',
+    width: 1080,
+    height: 1620,
+    description: 'Centenary celebration / achievers showcase flex',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['100 years milestone', 'Achievers board', 'Legacy campaigns'],
+  },
+  admission_photo_booth: {
+    id: 'admission_photo_booth',
+    label: 'Photo Booth Backdrop',
+    category: 'admission',
+    aspectRatio: '16:9',
+    width: 1920,
+    height: 1080,
+    description: 'Photo booth backdrop for admission events and stalls',
+    new: true,
+    logoMode: 'institution',
+    useCases: ['Photo booths', 'Event backdrops', 'Campus stalls'],
+  },
+
+  // ---------------------------------------------------------------------------
   // Custom Format
   // ---------------------------------------------------------------------------
   custom: {
@@ -795,6 +973,22 @@ export const FORMAT_GUIDELINES: Partial<Record<CreativeFormatId, string>> = {
     'Bold, attention-grabbing image. Works well with strong headlines, quotes, or data visualizations. Consider Twitter\'s fast-scrolling nature.',
   whatsapp_status:
     'Full-screen vertical image. Bold, clear messaging. Consider how it looks on mobile screens. Engaging visuals that prompt action.',
+  admission_direction_board:
+    'Ultra-wide highway direction board. Maximum 5-6 words. Bold institution name, large arrow or directional cue. Must be readable at 60 km/h from 100m distance. High contrast colors.',
+  admission_main_gate:
+    'Wide entrance gate banner. Institution name dominant, tagline secondary. Include admission year prominently. Professional and welcoming aesthetic.',
+  admission_institution_flex:
+    'Large outdoor flex visible from distance. Key programs/courses listed clearly. Institution name and logo prominent. Bold imagery of campus or students.',
+  admission_standee:
+    'Tall narrow standee (2:5 ratio). Top: Institution branding. Middle: Course highlights and key USPs. Bottom: Contact/admission details. Designed for close-range reading at stalls.',
+  admission_social_post:
+    'Vertical social post (4:5) for Instagram/Facebook/WhatsApp. Course name prominent, key admission details (deadline, eligibility), strong call-to-action. Vibrant, thumb-stopping design.',
+  admission_achievers_flex:
+    'Portrait flex celebrating 100 years or achiever milestones. Rich legacy aesthetic with gold/maroon tones. Year milestones, notable alumni faces (placeholder), and institutional pride.',
+  admission_photo_booth:
+    'Landscape photo booth backdrop. Celebratory, photogenic design. Institution branding subtle at edges. Central area kept clean for subjects to stand in front.',
+  admission_bus_side:
+    'Portrait bus side panel (3:4 ratio). Eye-catching design readable at traffic stops. Top: institution branding. Middle: course list in bold. Bottom: contact + WhatsApp number. Strong color contrast essential.',
 }
 
 /**

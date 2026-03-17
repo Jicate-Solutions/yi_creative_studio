@@ -50,6 +50,7 @@ import {
 import { isLogoAutoLocked } from '@/lib/config/logo-locks'
 import type { OrganizationLogo } from '@/types/database.types'
 import type { LogoPlacement } from '@/stores/creative-store'
+import { useCreativeStore } from '@/stores/creative-store'
 
 // Re-using types from original component logic
 interface CreativeFormData {
@@ -129,6 +130,9 @@ export function LogoCanvasSection({
     updateLogoPosition,
     swapLogoPositions
 }: LogoCanvasSectionProps) {
+    // institution logoMode: admission formats bypass Yi/CII position locks
+    const isInstitutionMode = useCreativeStore(s => s.selectedFormat?.logoMode === 'institution')
+
     // v25.0: Drag-and-drop state
     const [activeId, setActiveId] = useState<string | null>(null)
     const [activeRow, setActiveRow] = useState<string | null>(null)
@@ -149,9 +153,9 @@ export function LogoCanvasSection({
         const placement = formData.logosPlacements.find(p => p.logoId === active.id)
 
         if (placement) {
-            // Check if logo is auto-locked
+            // Check if logo is auto-locked (skip in institution mode)
             const logo = logos.find(l => l.id === placement.logoId)
-            if (logo?.name && isLogoAutoLocked(logo.name)) {
+            if (!isInstitutionMode && logo?.name && isLogoAutoLocked(logo.name)) {
                 return
             }
 
@@ -371,6 +375,7 @@ function ZoneRow({
     activeId?: string | null
     activeRow?: string | null
 }) {
+    const isInstitutionMode = useCreativeStore(s => s.selectedFormat?.logoMode === 'institution')
     // Determine if this zone's row matches the active drag row
     const zoneRowName = zone.positions[0]?.split('-')[0] // 'top', 'mid', or 'bottom'
     const isActiveRow = activeId && activeRow === zoneRowName
@@ -406,7 +411,7 @@ function ZoneRow({
                     const positionLabel = position.replace('-', ' slot ')
 
                     // v25.0: Drag state calculations
-                    const isAutoLocked = !!(logo?.name && isLogoAutoLocked(logo.name))
+                    const isAutoLocked = !isInstitutionMode && !!(logo?.name && isLogoAutoLocked(logo.name))
                     const isDragging = !!(activeId && placement?.logoId === activeId)
                     const canDropHere = !!(isActiveRow && !isDragging)
                     const isDraggable = !!(isOccupied && !isAutoLocked)
