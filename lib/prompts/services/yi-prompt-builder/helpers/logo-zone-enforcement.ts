@@ -91,25 +91,41 @@ export function buildForbiddenZonesSection(logoAwareness?: LogoAwarenessContext,
 
   if (zones.length === 0) return ''
 
-  // Build narrative description of reserved zones
-  const zoneNarratives = zones.map(z =>
-    `The ${z.name} area (from ${z.xStart}% to ${z.xEnd}% horizontally, and from ${z.yStart}% to ${z.yEnd}% vertically) is reserved for branding elements.`
-  ).join(' ')
+  // v38.0: Build specific overlay position descriptions from actual zones
+  const topZones = zones.filter(z => z.yEnd <= 15)
+  const midZones = zones.filter(z => z.yStart >= 15 && z.yEnd <= 30)
+  const bottomZones = zones.filter(z => z.yStart >= 85)
 
-  // v3.7: CRITICAL - Use descriptive language that AI will NOT render as visible text
-  // AVOID phrases like "logo overlays", "reserved for", "zone" - Gemini renders these literally
+  const overlayDescriptions: string[] = []
+  if (topZones.length > 0) {
+    const positions = topZones.map(z => z.name).join(', ')
+    overlayDescriptions.push(`Top edge: ${topZones.length} overlay elements at ${positions}.`)
+  }
+  if (midZones.length > 0) {
+    const positions = midZones.map(z => z.name).join(', ')
+    overlayDescriptions.push(`Below top: ${midZones.length} overlay elements at ${positions}.`)
+  }
+  if (bottomZones.length > 0) {
+    const positions = bottomZones.map(z => z.name).join(', ')
+    overlayDescriptions.push(`Bottom edge: ${bottomZones.length} overlay elements at ${positions}.`)
+  }
+
+  const overlayMap = overlayDescriptions.length > 0
+    ? `Semi-transparent branded overlays will be composited at specific positions after generation: ${overlayDescriptions.join(' ')} These areas should have CLEAN atmospheric background artwork — the overlays are semi-transparent so the background will show through.`
+    : ''
+
   return `
 LAYOUT COMPOSITION REQUIREMENTS:
 
-The top ${headerPercent}% of the image should have a clean, uncluttered background (solid color, subtle gradient, or simple texture). Keep this area simple and clear - NO text, NO faces, NO detailed graphics in the upper ${headerPercent}%. The background should flow naturally from top to bottom without creating visible stripes or bands. ${zoneNarratives}
+${overlayMap}
 
-The main event title and headline text belongs in the central area, starting at approximately ${titleStartRange} from the top edge. Keep all important text out of the upper ${headerPercent}% area. The headline text should be horizontally centered, positioned between 25% and 75% of the image width, leaving the corner areas completely clear.
+The top ${headerPercent}% of the image should have a clean, uncluttered atmospheric background (sky, ambient light, soft gradient). NO text, NO faces, NO detailed graphics in this area — overlays will cover them. The background should flow naturally from top to bottom as one unified scene.
 
-All typography, including the event name, tagline, and any other text elements, begins below the top ${headerPercent}% area. The background should transition seamlessly from the top edge through the entire poster without creating separate sections or visible bands.
+The main event title and all text belongs in the central area, starting at approximately ${titleStartRange} from the top edge. The headline text should be horizontally centered, positioned between 25% and 75% of the image width.
 
-When positioning the event title: Start the title text block at minimum ${titleStartMin}% down from the top edge. Center the title horizontally, keeping it away from the leftmost 25% and rightmost 25% of the image width. Long titles should wrap to multiple lines rather than extending into corner areas.
+All typography begins below the top ${headerPercent}% area. The background transitions seamlessly from the top edge through the entire poster — no separate sections or visible bands.
 
-IMPORTANT: Keep the upper region completely empty. Generate ONLY the clean background.
+When positioning the event title: Start at minimum ${titleStartMin}% down from the top. Center horizontally. Long titles wrap to multiple lines rather than extending into overlay areas.
 `
 }
 
@@ -230,29 +246,44 @@ export function buildPixelPreciseSpatialConstraints(
     )
   }
 
-  // Flash model (yi_vision) — v32.0: Simplified zone enforcement without verbose pixel values
-  // Uses percentage-based language that Gemini follows more reliably
+  // Flash model (yi_vision) — v38.0: Enhanced zone enforcement with overlay position awareness
+  // Tells Gemini exactly WHERE overlays will be placed so it designs AROUND them
   return `
 (DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
 CANVAS LAYOUT RULE:
-DO NOT draw any logo, logo placeholder, "LOGO" text, emoji icon, or brand mark anywhere in the image — logos are composited programmatically as a separate overlay after generation. Render ONLY pure background artwork in the header and footer zones.
-The top ${contentStartPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
-The bottom ${100 - contentEndPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
+DO NOT draw any logo, logo placeholder, "LOGO" text, emoji icon, or brand mark anywhere in the image — branded overlay elements are composited as a separate layer after generation. Render ONLY pure background artwork in the header and footer zones.
 
-ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed in the middle ${contentHeightPercent}% of the canvas (between ${contentStartPercent}% and ${contentEndPercent}% from the top).
+OVERLAY POSITION MAP (these areas will have semi-transparent overlays composited on top):
+- TOP STRIP (0-10% height): Small branded overlay elements across the top edge (left, center, right). Keep this strip as CLEAN atmospheric background — smooth sky, ambient light, soft color. No text, no faces, no detailed objects.
+- SECOND STRIP (10-20% height): Additional small overlay elements just below the top. Keep as clean background.
+- BOTTOM STRIP (65-100% height): Footer overlay elements across the bottom edge. Keep as clean background — ground, ambient base.
 
-The top ${contentStartPercent}% and bottom ${100 - contentEndPercent}% should contain ONLY smooth background artwork — no text, no labels, no icons.
+The top ${contentStartPercent}% of the canvas will be COVERED by overlay elements. Any text or faces placed here will be hidden behind overlays.
+The bottom ${100 - contentEndPercent}% of the canvas will be COVERED by footer overlays. Any text placed here will be hidden.
+
+SAFE CONTENT ZONE: ${contentStartPercent}% to ${contentEndPercent}% from top (the middle ${contentHeightPercent}% of the canvas).
+ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed ONLY in this zone.
 
 BACKGROUND DESIGN:
-Create ONE continuous background that flows seamlessly from top to bottom — like a single photograph or painting.
-Do NOT create visible bands, stripes, or section dividers. The background is ONE unified scene.
+Create ONE continuous background scene that flows seamlessly from top to bottom — like a single photograph or painting.
+The background artwork extends through ALL zones (including overlay areas) as a unified scene — the scene IS the full canvas.
+Do NOT create visible bands, stripes, or section dividers.
+Do NOT create a "hero image on top + text below" split layout.
 
-TEXT PLACEMENT:
-Place the event headline starting just below the ${contentStartPercent}% mark.
-All supporting text (date, time, venue, speakers) fits between ${contentStartPercent}% and ${contentEndPercent}%.
-Keep text horizontally centered between 25% and 75% width.
-If content is extensive, use smaller fonts and tighter spacing — never push text outside the safe zone.
+TEXT PLACEMENT — CENTERED OVERLAY (v39.0):
+The text is NOT below the scene — it is OVERLAID on the CENTER of the scene.
+VERTICALLY CENTER all text elements within the ${contentStartPercent}%-${contentEndPercent}% band.
+The scene fills the ENTIRE canvas. Text sits ON TOP of the scene in the center band.
+Think of it like a movie poster: full-bleed cinematic image with title text centered over it.
+
+Composition model:
+- 0%-${contentStartPercent}%: Scene background only (sky, atmosphere) — covered by overlays
+- ${contentStartPercent}%-${contentEndPercent}%: Scene CONTINUES here + ALL text overlaid on top of it
+- ${contentEndPercent}%-100%: Scene background only (ground, ambient) — covered by overlays
+- The headline appears in the VERTICAL CENTER of the ${contentStartPercent}%-${contentEndPercent}% zone
+- All text is horizontally centered between 15% and 85% width
+- If content is extensive, use smaller fonts and tighter spacing — NEVER push text below ${contentEndPercent}%
 `
 }
 
@@ -279,26 +310,33 @@ function buildProModelSpatialConstraints(
   contentStartPercent: number,
   contentEndPercent: number
 ): string {
-  // v32.0: Simplified Pro model constraints — percentage-based, no verbose pixel values
+  // v38.0: Enhanced Pro model constraints with overlay position awareness
   return `
 (DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
 CANVAS LAYOUT RULE:
-The top ${contentStartPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
-The bottom ${100 - contentEndPercent}% of the canvas is reserved for logo overlays. Content placed here will be hidden.
+OVERLAY POSITION MAP (semi-transparent overlays will cover these areas after generation):
+- TOP STRIP (0-10%): Branded overlay elements across the top edge. Keep as clean atmospheric background.
+- SECOND STRIP (10-20%): Additional overlay elements. Keep as clean background.
+- BOTTOM STRIP (65-100%): Footer overlay elements. Keep as clean background.
 
-ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed between ${contentStartPercent}% and ${contentEndPercent}% from the top.
+The top ${contentStartPercent}% will be COVERED by overlays. Text or faces here will be hidden.
+The bottom ${100 - contentEndPercent}% will be COVERED by footer overlays. Text here will be hidden.
 
-The top and bottom reserved areas should contain ONLY smooth background artwork — no text, no labels, no icons, no UI elements.
+SAFE CONTENT ZONE: ${contentStartPercent}% to ${contentEndPercent}% from top.
+ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed ONLY in this zone.
 
-BACKGROUND DESIGN:
-Create ONE continuous background that flows seamlessly from top to bottom — like a single photograph or painting.
-Do NOT create visible bands, stripes, or section dividers. The background is ONE unified scene.
+BACKGROUND: ONE continuous scene from top to bottom — no bands, no stripes, no dividers.
+Background artwork flows through ALL zones including overlay areas.
+Do NOT create a "hero image on top + text below" split layout.
 
-TEXT PLACEMENT:
-Place the event headline starting just below the ${contentStartPercent}% mark.
-All supporting text (date, time, venue, speakers) fits between ${contentStartPercent}% and ${contentEndPercent}%.
-Keep text horizontally centered between 25% and 75% width.
+TEXT PLACEMENT — CENTERED OVERLAY (v39.0):
+The text is OVERLAID on the CENTER of the scene — NOT placed below it.
+VERTICALLY CENTER all text within the ${contentStartPercent}%-${contentEndPercent}% band.
+The scene fills the ENTIRE canvas. Text sits ON TOP of the scene like a movie poster.
+The headline appears in the VERTICAL CENTER of the content zone.
+All supporting text fits between ${contentStartPercent}% and ${contentEndPercent}%.
+Keep text horizontally centered between 15% and 85% width.
 
 CONTENT PRIORITY (when space is tight):
 1. Event headline/title (largest, most prominent)

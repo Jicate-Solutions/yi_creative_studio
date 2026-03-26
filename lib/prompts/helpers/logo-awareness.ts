@@ -88,20 +88,15 @@ function getHorizontalPositions(zones: LogoSafeZone[]): string {
 }
 
 /**
- * Build comprehensive layout guidance string for AI prompt
- * This is the main text that tells the AI where NOT to place content
+ * v38.0: Build comprehensive layout guidance with concrete logo position awareness.
  *
- * IMPORTANT: Avoid using technical keywords, pixel values, or instruction-like
- * text that AI image models might render as actual text in the design.
- * Use natural, descriptive language about spatial composition instead.
+ * IMPORTANT: Uses compositional language (not "logo" keywords) to avoid text rendering leaks.
+ * Describes the SPATIAL COMPOSITION needed, not the technical reason.
  *
  * Yi Brand Guidelines 2025 - Two-Strip Layout:
- * - HEADER STRIP (top): Brand logos (Yi, Bharat Rising, CII)
- * - SECOND STRIP (just below header): Vertical logos (Yi Learning, etc.)
- * - FOOTER STRIP (bottom): Sponsor/Partner logos
- *
- * The "middle" positions (mid-left, center, mid-right) are rendered
- * JUST BELOW the header strip, not at the vertical center of the image.
+ * - HEADER STRIP (top): Brand overlays (Yi, Bharat Rising, CII)
+ * - SECOND STRIP (just below header): Vertical overlays (Yi Learning, etc.)
+ * - FOOTER STRIP (bottom): Sponsor/Partner overlays
  */
 export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   if (safeZones.length === 0) {
@@ -111,25 +106,32 @@ export function buildLogoLayoutGuidance(safeZones: LogoSafeZone[]): string {
   const { top, middle, bottom } = groupZonesByRegion(safeZones)
   const lines: string[] = []
 
-  // v24.3: Use ONLY neutral spatial language - describe WHAT to show, not what to avoid
-  // Gemini renders any "DO NOT" or "forbidden" language as visible labels
-
-  if (top.length > 0 || middle.length > 0) {
-    // Top area - describe positively what should be there
+  if (top.length > 0) {
+    const topCount = top.length
+    const topPositions = getHorizontalPositions(top)
     lines.push(
-      `The upper portion shows open sky, clouds, or soft ambient lighting.`
+      `The top edge has ${topCount} small branded overlay elements (${topPositions}). The upper 10% should be clean atmospheric background — smooth sky, ambient light, or soft gradient — with no text or detailed faces at these positions.`
+    )
+  }
+
+  if (middle.length > 0) {
+    const midCount = middle.length
+    const midPositions = getHorizontalPositions(middle)
+    lines.push(
+      `Just below the top strip (10-20% height), ${midCount} smaller overlay elements appear (${midPositions}). Keep these spots as clean background artwork.`
     )
   }
 
   if (bottom.length > 0) {
-    // Bottom area - describe positively what should be there
+    const bottomCount = bottom.length
+    const bottomPositions = getHorizontalPositions(bottom)
     lines.push(
-      `The lower portion shows ground, floor, or subtle gradient fading out.`
+      `The bottom 30% has ${bottomCount} footer overlay elements (${bottomPositions}). Keep this area as clean background — ground texture, subtle gradient, or ambient base.`
     )
   }
 
-  // v24.10: General composition guidance - focus on CENTER for content (unified 40%-70% zone)
-  lines.push('Place the event title and all text content in the CENTER portion of the image (between 40% and 70% from top).')
+  // Content zone guidance
+  lines.push('ALL text, headlines, event title, date, venue, and speaker info MUST be placed in the CENTER BAND (40% to 65% from top). This is the ONLY safe zone for visible text.')
 
   return lines.join(' ')
 }

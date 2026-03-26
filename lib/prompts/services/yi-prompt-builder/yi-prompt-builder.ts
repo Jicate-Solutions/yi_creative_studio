@@ -76,10 +76,10 @@ BACKGROUND AS STORYTELLING SCENE (MANDATORY — NON-NEGOTIABLE):
 - The scene should be so clear that viewers understand the event purpose WITHOUT reading any text
 - Think AWARD-WINNING EDITORIAL POSTER quality — bold, visually ambitious, Behance-worthy. Striking design with clear structure.
 - FULL CANVAS COMPOSITION (v35.2 — MANDATORY): The scene FILLS THE ENTIRE CANVAS as background artwork. It is NOT a foreground photo with empty space below it for text captions.
-- Human subjects are positioned MID-CANVAS (40–65% of canvas height). Atmospheric/environmental elements CONTINUE BEHIND the lower 65–100% zone where the info card appears.
-- Text is OVERLAID ON the background within the content zone (40–70%). There is NO empty/dark area below the people reserved for text — the background extends behind all text elements.
+- Human subjects are positioned MID-CANVAS (30–55% of canvas height). Atmospheric/environmental elements CONTINUE BEHIND ALL zones as a unified background.
+- Text is OVERLAID ON the CENTER of the background within the content zone (40–65%). There is NO empty/dark area below the people reserved for text — the background extends behind all text elements.
 - ❌ WRONG composition: [People photo in upper 65%] + [dark/empty lower zone with text as caption below photo]
-- ✅ CORRECT composition: [Rich scene background 0–100%] + [people mid-canvas 40–65%] + [text overlaid on background 40–70%]
+- ✅ CORRECT composition: [Rich scene background 0–100%] + [people mid-canvas 30–55%] + [text overlaid on background 40–65%]
 - ❌ ANTI-CARD RULE (v35.4): NEVER place the scene inside a rounded rectangle, photo card, image frame, or any contained box with borders or rounded corners
 - ❌ NEVER use a solid-color section at the top/header with a "scene card" in the lower area — this is the WRONG layout
 - ❌ The scene has NO frame, NO border, NO rounded corners, NO card-shadow — it IS the canvas itself
@@ -140,14 +140,15 @@ NEVER render as visible text:
 - XML tags and technical terms: aspect ratio, resolution, DPI, zone, hierarchy, layout, composition
 
 ONLY render as visible text:
-- Exact content inside <text role="...">USER CONTENT HERE</text> tags
-- The quoted values are the EXACT text to render - DO NOT paraphrase, enhance, summarize, or add to them
-- If <text role="headline">Happy New Year</text>, render ONLY "Happy New Year" - NOT "Happy New Year 2024", NOT "Celebrate the New Year"
+- Quoted content after role markers like (headline, #107023) "Content Here"
+- The parenthetical part (role, color, size) is styling metadata — NEVER render it as text
+- Render ONLY the quoted string EXACTLY as provided — DO NOT paraphrase, enhance, summarize, or add to it
+- Example: (headline, #107023, largest) "Happy New Year" → render ONLY "Happy New Year" — NOT "Happy New Year 2024", NOT "Celebrate the New Year"
 
 CRITICAL VALIDATION CHECKPOINT (Ask yourself before rendering ANYTHING):
-"Is this text I'm about to render explicitly inside a <text role='...'> tag?"
-→ If YES: Render it EXACTLY as provided (character-for-character match)
-→ If NO: DO NOT render it (it's visual guidance, decorative context, or instruction - NOT text content)
+"Is this text I'm about to render explicitly inside quotes after a (role) marker?"
+→ If YES: Render it EXACTLY as provided (character-for-character match), using the color/size hints from the parenthetical
+→ If NO: DO NOT render it (it's visual guidance, decorative context, or instruction — NOT text content)
 
 ═══════════════════════════════════════════════════════════════════════════════
 AI CONTROL BOUNDARY
@@ -164,12 +165,12 @@ AI HAS FULL CREATIVE CONTROL OVER:
 AI MUST NOT GENERATE (strict boundaries):
 - Non-Indian faces — when people appear in scenes, ALL must have Indian/South Asian appearance
 - Faces in the speaker photo overlay zone (60%-90%) when speaker photos are enabled
-- Exact text content (use ONLY values from <text role="..."> tags)
+- Exact text content (use ONLY quoted values from (role) markers)
 - Logos or branding marks (added via Sharp post-processing)
 - Different font families than specified in brand_context
 
 USER PROVIDES (do not recreate):
-- Exact text content in text tags
+- Exact text content in role markers
 - Speaker/guest photos (composited separately)
 - Organization logos (overlaid separately)
 - Font family preference (if specified)
@@ -189,7 +190,7 @@ Reserved for brand logo overlays. Create clean background area with soft
 atmospheric lighting, subtle gradients, or simple color tones.
 ⚠️ NO text, NO headlines, NO event details in this zone.
 
-CENTER BAND (40% to 70% of image height) - ALL TEXT MUST BE HERE:
+CENTER BAND (40% to 65% of image height) - ALL TEXT MUST BE HERE:
 This is where ALL text content appears - event title, date, venue, speakers,
 details. All text MUST fit within this 30% vertical zone.
 Arrange text in clear vertical hierarchy with the main headline prominent.

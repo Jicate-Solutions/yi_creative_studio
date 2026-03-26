@@ -21,34 +21,117 @@ import { hexToRgb, calculateLuminance } from '@/lib/utils/color-contrast'
 // LOGO AWARENESS CONTEXT
 // ============================================================
 
-const POSITION_DESCRIPTIONS: Record<string, string> = {
-  'top-left': 'top-left corner (approximately 10-15% from top and left edges)',
-  'top-right': 'top-right corner (approximately 10-15% from top and right edges)',
-  'bottom-left': 'bottom-left corner (approximately 10-15% from bottom and left edges)',
-  'bottom-right': 'bottom-right corner (approximately 10-15% from bottom and right edges)',
-  'center-top': 'centered at the top (approximately 10% from top edge)',
-}
-
-const SIZE_DESCRIPTIONS: Record<string, string> = {
-  small: 'small logo area (approximately 8-10% of image width)',
-  medium: 'medium logo area (approximately 12-15% of image width)',
-  large: 'large logo area (approximately 18-22% of image width)',
+/**
+ * v38.0: Position-to-spatial-description mapping for logo-aware generation.
+ * Uses compositional language (not "logo" language) to avoid text rendering leaks.
+ * Describes WHERE on the canvas to keep clean background, not WHY.
+ */
+const GRID_POSITION_SPATIAL: Record<string, string> = {
+  // Header row — top 0-10% of canvas
+  'top-1': 'far-left of the top edge',
+  'top-2': 'left-center of the top edge',
+  'top-3': 'center-left of the top edge',
+  'top-4': 'center-right of the top edge',
+  'top-5': 'right-center of the top edge',
+  'top-6': 'far-right of the top edge',
+  // Second row — 10-20% of canvas
+  'mid-1': 'far-left, just below the top strip',
+  'mid-2': 'left-center, just below the top strip',
+  'mid-3': 'center-left, just below the top strip',
+  'mid-4': 'center-right, just below the top strip',
+  'mid-5': 'right-center, just below the top strip',
+  'mid-6': 'far-right, just below the top strip',
+  // Footer row — bottom 70-100%
+  'bottom-1': 'far-left of the bottom edge',
+  'bottom-2': 'left-center of the bottom edge',
+  'bottom-3': 'center-left of the bottom edge',
+  'bottom-4': 'center-right of the bottom edge',
+  'bottom-5': 'right-center of the bottom edge',
+  'bottom-6': 'far-right of the bottom edge',
+  // Legacy aliases
+  'top-left': 'far-left of the top edge',
+  'top-right': 'far-right of the top edge',
+  'bottom-left': 'far-left of the bottom edge',
+  'bottom-right': 'far-right of the bottom edge',
+  'center-top': 'centered at the top edge',
 }
 
 /**
- * Build logo context section for prompt
+ * v38.0: Build logo-aware spatial composition context.
  *
- * NOTE: Logo context is intentionally disabled to prevent logo-related
- * instructions from leaking into AI-generated images. Logos are handled
- * entirely by Sharp post-processing overlay - the AI does not need to
- * know about logos at all.
+ * RE-ENABLED after being disabled. The previous approach (Sharp-only, AI-unaware)
+ * caused content-logo overlap because Gemini had zero knowledge of where overlays
+ * would be placed and filled the entire canvas with content.
  *
- * @deprecated Logo awareness is now handled only in post-processing
+ * Strategy: Describe reserved spaces using COMPOSITIONAL language, not "logo" language.
+ * Instead of "logo will be placed at top-left" (Gemini renders "LOGO" as text),
+ * say "keep the top-left area as clean atmospheric background."
+ *
+ * This lets Gemini:
+ * 1. Design AROUND the reserved positions
+ * 2. Place text/faces/details OUTSIDE those areas
+ * 3. Fill reserved areas with clean background artwork (visible through transparent overlays)
  */
 export function buildLogoContext(logoAwareness?: LogoAwarenessContext): string {
-  // Logo overlay is handled by Sharp post-processing
-  // DO NOT send any logo-related information to the AI
-  return ''
+  if (!logoAwareness?.hasLogo) {
+    return ''
+  }
+
+  // Collect all logo positions from both primary and multi-logo array
+  const allPositions: string[] = []
+  if (logoAwareness.logoPosition) {
+    allPositions.push(logoAwareness.logoPosition)
+  }
+  if (logoAwareness.logos?.length) {
+    for (const logo of logoAwareness.logos) {
+      if (logo.position && !allPositions.includes(logo.position)) {
+        allPositions.push(logo.position)
+      }
+    }
+  }
+
+  if (allPositions.length === 0) return ''
+
+  const positions = allPositions
+
+  // Group by row for concise descriptions
+  const headerLogos = positions.filter(p => p.startsWith('top-'))
+  const midLogos = positions.filter(p => p.startsWith('mid-'))
+  const footerLogos = positions.filter(p => p.startsWith('bottom-'))
+
+  const lines: string[] = []
+  lines.push('<instruction>(DO NOT RENDER — overlay awareness for spatial composition only)')
+  lines.push('')
+  lines.push('OVERLAY COMPOSITION AWARENESS:')
+  lines.push('Small branded elements will be composited onto the final image at these positions after generation.')
+  lines.push('Design the background to be CLEAN and UNCLUTTERED at these positions — no text, no faces, no detailed focal objects.')
+  lines.push('The overlay elements are semi-transparent, so the background artwork WILL be visible through them.')
+  lines.push('')
+
+  if (headerLogos.length > 0) {
+    const posNames = headerLogos.map(p => GRID_POSITION_SPATIAL[p] || p).join(', ')
+    lines.push(`TOP STRIP (0-10% height): Small overlay elements at: ${posNames}.`)
+    lines.push('Keep these spots as smooth atmospheric background (sky, ambient light, soft gradient).')
+  }
+
+  if (midLogos.length > 0) {
+    const posNames = midLogos.map(p => GRID_POSITION_SPATIAL[p] || p).join(', ')
+    lines.push(`SECOND STRIP (10-20% height): Smaller overlay elements at: ${posNames}.`)
+    lines.push('Keep these spots as clean background — no text or detailed imagery.')
+  }
+
+  if (footerLogos.length > 0) {
+    const posNames = footerLogos.map(p => GRID_POSITION_SPATIAL[p] || p).join(', ')
+    lines.push(`BOTTOM STRIP (70-100% height): Footer overlay elements at: ${posNames}.`)
+    lines.push('Keep this strip as clean background — no text or critical content.')
+  }
+
+  lines.push('')
+  lines.push('CONTENT PLACEMENT: Place ALL text, headlines, dates, and visual focal points in the CENTER BAND (40%-65% height).')
+  lines.push('This center band is the ONLY safe area for text and important visual details.')
+  lines.push('</instruction>')
+
+  return '\n' + lines.join('\n') + '\n'
 }
 
 // ============================================================

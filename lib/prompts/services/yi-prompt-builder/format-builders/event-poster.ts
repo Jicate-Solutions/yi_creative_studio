@@ -698,6 +698,8 @@ export function buildEventPosterPrompt(
     eventNote,
     venue: data.venue,
     speakers,
+    registrationInfo: data.registrationInfo,
+    additionalDetails: customFieldsText.join(' '),
   })
 
   console.log('[Event Poster v25.1] Content Density Analysis:', contentDensityAnalysis.analysis)
@@ -712,12 +714,12 @@ export function buildEventPosterPrompt(
   // v33.4: STRICT FIXED ZONE STRATEGY — user-required clean logo areas
   // Zone Layout (strict):
   // - Header: 0-40% (FORBIDDEN — clean for logo overlays)
-  // - Content: 40-70% (ALL text — headline, tagline, date, venue, speakers)
-  // - Footer: 70-100% (FORBIDDEN — clean for logo overlays)
+  // - Content: 40-65% (ALL text — headline, tagline, date, venue, speakers)
+  // - Footer: 65-100% (FORBIDDEN — clean for logo overlays, 5% buffer above footer bar)
   // Speaker photo mode shrinks content zone to 40-60%
   const CONTENT_START = 40   // Fixed — header clean zone ends at exactly 40%
-  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : 70   // Fixed — footer clean zone starts at exactly 70%
-  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 30% available for text (or 20% with speaker photo)
+  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : 65   // v39.0: Moved from 70→65 for 5% buffer above footer bar
+  const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 25% available for text (or 20% with speaker photo)
 
   // Override calculated header start with center zone start
   const headerStartPercent = CONTENT_START
@@ -741,22 +743,21 @@ export function buildEventPosterPrompt(
   const speakerZoneHeight = speakers.length > 0 && !hasSpeakerPhotoEarly ?
     (speakers.length > 2 ? 8 : 6) : 0 // No speaker text zone when photo overlay mode
 
-  // v24.31: Distribute text proportionally within dynamic content zone
-  // Updated zone order: additionalDetails (59-65%) BEFORE speakers (66-68%)
+  // v39.0: Distribute text proportionally within 40-65% content zone (25% total)
+  // Updated zone order: additionalDetails BEFORE speakers
   const textZones = {
     header: { start: 0, end: CONTENT_START },
     headline: { start: CONTENT_START, end: CONTENT_START + 6 },          // 40-46%
-    tagline: { start: CONTENT_START + 7, end: CONTENT_START + 11 },      // 47-51%
-    dateVenue: { start: CONTENT_START + 12, end: CONTENT_START + 18 },   // 52-58%
-    // v24.31: Additional details moved ABOVE speakers (59-65%)
+    tagline: { start: CONTENT_START + 7, end: CONTENT_START + 10 },      // 47-50%
+    dateVenue: { start: CONTENT_START + 11, end: CONTENT_START + 16 },   // 51-56%
+    // v39.0: Additional details tightened (57-62%)
     additionalDetails: hasSpeakerPhotoEarly
-      ? { start: CONTENT_START + 18, end: CONTENT_END - 2 }  // 58-58% (compressed when photo overlay)
-      : { start: CONTENT_START + 19, end: CONTENT_START + 25 }, // 59-65%
-    // v24.31: Speakers moved BELOW additional details (66-68%)
-    // When photo overlay enabled: Sharp handles speaker rendering, skip this zone
+      ? { start: CONTENT_START + 17, end: CONTENT_END - 2 }  // 57-58% (compressed when photo overlay)
+      : { start: CONTENT_START + 17, end: CONTENT_START + 22 }, // 57-62%
+    // Speakers zone (63-65%) — skipped when photo overlay enabled
     speakers: hasSpeakerPhotoEarly
       ? { start: 0, end: 0 }  // Skip - Sharp renders speaker text with photo
-      : { start: CONTENT_START + 26, end: CONTENT_START + 28 },    // 66-68%
+      : { start: CONTENT_START + 23, end: CONTENT_START + 24 },    // 63-64%
     buffer: { start: CONTENT_END, end: CONTENT_END },                    // No buffer needed
     footer: { start: CONTENT_END, end: 100 }                             // Dynamic based on CONTENT_END
   }
@@ -1540,19 +1541,30 @@ All Design Intelligence suggestions below are SUPPLEMENTAL - prioritize user's e
 ` : ''}TYPOGRAPHY GUIDELINES:
 ${typographyRules}
 
+<instruction>(DO NOT RENDER — poster context for visual composition only, NOT text to display)
 POSTER DESCRIPTION:
 A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for "${eventName}"${eventDescription ? ` — themed around "${eventDescription}"` : ''}.Target Audience: ${data.targetAudience || eventContext.defaultAudience}.${eventDescription ? `\nEVENT CONTEXT: The visual design, imagery, and atmosphere must reflect the topic "${eventDescription}". This is the PRIMARY thematic direction for the poster.` : ''}
+</instruction>
 
 ${initiativeColorContext ? `
 ${initiativeColorContext}
 
 ` : ''}${options.ultraProContext?.visualScene
-      ? `VISUAL SCENE (ULTRA-PRO DIRECTION):
+      ? `<instruction>(DO NOT RENDER — visual scene guidance for AI composition, NOT text to display on poster)
+VISUAL SCENE (ULTRA-PRO DIRECTION):
 ${stripHexCodes(options.ultraProContext.visualScene)}
 
 DESIGN GUIDANCE:
-${stripHexCodes(options.ultraProContext.designGuidance || 'Follow the visual scene description strictly.')}`
-      : `The poster achieves these visual storytelling goals: It looks and feels like a ${data.eventType || 'professional'} event through its visual design. ${sophistication === 'minimalist' ? 'It uses VAST NEGATIVE SPACE and a single focal element for maximum impact.' : 'The visual_design_elements create an atmospheric, contextually-rich background. The design feels "Busy" in a professional, high-end way (Organized Complexity).'} The design quality rivals Google AI Studio - layered, dimensional, sophisticated. It passes the 3-SECOND TEST where the viewer instantly understands WHAT, WHEN, WHERE.`
+${stripHexCodes(options.ultraProContext.designGuidance || 'Follow the visual scene description strictly.').replace(/(\d{2,3})([–-])(\d{2,3})%/g, (match, low, dash, high) => {
+  const l = parseInt(low); const h = parseInt(high);
+  const cl = Math.min(l, CONTENT_END); const ch = Math.min(h, CONTENT_END);
+  return cl === ch ? `${cl}%` : `${cl}${dash}${ch}%`;
+}).replace(/(?:below|above|past|beyond)\s+(\d{2,3})%/gi, `within ${CONTENT_START}-${CONTENT_END}%`)}
+⚠️ OVERRIDE: ALL text placement percentages above are CLAMPED to the ${CONTENT_START}-${CONTENT_END}% content zone. Ignore any guidance suggesting text below ${CONTENT_END}%.
+</instruction>`
+      : `<instruction>(DO NOT RENDER — visual guidance only)
+The poster achieves these visual storytelling goals: It looks and feels like a ${data.eventType || 'professional'} event through its visual design. ${sophistication === 'minimalist' ? 'It uses VAST NEGATIVE SPACE and a single focal element for maximum impact.' : 'The visual_design_elements create an atmospheric, contextually-rich background. The design feels "Busy" in a professional, high-end way (Organized Complexity).'} The design quality rivals Google AI Studio - layered, dimensional, sophisticated. It passes the 3-SECOND TEST where the viewer instantly understands WHAT, WHEN, WHERE.
+</instruction>`
     }
 
 ${hasSpeakerPhoto ? speakerZoneContext : ''}
@@ -1583,6 +1595,7 @@ ${'' /* v24.17: When hasSpeakerPhoto=true, speaker text rendering is handled by 
 ${logoStripZoneContext ? `${logoStripZoneContext}
 
 ` : ''}
+${logoContext}
 <!-- ============================================= -->
 <!-- VISUAL CONTEXT (WITHIN SPATIAL ZONES)       -->
 <!-- ============================================= -->
@@ -1618,7 +1631,14 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
   - If event has extensive content: Use smaller fonts and tighter spacing
   - Priority: Event title > Date/Venue > Speaker > Additional details
   - NEVER expand text into 0-${CONTENT_START}% header or ${CONTENT_END}%-100% footer zones
-
+${contentDensityAnalysis.density === 'dense' ? `
+  ⚠️ HIGH CONTENT DENSITY DETECTED (v39.0) — This poster has extensive text content.
+  - Use COMPACT font sizes for additional details and registration info (max 16px equivalent)
+  - Additional details and registration info MUST fit between ${textZones.additionalDetails.start}% and ${CONTENT_END - 2}%
+  - Use 2-column layout for additional details if content is long
+  - If content STILL overflows: TRUNCATE least important details — NEVER push below ${CONTENT_END}%
+  - The ${CONTENT_END}% boundary (${_contentEndPx}px) is a HARD PHYSICAL LIMIT — content below it is INVISIBLE
+` : ''}
     2. HIERARCHY OVER RIGIDITY (WITHIN ZONES):
   - Do NOT rigidly center everything. Follow the "Alignment Strategy" defined in the typography section above.
   - If alignment is 'left', align key text elements to a strong left grid line WITHIN each <text_zone>
@@ -1878,12 +1898,12 @@ ${(() => {
 })()}
 ${data.venue && data.venue.trim() !== '' ? `    - Location: "${data.venue}"` : ''}
 ${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
-${customFieldsText.length > 0 || eventNote ? `- Additional Details:\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}${eventNote ? `\n   "${eventNote}"` : ''}` : ''}
+${customFieldsText.length > 0 || eventNote ? `- Additional Details (⚠️ MUST render within ${textZones.additionalDetails.start}%-${textZones.additionalDetails.end}% zone, ABOVE ${_contentEndPx}px — use SMALLER font if text is long, NEVER push below ${CONTENT_END}%):\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}${eventNote ? `\n   "${eventNote}"` : ''}` : ''}
 ${'' /* v27.0: Speaker text REMOVED from "TEXT TO DISPLAY" list to prevent double-rendering.
   Speaker names and designations are already rendered via buildSpeakerTextSection() XML <text role> tags
   in the dedicated SPEAKER TEXT POSITIONING & TYPOGRAPHY section above.
   Duplicating them here caused Gemini to render speaker details TWICE on the poster. */}
-${data.registrationInfo ? `  - Button: "${data.registrationInfo}"` : ''}
+${data.registrationInfo ? `  - Button (⚠️ MUST be ABOVE ${_contentEndPx}px — within content zone, compress font if needed): "${data.registrationInfo}"` : ''}
 ${'' /* v14.0: eventNote moved to Additional Details section (line 1307) - Footer section now available for future use */}
 
 ${/* v26.0: Inject storytelling narrative BEFORE decorative elements */''}${options.designContext?.storytellingContext ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}

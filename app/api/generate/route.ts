@@ -81,6 +81,7 @@ import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpe
 import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
 import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
+import { resolveAutoDesignChoices } from '@/lib/services/auto-design-selector'
 import { sanitizeForGemini, detectLabelLeaks, stripFieldLabelsOnly, isXmlStructuredPrompt } from '@/lib/prompts/services/prompt-sanitizer'
 import { sanitizeForLogging } from '@/lib/utils/sanitize-log-data'
 import { randomUUID } from 'crypto'
@@ -543,7 +544,13 @@ export async function POST(request: NextRequest) {
     // ========================================================
     // v31.0: PROMPT STYLE CONFIGURATION
     // ========================================================
-    const styleConfig = getPromptStyleConfig(promptStyle || 'auto')
+    // Auto-select design choices from format + event context (rule-based, zero cost)
+    const autoChoices = resolveAutoDesignChoices({
+      formatId,
+      eventType: (userFormData as Record<string, unknown>)?.eventType as string | undefined,
+    })
+    const styleConfig = getPromptStyleConfig(autoChoices.promptStyleId)
+    console.log(`[AutoDesign] promptStyle="${autoChoices.promptStyleId}", style="${autoChoices.style}"`)
     const modelGuidance = styleConfig.modelGuidance[model] || ''
     if (styleConfig.id !== 'auto') {
       console.log(`[v31.0 Prompt Style] Active: "${styleConfig.name}" (${styleConfig.id})`)
@@ -1030,18 +1037,11 @@ export async function POST(request: NextRequest) {
       let finalStyle: string
       let useCustomThemeGeneration = false
 
-      if (effectiveDesignData?.theme === 'ai' || !effectiveDesignData?.theme) {
-        // User wants AI to generate custom theme OR hasn't selected any theme
-        finalTheme = 'ai-custom'  // Signal to Design Intelligence
-        finalStyle = effectiveDesignData?.style || 'modern'
-        useCustomThemeGeneration = true
-        console.log('[Generate] 🎨 AI Custom Theme Mode - Design Intelligence will generate unique theme')
-      } else {
-        // User manually selected a theme from the predefined options
-        finalTheme = effectiveDesignData.theme
-        finalStyle = effectiveDesignData?.style || 'modern'
-        console.log(`[Generate] User-selected theme: ${finalTheme}`)
-      }
+      // Always use AI-custom theme and auto-selected style (user controls removed from UI)
+      finalTheme = 'ai-custom'
+      finalStyle = autoChoices.style
+      useCustomThemeGeneration = true
+      console.log(`[AutoDesign] Theme: ai-custom, Style: ${autoChoices.style}`)
 
       // Only run theme inference for fallback/mood detection (not for theme selection)
       const themeInference = !useCustomThemeGeneration
@@ -1858,18 +1858,20 @@ export async function POST(request: NextRequest) {
         // v24.0: Store prompt for potential regeneration if text violations are detected
         storedPromptForRegeneration = finalXmlPrompt
 
-        // CRITICAL: Validate speaker text presence in XML tags
+        // CRITICAL: Validate speaker text presence in prompt
+        // v38.0: Support both XML tags (pre-sanitization) and parenthetical markers (post-sanitization)
         const formSpeakers = (enrichedFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
         if (formSpeakers && formSpeakers.length > 0) {
-          const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/);
+          const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/) ||
+            finalXmlPrompt.match(/\(speaker_name[^)]*\)\s*"([^"]+)"/);
 
           if (!speakerNameMatch) {
-            console.error('[Generation] 🚨 SPEAKER TEXT NOT IN <text role> TAGS!');
+            console.error('[Generation] 🚨 SPEAKER TEXT NOT IN PROMPT!');
             console.error('[Generation] ⚠️ Speaker will NOT render in image');
             console.error('[Generation] Expected speaker:', formSpeakers[0]?.name);
             console.error('[Generation] Speakers array length:', formSpeakers.length);
           } else {
-            console.log('[Generation] ✅ Speaker text found in XML tags:', speakerNameMatch[1]);
+            console.log('[Generation] ✅ Speaker text found in prompt:', speakerNameMatch[1]);
           }
         }
 
@@ -2141,10 +2143,10 @@ ${typographyProfile.hierarchy}
 
       // v24.10: Calculate forbidden zone percentages (UNIFIED ZONES)
       // Header: 0% to 40% (FORBIDDEN - no text)
-      // Content: 40% to 70% (ALL text must be here)
-      // Footer: 70% to 100% (FORBIDDEN - no text)
+      // Content: 40% to 65% (ALL text must be here)
+      // Footer: 65% to 100% (FORBIDDEN - no text, 5% buffer above footer bar)
       const headerEndPercent = 40 // v33.4: Strict — header clean zone 0-40%
-      const footerStartPercent = 70 // v33.4: Strict — footer clean zone 70-100% (was 78, reverted to strict)
+      const footerStartPercent = 65 // v39.0: Strict — footer clean zone 65-100% (was 70, moved up 5% buffer above footer bar)
 
       const violations = await detectTextInForbiddenZones(
         imageBuffer,
@@ -2171,7 +2173,7 @@ ${typographyProfile.hierarchy}
 
           // v33.4: Fixed strict 40% boundary — matches prompt and verification
           const safeHeaderPercent = 40
-          console.log(`[v32.1 Zone Retry] Fixed boundary: ${safeHeaderPercent}% header, 70% footer (strict)`)
+          console.log(`[v32.1 Zone Retry] Fixed boundary: ${safeHeaderPercent}% header, ${footerStartPercent}% footer (strict)`)
 
           // PREPEND the retry instruction so it has highest attention weight (not append)
           const retryInstruction = `<instruction>(DO NOT RENDER) ⚠️ CRITICAL ZONE ENFORCEMENT — RETRY (v33.4):
@@ -2309,6 +2311,57 @@ This is non-negotiable. Any content below ${footerStartPercent}% will not be vis
       } else {
         console.log('[Spatial Verification] ✓ No violations detected')
       }
+      // v38.1: LAYER 3 — Content zone extraction
+      // Gemini generates full canvas but text may leak into header/footer zones.
+      // Fix: extract the 40-75% content zone (where text belongs), then extend
+      // the header/footer with smooth gradient fills sampled from the content edges.
+      // Result: clean header/footer for logo overlays, all text preserved in content zone.
+      try {
+        const sharpLib = await getSharp()
+        const targetWidth = formatDimensions?.width || 1080
+        const targetHeight = formatDimensions?.height || 1440
+
+        const contentStartPercent = 0.40
+        const contentEndPercent = 0.65
+        const contentStartPx = Math.floor(targetHeight * contentStartPercent)
+        const contentEndPx = Math.floor(targetHeight * contentEndPercent)
+        const contentHeight = contentEndPx - contentStartPx
+        const headerHeight = contentStartPx
+        const footerHeight = targetHeight - contentEndPx
+
+        // Extract the content zone (40-75%) — this is preserved as-is
+        const contentZone = await sharpLib(imageBuffer)
+          .extract({ left: 0, top: contentStartPx, width: targetWidth, height: contentHeight })
+          .toBuffer()
+
+        // v39.0: Extract header and blur at 200px (was 100px) to fully obliterate bold text
+        const headerBg = await sharpLib(imageBuffer)
+          .extract({ left: 0, top: 0, width: targetWidth, height: headerHeight })
+          .blur(200)
+          .toBuffer()
+
+        // v39.0: Extract footer and blur at 200px (was 100px) to fully obliterate bold text
+        const footerBg = await sharpLib(imageBuffer)
+          .extract({ left: 0, top: contentEndPx, width: targetWidth, height: footerHeight })
+          .blur(200)
+          .toBuffer()
+
+        // Composite: blurred header bg + sharp content zone + blurred footer bg
+        const fullCanvas = await sharpLib(imageBuffer)
+          .composite([
+            { input: headerBg, top: 0, left: 0 },
+            { input: contentZone, top: contentStartPx, left: 0 },
+            { input: footerBg, top: contentEndPx, left: 0 },
+          ])
+          .png()
+          .toBuffer()
+
+        imageBuffer = Buffer.from(fullCanvas)
+        console.log(`[v38.1 Content Zone] ✅ Kept 40-65% content zone sharp, blurred header/footer backgrounds (text removed, scene preserved)`)
+      } catch (extractError) {
+        console.error('[v38.1 Content Zone] ❌ Extraction failed (non-fatal, using original):', extractError)
+      }
+
     } catch (verificationError) {
       // Don't fail the entire generation if verification fails
       console.error('[Spatial Verification] Verification failed (non-fatal):', verificationError)

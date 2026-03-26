@@ -9,7 +9,7 @@
  * should be cleaner to prioritize text readability.
  */
 
-export type ContentDensity = 'sparse' | 'moderate' | 'rich'
+export type ContentDensity = 'sparse' | 'moderate' | 'rich' | 'dense'
 
 export interface ContentDensityAnalysis {
   /** Total character count of all text content */
@@ -42,6 +42,8 @@ export function analyzeContentDensity(data: {
   speakers?: Array<{ name?: string; designation?: string }>
   subheadline?: string
   tagline?: string
+  registrationInfo?: string
+  additionalDetails?: string
 }): ContentDensityAnalysis {
   // Collect all content fields
   const contentFields = [
@@ -51,6 +53,8 @@ export function analyzeContentDensity(data: {
     data.venue || '',
     data.subheadline || '',
     data.tagline || '',
+    data.registrationInfo || '',
+    data.additionalDetails || '',
     ...(data.speakers || []).map(s =>
       `${s.name || ''} ${s.designation || ''}`.trim()
     )
@@ -75,6 +79,7 @@ export function analyzeContentDensity(data: {
   let backgroundComplexity: 'simple' | 'moderate' | 'immersive'
 
   // v24.12.4: Increased multipliers for richer, more professional backgrounds
+  // v39.0: Added 'dense' tier for heavy additional details + registration info
   if (totalChars < 80 || wordCount < 15) {
     density = 'sparse'
     shouldEnrichBackground = true
@@ -85,11 +90,18 @@ export function analyzeContentDensity(data: {
     shouldEnrichBackground = true  // Was conditional → Now always true
     decorativeMultiplier = 1.6     // Was 1.0-1.3 → Now 1.6
     backgroundComplexity = 'immersive'  // Was 'moderate' → Now 'immersive'
-  } else {
+  } else if (totalChars < 400 && wordCount < 80) {
     density = 'rich'
     shouldEnrichBackground = true  // Was false → Now true (even rich content gets enhanced background)
     decorativeMultiplier = 1.2     // Was 0.8 → Now 1.2
     backgroundComplexity = 'moderate'  // Was 'simple' → Now 'moderate'
+  } else {
+    // v39.0: Dense content — lots of additional details, registration info, prize structures
+    // Needs compact font guidance and strict zone enforcement
+    density = 'dense'
+    shouldEnrichBackground = true
+    decorativeMultiplier = 1.0     // Minimal decoration — text needs all the space
+    backgroundComplexity = 'simple'
   }
 
   // Special cases
