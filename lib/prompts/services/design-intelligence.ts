@@ -327,6 +327,19 @@ const GEMINI_MODEL = 'gemini-2.5-flash' // Best for creative reasoning
 const CLAUDE_MODEL = 'claude-haiku-4-5' // Ultra-smart fallback
 
 // ============================================================
+// CIRCUIT BREAKER — Gemini 429 Rate Limit Protection (v43.1)
+// When Gemini returns 429, skip it for 90s and go straight to
+// Claude fallback. Saves ~14-20s of wasted retry time per call.
+// Module-level: persists across requests within the Node.js worker.
+// ============================================================
+let geminiCircuitOpen: { until: number } | null = null
+
+function isGemini429Error(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
+  return msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('too many requests') || msg.includes('quota')
+}
+
+// ============================================================
 // PROMPT TEMPLATE
 // ============================================================
 
@@ -1521,16 +1534,16 @@ feel premium because they ARE premium — not because they are plain and conserv
         console.log(`[Design Intelligence] 🔄 RETRY ATTEMPT ${attempt}/${MAX_ATTEMPTS} for "${input.eventName}"`)
       }
 
-      // Stage 2: Call LLM (Gemini preferred, Claude fallback)
-      // v25.0: Pass formality for temperature adjustment
+      // Stage 2: Call LLM — Claude primary (v43.1)
+      // v43.1: Switched to Claude Haiku as primary. Reason: gemini-2.5-flash-image
+      // has only 10 RPD on free tier. Each Gemini text call consumed shared quota,
+      // causing 429s after ~10 generations/day. Design Intelligence is pure text
+      // reasoning — Claude Haiku produces identical results with a much higher quota.
+      // Circuit breaker + callGemini() retained for optional future re-enablement.
       const currentFormality = eventProfile?.formality
       let llmResponse: LLMResponse
-      try {
-        llmResponse = await callGemini(prompt, input.formatId, currentFormality) // v25.0: Pass formality for temperature config
-      } catch (e) {
-        console.warn(`[Design Intelligence] Gemini failed (Attempt ${attempt}), falling back to Claude`, e)
-        llmResponse = await callClaude(prompt)
-      }
+      console.log('[Design Intelligence] Source: claude-haiku-4-5 (primary — Gemini quota reserved for image gen)')
+      llmResponse = await callClaude(prompt)
 
       // Stage 3: Parse & Validate
       const designContext = parseDesignContext(llmResponse.text)
@@ -1639,6 +1652,17 @@ async function callGemini(
   formatId?: string,
   formality?: 'casual' | 'professional' | 'premium' | 'exclusive'
 ): Promise<LLMResponse> {
+  // Circuit breaker check — skip Gemini if it's known rate-limited
+  if (geminiCircuitOpen) {
+    if (Date.now() < geminiCircuitOpen.until) {
+      const secondsLeft = Math.ceil((geminiCircuitOpen.until - Date.now()) / 1000)
+      throw new Error(`[Circuit Breaker] Gemini rate-limited, using Claude directly (cooldown ends in ${secondsLeft}s)`)
+    } else {
+      geminiCircuitOpen = null // Cooldown expired — reset
+      console.log('[Circuit Breaker] ✅ Gemini cooldown expired — retrying Gemini')
+    }
+  }
+
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Missing Gemini API Key')
 

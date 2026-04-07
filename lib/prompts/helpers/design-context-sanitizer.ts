@@ -68,6 +68,9 @@ export function sanitizeDesignContext(context: DesignContext): DesignContext {
     sanitizedContext.decorativeElementsContext = {
       ...context.decorativeElementsContext,
       thematicElements: context.decorativeElementsContext.thematicElements.map(el => {
+        // Guard: skip if element is missing or not a string
+        if (!el.element || typeof el.element !== 'string') return el;
+
         // Filter out risky single-word keywords from element descriptions
         let sanitizedElement = el.element;
 

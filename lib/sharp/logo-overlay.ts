@@ -2183,6 +2183,7 @@ export async function applyEnhanced4RowStrip(
   // Get image dimensions
   const metadata = await sharp(imageBuffer).metadata()
   const imageWidth = metadata.width || 1024
+  const imageHeight = metadata.height || 1350
 
   // Create the strip
   const { stripBuffer, stripHeight, stripLeft } = await createEnhanced4RowStrip(
@@ -2195,8 +2196,8 @@ export async function applyEnhanced4RowStrip(
     return imageBuffer
   }
 
-  // Composite strip at top of image
-  // v14.0: Explicit blend mode - composite respecting alpha channel for transparency
+  // v40.1: Header strip anchored at top edge (top: 0)
+  // Zone layout: 0-40% logo strip | 40-70% content | 70-100% footer
   return await sharp(imageBuffer)
     .composite([
       {
@@ -2636,6 +2637,8 @@ export async function applyEnhanced4RowStripSplit(
       adaptiveLayout: logoData.adaptiveLayout,  // v24.0: Pass adaptive layout for text-logo overlap prevention
     })
 
+  // v40.1: Header strip anchored at top edge (top: 0)
+  // Zone layout: 0-40% logo strip | 40-70% content | 70-100% footer
   if (headerHeight > 0) {
     compositeOps.push({
       input: headerBuffer,
@@ -2652,11 +2655,11 @@ export async function applyEnhanced4RowStripSplit(
     })
 
   if (footerHeight > 0) {
-    // v24.0.1: Apply footer offset if violations detected
-    // Move footer UP by offset amount to avoid overlapping with detected content
+    // v40.1: Footer strip anchored to bottom edge — docked at imageHeight - footerHeight
+    // footerOffset moves it UP from the bottom edge when content violations are detected
     const footerTopPosition = logoData.footerOffset
-      ? Math.max(0, imageHeight - footerHeight - logoData.footerOffset)  // Move up, but not above image
-      : imageHeight - footerHeight  // Default: bottom of image
+      ? Math.max(0, imageHeight - footerHeight - logoData.footerOffset)
+      : imageHeight - footerHeight  // Default: flush with bottom edge
 
     if (logoData.footerOffset) {
       console.log('[Footer Adaptive Positioning] Moving footer up by', logoData.footerOffset, 'px to avoid overlap')
@@ -2677,6 +2680,149 @@ export async function applyEnhanced4RowStripSplit(
   // Composite both strips onto image
   return await sharp(imageBuffer)
     .composite(compositeOps)
+    .png()
+    .toBuffer()
+}
+
+/**
+ * Creates a zone guide image for visual zone enforcement (v40.3).
+ * Passed to Gemini as an image reference so it can SEE exactly where logo bars
+ * will be placed — dark zones (top + bottom) = logo areas, white zone = content area.
+ *
+ * This solves the core problem: text instructions alone fail because Gemini
+ * cannot visualize percentage boundaries. A visual reference eliminates ambiguity.
+ *
+ * @param width  - Gemini's expected output width (e.g. 896 for 3:4@1K)
+ * @param height - Gemini's expected output height (e.g. 1200 for 3:4@1K)
+ * @param headerPercent - Top forbidden zone boundary (default 40)
+ * @param footerPercent - Bottom forbidden zone start (default 70)
+ */
+export async function createZoneGuideBuffer(
+  width: number,
+  height: number,
+  headerPercent: number = 40,
+  footerPercent: number = 70
+): Promise<Buffer> {
+  const headerEndY = Math.floor(height * headerPercent / 100)
+  const footerStartY = Math.floor(height * footerPercent / 100)
+  const footerZoneHeight = height - footerStartY
+
+  // Warm amber base canvas (v40.4: amber tint signals "cinematic warm content" instead of gray template)
+  // Avoids Gemini generating washed-out gray palette to match a neutral gray guide
+  const baseBuffer = await sharp({
+    create: { width, height, channels: 3, background: { r: 255, g: 248, b: 220 } }
+  }).png().toBuffer()
+
+  // Dark navy overlay for header zone (0–headerPercent%)
+  const headerSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${headerEndY}">
+      <rect width="${width}" height="${headerEndY}" fill="#0d1b3e"/>
+    </svg>`
+  )
+
+  // Dark navy overlay for footer zone (footerPercent–100%)
+  const footerSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${footerZoneHeight}">
+      <rect width="${width}" height="${footerZoneHeight}" fill="#0d1b3e"/>
+    </svg>`
+  )
+
+  // v40.6: Boundary lines + pixel labels — Gemini understands pixels better than percentages
+  const midY = Math.floor((headerEndY + footerStartY) / 2)
+  const fs = Math.max(18, Math.floor(width / 35))  // Responsive font size
+  const boundarySvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <!-- Header boundary line -->
+      <line x1="0" y1="${headerEndY}" x2="${width}" y2="${headerEndY}" stroke="#00e676" stroke-width="6"/>
+      <!-- Footer boundary line -->
+      <line x1="0" y1="${footerStartY}" x2="${width}" y2="${footerStartY}" stroke="#00e676" stroke-width="6"/>
+
+      <!-- Header zone label -->
+      <rect x="8" y="8" width="${width - 16}" height="${fs + 16}" rx="6" fill="rgba(0,0,0,0.75)"/>
+      <text x="16" y="${fs + 14}" font-family="monospace" font-size="${fs}" font-weight="bold" fill="#ff5555">LOGO BAR TOP: 0px → ${headerEndY}px (${headerPercent}%) — NO TEXT</text>
+
+      <!-- Header boundary pixel label -->
+      <rect x="8" y="${headerEndY - fs - 14}" width="${width - 16}" height="${fs + 12}" rx="5" fill="rgba(0,0,0,0.85)"/>
+      <text x="16" y="${headerEndY - 8}" font-family="monospace" font-size="${fs}" font-weight="bold" fill="#00e676">▼ CONTENT STARTS y=${headerEndY}px — ALL HEADLINES/TEXT BELOW THIS LINE</text>
+
+      <!-- Content zone center label -->
+      <rect x="8" y="${midY - fs - 6}" width="${width - 16}" height="${fs + 12}" rx="5" fill="rgba(0,0,0,0.55)"/>
+      <text x="16" y="${midY + 4}" font-family="monospace" font-size="${fs}" font-weight="bold" fill="#00ff88">CONTENT ZONE: y=${headerEndY}px to y=${footerStartY}px — PLACE ALL TEXT HERE</text>
+
+      <!-- Footer boundary pixel label -->
+      <rect x="8" y="${footerStartY + 4}" width="${width - 16}" height="${fs + 12}" rx="5" fill="rgba(0,0,0,0.85)"/>
+      <text x="16" y="${footerStartY + fs + 8}" font-family="monospace" font-size="${fs}" font-weight="bold" fill="#00e676">▲ CONTENT ENDS y=${footerStartY}px — ALL TEXT MUST BE ABOVE THIS LINE</text>
+
+      <!-- Footer zone label -->
+      <rect x="8" y="${height - fs - 24}" width="${width - 16}" height="${fs + 16}" rx="6" fill="rgba(0,0,0,0.75)"/>
+      <text x="16" y="${height - 12}" font-family="monospace" font-size="${fs}" font-weight="bold" fill="#ff5555">LOGO BAR BOTTOM: ${footerStartY}px → ${height}px — NO TEXT</text>
+    </svg>`
+  )
+
+  return sharp(baseBuffer)
+    .composite([
+      { input: headerSvg, top: 0, left: 0 },
+      { input: footerSvg, top: footerStartY, left: 0 },
+      { input: boundarySvg, top: 0, left: 0 },
+    ])
+    .png()
+    .toBuffer()
+}
+
+// ============================================================================
+// v41.0: LOGO BAR SCAFFOLD — base image for Gemini image-editing mode
+// ============================================================================
+/**
+ * Creates a realistic scaffold image showing the actual logo bar positions.
+ * Sent to Gemini as the base image (inlineData) to activate image-editing mode.
+ *
+ * Why this works better than a zone guide:
+ *  - Zone guide is advisory: Gemini reads it as a reference and still decides placement
+ *  - Scaffold is physical: Gemini sees occupied bars and must design around them
+ *  - Activates Gemini's vision editing reasoning path instead of text-to-image path
+ *
+ * @param width          - Canvas width in pixels
+ * @param height         - Canvas height in pixels
+ * @param headerHeightPx - Actual header bar height (brand+vertical+initiative rows)
+ * @param footerHeightPx - Actual footer bar height (partner row + padding)
+ * @param brandColor     - Yi primary blue (#005B96) — realistic preview of real bars
+ */
+export async function createLogoBarScaffold(
+  width: number,
+  height: number,
+  headerHeightPx: number,
+  footerHeightPx: number,
+): Promise<Buffer> {
+  const footerTopY = height - footerHeightPx
+
+  // v41.7: TRANSPARENT scaffold — bars are boundary markers only, not solid fills.
+  //
+  // The scaffold is INPUT to Gemini. The Sharp logo rows (alpha: 0.1/0/0.85) are OUTPUT.
+  // With transparent scaffold, Gemini generates art across the FULL canvas including the
+  // header/footer zones. The transparent logo overlay then lets that art show through,
+  // creating the intended "Gemini art visible behind logo bars" effect (CLAUDE.md v24.6).
+  //
+  // Any Gemini text that leaks into the bar zones is obliterated by the blur step.
+  // Sharp renders ALL event text (headline/tagline/date/venue) on top anyway.
+  const base = await sharp({
+    create: { width, height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } }
+  }).png().toBuffer()
+
+  // v43.2: LINES REMOVED — orange dashed boundary lines (FF4400, 4px, dasharray="24,12") were
+  // interpreted by Gemini's vision model as storyboard scene separators, causing a visible
+  // horizontal SPLIT in the generated background (upper zone = architecture, lower = people).
+  // Gemini cannot distinguish "guide line" from "visual scene boundary" — it just sees opaque pixels.
+  //
+  // Fix: scaffold is now a plain white canvas with NO lines and NO tints.
+  // Zone guidance is communicated entirely through the text prompt (pixel coordinates already
+  // included in the CANVAS GUIDE instruction). A blank scaffold = unified seamless background.
+  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+    <!-- No visual markers — plain white canvas, zones described in text prompt only -->
+  </svg>`)
+
+  return sharp(base)
+    .composite([{ input: svg, top: 0, left: 0 }])
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
     .png()
     .toBuffer()
 }

@@ -19,7 +19,7 @@ import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
 import { toast } from 'sonner'
-import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles } from 'lucide-react'
+import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Share2, Images } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { CreatePageTour } from '@/components/onboarding/CreatePageTour'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
@@ -124,12 +124,9 @@ export function CanvasCreatePage({
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
 
   // Flash 3.1 (Nano Banana 2) thinking level: 'minimal' = fast, 'High' = quality
-  const [thinkingLevel, setThinkingLevel] = useState<'minimal' | 'High'>('minimal')
+  const [thinkingLevel, setThinkingLevel] = useState<'minimal' | 'High'>('High')
   // Flash 3.1 (Nano Banana 2) image search grounding — default ON
   const [useImageSearch, setUseImageSearch] = useState(true)
-  // v31.0: Prompt style — creative mode for the AI pipeline
-  const [promptStyle, setPromptStyle] = useState<import('@/lib/config/prompt-styles').PromptStyleId>('auto')
-
   // Post-generation modals and actions
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [shuffleModalOpen, setShuffleModalOpen] = useState(false)
@@ -187,6 +184,21 @@ export function CanvasCreatePage({
 
   // v24.26: Fix - use dynamicSchema.isLoading instead of non-existent dynamicSchemaLoading
   const dynamicSchemaLoading = dynamicSchema.isLoading
+
+  // Share generated image via Web Share API with clipboard fallback
+  const handleShare = useCallback(async () => {
+    if (!generatedImage) return
+    if (navigator.share) {
+      try {
+        await navigator.share({ url: generatedImage, title: (formData.formData?.eventName as string) || 'Yi Creative' })
+        return
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(generatedImage)
+    toast.success('Image link copied to clipboard')
+  }, [generatedImage, formData.formData?.eventName])
 
   // No SSE streaming - using original synchronous generation
 
@@ -412,8 +424,6 @@ export function CanvasCreatePage({
         userFormData: formData.formData,
         // Flash 3.1 only: thinkingLevel controls quality vs speed, useImageSearch enables grounding
         ...(modelToUse.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
-        // v31.0: Prompt style — only send if not 'auto' (default)
-        ...(promptStyle !== 'auto' && { promptStyle }),
       }
 
       // Call original /api/generate endpoint
@@ -686,30 +696,17 @@ export function CanvasCreatePage({
         <HeaderBar
           onGenerate={handleGenerateWithDateCheck}
           isGenerating={isGenerating}
-          models={models}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
-          isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
           hasGeneratedImage={!!generatedImage}
-          // Mobile dropdown props
           verticals={verticals}
           selectedVertical={selectedVertical}
           onVerticalChange={selectVertical}
-          resolution={formData.designData?.resolution || '2K'}
-          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
-          thinkingLevel={thinkingLevel}
-          onThinkingLevelChange={setThinkingLevel}
-          useImageSearch={useImageSearch}
-          onImageSearchChange={setUseImageSearch}
-          promptStyle={promptStyle}
-          onPromptStyleChange={setPromptStyle}
         />
 
         {/* Main Content - Canva-style layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Details or Review Summary */}
-          <div className="w-[375px] min-w-[375px] border-r bg-card overflow-y-auto h-full flex flex-col" data-tour="details-panel">
+          <div className="w-[320px] min-w-[320px] border-r bg-card overflow-y-auto h-full flex flex-col" data-tour="details-panel">
             {panelMode === 'edit' ? (
               <DetailsPanel
                 suggestionsLoading={suggestionsLoading}
@@ -765,38 +762,26 @@ export function CanvasCreatePage({
                 {generatedImage && !isGenerating && (
                   <div className="w-full max-w-sm grid grid-cols-2 gap-2 mt-3 px-4">
                     <Button
-                      size="sm"
                       onClick={() => setExportModalOpen(true)}
-                      className="w-full gap-2"
+                      className="col-span-2 h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-md hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      <Download className="h-4 w-4" />
                       Download
                     </Button>
 
-                    <ShuffleButton
-                      creativeId={creativeId}
-                      onShuffleClick={() => setShuffleModalOpen(true)}
-                    />
-
                     <Button
-                      size="sm"
-                      variant="secondary"
                       onClick={() => router.push('/gallery')}
-                      className="w-full gap-2"
+                      className="h-10 gap-2 text-sm font-medium bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-sm hover:scale-[1.03] active:scale-[0.98] transition-all duration-150"
                     >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      View in Gallery
+                      <Images className="h-4 w-4" />
+                      Gallery
                     </Button>
 
                     <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => setRegenerateModalOpen(true)}
-                      className="w-full gap-2"
+                      className="h-10 gap-2 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-sm hover:scale-[1.03] active:scale-[0.98] transition-all duration-150"
                     >
-                      <RefreshCcw className="h-3.5 w-3.5" />
+                      <RefreshCcw className="h-4 w-4" />
                       Regenerate
                     </Button>
                   </div>
@@ -806,8 +791,44 @@ export function CanvasCreatePage({
           </div>
 
           {/* Right Panel - Logos & Style */}
-          <div className="w-[375px] min-w-[375px] border-l bg-card overflow-y-auto" data-tour="style-panel">
-            <LogosStylePanel />
+          <div className="w-[300px] min-w-[300px] border-l bg-card flex flex-col" data-tour="style-panel">
+            <div className="flex-1 overflow-y-auto">
+              <LogosStylePanel
+                models={models}
+                selectedModel={selectedModel}
+                onModelChange={handleModelChange}
+                isModelsLoading={isModelsLoading}
+                resolution={formData.designData?.resolution || '2K'}
+                onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+                thinkingLevel={thinkingLevel}
+                onThinkingLevelChange={setThinkingLevel}
+                useImageSearch={useImageSearch}
+                onImageSearchChange={setUseImageSearch}
+              />
+            </div>
+            {/* Generate button — pinned to bottom of right panel */}
+            {!generatedImage && (
+              <div className="shrink-0 p-3 border-t bg-card">
+                <Button
+                  onClick={handleGenerateWithDateCheck}
+                  disabled={isGenerating || !selectedFormat || !(panelMode === 'review' && isFormValid)}
+                  className="w-full h-11 gap-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  data-tour="generate-btn"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="font-semibold">Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span className="font-semibold">Generate</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -846,7 +867,7 @@ export function CanvasCreatePage({
           <RegenerateModal
             open={regenerateModalOpen}
             onOpenChange={setRegenerateModalOpen}
-            currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-2.5-flash-image')?.id)}
+            currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
             currentTheme={formData.designData?.theme}
             currentStyle={formData.designData?.style}
             currentResolution={formData.designData?.resolution}
@@ -890,32 +911,18 @@ export function CanvasCreatePage({
         <HeaderBar
           onGenerate={handleGenerateWithDateCheck}
           isGenerating={isGenerating}
-          models={models}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
-          isModelsLoading={isModelsLoading}
           canGenerate={panelMode === 'review' && isFormValid}
           hasGeneratedImage={!!generatedImage}
-          // Mobile dropdown props
           verticals={verticals}
           selectedVertical={selectedVertical}
           onVerticalChange={selectVertical}
-          resolution={formData.designData?.resolution || '2K'}
-          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
-          thinkingLevel={thinkingLevel}
-          onThinkingLevelChange={setThinkingLevel}
-          useImageSearch={useImageSearch}
-          onImageSearchChange={setUseImageSearch}
-          promptStyle={promptStyle}
-          onPromptStyleChange={setPromptStyle}
-          // Mobile panel control (Bar 3)
           activePanel={activePanel}
           onPanelChange={setActivePanel}
         />
       </div>
 
       {/* Canvas Preview Area - Flexible but constrained */}
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-2 py-1 bg-muted/30 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-2 bg-muted/30 overflow-hidden">
         {isGenerating ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -956,43 +963,32 @@ export function CanvasCreatePage({
 
       {/* Post-generation action buttons - Only show when image exists */}
       {generatedImage && !isGenerating && !activePanel && (
-        <div className="shrink-0 border-t bg-card px-3 py-2">
-          <div className="grid grid-cols-4 gap-1.5">
+        <div className="shrink-0 border-t bg-card px-4 py-3 space-y-2">
+          {/* Download + Regenerate + Gallery — uniform gradient */}
+          <div className="space-y-1.5">
             <Button
-              size="sm"
               onClick={() => setExportModalOpen(true)}
-              className="w-full gap-1 px-2 text-[11px] h-8"
+              className="w-full h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-md active:scale-[0.98] transition-all"
             >
               <Download className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Download</span>
+              Download
             </Button>
-
-            <ShuffleButton
-              creativeId={creativeId}
-              onShuffleClick={() => setShuffleModalOpen(true)}
-            />
-
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => router.push('/gallery')}
-              className="w-full gap-1 px-2 text-[11px] h-8"
-            >
-              <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="truncate">Gallery</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRegenerateModalOpen(true)}
-              className="w-full gap-1 px-2 text-[11px] h-8"
-            >
-              <RefreshCcw className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Redo</span>
-            </Button>
+            <div className="flex gap-1.5">
+              <Button
+                onClick={() => setRegenerateModalOpen(true)}
+                className="flex-1 h-9 gap-1.5 text-xs font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-sm active:scale-[0.98] transition-all"
+              >
+                <RefreshCcw className="h-3.5 w-3.5" />
+                Regenerate
+              </Button>
+              <Button
+                onClick={() => router.push('/gallery')}
+                className="flex-1 h-9 gap-1.5 text-xs font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-sm active:scale-[0.98] transition-all"
+              >
+                <Images className="h-3.5 w-3.5" />
+                Gallery
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1023,9 +1019,20 @@ export function CanvasCreatePage({
       <MobileBottomSheet
         isOpen={activePanel === 'style'}
         onClose={() => setActivePanel(null)}
-        title="Logos & Style"
+        title="Creative Setup"
       >
-        <LogosStylePanel />
+        <LogosStylePanel
+          models={models}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
+          isModelsLoading={isModelsLoading}
+          resolution={formData.designData?.resolution || '2K'}
+          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+          thinkingLevel={thinkingLevel}
+          onThinkingLevelChange={setThinkingLevel}
+          useImageSearch={useImageSearch}
+          onImageSearchChange={setUseImageSearch}
+        />
       </MobileBottomSheet>
 
       <MobileBottomSheet
@@ -1121,7 +1128,7 @@ export function CanvasCreatePage({
         <RegenerateModal
           open={regenerateModalOpen}
           onOpenChange={setRegenerateModalOpen}
-          currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-2.5-flash-image')?.id)}
+          currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
           currentTheme={formData.designData?.theme}
           currentStyle={formData.designData?.style}
           currentResolution={formData.designData?.resolution}

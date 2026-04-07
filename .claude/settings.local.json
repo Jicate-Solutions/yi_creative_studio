@@ -313,7 +313,15 @@
       "Bash(del \"c:\\\\Users\\\\Admin\\\\Documents\\\\GitHub\\\\yicreatives-studio\\\\components\\\\layout\\\\mobile-bottom-nav.tsx\")",
       "Bash(move:*)",
       "Bash(test:*)",
-      "WebFetch(domain:yi-creative-studio.vercel.app)"
+      "WebFetch(domain:yi-creative-studio.vercel.app)",
+      "WebFetch(domain:firebase.google.com)",
+      "WebFetch(domain:help.apiyi.com)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:deepmind.google)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:www.cliprise.app)",
+      "WebFetch(domain:skywork.ai)",
+      "WebFetch(domain:medium.com)"
     ],
     "deny": [],
     "ask": [],

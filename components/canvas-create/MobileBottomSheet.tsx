@@ -67,21 +67,19 @@ export function MobileBottomSheet({
         )}
       >
         {/* Drag Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/20" />
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b">
-          <h3 className="font-semibold">{title}</h3>
-          <Button
-            variant="ghost"
-            size="icon"
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border/60">
+          <h3 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h3>
+          <button
             onClick={onClose}
-            className="h-8 w-8"
+            className="h-7 w-7 flex items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
         </div>
 
         {/* Content */}

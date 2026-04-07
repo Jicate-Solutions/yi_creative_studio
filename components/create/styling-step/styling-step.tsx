@@ -3,14 +3,11 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { ThemeSection } from './theme-section'
 import { ColorSection } from './color-section'
-import { StyleSection } from './style-section'
 import { QualitySection } from './quality-section'
-import { TypographySection } from './typography-section'
 import { useAIDesignSuggestions } from '@/hooks/use-ai-design-suggestions'
-import type { DesignData, CustomColors, ResolutionId, TypographyConfig } from '@/lib/config/design-constants'
-import { Palette, Layers, Wand2, MonitorPlay, Type } from 'lucide-react'
+import type { DesignData, CustomColors, ResolutionId } from '@/lib/config/design-constants'
+import { Palette, MonitorPlay } from 'lucide-react'
 
 interface BrandColors {
   primary_color?: string | null
@@ -20,32 +17,24 @@ interface BrandColors {
 
 interface StylingStepProps {
   designData: DesignData
-  onThemeChange: (theme: string) => void
-  onStyleChange: (style: string) => void
   onResolutionChange: (resolution: ResolutionId) => void
   onToggleBrandColors: (enabled: boolean) => void
-  onTypographyChange: (typography: Partial<TypographyConfig>) => void
   onSelectPalette: (paletteId: string | null) => void
   onCustomColorChange: (colors: CustomColors) => void
   brandColors?: BrandColors
-  brandFont?: string
 }
 
 export function StylingStep({
   designData,
-  onThemeChange,
-  onStyleChange,
   onResolutionChange,
   onToggleBrandColors,
-  onTypographyChange,
   onSelectPalette,
   onCustomColorChange,
   brandColors,
-  brandFont,
 }: StylingStepProps) {
   // AI Design Suggestions hook - reads eventType/eventName from store internally
   const aiSuggestions = useAIDesignSuggestions()
-  const [activeTab, setActiveTab] = useState('theme')
+  const [activeTab, setActiveTab] = useState('colors')
 
   // Auto-enable AI Color Mode when suggestions arrive
   // This fulfills the user requirement: "It should understand the user shared event... enable by requirement"
@@ -71,18 +60,9 @@ export function StylingStep({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <Tabs defaultValue="theme" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="colors" value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Responsive tabs with horizontal scroll on mobile, focus states for accessibility */}
           <TabsList className="w-full justify-start h-12 p-1 glass-inset border-none rounded-xl mb-6 overflow-x-auto scrollbar-hide flex-nowrap">
-            <TabsTrigger
-              value="theme"
-              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-            >
-              <span className="flex items-center gap-1.5 sm:gap-2">
-                <Layers className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Theme</span>
-              </span>
-            </TabsTrigger>
             <TabsTrigger
               value="colors"
               className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
@@ -90,24 +70,6 @@ export function StylingStep({
               <span className="flex items-center gap-1.5 sm:gap-2">
                 <Palette className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">Colors</span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="style"
-              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-            >
-              <span className="flex items-center gap-1.5 sm:gap-2">
-                <Wand2 className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Style</span>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="typography"
-              className="flex-1 min-w-[72px] rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-primary transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-            >
-              <span className="flex items-center gap-1.5 sm:gap-2">
-                <Type className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Type</span>
               </span>
             </TabsTrigger>
             <TabsTrigger
@@ -121,16 +83,6 @@ export function StylingStep({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="theme" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="glass-panel p-4 border-none">
-              <ThemeSection
-                selectedTheme={designData.theme}
-                onThemeChange={onThemeChange}
-                aiSuggestions={aiSuggestions.theme.suggestions}
-              />
-            </div>
-          </TabsContent>
-
           <TabsContent value="colors" className="space-y-4 mt-0 focus-visible:ring-0">
             <div className="glass-panel p-4 border-none">
               <ColorSection
@@ -140,26 +92,6 @@ export function StylingStep({
                 onSelectPalette={onSelectPalette}
                 onCustomColorChange={onCustomColorChange}
                 colorMood={aiSuggestions.color.colorMood}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="style" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="glass-panel p-4 border-none">
-              <StyleSection
-                selectedStyle={designData.style}
-                onStyleChange={onStyleChange}
-                aiSuggestions={aiSuggestions.style.suggestions}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="typography" className="space-y-4 mt-0 focus-visible:ring-0">
-            <div className="glass-panel p-4 border-none">
-              <TypographySection
-                typography={designData.typography}
-                brandFont={brandFont}
-                onTypographyChange={onTypographyChange}
               />
             </div>
           </TabsContent>

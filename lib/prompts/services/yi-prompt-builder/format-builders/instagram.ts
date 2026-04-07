@@ -44,6 +44,29 @@ import { buildDecorativeElementsSection, buildBackgroundSettingSection } from '.
 // Import color name helper for hex-free color descriptions
 import { describeColor } from '@/lib/utils/color-names'
 
+// v38.0: Import time formatter for human-readable time display
+import { formatEventTime } from '@/lib/utils/time-formatter'
+
+/**
+ * v38.0: Format date string to human-readable format (matches event-poster.ts)
+ * "2026-03-26" → "Wed, 26 Mar, 2026"
+ */
+function formatEventDate(dateString: string | undefined): string {
+  if (!dateString || dateString.trim() === '') return ''
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ''
+    return date.toLocaleDateString('en-IN', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return dateString
+  }
+}
+
 /**
  * Strip hex color codes from text to prevent Gemini from rendering them as visible text.
  * Same as event-poster.ts — colors are already enforced via <instruction>MANDATORY COLOR PALETTE</instruction>.
@@ -186,8 +209,11 @@ export function buildInstagramPrompt(
 
   // Resolve event details: eventDescription, date, time, venue (v33.0+)
   const resolvedCaption = data.eventDescription || data.postCaption || ''
-  const resolvedDate = data.eventDate || ''
-  const resolvedTime = data.eventTime || ''
+  // v38.0: Flag long descriptions so Gemini uses smaller font to fit all text accurately
+  const isLongCaption = resolvedCaption.length > 120
+  // v38.0: Format dates for human readability (was passing raw ISO "2026-03-26 | 19:00:00")
+  const resolvedDate = data.eventDate ? formatEventDate(data.eventDate) : ''
+  const resolvedTime = data.eventTime ? formatEventTime(data.eventTime) : ''
   const resolvedVenue = data.venue || ''
 
   // v6.0 Phase 2 & 3: Pass resolvedColors and designContext to enable dynamic color-driven backgrounds and custom themes
@@ -391,41 +417,39 @@ ${scrollStopPatterns}
 ${typographyRules}
 </typography_hierarchy>
 
+<instruction>(DO NOT RENDER — scene composition guidance only, NOT text to display on poster)
 <subject>
 ${options.designContext?.storytellingContext?.visualNarrative
   ? `A CINEMATIC, story-driven social media graphic: ${options.designContext.storytellingContext.visualNarrative}`
   : 'An eye-catching social media graphic that will STOP THE SCROLL.'}
-Main Message: "${resolvedTitle}"
 Goal: ${postContext.goal}
 ${options.designContext?.emotionalJob ? `Emotional Impact: ${options.designContext.emotionalJob}` : ''}
-Critical: Must capture attention within 0.5-1 second of viewing in feed.
+Must capture attention within 0.5-1 second of viewing in feed.
 This is a mobile-first platform - design for thumb-scrolling users.
 The background scene must be a RICH, IMMERSIVE visual that tells the event's story — NOT a generic gradient or plain color.
 </subject>
+</instruction>
 
+<instruction>(DO NOT RENDER — layout composition guidance only, NOT text to display)
 <composition>
 Layout: ${options.designContext?.layoutSuggestion || postContext.layout}
 
 Structure:
 - BACKGROUND: ${stripHexCodes((options.designContext?.backgroundSetting || postContext.background) as string)} ${options.brandContext?.primaryColor ? `incorporating brand colors (${colorName(options.brandContext.primaryColor)}, ${colorName(options.brandContext.secondaryColor || '#ffffff')})` : ''}
 - VISUALS: ${options.designContext?.visualElements?.join(', ') || postContext.visualTreatment}
-- TEXT ZONE: ALL text below MUST be placed in the CENTER BAND of the canvas (the middle section between the header and footer zones). The upper portion and lower portion are background/imagery only. NO text outside the center band.
-- TEXT GROUPING (MANDATORY): ALL text elements (headline, tagline, date, venue, CTA) must be GROUPED TOGETHER as a single unified text block in the center of the canvas. Do NOT scatter text — headline at top and date at bottom is WRONG. Stack all text vertically in one compact cluster.
-- HEADLINE: "${resolvedTitle}" - LARGE, BOLD, instantly readable on phone screen. Text should be overlaid DIRECTLY on the background scene with strong drop shadow or dark semi-transparent gradient behind it for contrast. Do NOT place text inside a white box, white card, or opaque rectangle.
-${resolvedCaption ? `- SUPPORTING TEXT: "${resolvedCaption}" - smaller but still readable on mobile` : ''}
-${resolvedDate ? `- DATE: "${resolvedDate}"${resolvedTime ? ` at ${resolvedTime}` : ''}` : ''}
-${resolvedVenue ? `- VENUE: "${resolvedVenue}"` : ''}
-${data.callToAction ? `- CTA: "${data.callToAction}" - button-style or highlighted` : ''}
-${(resolvedDate || resolvedVenue) ? `- EVENT DETAILS: Date, time, and venue MUST be rendered as visible text DIRECTLY BELOW the headline as a compact group. Keep all details CLOSE to the headline — do NOT push them to the bottom of the canvas. Style them to integrate with the background scene — use the scene's own colors and lighting for contrast. Do NOT use a solid white rectangle or opaque box behind the text. Instead use: a subtle dark gradient overlay on the scene, or a thin colored accent line, or direct text with drop shadow for readability.` : ''}
+- TEXT ZONE: ALL text MUST be placed in the CENTER BAND of the canvas (40%-70%). Upper and lower portions are background/imagery only.
+- TEXT GROUPING: ALL text elements must be GROUPED TOGETHER as a single unified text block in the center. Stack all text vertically in one compact cluster.
+- HEADLINE STYLING: LARGE, BOLD, instantly readable on phone screen. Overlaid DIRECTLY on the background scene with strong drop shadow or dark semi-transparent gradient for contrast. No white box or opaque rectangle.
+${(resolvedDate || resolvedVenue) ? `- EVENT DETAILS STYLING: Date, time, and venue rendered DIRECTLY BELOW the headline as a compact group. Styled to integrate with background scene — no solid white rectangles.` : ''}
 - BREATHING ROOM: Generous spacing between text elements - NOT cramped
-
-Text Sizing Rule: All text must be readable on a phone screen WITHOUT zooming
+- All text must be readable on a phone screen WITHOUT zooming
 </composition>
+</instruction>
 
 <text_content>
 (ALL text elements below must be vertically GROUPED TOGETHER as a single compact cluster in the CENTER BAND of the canvas. Stack headline, tagline, date, and venue close together — do NOT spread them across the full canvas height. The upper and lower portions are reserved for background imagery only — no text allowed there.)
 <text role="headline" prominence="LARGEST" style="${postContext.headlineStyle}, maximum contrast, bold weight">${resolvedTitle}</text>
-${resolvedCaption ? `<text role="supporting" prominence="medium" style="${bodyStyleAttr}, readable on mobile">${resolvedCaption}</text>` : ''}
+${resolvedCaption ? `<text role="supporting" prominence="${isLongCaption ? 'small' : 'medium'}" style="${bodyStyleAttr}, ${isLongCaption ? 'small font size, tight line spacing, compact paragraph' : 'readable on mobile'}">${resolvedCaption}</text>` : ''}
 ${(resolvedDate || resolvedVenue) ? `\n(MANDATORY — render these event details as visible text in the poster:)` : ''}
 ${resolvedDate ? `<text role="date" prominence="medium" style="${bodyStyleAttr}, readable on mobile">${resolvedDate}${resolvedTime ? ` | ${resolvedTime}` : ''}</text>` : ''}
 ${resolvedVenue ? `<text role="venue" prominence="small" style="${bodyStyleAttr}, readable on mobile">${resolvedVenue}</text>` : ''}
@@ -467,19 +491,22 @@ ${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 ` : ''}
 
 <render_constraints>
-MUST RENDER as visible text: ALL content inside <text role="headline">, <text role="date">, <text role="venue">, <text role="cta">, and <text role="supporting"> tags. These are REQUIRED poster elements — do not skip them.
+MUST RENDER as visible text: ALL quoted content after role markers like (headline) "Content", (date) "Content", (venue) "Content", (cta) "Content", (supporting) "Content". These are REQUIRED poster elements — do not skip them.
 
-CRITICAL: Only render text that appears inside <text role="...">content</text> tags.
+CRITICAL: Only render text that appears in quotes after (role) markers.
+The parenthetical part (role, color, size) is styling metadata — NEVER render it as text.
+
 DO NOT render as visible text:
 - XML tag names (task, format, composition, style, constraints)
 - Instruction phrases (Generate, Create, Include, Apply)
 - Platform terminology (scroll-stop, engagement, mobile-first)
 - Words: IMPORTANT, CRITICAL, NOTE, AVOID
 - Any content from platform_optimization or typography_hierarchy sections
+- Any content wrapped in instruction tags
 
 STRICT CTA PROHIBITION:
-- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided in <text role="cta">
-- If NO <text role="cta"> tag exists above, the design MUST NOT contain ANY CTA elements
+- DO NOT invent or add any Call-to-Action buttons, links, or text unless explicitly provided as (cta) "..."
+- If NO (cta) role marker exists above, the design MUST NOT contain ANY CTA elements
 - BLACKLISTED CTA PHRASES (never render unless explicitly in user data):
   "Learn More", "Shop Now", "Sign Up", "Get Started", "Buy Now", "Click Here",
   "Subscribe", "Join Now", "Register", "Download", "Contact Us", "Read More",

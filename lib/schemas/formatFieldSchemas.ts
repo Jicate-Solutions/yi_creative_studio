@@ -492,6 +492,7 @@ const videoCover: FormatFieldSchema = {
 const eventPoster: FormatFieldSchema = {
   formatId: 'event_poster',
   displayName: 'Event Poster',
+  // v43.1: Added eventEndTime, additionalDetails fields
   category: 'event',
   designNotes: 'Date should include day of week (e.g., "Friday, March 23"). Speaker photo can be included if provided.',
   applicableVerticals: ['masoom', 'road_safety', 'health', 'yuva', 'climate_change', 'innovation', 'thalir', 'chapter_events'],
@@ -533,7 +534,14 @@ const eventPoster: FormatFieldSchema = {
     },
     {
       id: 'eventTime',
-      label: 'Event Time',
+      label: 'Start Time',
+      type: 'time',
+      required: false,
+      suggestable: false,
+    },
+    {
+      id: 'eventEndTime',
+      label: 'End Time',
       type: 'time',
       required: false,
       suggestable: false,
@@ -584,12 +592,22 @@ const eventPoster: FormatFieldSchema = {
     },
     {
       id: 'registrationInfo',
-      label: 'Registration Info',
+      label: 'Registration Info / CTA',
       type: 'text',
       required: false,
       suggestable: true,
-      maxLength: 180,
-      placeholder: 'e.g., Register at yi.org or call 1800-XXX',
+      maxLength: 300,
+      placeholder: 'e.g., Scan QR to register | Contact: +91 98765 43210',
+    },
+    {
+      id: 'additionalDetails',
+      label: 'Additional Details',
+      type: 'textarea',
+      required: false,
+      suggestable: false,
+      maxLength: 300,
+      rows: 2,
+      placeholder: 'e.g., Prize: 1st - ₹10,000; 2nd - ₹5,000; Open to all Yi members',
     },
     {
       id: 'contactNumber',

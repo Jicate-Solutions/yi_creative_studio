@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { GenerateSummaryCard } from '@/components/create/generate-summary-card'
 import { useCreativeStore } from '@/stores/creative-store'
-import { useLogos } from '@/hooks'
 
 interface ReviewSummaryPanelProps {
   onBackToEdit: () => void
@@ -12,7 +11,6 @@ interface ReviewSummaryPanelProps {
 
 export function ReviewSummaryPanel({ onBackToEdit }: ReviewSummaryPanelProps) {
   const { selectedFormat, selectedVertical, formData, updateFormData } = useCreativeStore()
-  const { logos } = useLogos()
 
   const handleEditField = (fieldId: string, value: unknown) => {
     updateFormData({ [fieldId]: value })
@@ -47,7 +45,7 @@ export function ReviewSummaryPanel({ onBackToEdit }: ReviewSummaryPanelProps) {
           }}
           selectedFormat={selectedFormat}
           selectedVertical={selectedVertical}
-          logos={logos}
+          logos={[]}
           onEditField={handleEditField}
         />
       </div>

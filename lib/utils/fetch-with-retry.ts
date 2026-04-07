@@ -57,6 +57,10 @@ export interface FetchWithRetryOptions {
 
   /** Optional request ID for logging and tracing */
   requestId?: string
+
+  /** When false, 429 responses throw immediately instead of retrying (default: true).
+   *  Use for quota-exhausted APIs (e.g. Gemini image gen) where retrying in 2-8s is pointless. */
+  retryOn429?: boolean
 }
 
 /**
@@ -66,7 +70,8 @@ const DEFAULT_OPTIONS: Required<Omit<FetchWithRetryOptions, 'requestId'>> = {
   maxRetries: 3,
   baseDelay: 1000,
   timeout: 60000, // 60 seconds
-  retryableStatuses: [408, 429, 500, 502, 503, 504]
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+  retryOn429: true,
 }
 
 /**
@@ -165,7 +170,7 @@ export async function fetchWithRetry(
     ...retryOptions
   }
 
-  const { maxRetries, baseDelay, timeout, retryableStatuses, requestId } = config
+  const { maxRetries, baseDelay, timeout, retryableStatuses, requestId, retryOn429 = true } = config
   const logPrefix = requestId ? `[Fetch ${requestId}]` : '[Fetch]'
 
   let lastError: Error | null = null
@@ -207,20 +212,29 @@ export async function fetchWithRetry(
 
       // Check if response status is retryable
       if (!response.ok && isRetryableStatus(response.status, retryableStatuses)) {
-        // Don't throw yet - this might be a retryable server error
+        // v43.4: Fast-fail on 429 when retryOn429=false (quota errors don't recover in 2-8s)
+        if (response.status === 429 && !retryOn429) {
+          console.error(`${logPrefix} ⚡ Rate limited (429) — fast-fail (retryOn429=false)`)
+          throw new Error(`HTTP 429: ${response.statusText}`)
+        }
+
         const isLastAttempt = attempt === maxRetries
 
         if (isLastAttempt) {
-          // Last attempt failed with retryable status - throw error
           console.error(`${logPrefix} ❌ All ${maxRetries + 1} attempts failed with status ${response.status}`)
           throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
 
-        // Retry on retryable status codes (429, 500, 502, 503, 504)
-        const delay = calculateBackoffDelay(attempt, baseDelay)
-        console.warn(
-          `${logPrefix} ⚠️ Attempt ${attempt + 1} failed with status ${response.status}, retrying in ${delay}ms...`
-        )
+        // For 429: respect Retry-After header if present
+        let delay: number
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After')
+          delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : calculateBackoffDelay(attempt, baseDelay)
+          console.warn(`${logPrefix} ⏳ Rate limited (429) — waiting ${delay}ms (Retry-After: ${retryAfter ?? 'not set'})`)
+        } else {
+          delay = calculateBackoffDelay(attempt, baseDelay)
+          console.warn(`${logPrefix} ⚠️ Attempt ${attempt + 1} failed with status ${response.status}, retrying in ${delay}ms...`)
+        }
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }

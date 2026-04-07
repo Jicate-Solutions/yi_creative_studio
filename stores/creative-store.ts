@@ -476,7 +476,7 @@ const initialFormData: CreativeFormData = {
   logoBackgroundColor: DEFAULT_LOGO_BACKGROUND_COLOR,
   logoStripMode: DEFAULT_LOGO_STRIP_MODE,
   enhanced4RowStrip: DEFAULT_ENHANCED_4ROW_STRIP, // NEW: Enhanced 4-row strip
-  creationMode: 'template',
+  creationMode: 'scratch',
   templateId: null,
   designData: DEFAULT_DESIGN_DATA,
 }

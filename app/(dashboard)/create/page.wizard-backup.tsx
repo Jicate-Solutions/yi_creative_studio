@@ -1647,11 +1647,8 @@ export default function CreatePage() {
                 {step === 6 && selectedVertical && formData.creationMode === 'scratch' && (
                   <StylingStep
                     designData={formData.designData}
-                    onThemeChange={updateTheme}
-                    onStyleChange={updateStyle}
                     onResolutionChange={updateResolution}
                     onToggleBrandColors={setUseBrandColors}
-                    onTypographyChange={updateTypography}
                     onSelectPalette={setColorPalette}
                     onCustomColorChange={setCustomColors}
                     brandColors={(() => {
@@ -1661,10 +1658,6 @@ export default function CreatePage() {
                         secondary_color: brandConfig?.secondaryColor,
                         accent_color: brandConfig?.accentColor,
                       }
-                    })()}
-                    brandFont={(() => {
-                      const brandConfig = currentOrganization?.brand_config as { fontPrimary?: string } | null
-                      return brandConfig?.fontPrimary
                     })()}
                   />
                 )}

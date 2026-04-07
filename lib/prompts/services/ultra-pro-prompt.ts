@@ -99,7 +99,7 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Focus on HIGH-IMPACT MINIMALISM and VAST NEGATIVE SPACE (at least 40% of canvas).
    - Use clean, solid backgrounds (matte white, light gray, or deep slate).
    - Use ONE primary high-quality visual symbol instead of busy patterns.
-   - TOP AREA: Keep the top 15% clean with simple, high-contrast background (solid colors or subtle gradients). No text or bands in this area.
+   - ENTIRE CANVAS: Clean, high-contrast background throughout — one unified solid color or simple gradient from edge to edge, no zone differentiation, no visual split between areas.
    - MOOD TYPOGRAPHY: Suggest ultra-clean Serif for elegance or Bold Sans for modern tech.
    - Avoid "atmospheric clutter," "particle effects," or "busy textures."
    - Prioritize ultra-clean typography hierarchy and strategic alignment (Center/Left).
@@ -114,26 +114,49 @@ The user can specify a "sophistication" level which MUST dictate your visual str
    - Deep dimension through foreground/background depth of field, NOT abstract effects.
    - High energy with vivid, event-specific visual storytelling.
 
-CINEMATIC DEPTH FRAMEWORK (v6.0 - STORYTELLING THROUGH LAYERS):
-When creating backgrounds, think cinematically with three distinct depth layers:
+PHOTOGRAPHIC DEPTH-OF-FIELD FRAMEWORK (v42.0 — ONE SCENE, NATURAL DEPTH):
+Think of the background as a SINGLE PHOTOGRAPH taken from ONE fixed camera position.
 
-1. FOREGROUND LAYER (10-30% opacity overlays):
-   - Purpose: Adds visual interest without obscuring content
-   - Examples: Subtle leaf silhouettes, light ray overlays, event-specific object silhouettes, soft depth-of-field foreground elements
-   - Rule: NEVER place solid/opaque elements here - text must remain legible
-   - Sophistication: Minimalist uses 0-10%, Balanced uses 10-20%, Rich uses 20-30%
+DEPTH ≠ VERTICAL SECTIONS. Depth means near-to-far distance in 3D space:
+- NEAR (sharp foreground elements slightly out of focus) — can appear at ANY vertical position
+- MID (crisp, in-focus main subjects and environment details) — can appear at ANY vertical position
+- FAR (soft atmospheric background like sky, walls, landscape) — can appear at ANY vertical position
 
-2. MIDGROUND LAYER (Text content zone):
-   - Purpose: Where all text, logos, and primary content lives
-   - Rule: This layer must have clean, high-contrast backgrounds for readability
-   - Examples: Solid color zones, soft gradient backdrops, subtle texture fills
-   - Sophistication: All modes prioritize text legibility here
+CRITICAL RULES:
+- Do NOT assign different scene content to "top section" vs "bottom section" of the canvas
+- Do NOT describe what appears at specific vertical percentages (e.g. "top 10% shows ceiling" is FORBIDDEN)
+- The entire canvas is ONE continuous environment seen from ONE camera angle and ONE lighting setup
+- Depth variation should feel like natural parallax in a real photograph, NOT stacked zones
 
-3. BACKGROUND LAYER (Deep atmospheric scene):
-   - Purpose: Sets the mood and tells the event's story through environment
-   - Examples: "Classroom with anatomical charts on walls", "Conference hall with podium and chairs", "Medical clinic with donation equipment", "Tech workspace with monitors and code"
-   - Rule: Create emotional depth - what FEELING should the viewer get?
-   - Sophistication: Minimalist uses simple gradients, Balanced uses moderate atmospheres, Rich uses immersive scenes
+CORRECT: "A conference hall viewed from slightly above — blurred chairs in near foreground, stage with podium in sharp focus mid-distance, warm atmospheric lighting receding into the far background"
+WRONG: "Top 30%: ceiling and chandeliers. Middle 40%: stage area. Bottom 30%: audience seating"
+
+TEXT-SAFE ZONE DESIGN RULE (v43.0 — MANDATORY for event posters):
+The background art MUST be composed so the MID-SECTION (40%–83%) is a CALM, TEXT-READABLE surface.
+This is where headline, tagline, date and venue will be composited on top by the system.
+
+DESIGN THE SCENE WITH A "ZONE SANDWICH" IN MIND:
+• Top band (0%–40%): Rich visual — ceiling, sky, stage lighting, architectural drama, upper environment
+• Mid band (40%–65%): TEXT SAFE ZONE — deliberately soft, calm, or open — gradient sky, defocused wall, empty space
+• Bottom band (65%–100%): Rich visual — subjects (people), ground, lower environment context
+
+HOW TO CREATE A TEXT-SAFE MID-SECTION:
+✅ Use depth-of-field: place subjects in sharp focus in the lower half, leaving the mid-section as defocused background
+✅ Use open negative space: empty interior wall, clear sky, smooth stage backdrop in mid-section
+✅ Use atmospheric gradient: sky or wall color naturally transitions to a softer, calmer tone in the center
+✅ Position people/subjects in the LOWER 65%–90% of the image — NOT the center text zone
+
+FORBIDDEN IN MID-SECTION (40%–65%):
+❌ NO faces or eyes looking directly at camera in the text zone
+❌ NO intricate architectural detail or windows directly behind where headline will appear
+❌ NO crowd of people at the same vertical level as the headline text
+
+Think: a well-composed magazine cover — subject fills lower frame, clean sky or backdrop in upper-mid for the title.
+
+Scene sophistication by mode:
+- Minimalist: simple gradients with ONE primary subject at mid-distance
+- Balanced: moderate environmental depth with clear near/far relationship
+- Rich: immersive full-depth scene with strong atmospheric perspective
 
 CINEMATIC COMPOSITION (v30.1 — Think Like a Director):
 - Don't ask "what type of event is this?" — ask "what does THIS SPECIFIC event LOOK like?"
@@ -203,7 +226,7 @@ Before outputting the JSON, mentally work through:
    - If the user provides a "visualDirection" field, honor it — but still apply whichever lens best fits their description.
    - The SELECTED lens determines your visualScene composition.
 4. SOUTH INDIAN CONTEXT: Are the human faces, clothing, and environment authentically South Indian? (Not generic Western settings or generic global stock-photo style)
-5. FULL CANVAS CHECK: Will the scene PAINT the entire canvas (0–100%) as a seamless background mural — NOT as a "photo card" or "rounded rectangle" sitting on a solid-color background? The header area (0–40%) shows the UPPER portion of the scene (ceiling, sky, stage top, atmospheric light above people). The footer area (70–100%) shows the LOWER portion (floor, ambient base, no text). ❌ FAILURE = plain solid color in header + scene inside a rounded card in the lower area. ✅ SUCCESS = continuous scene painting spanning all 4 canvas edges with text overlaid in 40–70%.
+5. FULL CANVAS CHECK (v42.0 — ONE SCENE, NO ZONES): Will the scene PAINT the entire canvas (0–100%) as a SINGLE SEAMLESS photograph — NOT as a "photo card" or "rounded rectangle" on a solid-color background? ❌ FAILURE = plain solid color in any section + scene inside a rounded card + ceiling-only at top with floor-only at bottom (split-scene). ✅ SUCCESS = ONE continuous scene from a SINGLE camera angle, spanning all 4 edges — the same environment flows naturally from top to bottom without any section change. Think of it as ONE wide-angle photograph of a real space, not three separate zone descriptions. Do NOT describe what content appears at specific vertical percentages.
 6. VARIETY MANDATE (v38.0): Check which Creative Lens you are using. Is it the SAME lens as the most obvious default for this event type? (For graduation, Lens A/literal crowd scene is the default. For a workshop, Lens A/people-in-classroom is the default.) If you are using the obvious default lens, SWITCH to a different one. The CONCEPT LENS SELECTOR seed above suggests which lens to favor — follow it unless there is a strong reason not to.
 7. AUDIENCE LENS (v36.0): WHO will see this poster? The target audience MUST shape the visual language:
    - School students (ages 8-16) → bright colors, illustration/cartoon style, relatable school environment (classroom, playground, school bus), simple bold visuals they instantly understand, NO corporate formality
@@ -255,9 +278,9 @@ Return a valid JSON object with these exact fields:
 {
   "primaryText": "The main headline text that MUST appear prominently (user's event name exactly as provided)",
   "secondaryText": ["Array of ONLY essential text - LIMIT to: date, time, venue, speaker name/designation. DO NOT include: taglines, descriptions, registration details, topics, or long notes"],
-  "visualScene": "A VIVID, SPECIFIC visual composition using whichever Creative Lens (A-E) produces the most striking result for this event. The scene MUST be grounded in INDIAN CONTEXT (Indian faces when people appear, South Asian appearance, Indian settings and architecture). COMPOSITION OPTIONS: (1) People-centered scenes with Indian faces in emotionally specific moments, (2) Object-as-hero where one symbolic item dominates the canvas with people secondary, (3) Conceptual metaphors where the event meaning becomes a visual transformation, (4) Emotional close-ups of hands/gestures/details, (5) Environmental storytelling where the Indian setting itself tells the story. CRITICAL (v36.0): Visual style MUST match TARGET AUDIENCE. PREFERENCE: Human presence is PREFERRED but NOT mandatory when another lens creates a MORE POWERFUL composition. A graduation cap soaring against golden sky can be MORE memorable than a generic crowd scene. Choose the lens that creates the most UNEXPECTED, scroll-stopping visual.",
+  "visualScene": "A VIVID, SPECIFIC visual composition using whichever Creative Lens (A-E) produces the most striking result for this event. The scene MUST be grounded in INDIAN CONTEXT (Indian faces when people appear, South Asian appearance, Indian settings and architecture). COMPOSITION OPTIONS: (1) People-centered scenes with Indian faces in emotionally specific moments, (2) Object-as-hero where one symbolic item dominates the canvas with people secondary, (3) Conceptual metaphors where the event meaning becomes a visual transformation, (4) Emotional close-ups of hands/gestures/details, (5) Environmental storytelling where the Indian setting itself tells the story. CRITICAL (v36.0): Visual style MUST match TARGET AUDIENCE. PREFERENCE: Human presence is PREFERRED but NOT mandatory when another lens creates a MORE POWERFUL composition. MANDATORY (v42.0): Describe the scene as a SINGLE PHOTOGRAPH from ONE camera angle — do NOT describe what content appears at specific vertical percentages or split the scene into top/bottom sections. TEXT-SAFE ZONE (v43.0 — MANDATORY): Compose the scene so the MID-SECTION is deliberately calm/atmospheric — use depth-of-field defocus, open negative space, or a smooth gradient backdrop in the center of the frame. Place people/subjects in the LOWER portion of the frame (bottom 40%), not in the center. The upper/center area should have clean sky, soft backdrop, or defocused environment — this is where text will be composited. Example: 'South Indian delegates fill the lower frame in a sunlit conference hall, leaving the upper-center framed by soft defocused stage curtains and warm stage lighting' — NOT 'parliament hall with delegates filling the entire frame'.",
   "designGuidance": "Creative direction for layout, typography, and visual treatment",
-  "textPlacementHints": "MUST reference the 40–65% content zone. Example: 'Primary event name in the 45–52% vertical zone, CENTERED on the background scene. Secondary info card at 55–62%.' NEVER say 'lower 20-25%', 'bottom third', 'lower portion', or any position below 65%. ALL text is OVERLAID on the CENTER of the background — NOT placed below the scene. Text MUST NOT extend past 65%.",
+  "textPlacementHints": "MUST reference the 40–83% content zone only. Example: 'Primary event name at ~42%, CENTERED on the background scene. Secondary info at ~55%.' NEVER reference zones above 40% from the top or below 83%. Logo bars physically cover the top ~25% and bottom ~17% — any scene in those zones shows through the transparent bars. ALL event text is Sharp-rendered in the 40–83% band — do NOT place text instructions here.",
   "colorPaletteHints": "Color suggestions based on event type and mood",
   "mustIncludeElements": ["Array of 3-5 CONCRETE, SPECIFIC visual elements that ground this design in reality. Elements must be EVENT-SPECIFIC objects, textures, or environmental details — NOT generic category symbols. When people appear, they MUST be Indian. Abstract patterns (waves, hexagons, mesh) remain BANNED — but symbolic objects (a graduation cap, a blood bag, a microphone) used as visual heroes are ENCOURAGED. Match elements to your chosen Creative Lens."],
   "enhancedPrompt": "A complete, detailed prompt combining all the above for image generation"
@@ -841,7 +864,7 @@ function generateFallbackPrompt(
     secondaryText,
     visualScene: `Professional ${compiledData.format?.name || 'poster'} design with clean modern aesthetic`,
     designGuidance: 'Bold headline with clear visual hierarchy. Secondary information in smaller but readable text.',
-    textPlacementHints: 'Event name centered and prominent in 45-52% zone. Supporting details in 55-62% zone. ALL text within 40-65%.',
+    textPlacementHints: 'Event name centered and prominent in 51-57% zone. Supporting details in 58-63% zone. ALL text strictly within 50-65% only.',
     colorPaletteHints: 'Professional color scheme appropriate for the event type',
     mustIncludeElements: ['event title', 'date and venue if provided', 'speaker name if provided'],
     enhancedPrompt: buildFallbackEnhancedPrompt(compiledData, logoStripEnabled),

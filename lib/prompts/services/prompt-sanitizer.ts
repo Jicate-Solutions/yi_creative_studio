@@ -397,14 +397,54 @@ export function isPromptClean(prompt: string): boolean {
 // ============================================================
 
 /**
+ * v38.0: Converts XML <text role="..."> tags to Gemini-safe parenthetical format.
+ *
+ * Gemini's image model renders XML tags as visible text on the canvas.
+ * This converts them to parenthetical role markers that Gemini treats as metadata.
+ *
+ * Before: <text role="headline" color="#107023" prominence="dominant" size="largest">Sarvam Galata</text>
+ * After:  (headline, #107023, largest) "Sarvam Galata"
+ *
+ * The color and size hints are preserved for Gemini's typography decisions.
+ * The parenthetical format is NOT rendered as visible text by image models.
+ */
+export function convertTextRoleTagsToSafe(prompt: string): string {
+  if (!prompt) return ''
+
+  return prompt.replace(
+    /<text\s+role="([^"]+)"([^>]*)>([\s\S]*?)<\/text>/gi,
+    (_match, role: string, attrs: string, content: string) => {
+      const trimmed = content.trim()
+      if (!trimmed) return ''
+
+      // Extract color and size from attributes (order-independent)
+      const colorMatch = attrs.match(/color="([^"]*)"/)
+      const sizeMatch = attrs.match(/size="([^"]*)"/)
+
+      // Build compact metadata: (role, #color, size)
+      const hints = [role]
+      if (colorMatch) hints.push(colorMatch[1])
+      if (sizeMatch) hints.push(sizeMatch[1])
+
+      return `(${hints.join(', ')}) "${trimmed}"`
+    }
+  )
+}
+
+/**
  * Gentle sanitization - ONLY removes field labels (e.g., "Event Name:", "Date:")
- * Preserves XML structure, instruction words, and design terminology.
+ * and converts XML <text role> tags to Gemini-safe format.
+ * Preserves instruction words and design terminology.
  * Use for XML-structured prompts from YiPromptBuilder.
  */
 export function stripFieldLabelsOnly(prompt: string): string {
   if (!prompt) return ''
 
   let cleaned = prompt
+
+  // v38.0: Convert XML <text role> tags to parenthetical format FIRST
+  // This prevents Gemini from rendering XML tags as visible text
+  cleaned = convertTextRoleTagsToSafe(cleaned)
 
   // ONLY remove field label patterns like "Event Name:", "Date:", etc.
   for (const pattern of FIELD_LABEL_PATTERNS) {
@@ -424,16 +464,9 @@ export function stripFieldLabelsOnly(prompt: string): string {
  * Detects if a prompt is XML-structured from YiPromptBuilder.
  * XML-structured prompts should use gentle sanitization to preserve AI insights.
  *
- * v6.5.2 FIX: Added actual tags used by YiPromptBuilder event-poster builder:
- * - <layout_composition_rules> (primary tag, always present)
- * - <typography_and_color_specifications>
- * - <ai_decorative_elements>
- * - <creative_twist>
- *
- * Original tags kept for compatibility with other formats.
- *
- * Future improvement: Use regex /<[a-z_]+[^>]*>/i to detect ANY XML tags
- * (more robust but less explicit).
+ * v6.5.2 FIX: Added actual tags used by YiPromptBuilder event-poster builder.
+ * v38.0: Detection runs BEFORE convertTextRoleTagsToSafe(), so <text role=
+ *        tags are still present at detection time.
  */
 export function isXmlStructuredPrompt(prompt: string): boolean {
   return (

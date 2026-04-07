@@ -44,7 +44,11 @@ export async function detectTextInForbiddenZones(
     .toBuffer()
 
   // Detect high-contrast horizontal patterns (text indicators)
-  const headerTextInfo = detectTextPatternWithPosition(headerRegion, width, headerEndPx)
+  // Skip first 1% of canvas height (first ~14px on 1440h) — these rows are almost always
+  // background art (sky, gradient) that creates white horizontal runs, not real text.
+  // "firstTextRow" below the 1% threshold is a near-certain false positive.
+  const MIN_DETECTION_ROW = Math.max(1, Math.floor(height * 0.01))
+  const headerTextInfo = detectTextPatternWithPosition(headerRegion, width, headerEndPx, MIN_DETECTION_ROW)
 
   if (headerTextInfo.hasText) {
     // Calculate actual text Y position as percentage
@@ -101,16 +105,17 @@ interface TextDetectionResult {
   textRowCount: number
 }
 
-function detectTextPatternWithPosition(buffer: Buffer, width: number, height: number): TextDetectionResult {
+function detectTextPatternWithPosition(buffer: Buffer, width: number, height: number, startRow = 0): TextDetectionResult {
   // Simplified text detection with position tracking:
   // Text creates horizontal runs of white pixels (in threshold image)
   // Count horizontal runs above threshold length and track first occurrence
+  // startRow: skip this many rows at the start (avoids false positives from background art at very top)
 
   let textRunCount = 0
   let firstTextRow = -1
   const minRunLength = width * 0.1 // 10% of width
 
-  for (let y = 0; y < height; y++) {
+  for (let y = startRow; y < height; y++) {
     let runLength = 0
     let rowHasText = false
 

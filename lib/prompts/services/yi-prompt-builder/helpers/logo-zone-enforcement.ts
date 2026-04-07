@@ -168,7 +168,7 @@ NEVER create a split layout: plain colored header area at the top + scene card i
 The scene artwork BLEEDS to all four canvas edges. The upper portion = TOP of scene (sky, ceiling, atmospheric light). The lower portion = BOTTOM of scene (floor, ambient base).
 Forbidden zones means forbidden for TEXT only — background artwork MUST flow through ALL zones continuously.
 
-TEXT PLACEMENT: All text, headlines, event names, dates, and details MUST be placed in the CENTER BAND of the canvas. The upper area is reserved for clean atmospheric background — NO text there. The lower area is reserved for footer — NO text there.
+TEXT PLACEMENT: All text, headlines, event names, dates, and details MUST be placed in the 40%-70% CENTER BAND of the canvas. The 0%-40% upper area has header logo overlays — NO text there. The 70%-100% lower area has footer overlays — NO text there.
 
 CORNER AREAS: Keep ${positionList} corners clear of text and detailed graphics. Generate ONLY clean backgrounds in these corner regions.
 </instruction>
@@ -246,44 +246,38 @@ export function buildPixelPreciseSpatialConstraints(
     )
   }
 
-  // Flash model (yi_vision) — v38.0: Enhanced zone enforcement with overlay position awareness
-  // Tells Gemini exactly WHERE overlays will be placed so it designs AROUND them
+  // Flash model (yi_vision) — v41.8: Transparent scaffold — generate full-canvas art, overlays applied by Sharp
   return `
 (DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
-CANVAS LAYOUT RULE:
-DO NOT draw any logo, logo placeholder, "LOGO" text, emoji icon, or brand mark anywhere in the image — branded overlay elements are composited as a separate layer after generation. Render ONLY pure background artwork in the header and footer zones.
+CANVAS GUIDE (v41.8 — TRANSPARENT BOUNDARY MARKERS):
+The attached image shows FAINT BOUNDARY MARKERS only — dashed lines at y=${contentStartY}px and y=${resolvedContentEndPx}px.
+These are NOT bars to preserve. They are guides showing where logo/footer overlays will be composited on top AFTER generation.
+DO NOT add any blue bands, colored zones, or solid fills in these areas. Generate PURE BACKGROUND ART throughout.
 
-OVERLAY POSITION MAP (these areas will have semi-transparent overlays composited on top):
-- TOP STRIP (0-10% height): Small branded overlay elements across the top edge (left, center, right). Keep this strip as CLEAN atmospheric background — smooth sky, ambient light, soft color. No text, no faces, no detailed objects.
-- SECOND STRIP (10-20% height): Additional small overlay elements just below the top. Keep as clean background.
-- BOTTOM STRIP (65-100% height): Footer overlay elements across the bottom edge. Keep as clean background — ground, ambient base.
+YOUR TASK: Generate a FULL-CANVAS continuous background scene — one seamless image edge to edge, top to bottom.
+- No blue bars. No colored header/footer. No bands. No borders. No overlays.
+- Pure background artwork flows through the ENTIRE canvas (0px to ${canvasHeight}px).
+- Logo overlays and footer will be composited on top by the system AFTER you generate.
 
-The top ${contentStartPercent}% of the canvas will be COVERED by overlay elements. Any text or faces placed here will be hidden behind overlays.
-The bottom ${100 - contentEndPercent}% of the canvas will be COVERED by footer overlays. Any text placed here will be hidden.
+ONE UNIFIED SCENE (canvas: ${canvasWidth}x${canvasHeight}px):
+Think of this as a SINGLE TALL PHOTOGRAPH — one camera, one moment, one composition.
+The scene fills the ENTIRE canvas (y=0 to y=${canvasHeight}px) as a single continuous image.
+The ${contentStartPercent}%–${contentEndPercent}% band (y=${contentStartY}–${resolvedContentEndPx}px) is where event text will be composited — keep this area visually calm so overlaid text is readable.
 
-SAFE CONTENT ZONE: ${contentStartPercent}% to ${contentEndPercent}% from top (the middle ${contentHeightPercent}% of the canvas).
-ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed ONLY in this zone.
+RULES:
+DO NOT render ANY text, headline, event name, date, venue, label, or caption anywhere.
+DO NOT draw any logo, watermark, "LOGO" text, icon, or brand mark anywhere.
+DO NOT add any horizontal bands, color bars, gradient breaks, or zone dividers.
+DO NOT generate different scenes or perspectives for different vertical sections of the canvas.
+All text and logos are composited as separate Sharp layers after generation — leave the canvas clean.
 
-BACKGROUND DESIGN:
-Create ONE continuous background scene that flows seamlessly from top to bottom — like a single photograph or painting.
-The background artwork extends through ALL zones (including overlay areas) as a unified scene — the scene IS the full canvas.
-Do NOT create visible bands, stripes, or section dividers.
-Do NOT create a "hero image on top + text below" split layout.
-
-TEXT PLACEMENT — CENTERED OVERLAY (v39.0):
-The text is NOT below the scene — it is OVERLAID on the CENTER of the scene.
-VERTICALLY CENTER all text elements within the ${contentStartPercent}%-${contentEndPercent}% band.
-The scene fills the ENTIRE canvas. Text sits ON TOP of the scene in the center band.
-Think of it like a movie poster: full-bleed cinematic image with title text centered over it.
-
-Composition model:
-- 0%-${contentStartPercent}%: Scene background only (sky, atmosphere) — covered by overlays
-- ${contentStartPercent}%-${contentEndPercent}%: Scene CONTINUES here + ALL text overlaid on top of it
-- ${contentEndPercent}%-100%: Scene background only (ground, ambient) — covered by overlays
-- The headline appears in the VERTICAL CENTER of the ${contentStartPercent}%-${contentEndPercent}% zone
-- All text is horizontally centered between 15% and 85% width
-- If content is extensive, use smaller fonts and tighter spacing — NEVER push text below ${contentEndPercent}%
+SINGLE CAMERA RULE (strictly enforced):
+- ONE camera position. ONE viewpoint. ONE lighting setup. The entire canvas is captured from this single position.
+- If you imagine the canvas as a tall photograph: the top, middle, and bottom all show different parts of the SAME scene from the SAME angle.
+- FORBIDDEN: showing a scene from above in one half and from below in another half.
+- FORBIDDEN: showing exterior of a building in one section and interior in another section.
+- FORBIDDEN: tiling, repeating, or mirroring any element across the vertical axis.
 `
 }
 
@@ -310,32 +304,36 @@ function buildProModelSpatialConstraints(
   contentStartPercent: number,
   contentEndPercent: number
 ): string {
-  // v38.0: Enhanced Pro model constraints with overlay position awareness
+  // v40.0: Updated Pro model constraints for new 4-zone canvas layout
   return `
 (DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
 
-CANVAS LAYOUT RULE:
-OVERLAY POSITION MAP (semi-transparent overlays will cover these areas after generation):
-- TOP STRIP (0-10%): Branded overlay elements across the top edge. Keep as clean atmospheric background.
-- SECOND STRIP (10-20%): Additional overlay elements. Keep as clean background.
-- BOTTOM STRIP (65-100%): Footer overlay elements. Keep as clean background.
+CANVAS ZONE MAP (v40.1 — 3-zone structure):
+- HEADER LOGO STRIP (0%-40%): Logo bars anchored at top edge. 3 rows of brand logos composited here. Keep as clean background only — no text, no faces.
+- CONTENT ZONE (40%-70%): YOUR active zone — all headlines, dates, venues, speaker names MUST be here.
+- FOOTER LOGO STRIP (70%-100%): Footer logos composited here. Keep as clean background.
 
-The top ${contentStartPercent}% will be COVERED by overlays. Text or faces here will be hidden.
-The bottom ${100 - contentEndPercent}% will be COVERED by footer overlays. Text here will be hidden.
+The zone from 0% to 40% will be COVERED by header logo overlays. Text here will be hidden.
+The zone from 70% to 100% will be COVERED by footer logo overlays. Text here will be hidden.
 
-SAFE CONTENT ZONE: ${contentStartPercent}% to ${contentEndPercent}% from top.
+SAFE CONTENT ZONE: ${contentStartPercent}% to ${contentEndPercent}% from top (${contentStartY}px to ${contentEndY}px).
 ALL text, headlines, titles, dates, venues, speaker names, and visual content MUST be placed ONLY in this zone.
+
+TEXT START ANCHOR (v40.2 — CRITICAL):
+The event HEADLINE must start at EXACTLY ${contentStartPercent}% (${contentStartY}px from top).
+Do NOT center text vertically across the full canvas — that shifts text into the logo overlay zone.
+Do NOT place any text above ${contentStartPercent}% (${contentStartY}px).
+Stack all text DOWNWARD from ${contentStartPercent}%, toward ${contentEndPercent}%.
 
 BACKGROUND: ONE continuous scene from top to bottom — no bands, no stripes, no dividers.
 Background artwork flows through ALL zones including overlay areas.
 Do NOT create a "hero image on top + text below" split layout.
 
-TEXT PLACEMENT — CENTERED OVERLAY (v39.0):
-The text is OVERLAID on the CENTER of the scene — NOT placed below it.
-VERTICALLY CENTER all text within the ${contentStartPercent}%-${contentEndPercent}% band.
-The scene fills the ENTIRE canvas. Text sits ON TOP of the scene like a movie poster.
-The headline appears in the VERTICAL CENTER of the content zone.
-All supporting text fits between ${contentStartPercent}% and ${contentEndPercent}%.
+TEXT PLACEMENT (v40.2):
+Start the event headline at ${contentStartPercent}% (${contentStartY}px) and stack all text DOWNWARD from there.
+The scene fills the ENTIRE canvas. Text sits ON TOP of the scene.
+Do NOT center text in the full frame — the text block anchors to the ${contentStartPercent}% TOP edge of the content zone.
+All text stays between ${contentStartPercent}% and ${contentEndPercent}%.
 Keep text horizontally centered between 15% and 85% width.
 
 CONTENT PRIORITY (when space is tight):

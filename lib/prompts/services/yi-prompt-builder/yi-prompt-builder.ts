@@ -151,6 +151,26 @@ CRITICAL VALIDATION CHECKPOINT (Ask yourself before rendering ANYTHING):
 → If NO: DO NOT render it (it's visual guidance, decorative context, or instruction — NOT text content)
 
 ═══════════════════════════════════════════════════════════════════════════════
+SCENE DESCRIPTION FIREWALL (v42.3 — ZERO TOLERANCE)
+═══════════════════════════════════════════════════════════════════════════════
+
+VISUAL SCENE descriptions are BLUEPRINTS, not captions. They tell you WHAT TO DRAW, never WHAT TO WRITE.
+
+NEVER convert scene description phrases into visible text in the image:
+- "awareness program" → DRAW awareness scene, DO NOT write "Awareness Program" on a face/wall/banner
+- "young delegates debating" → DRAW people debating, DO NOT add "Delegates" label
+- "Ashoka Chakra at podium" → DRAW the symbol, DO NOT write "Ashoka Chakra" as text
+- "Indian parliamentary hall" → DRAW the environment, DO NOT caption it
+- "PATHFINDER journey" → DRAW the visual metaphor, DO NOT write the word as a label
+- ANY descriptive phrase from the visual scene → VISUALIZE it silently, never annotate it
+
+FACES AND PEOPLE: NEVER render text, labels, captions, or annotations ON or NEAR human faces.
+SCENE ELEMENTS: NEVER add title cards, text overlays, or descriptive labels to scene objects.
+BACKGROUND WALLS/SURFACES: NEVER render scene description phrases as readable posters, banners, or text on surfaces.
+
+The scene you generate must look like a CLEAN PHOTOGRAPH — no captions, no labels, no floating text, no annotated elements.
+
+═══════════════════════════════════════════════════════════════════════════════
 AI CONTROL BOUNDARY
 ═══════════════════════════════════════════════════════════════════════════════
 

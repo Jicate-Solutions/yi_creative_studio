@@ -13,21 +13,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronUp, User, Sparkles, Check, X, AlertCircle, ClipboardPaste } from 'lucide-react'
-import { SmartPasteSheet } from './SmartPasteSheet'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { ChevronDown, ChevronUp, User, Sparkles, Check, X, AlertCircle } from 'lucide-react'
+import { SmartPasteInput, ExtractionPreview } from '@/components/create/smart-paste'
+import { useFieldExtraction } from '@/hooks/use-field-extraction'
 import { cn } from '@/lib/utils'
 import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
 import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
 import type { SuggestableField } from '@/types/suggestions'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
 import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
-import { resolveFieldId, getField } from '@/lib/config/field-registry'
+import { resolveFieldId } from '@/lib/config/field-registry'
 import { toast } from 'sonner'
 
 // API field names used by suggestion system (from wizard page)
@@ -90,7 +85,27 @@ export function DetailsPanel({
   const [showMore, setShowMore] = useState(false)
   const [speakerSectionOpen, setSpeakerSectionOpen] = useState(false)
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
-  const [smartPasteOpen, setSmartPasteOpen] = useState(false)
+
+  const {
+    isExtracting,
+    extractionError,
+    extractionResult,
+    extractFields,
+    applyExtractedFields,
+    applyExtractedSpeakers,
+    clearExtraction,
+    editExtractedField,
+  } = useFieldExtraction({ organizationId: organizationId || '' })
+
+  const handleExtract = useCallback(async (text: string) => {
+    await extractFields(text, selectedVertical?.slug, selectedFormat?.id)
+  }, [extractFields, selectedVertical?.slug, selectedFormat?.id])
+
+  const handleApplyExtracted = useCallback((selectedFieldIds: string[]) => {
+    applyExtractedFields(selectedFieldIds)
+    toast.success('Fields applied — ready to generate!')
+    clearExtraction()
+  }, [applyExtractedFields, clearExtraction])
 
   // Check if format supports speaker photo
   const supportsSpeakerPhoto = selectedFormat
@@ -129,13 +144,17 @@ export function DetailsPanel({
   // that differ from the canonical static schema IDs ('eventName'). Normalising before
   // dedup prevents them from appearing as two separate form fields.
   const FIELD_ID_NORMALIZER: Record<string, string> = {
-    eventTitle:  'eventName',
-    title:       'eventName',
-    description: 'eventDescription',
-    date:        'eventDate',
-    time:        'eventTime',
-    startTime:   'eventTime',
-    location:    'venue',
+    eventTitle:    'eventName',
+    title:         'eventName',
+    description:   'eventDescription',
+    date:          'eventDate',
+    time:          'eventTime',
+    startTime:     'eventTime',
+    location:      'venue',
+    tagline:       'eventTagline',
+    subtitle:      'eventTagline',
+    eventSubtitle: 'eventTagline',
+    postTagline:   'eventTagline',
   }
   const rawDynamicFields = dynamicSchema.schema?.fields || []
   const seenNormIds = new Set<string>()
@@ -294,11 +313,11 @@ export function DetailsPanel({
     }
 
     return (
-      <div key={field.id} className="space-y-1">
+      <div key={field.id} className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor={field.id} className={cn(
-            "text-xs font-medium",
-            showError ? "text-destructive" : "text-muted-foreground"
+            "text-[13px] font-medium leading-none",
+            showError ? "text-destructive" : "text-foreground/80"
           )}>
             <span className="flex items-center gap-1">
               {showError && <AlertCircle className="h-3 w-3" />}
@@ -349,7 +368,7 @@ export function DetailsPanel({
             rows={field.rows || 2}
             maxLength={field.maxLength}
             className={cn(
-              "resize-none text-sm min-h-[60px]",
+              "resize-none text-sm min-h-[72px]",
               showError && "border-destructive focus-visible:ring-destructive"
             )}
           />
@@ -361,7 +380,7 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "h-9 text-sm",
+              "h-10 text-sm",
               showError && "border-destructive focus-visible:ring-destructive"
             )}
           />
@@ -373,7 +392,7 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "h-9 text-sm",
+              "h-10 text-sm",
               showError && "border-destructive focus-visible:ring-destructive"
             )}
           />
@@ -384,7 +403,7 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "w-full h-9 px-3 rounded-md border border-input bg-background text-sm",
+              "w-full h-10 px-3 rounded-md border border-input bg-background text-sm",
               showError && "border-destructive focus:ring-destructive"
             )}
           >
@@ -405,7 +424,7 @@ export function DetailsPanel({
             placeholder={field.placeholder}
             maxLength={field.maxLength}
             className={cn(
-              "h-9 text-sm",
+              "h-10 text-sm",
               showError && "border-destructive focus-visible:ring-destructive"
             )}
           />
@@ -413,7 +432,7 @@ export function DetailsPanel({
 
         {/* Validation error message */}
         {showError && (
-          <p className="text-[10px] text-destructive flex items-center gap-1 mt-1">
+          <p className="text-xs text-destructive flex items-center gap-1 mt-1">
             <AlertCircle className="h-3 w-3" />
             This field is required
           </p>
@@ -421,38 +440,40 @@ export function DetailsPanel({
 
         {/* Character counter */}
         {field.maxLength && value.length > 0 && !showError && (
-          <p className="text-[10px] text-muted-foreground text-right">
+          <p className="text-[11px] text-muted-foreground text-right tabular-nums">
             {value.length}/{field.maxLength}
           </p>
         )}
 
         {/* AI Suggestion Display */}
         {isSuggestable && suggestion && !value && (
-          <div className="p-2 bg-purple-50 border border-purple-200 rounded-md space-y-2">
-            <p className="text-xs text-purple-900 italic">
+          <div className="rounded-xl border border-violet-200/80 bg-violet-50/60 overflow-hidden">
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-violet-200/60 bg-violet-100/40">
+              <Sparkles className="h-3 w-3 text-violet-600" />
+              <span className="text-[11px] font-medium text-violet-700">AI Suggestion</span>
+              <span className="ml-auto text-[10px] text-violet-500">
+                {Math.round(suggestion.confidence * 100)}% confident
+              </span>
+            </div>
+            <p className="px-3 py-2.5 text-xs text-violet-900/90 leading-relaxed italic">
               {suggestion.value}
             </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="default"
-                className="h-7 px-3 text-xs bg-purple-600 hover:bg-purple-700"
+            <div className="flex border-t border-violet-200/60">
+              <button
                 onClick={handleAcceptSuggestion}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] font-medium text-violet-700 hover:bg-violet-100/60 transition-colors"
               >
-                <Check className="h-3 w-3 mr-1" />
-                Accept
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 px-3 text-xs"
+                <Check className="h-3.5 w-3.5" />
+                Use this
+              </button>
+              <div className="w-px bg-violet-200/60" />
+              <button
                 onClick={handleDismissSuggestion}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted/40 transition-colors"
               >
-                <X className="h-3 w-3 mr-1" />
+                <X className="h-3.5 w-3.5" />
                 Dismiss
-              </Button>
+              </button>
             </div>
           </div>
         )}
@@ -477,53 +498,67 @@ export function DetailsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Scrollable Content Area */}
-      <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-        {/* Compact Panel Header */}
-        <div className="pb-2 border-b flex items-center justify-between">
-          <h2 className="text-base font-semibold">{selectedFormat?.label || 'Details'}</h2>
-          {organizationId && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setSmartPasteOpen(true)}
-                  >
-                    <ClipboardPaste className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Smart Paste - Extract from text</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-
-        {/* Required Fields - Compact spacing */}
-        <div className="space-y-3">
-          {requiredFields.map(renderField)}
-        </div>
-
-        {/* Optional Fields Toggle - More compact */}
-        {optionalFields.length > 0 && (
-          <Collapsible open={showMore} onOpenChange={setShowMore}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <span className="flex items-center gap-1">
-                {showMore ? 'Show less' : `+ ${optionalFields.length} optional`}
-              </span>
-              {showMore ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="space-y-3 pt-2 border-t">
-                {optionalFields.map(renderField)}
+    <div className="flex flex-col">
+      {/* Content Area */}
+      <div className="px-4 py-3 space-y-4">
+        {/* Smart Paste Mode (always active when organizationId present) */}
+        {organizationId ? (
+          <div className="space-y-3">
+            {!extractionResult ? (
+              <SmartPasteInput
+                onExtract={handleExtract}
+                isExtracting={isExtracting}
+                error={extractionError}
+                compact
+              />
+            ) : (
+              <ExtractionPreview
+                result={extractionResult}
+                onApply={handleApplyExtracted}
+                onApplySpeakers={applyExtractedSpeakers}
+                onCancel={clearExtraction}
+                onEditField={editExtractedField}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Required Fields — card */}
+            {requiredFields.length > 0 && (
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
+                  <div className="p-1.5 rounded-lg bg-violet-500/10">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                  </div>
+                  <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/80">
+                    {selectedFormat?.label || 'Event Details'}
+                  </span>
+                </div>
+                <div className="px-3 pb-3 space-y-3">
+                  {requiredFields.map(renderField)}
+                </div>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            )}
+
+            {/* Optional Fields Toggle */}
+            {optionalFields.length > 0 && (
+              <Collapsible open={showMore} onOpenChange={setShowMore}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full py-2.5 px-3 rounded-xl bg-muted/40 hover:bg-muted/70 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 hover:scale-[1.01] border border-dashed border-border/60">
+                  <span className="flex items-center gap-1.5">
+                    {showMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {showMore ? 'Hide optional fields' : `Show ${optionalFields.length} optional fields`}
+                  </span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-2">
+                    <div className="px-3 pt-3 pb-3 space-y-3">
+                      {optionalFields.map(renderField)}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </>
         )}
 
         {/* Speaker Photo Section (if format supports it) */}
@@ -531,25 +566,28 @@ export function DetailsPanel({
           <Collapsible
             open={speakerSectionOpen}
             onOpenChange={setSpeakerSectionOpen}
-            className="mt-6 border-t pt-4"
+            className="mt-2 rounded-xl border border-border/60 overflow-hidden"
           >
-            <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Speaker Photo</span>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-left px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <span className="text-[13px] font-medium">Speaker Photo</span>
                 {speakerPhotoValue?.speakers && speakerPhotoValue.speakers.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    ({speakerPhotoValue.speakers.length} speaker{speakerPhotoValue.speakers.length > 1 ? 's' : ''})
+                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                    {speakerPhotoValue.speakers.length}
                   </span>
                 )}
               </div>
               {speakerSectionOpen ? (
-                <ChevronUp className="h-4 w-4" />
+                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
               ) : (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               )}
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4">
+            <CollapsibleContent className="border-t border-border/60">
+              <div className="p-4">
               <MultiSpeakerInput
                 speakers={speakerPhotoValue?.speakers || []}
                 sharedSettings={{
@@ -603,6 +641,7 @@ export function DetailsPanel({
                   handleSpeakerPhotoChange({ layoutMode, layoutStrategy })
                 }}
               />
+              </div>
             </CollapsibleContent>
           </Collapsible>
         )}
@@ -617,10 +656,10 @@ export function DetailsPanel({
 
       {/* Review Button - Fixed at bottom when form is valid */}
       {showReviewButton && onReviewClick && (
-        <div className="flex-none p-3 border-t bg-card/95 backdrop-blur">
+        <div className="px-4 py-3 border-t border-border/60 bg-card/95">
           <Button
             onClick={onReviewClick}
-            className="w-full h-11 gap-2 gradient-yi text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-200"
+            className="w-full h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
           >
             <Sparkles className="h-4 w-4" />
             Review & Generate
@@ -628,16 +667,6 @@ export function DetailsPanel({
         </div>
       )}
 
-      {/* Smart Paste Sheet */}
-      {organizationId && (
-        <SmartPasteSheet
-          open={smartPasteOpen}
-          onOpenChange={setSmartPasteOpen}
-          organizationId={organizationId}
-          verticalSlug={selectedVertical?.slug}
-          formatId={selectedFormat?.id}
-        />
-      )}
     </div>
   )
 }

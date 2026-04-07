@@ -690,6 +690,7 @@ export function buildEventPosterPrompt(
   const footerReservePercent = options.logoStripZoneCoordinates?.footerReservePercent || 0
   const headerReservePercent = options.logoStripZoneCoordinates?.headerReservePercent || 18
   const headerHeight = options.logoStripZoneCoordinates?.headerHeight || 260
+  const footerBarHeight = options.logoStripZoneCoordinates?.footerHeight ?? 0  // v41.4: actual footer bar px
 
   // v25.1: Analyze content density to determine if background needs enrichment
   const contentDensityAnalysis = analyzeContentDensity({
@@ -711,14 +712,20 @@ export function buildEventPosterPrompt(
   // Must be calculated BEFORE content zones so we can shrink to 40%-60% when speakers enabled
   const hasSpeakerPhotoEarly = options.speakerPhotoConfig?.enabled === true
 
-  // v33.4: STRICT FIXED ZONE STRATEGY — user-required clean logo areas
-  // Zone Layout (strict):
-  // - Header: 0-40% (FORBIDDEN — clean for logo overlays)
-  // - Content: 40-65% (ALL text — headline, tagline, date, venue, speakers)
-  // - Footer: 65-100% (FORBIDDEN — clean for logo overlays, 5% buffer above footer bar)
-  // Speaker photo mode shrinks content zone to 40-60%
-  const CONTENT_START = 40   // Fixed — header clean zone ends at exactly 40%
-  const CONTENT_END = hasSpeakerPhotoEarly ? 60 : 65   // v39.0: Moved from 70→65 for 5% buffer above footer bar
+  // v24.10: PIXEL-BASED UNIFIED ZONE POSITIONING — declared early (v41.4 moved up)
+  // Gemini cannot parse XML percentages - use exact pixel coordinates
+  const CANVAS_HEIGHT = 1440; // Event poster height
+  const CANVAS_WIDTH = 1080;
+
+  // v41.4: ACTUAL-BAR ZONE STRATEGY — content zone derived from real Sharp logo bar heights.
+  // Scaffold shows EXACT bar heights → CONTENT_START/END must match or Gemini gets contradictory signals.
+  // headerHeight (from logoStripZoneCoordinates) = actual rendered header height in Sharp (e.g. ~350px on 1440h)
+  // footerBarHeight = actual rendered footer height in Sharp (e.g. ~259px on 1440h)
+  // 10px buffer above/below the bars so text never butts against the bar edge.
+  const CONTENT_START = Math.ceil(((headerHeight + 10) / CANVAS_HEIGHT) * 100)   // e.g. (350+10)/1440 = 25%
+  const CONTENT_END = footerBarHeight > 0
+    ? Math.floor(((CANVAS_HEIGHT - footerBarHeight - 10) / CANVAS_HEIGHT) * 100) // e.g. (1440-259-10)/1440 = 81%
+    : (hasSpeakerPhotoEarly ? 65 : 70)   // fallback if no footer bar info
   const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 25% available for text (or 20% with speaker photo)
 
   // Override calculated header start with center zone start
@@ -772,24 +779,22 @@ export function buildEventPosterPrompt(
     footerZone: `${CONTENT_END}% - 100% (FORBIDDEN)`
   })
 
-  // v24.10: PIXEL-BASED UNIFIED ZONE POSITIONING
-  // Gemini cannot parse XML percentages - use exact pixel coordinates
-  const CANVAS_HEIGHT = 1440; // Event poster height
-  const CANVAS_WIDTH = 1080;
-
-  // v24.10: Pixel zones based on UNIFIED ZONE STRATEGY (40%-70%)
+  // v40.1: Pixel zones aligned with CENTER_ZONE_HEIGHT-based vertical layout
+  // Headline gets 35% of content zone, date/venue 20%, details 15%, registration 15%
+  const _headlineHeightPx = Math.floor(CANVAS_HEIGHT * CENTER_ZONE_HEIGHT * 0.35 / 100)
+  const _taglineHeightPx  = Math.floor(CANVAS_HEIGHT * CENTER_ZONE_HEIGHT * 0.15 / 100)
   const pixelZones = {
     // Header zone (0-40%) - FORBIDDEN
-    headerEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px for 40%
+    headerEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),              // 576px (40%)
     // Content zone boundaries (40-70%)
-    contentStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px for 40%
-    headlineStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),  // 576px
-    headlineEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 6) / 100)),  // 662px
-    dateVenueStart: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 12) / 100)),  // 749px
-    dateVenueEnd: Math.floor(CANVAS_HEIGHT * ((CONTENT_START + 18) / 100)),  // 835px
-    contentEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1008px for 70%
+    contentStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),           // 576px (40%)
+    headlineStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)),          // 576px (40%)
+    headlineEnd:   Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)) + _headlineHeightPx, // 727px (~50.5%)
+    dateVenueStart: Math.floor(CANVAS_HEIGHT * (CONTENT_START / 100)) + _headlineHeightPx + _taglineHeightPx, // 792px (~55%)
+    dateVenueEnd:   Math.floor(CANVAS_HEIGHT * (CONTENT_START + CENTER_ZONE_HEIGHT * 0.70) / 100), // 878px (~61%)
+    contentEnd: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),               // 1008px (70%)
     // Footer zone (70-100%) - FORBIDDEN
-    footerStart: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),  // 1008px for 70%
+    footerStart: Math.floor(CANVAS_HEIGHT * (CONTENT_END / 100)),              // 1008px (70%)
     footerEnd: CANVAS_HEIGHT
   };
 
@@ -1138,32 +1143,16 @@ FONT STYLES (MOOD-BASED):
 - Body Style: ${tg.bodyStyle}
 - Hierarchy: ${tg.hierarchy}
 
-TEXT HIERARCHY (v13.0 - ENFORCED):
+TEXT RENDERING (v42.2 — SHARP HANDLES ALL TEXT):
 
-The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color} (${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
+(DO NOT RENDER any text in the image — no headline, no tagline, no event name, no date, no venue)
+Sharp composites ALL text on top of your background after generation.
+Your job: generate BACKGROUND SCENE ONLY with a clean, visually rich environment.
 
-🎯 TEXT HIERARCHY ENFORCEMENT:
-1. Event Headline: LARGEST (ultra-bold, ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color})
-2. Tagline/Speaker Names: MEDIUM (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color})
-3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
-4. Additional Details: SMALLEST supporting text
-
-SIZE RATIO GUIDE (v33.0 - PROPORTIONAL HIERARCHY):
-- HEADLINE: 100% reference size (fills 60-80% of content zone width)
-- TAGLINE: 40-50% of headline size
-- INFO CARD TEXT: 25-35% of headline size
-- SPEAKER NAMES: 30-40% of headline size
-- ADDITIONAL DETAILS: 20-25% of headline size
-THE 3x RULE: The headline MUST be at least 3x the visual size of the smallest text element.
-If the headline and body text look similar in size, the design has FAILED its hierarchy test.
-
-CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
-The event headline "${eventName}" MUST be:
-- Readable from 10 feet away
-- Instantly visible in 3-second scan
-- NEVER obscured by decorative elements
-- Rendered ON TOP of all visual elements (highest z-index)
-- The FIRST element viewers notice (not decorative graphics)
+COLOR GUIDANCE FOR BACKGROUND (use these as scene/environment colors):
+- Primary environment color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color}
+- Secondary accent in scene: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color}
+- Atmospheric/ambient tone: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color}
 
 SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
 
@@ -1258,32 +1247,16 @@ COLOR APPLICATION:
 TYPOGRAPHY SYSTEM:
 - Alignment Strategy: ${fallbackAlignment}-aligned layout (varied composition)
 
-TEXT HIERARCHY (v13.0 - ENFORCED):
+TEXT RENDERING (v42.2 — SHARP HANDLES ALL TEXT):
 
-The event name "${eventName}" MUST be the LARGEST and most prominent text element, rendered in ULTRA-BOLD typography using ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color} (${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}). This headline MUST be the DOMINANT visual focal point, larger than ALL other text.
+(DO NOT RENDER any text in the image — no headline, no tagline, no event name, no date, no venue)
+Sharp composites ALL text on top of your background after generation.
+Your job: generate BACKGROUND SCENE ONLY with a clean, visually rich environment.
 
-🎯 TEXT HIERARCHY ENFORCEMENT:
-1. Event Headline: LARGEST (ultra-bold, ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color})
-2. Tagline/Speaker Names: MEDIUM (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color})
-3. Date/Venue: SMALL supporting text (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color})
-4. Additional Details: SMALLEST supporting text
-
-SIZE RATIO GUIDE (v33.0 - PROPORTIONAL HIERARCHY):
-- HEADLINE: 100% reference size (fills 60-80% of content zone width)
-- TAGLINE: 40-50% of headline size
-- INFO CARD TEXT: 25-35% of headline size
-- SPEAKER NAMES: 30-40% of headline size
-- ADDITIONAL DETAILS: 20-25% of headline size
-THE 3x RULE: The headline MUST be at least 3x the visual size of the smallest text element.
-If the headline and body text look similar in size, the design has FAILED its hierarchy test.
-
-CRITICAL TEXT RENDERING REQUIREMENTS (v13.0):
-The event headline "${eventName}" MUST be:
-- Readable from 10 feet away
-- Instantly visible in 3-second scan
-- NEVER obscured by decorative elements
-- Rendered ON TOP of all visual elements (highest z-index)
-- The FIRST element viewers notice (not decorative graphics)
+COLOR GUIDANCE FOR BACKGROUND (use these as scene/environment colors):
+- Primary environment color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color}
+- Secondary accent in scene: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color}
+- Atmospheric/ambient tone: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color}
 
 SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
 
@@ -1486,6 +1459,32 @@ Integrate this creative twist prominently into the background or decorative elem
   const tg_cat = tg?.typographyStyle || eventContext.headlineFont || 'sans-serif';
   const tg_align = (tg?.alignment as any) || 'center';
 
+  // v42.1: Background contrast guidance — tell Gemini what text colors will be composited
+  // so it can ensure the background provides adequate contrast with those colors.
+  const _rc = options.resolvedColors
+  const _bc = options.brandContext
+  const _p = _rc?.primaryColor || _bc?.primaryColor || '#005B96'
+  const _s = _rc?.secondaryColor || _bc?.secondaryColor || '#FFFFFF'
+  const _a = _rc?.accentColor || _bc?.accentColor || '#FFFFFF'
+  const _hexLum = (h: string) => {
+    const clean = h.replace('#', '').padEnd(6, '0')
+    const [r, g, b] = (clean.match(/.{2}/g) ?? ['ff','ff','ff'])
+      .map(v => { const c = parseInt(v, 16)/255; return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4) })
+    return 0.2126*r + 0.7152*g + 0.0722*b
+  }
+  // Pick the lightest brand color (what Sharp uses as headline text on dark backgrounds)
+  const _overlayText = [_a, _s, _p, '#FFFFFF'].find(c => _hexLum(c) > 0.20) ?? '#FFFFFF'
+  const _textIsLight = _hexLum(_overlayText) > 0.40
+  const textContrastGuidance = _textIsLight
+    ? `BACKGROUND CONTRAST REQUIREMENT (v42.1 — CRITICAL):
+    Sharp will composite LIGHT text (${_overlayText}) in the ${CONTENT_START}%–${CONTENT_END}% zone.
+    ✅ MANDATORY: Background in ${CONTENT_START}%–${CONTENT_END}% must be NOTICEABLY DARKER — deep shadows, rich dark environment, moody tones.
+    ❌ FORBIDDEN: Bright sky, pale walls, high-luminance gradients, or white/cream tones in the content zone.`
+    : `BACKGROUND CONTRAST REQUIREMENT (v42.1 — CRITICAL):
+    Sharp will composite DARK text (${_overlayText}) in the ${CONTENT_START}%–${CONTENT_END}% zone.
+    ✅ MANDATORY: Background in ${CONTENT_START}%–${CONTENT_END}% must be NOTICEABLY LIGHTER — pale sky, soft gradients, bright open environment.
+    ❌ FORBIDDEN: Dark walls, deep shadows, or low-luminance tones in the content zone.`
+
   return `
 <!-- ============================================= -->
 <!-- SPATIAL LAYOUT CONSTRAINTS (v24.0 - LAYER 1) -->
@@ -1543,15 +1542,15 @@ ${typographyRules}
 
 <instruction>(DO NOT RENDER — poster context for visual composition only, NOT text to display)
 POSTER DESCRIPTION:
-A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for "${eventName}"${eventDescription ? ` — themed around "${eventDescription}"` : ''}.Target Audience: ${data.targetAudience || eventContext.defaultAudience}.${eventDescription ? `\nEVENT CONTEXT: The visual design, imagery, and atmosphere must reflect the topic "${eventDescription}". This is the PRIMARY thematic direction for the poster.` : ''}
+A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for a ${(data as any).eventType || 'professional'} event${eventDescription ? ` — themed around "${eventDescription}"` : ''}.Target Audience: ${data.targetAudience || eventContext.defaultAudience}.${eventDescription ? `\nEVENT CONTEXT: The visual design, imagery, and atmosphere must reflect the topic "${eventDescription}". This is the PRIMARY thematic direction for the poster.` : ''}
 </instruction>
 
 ${initiativeColorContext ? `
 ${initiativeColorContext}
 
 ` : ''}${options.ultraProContext?.visualScene
-      ? `<instruction>(DO NOT RENDER — visual scene guidance for AI composition, NOT text to display on poster)
-VISUAL SCENE (ULTRA-PRO DIRECTION):
+      ? `<instruction>(DO NOT RENDER — visual scene blueprint for composition only. NEVER convert any phrase here into visible text, label, caption, banner, or annotation on the image. Visualize silently.)
+VISUAL SCENE (ULTRA-PRO DIRECTION — DRAW THIS, DO NOT WRITE THIS):
 ${stripHexCodes(options.ultraProContext.visualScene)}
 
 DESIGN GUIDANCE:
@@ -1614,7 +1613,7 @@ ${logoContext}
   - If all content does NOT fit above ${_contentEndPx}px: reduce font sizes, tighten spacing, use 2-column layout
   - Priority when space is tight: Headline > Date/Time > Venue > Speaker > Note/Additional
   - NEVER push content downward to make it fit — compress it instead
-  - ⚠️ INFO CARD RULE (v35.3): The info card visual block (date + time + venue container panel) MUST be fully enclosed above ${_contentEndPx}px. Its TOP is typically around ${Math.floor(CANVAS_HEIGHT * (CONTENT_START + CENTER_ZONE_HEIGHT * 0.50) / 100)}px and its BOTTOM must not pass ${_contentEndPx - 30}px. The info card is NOT placed below the scene — it is overlaid ON the scene background within the content zone.
+  - (DO NOT RENDER) Date/venue container must be fully enclosed above ${_contentEndPx}px. Its bottom must not pass ${_contentEndPx - 30}px. It is overlaid ON the scene background within the content zone.
 
     1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.29):
   - CONTENT ZONE: ${CONTENT_START}% to ${CONTENT_END}% of canvas height (${Math.floor(1440 * CONTENT_START / 100)}px to ${Math.floor(1440 * CONTENT_END / 100)}px for 1440px canvas)
@@ -1645,38 +1644,20 @@ ${contentDensityAnalysis.density === 'dense' ? `
   - If alignment is 'asymmetric', create a dynamic balance between text and visuals WITHIN zones
   - Alignment applies WITHIN each <text_zone>, not across the entire canvas
 
-3. DATE, TIME, AND VENUE POSITIONING:
-  - Group Date, Time, and Venue together as a unified visual block
-  - Position in the <text_zone id="date_venue"> (see Y-coordinates in spatial_layout_constraints)
-  - Use icons or spacing to enhance visual grouping (NO horizontal lines or dividers)
-  - "${eventName}" must remain the dominant focal point above this section
-${data.registrationInfo ? `  - "${data.registrationInfo}" button should be placed strategically to catch the eye at the end of the reading path.` : ''}
+3. DATE, TIME, AND VENUE (v40.4 — SHARP HANDLED):
+  - DO NOT render date, time, venue, prize, or registration info as text in the image.
+  - These fields are overlaid by the system (Sharp) with exact verified data after generation.
+  - Leave the 55%–70% zone as CLEAN BACKGROUND — no text, no visual containers, no info cards.
+  - Keep the ${CONTENT_START}%–${CONTENT_END}% zone as clean atmospheric background — text will be composited on top.
 
-    3A. INFORMATION ARCHITECTURE (v33.0 - MANDATORY):
+    (DO NOT RENDER ANY OF THE FOLLOWING INSTRUCTIONS — DESIGN GUIDANCE ONLY)
+    3A. ZONE OWNERSHIP (v42.2):
 
-    THE INFORMATION CARD PATTERN:
-    Date, time, and venue MUST be presented as a UNIFIED VISUAL BLOCK — a distinct visual
-    container that is CLEARLY SEPARATED from the background. This is the #1 difference between
-    professional templates and AI-generated posters.
+    GEMINI renders: BACKGROUND SCENE ONLY — no text whatsoever.
+    SHARP renders: Headline, tagline, date, venue, prize, CTA — all text, composited after generation.
 
-    IMPLEMENTATION OPTIONS (pick the best match for the design mood):
-    a) COLORED BAR: A horizontal strip with a contrasting fill color containing date | time | venue
-       in a single line with separator dots or pipes
-    b) ROUNDED CARD: A semi-transparent or solid rounded rectangle containing stacked or inline
-       event details with subtle icon prefixes (calendar icon, clock icon, map pin)
-    c) BADGE STRIP: Individual pill-shaped badges for each data point arranged horizontally
-    d) CONTRAST PANEL: A partial-width panel with a background color that contrasts the main poster background
-
-    THE INFO CONTAINER MUST HAVE:
-    - A VISIBLE BOUNDARY (background fill, border, or shadow) separating it from the poster background
-    - CONSISTENT INTERNAL PADDING (text does not touch the container edges)
-    - GROUPED DATA (date + time + venue in ONE container, not scattered across the poster)
-
-    NOTE: This is a FOREGROUND content element — it sits ON TOP of the seamless background.
-    It does NOT break the background continuity.
-
-    ANTI-PATTERN: Date, time, and venue as individual floating text lines on a gradient
-    with no visual container = REJECTED.
+    Leave 55%–70% as CLEAN BACKGROUND. Sharp will composite the info card there after generation.
+    DO NOT add a date/venue card, badge strip, or colored bar in the 55%–70% zone.
 
     3B. READING FLOW (v33.0 - MANDATORY):
 
@@ -1689,28 +1670,46 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
 
     Achieved through: SIZE PROGRESSION, VISUAL WEIGHT, SPATIAL GAPS, ALIGNMENT CONSISTENCY.
 
-    3C. VERTICAL TEXT SPACING (v33.2 - MANDATORY - NO TEXT OVERLAP):
+    3C. TEXT RENDERING SPLIT (v41.6 — MANDATORY):
 
-    Text elements MUST follow this vertical arrangement within the content zone (${CONTENT_START}%-${CONTENT_END}%):
+    Gemini renders: BACKGROUND SCENE ONLY — NO TEXT WHATSOEVER.
+    Sharp overlays: ALL text — headline, tagline, date, venue, time, details, CTA (composited after generation).
 
-    VERTICAL LAYOUT (top to bottom):
-    - ${CONTENT_START}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.35)}%: EVENT HEADLINE — largest, most prominent, takes up to 35% of content zone
-    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.35)}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.50)}%: TAGLINE/THEME — medium text, clearly BELOW headline with visible gap
-    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.50)}%-${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.70)}%: INFO CARD (date/time/venue) — in distinct visual container
-    - ${CONTENT_START + Math.floor(CENTER_ZONE_HEIGHT * 0.70)}%-${CONTENT_END - 2}%: ADDITIONAL DETAILS, CTA — smallest text
+    GEMINI RESPONSIBILITIES (v41.6):
+    - Generate ONLY the background visual scene (people, environment, atmosphere, lighting)
+    - DO NOT render any text, headline, event name, tagline, date, venue, or labels
+    - DO NOT render any logo, brand mark, or placeholder icons
+    - Leave the content area (${CONTENT_START}%–${CONTENT_END}%) with CLEAN BACKGROUND that text can be overlaid on top of
 
-    ⚠️ INFO CARD ABSOLUTE HARD LIMIT (v35.3):
-    The INFO CARD visual container (including its background box/panel) BOTTOM EDGE must NOT exceed ${CONTENT_END - 3}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px on a ${CANVAS_HEIGHT}px canvas).
-    The footer zone begins at EXACTLY ${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}px) and is PHYSICALLY COVERED by logo overlays — anything below is INVISIBLE.
-    If date/time/venue text is too long: SHRINK the font size. Do NOT push the card downward past ${CONTENT_END - 3}%.
-    The info card must be ENTIRELY above ${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px. No exceptions.
+    TEXT-SAFE ZONE (v43.0 — ACTIVE BACKGROUND DESIGN RULE):
+    The ${CONTENT_START}%–${CONTENT_END}% zone is where headline, tagline, date, and venue will be composited.
+    You MUST ACTIVELY DESIGN this zone to be text-readable — not just avoid content there.
 
-    CRITICAL SPACING RULES:
-    ⚠️ HEADLINE and TAGLINE must NEVER overlap — minimum 3% vertical gap between them
-    ⚠️ Each text element must have its OWN vertical band — no two text roles share the same Y-range
-    ⚠️ If headline wraps to multiple lines, tagline starts BELOW the last line of headline
-    ⚠️ Reading order MUST match visual order: headline ABOVE tagline ABOVE info card ABOVE details
-    ⚠️ INFO CARD bottom edge MUST NOT exceed ${CONTENT_END - 3}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_END - 3) / 100)}px) — footer is INVISIBLE below ${CONTENT_END}%
+    REQUIRED VISUAL TREATMENT for ${CONTENT_START}%–${CONTENT_END}%:
+    ✅ OPTION A — Atmospheric gradient band: smooth color wash (sky fading to tone, open wall, stage backdrop)
+    ✅ OPTION B — Depth-of-field defocus: background elements are blurred out-of-focus in this zone
+    ✅ OPTION C — Open space: interior with clear open space, empty stage backdrop, uncluttered wall
+    ✅ OPTION D — Low-contrast bokeh: very soft light halos or bokeh — NO recognizable shapes
+
+    FORBIDDEN IN TEXT ZONE (${CONTENT_START}%–${CONTENT_END}%):
+    ❌ NO human faces or eyes — face in text zone = text becomes unreadable
+    ❌ NO architectural details (windows, columns, patterns) — complex texture blocks text
+    ❌ NO crowds or groups of people positioned in mid-zone
+    ❌ NO high-contrast edges or sharp shapes that compete with text
+
+    SUBJECT PLACEMENT RULE (v43.0 — CRITICAL):
+    • Place ALL people / subjects in the LOWER section (65%–${CONTENT_END}%) — BELOW the main text area
+    • The text zone (${CONTENT_START}%–65%) sits ABOVE the subjects — naturally showing clean ceiling / sky / backdrop behind it
+    • Think: magazine cover — subject faces camera from lower half, headline reads cleanly in the calm upper-mid area
+    • Think: conference banner — audience/stage at bottom, clean branded backdrop in the text band above them
+    • NEVER place a subject's face or torso in the ${CONTENT_START}%–60% range
+
+    ZONE SANDWICH MODEL (mandatory scene construction):
+    • Top (0%–${CONTENT_START}%): Rich visual — ceiling, stage lights, dramatic sky, upper architecture
+    • Mid / TEXT ZONE (${CONTENT_START}%–${CONTENT_END}%): SOFT, CALM, atmospheric — gradient, defocused, or open space
+    • Bottom (${CONTENT_END}%–100%): Rich visual — ground, subjects, lower environment
+
+    ${textContrastGuidance}
 
 4. FULL-CANVAS VISUAL FLOW (v24.12.2 - MANDATORY):
 
@@ -1718,10 +1717,16 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
 
   WHAT TO DO:
   ✅ Background gradients MUST extend from top edge (0%) to bottom edge (100%)
-  ✅ Visual elements (shapes, illustrations, atmospheric effects) flow edge-to-edge
-  ✅ Header area (0-${CONTENT_START}%) and Footer area (${CONTENT_END}-100%) get the SAME visual treatment as center
+  ✅ Atmospheric/environmental elements (sky, ground, lighting, architecture) flow edge-to-edge
+  ✅ Header area (0-${CONTENT_START}%) and Footer area (${CONTENT_END}-100%): BACKGROUND ENVIRONMENT ONLY — gradients, sky, ground, atmosphere
   ✅ Create ONE unified design - the entire poster is ONE artwork
   ✅ Use gradients, shapes, and lighting that span the full canvas height
+
+  SUBJECT PLACEMENT RULE (v40.2 — SINGLE GROUP ONLY):
+  ❌ DO NOT place runners, people, or focal subjects in BOTH the upper and lower zones
+  ❌ DO NOT repeat the same subject group twice in the poster
+  ✅ ALL subjects (runners, people, athletes) appear in ONE continuous focal group — positioned in the 40%-70% content zone or spanning a single continuous region
+  ✅ Lower zone (${CONTENT_END}%-100%): Shows ONLY ground/road/floor continuation + atmospheric environment — NO duplicate subject group
 
   WHAT NOT TO DO:
   ❌ Do NOT create separate visual sections for header/content/footer
@@ -1733,8 +1738,8 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
   ❌ The scene must have NO rounded corners, NO border, NO card-shadow — it IS the canvas itself, not a card on the canvas
   ❌ NEVER create a "plain colored header area (with floating title text) + scene card below it" split layout
   ✅ The scene artwork bleeds to ALL FOUR canvas edges — top, bottom, left, right — with ZERO frame or margin
-  ✅ Header (0-${CONTENT_START}%): Atmospheric TOP of scene (ceiling, sky, stage lights, upper architecture) — no text allowed but FULL of background artwork
-  ✅ Footer (${CONTENT_END}-100%): Atmospheric BOTTOM of scene (floor, ambient base) — no text allowed but FULL of background artwork
+  ✅ Header (0-${CONTENT_START}%): Atmospheric TOP of scene (ceiling, sky, stage lights, upper architecture) — no text, no subjects, BACKGROUND ONLY
+  ✅ Footer (${CONTENT_END}-100%): Atmospheric BOTTOM of scene (ground/road/floor receding into distance) — no text, NO DUPLICATE SUBJECTS, environment only
 
   TEXT vs VISUALS separation:
   - TEXT stays in ${CONTENT_START}%-${CONTENT_END}% zone (Sharp overlays cover 0-${CONTENT_START}% and ${CONTENT_END}-100%)
@@ -1744,8 +1749,8 @@ ${data.registrationInfo ? `  - "${data.registrationInfo}" button should be place
 
 5. TEXT PROTECTION AND READABILITY:
 - Keep <text_zone> areas clear of complex decorative elements for readability
-- HEADLINE ZONE (<text_zone id="headline">): Event name "${eventName}" rendering area
-  - RULE: NO decorative elements, NO complex graphics, ONLY simple background
+- HEADLINE ZONE (<text_zone id="headline">): Sharp composites headline here — keep background clear
+  - RULE: NO decorative elements, NO complex graphics, ONLY clean atmospheric background
 ${eventDescription ? `- TAGLINE ZONE (<text_zone id="tagline">): Event description rendering area
   - RULE: Simple gradient background only, NO competing visual elements
 ` : ''}
@@ -1870,41 +1875,17 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
     console.warn('[Event Poster v6.12.1] Source check: rawData.tagline:', (rawData as any).tagline)
   }
 
-⚠️ RENDER BOUNDARY: Every element listed below MUST render above ${_contentEndPx}px.
+⚠️ RENDER BOUNDARY: Every element listed below MUST render within ${CONTENT_START}%-55% zone (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px-${Math.floor(CANVAS_HEIGHT * 55 / 100)}px).
+The area below 55% is reserved for programmatic text overlays (date, venue, details) — keep it as CLEAN BACKGROUND only.
 Anything below ${_contentEndPx}px is covered by logo overlays and will be invisible.
 
-TEXT TO DISPLAY IN THE IMAGE (render these exact words):
-${buildHeadlineTextSection(eventName, colorSource)}
-${organizerCaption ? `<text role="organizer" color="${colorSource.caption?.color || '#C0C0C0'}" prominence="small" size="small-medium">${organizerCaption}</text>` : ''}
-${eventDescription ? `<text role="event_tagline" color="${colorSource.headline?.color || '#E0E0E0'}" prominence="medium" size="medium">${eventDescription}</text>` : ''}
-${(() => {
-  // v24.15: Properly validate non-empty date/time values before including
-  const hasDate = data.eventDate && data.eventDate.trim() !== ''
-  const hasTime = data.eventTime && data.eventTime.trim() !== ''
-  const formattedDate = formatEventDate(data.eventDate)
-  const formattedTime = hasTime ? formatEventTime(data.eventTime) : ''
-  const formattedEndTime = data.eventEndTime ? formatEventTime(data.eventEndTime) : ''
-
-  if (!hasDate && !hasTime) return ''
-
-  let dateTimeStr = ''
-  if (formattedDate) dateTimeStr += formattedDate
-  if (formattedTime) {
-    if (dateTimeStr) dateTimeStr += ' | '
-    dateTimeStr += formattedEndTime ? `${formattedTime} - ${formattedEndTime}` : formattedTime
-  }
-
-  return dateTimeStr ? `  - Date & Time: "${dateTimeStr}"` : ''
-})()}
-${data.venue && data.venue.trim() !== '' ? `    - Location: "${data.venue}"` : ''}
-${data.entryFee ? `- Fee: "${data.entryFee}"` : ''}
-${customFieldsText.length > 0 || eventNote ? `- Additional Details (⚠️ MUST render within ${textZones.additionalDetails.start}%-${textZones.additionalDetails.end}% zone, ABOVE ${_contentEndPx}px — use SMALLER font if text is long, NEVER push below ${CONTENT_END}%):\n   ${customFieldsText.map(t => `  ${t}`).join('\n   ')}${eventNote ? `\n   "${eventNote}"` : ''}` : ''}
-${'' /* v27.0: Speaker text REMOVED from "TEXT TO DISPLAY" list to prevent double-rendering.
-  Speaker names and designations are already rendered via buildSpeakerTextSection() XML <text role> tags
-  in the dedicated SPEAKER TEXT POSITIONING & TYPOGRAPHY section above.
-  Duplicating them here caused Gemini to render speaker details TWICE on the poster. */}
-${data.registrationInfo ? `  - Button (⚠️ MUST be ABOVE ${_contentEndPx}px — within content zone, compress font if needed): "${data.registrationInfo}"` : ''}
-${'' /* v14.0: eventNote moved to Additional Details section (line 1307) - Footer section now available for future use */}
+${'' /* v41.8: ALL text rendering moved to Sharp (renderEventTextOverlay).
+  Removed <text role> tags — they directly caused Gemini to render the headline/tagline,
+  which then appeared twice when Sharp also rendered them in the 40-83% zone.
+  Gemini now generates BACKGROUND SCENE ONLY. Sharp composites all text on top. */}
+TEXT RENDERING — HANDLED BY SHARP POST-PROCESSING (v41.8):
+(DO NOT RENDER any text, event name, tagline, date, venue, or labels in the image)
+ALL text is composited on top after generation — your job is BACKGROUND SCENE ONLY with a clean, uncluttered ${CONTENT_START}%–${CONTENT_END}% mid-section.
 
 ${/* v26.0: Inject storytelling narrative BEFORE decorative elements */''}${options.designContext?.storytellingContext ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
 
@@ -1923,24 +1904,16 @@ ${buildMultiColorTypographyInstructions(options.multiColorTypography)}
 
 ${EVENT_POSTER_EXAMPLES}
 
-QUALITY STANDARDS (v33.0 - PROFESSIONAL TEMPLATE QUALITY):
-This poster passes the 3-SECOND TEXT READABILITY TEST:
-✅ The event name "${eventName}" is INSTANTLY VISIBLE as the largest text (readable from 10ft)
-✅ Headline is NEVER obscured by decorative elements or complex backgrounds
-✅ Text is rendered ON TOP (foreground) with visual elements in background
-✅ What, When, Where information is clear and legible
-✅ Date/time/venue appear in a VISUALLY DISTINCT INFO CARD or contrasting bar (NOT floating text)
-✅ All text has sufficient contrast against backgrounds (WCAG AAA minimum)
-✅ Professional marketing quality with clear visual hierarchy guiding the eye from top to bottom
-✅ The poster looks DESIGNED (like a Canva Pro template) not GENERATED (like AI art)
-✅ The call-to-action stands out and drives action
-✅ A user could swap the event name and date and reuse this layout (TEMPLATE TEST passes)
-
-TEXT PROMINENCE VALIDATION (v13.0):
-- Event headline "${eventName}" MUST be larger than ANY other text element
-- Headline MUST be the FIRST thing viewers notice (not decorative graphics)
-- If a viewer cannot identify the event name in 3 seconds → GENERATION FAILED
-- The design is readable from both close-up on a phone and at distance as a printed poster
+QUALITY STANDARDS (v41.8 - BACKGROUND SCENE QUALITY):
+This background scene passes the CLEAN CANVAS TEST:
+✅ The mid-section (${CONTENT_START}%–${CONTENT_END}%) has a CLEAN, UNCLUTTERED background — text will be composited on top
+✅ NO text, NO rendered headlines, NO info cards, NO placeholder labels visible anywhere
+✅ Visual elements (people, environment, atmosphere, lighting) are in the background layer only
+✅ Mid-section is atmospheric and clear — contrast is sufficient for white/colored text to be readable when overlaid
+✅ Event information (date, venue, details) will be rendered by the system — leave clean space in this zone
+✅ Professional background quality with strong visual depth, lighting, and atmosphere
+✅ The background looks like a premium editorial photograph or cinematic still
+✅ NO watermarks, NO text overlays, NO graphic design elements — pure scene art only
 ${sophistication === 'rich'
       ? 'The design is visually stunning with adequate contrast in the top area.'
       : 'The top header section should have a simple, clean background (solid color or subtle gradient). Keep this area empty.'

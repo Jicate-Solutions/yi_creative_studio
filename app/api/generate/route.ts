@@ -128,6 +128,14 @@ const USE_FULL_CANVAS_GENERATION = true
 const PRESERVE_GEMINI_BACKGROUNDS = true
 
 /**
+ * ZONE DEBUG OVERLAY (v40.6)
+ * Set DEBUG_ZONE_OVERLAY=true in .env.local to overlay zone boundary markers on output.
+ * Red = forbidden header/footer zones, Green = content zone, Blue dashed = Sharp render zone.
+ * NEVER enable in production — debug only.
+ */
+const DEBUG_ZONE_OVERLAY = process.env.DEBUG_ZONE_OVERLAY === 'true'
+
+/**
  * Check if footer has any content to render
  * Matches the logic in lib/sharp/logo-overlay.ts (createEnhanced4RowFooterStrip)
  * v12.1: Used for footer safe zone calculation
@@ -646,6 +654,7 @@ export async function POST(request: NextRequest) {
     let imageUrl: string
     let imageActualModel: string | undefined = undefined  // Tracks which model actually ran (may differ after TIER 3 upgrade)
     let storedPromptForRegeneration: string | undefined = undefined  // v24.0: Store prompt for potential regeneration
+    let zoneGuideBase64: string | undefined = undefined  // v40.3: Zone guide for visual zone enforcement (hoisted for retry access)
 
     // Determine if user has their own speaker photo(s) to overlay
     // If yes, we don't want AI to generate placeholder speaker in the design
@@ -1903,18 +1912,75 @@ export async function POST(request: NextRequest) {
         // Get system instruction from YiPromptBuilder
         const systemInstruction = YiPromptBuilder.getSystemInstruction()
 
-        // Generate with Gemini using the new prompt
-        ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
-          finalXmlPrompt,
-          promptDesignData,
-          systemInstruction,
-          selectedFormat,
-          resolution,
-          model,  // Pass model from request
-          0,      // retryCount
-          thinkingLevel,  // Flash 3.1 thinking level
-          useImageSearch  // Flash 3.1 image search grounding
-        ))
+        // v41.0: Logo bar scaffold — replaces zone guide with a base image for Gemini editing mode
+        // Gemini sees the actual blue bars and must design AROUND them (not just read instructions)
+        // This makes zone violations physically impossible rather than just advisory
+        // zoneGuideBase64 is hoisted to outer scope so retry blocks can access it
+        try {
+          const aspectKey = selectedFormat?.aspectRatio as keyof typeof DIMENSION_QUALITY
+          const resKey = (resolution || '1K') as keyof (typeof DIMENSION_QUALITY)['3:4']
+          const guideDims = DIMENSION_QUALITY[aspectKey]?.[resKey]
+          if (guideDims) {
+            const { createLogoBarScaffold } = await import('@/lib/sharp/logo-overlay')
+            // v42.2: Scaffold shows ACTUAL bar height only (~24-25%).
+            // Sharp now handles ALL text (headline/tagline/date/venue) — Gemini generates background only.
+            // The old 40% scaffold was creating a large visual "empty upper zone" that made Gemini
+            // generate a split composition (minimal top + main scene below). Now that Gemini doesn't
+            // need to know where the headline goes, show the actual boundary so it fills the canvas uniformly.
+            const actualHeaderH = logoStripZoneCoordinates?.headerHeight ?? 350
+            const scaffoldHeaderPx = Math.round(actualHeaderH / 1440 * guideDims.height)  // actual bar height
+            const scaffoldFooterPx = logoStripZoneCoordinates?.footerHeight ?? Math.round(guideDims.height * 0.18)
+            const scaffoldBuffer = await createLogoBarScaffold(
+              guideDims.width,
+              guideDims.height,
+              scaffoldHeaderPx,
+              scaffoldFooterPx,
+            )
+            zoneGuideBase64 = scaffoldBuffer.toString('base64')
+            console.log(`[Scaffold] ✅ Logo bar scaffold: ${guideDims.width}x${guideDims.height} header=${scaffoldHeaderPx}px (${Math.round(scaffoldHeaderPx/guideDims.height*100)}%) footer=${scaffoldFooterPx}px (${Math.round(scaffoldFooterPx/guideDims.height*100)}%)`)
+          }
+        } catch (zoneGuideErr) {
+          console.warn('[Scaffold] ⚠️ Failed to create scaffold (non-critical, continuing without):', zoneGuideErr)
+        }
+
+        // Generate with Gemini — v43.3: preview model 429 → auto-fallback to stable
+        try {
+          ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
+            finalXmlPrompt,
+            promptDesignData,
+            systemInstruction,
+            selectedFormat,
+            resolution,
+            model,
+            0,
+            thinkingLevel,
+            useImageSearch,
+            zoneGuideBase64
+          ))
+        } catch (genErr: any) {
+          const errMsg = (genErr?.message || '').toLowerCase()
+          const is429 = errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota') || errMsg.includes('resource_exhausted')
+          const isPreviewModel = model && model.includes('preview')
+          if (is429 && isPreviewModel) {
+            // v43.3: Preview model quota exhausted — silently retry with stable model
+            console.warn(`[v43.3 Fallback] ⚠️ ${model} quota exceeded — retrying with gemini-2.5-flash-image (stable)`)
+            ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
+              finalXmlPrompt,
+              promptDesignData,
+              systemInstruction,
+              selectedFormat,
+              resolution,
+              'gemini-2.5-flash-image', // stable model — no preview quota restriction
+              0,
+              undefined, // thinkingLevel not supported by stable
+              false,     // imageSearch not supported by stable
+              undefined  // scaffold not supported by stable (v43.2 gate)
+            ))
+            console.log(`[v43.3 Fallback] ✅ Stable model succeeded — image generated via gemini-2.5-flash-image`)
+          } else {
+            throw genErr
+          }
+        }
       } else {
         // ========================================================
         // LEGACY: Original prompt generation path
@@ -2141,12 +2207,16 @@ ${typographyProfile.hierarchy}
       // Import the verifier dynamically
       const { detectTextInForbiddenZones } = await import('@/lib/sharp/text-zone-verifier')
 
-      // v24.10: Calculate forbidden zone percentages (UNIFIED ZONES)
-      // Header: 0% to 40% (FORBIDDEN - no text)
-      // Content: 40% to 65% (ALL text must be here)
-      // Footer: 65% to 100% (FORBIDDEN - no text, 5% buffer above footer bar)
-      const headerEndPercent = 40 // v33.4: Strict — header clean zone 0-40%
-      const footerStartPercent = 65 // v39.0: Strict — footer clean zone 65-100% (was 70, moved up 5% buffer above footer bar)
+      // v41.5: Use FIXED 40% header threshold — matches scaffold (0–40% solid bar zone).
+      // The 40% covers both: actual bar background (0–25%) + floating Row 2/3 cards (25–40%).
+      // Footer uses actual bar height — no floating elements there.
+      const canvasHForVerifier = formatDimensions?.height || 1440
+      const actualFooterBarPx = logoStripZoneCoordinates?.footerHeight ?? 0
+      const headerEndPercent = 40  // matches scaffold: bar (25%) + floating cards (25-40%)
+      const footerStartPercent = actualFooterBarPx > 0
+        ? Math.floor(((canvasHForVerifier - actualFooterBarPx) / canvasHForVerifier) * 100) - 2
+        : 82  // fallback
+      console.log(`[Spatial Verification] Thresholds v41.5: header=40% (bar+floats), footer=${actualFooterBarPx}px→${footerStartPercent}%`)
 
       const violations = await detectTextInForbiddenZones(
         imageBuffer,
@@ -2166,23 +2236,44 @@ ${typographyProfile.hierarchy}
           )
         }
 
-        // v32.1: Auto-retry ONCE on critical header violation
+        // v41.8: Header retry DISABLED — logo strip always covers 0–40% zone.
+        // "Violations" here are stone/scene art texture false-positives (not Gemini text).
+        // Gemini no longer renders text anywhere (v41.8 background-only prompt).
+        // Retrying wastes 2+ minutes and always falls back to original anyway.
+        // v41.8: HEADER_RETRY_ENABLED=false — logo strip covers 0–40% zone regardless.
+        // Violations detected here are stone/scene texture false-positives (not Gemini text).
+        // Gemini renders background-only (no text anywhere) so retrying serves no purpose.
+        const HEADER_RETRY_ENABLED = false
         const headerViolation = violations.find(v => v.zoneType === 'header' && v.severity === 'critical')
-        if (headerViolation && storedPromptForRegeneration) {
+        if (headerViolation) {
+          console.log('[v41.8 Zone Retry] ℹ️ Header zone has scene art — logo strip will cover. Skipping retry (false positive).')
+        }
+        if (HEADER_RETRY_ENABLED && headerViolation && storedPromptForRegeneration) {
           console.log('[v32.1 Zone Retry] 🔄 Critical header violation detected — retrying generation with stronger zone instructions')
 
-          // v33.4: Fixed strict 40% boundary — matches prompt and verification
-          const safeHeaderPercent = 40
-          console.log(`[v32.1 Zone Retry] Fixed boundary: ${safeHeaderPercent}% header, ${footerStartPercent}% footer (strict)`)
+          // v40.6: Pixel-based boundary — concrete pixel values are more reliable than percentages
+          const canvasW = formatDimensions?.width  || 1080
+          const canvasH = formatDimensions?.height || 1440
+          const headerEndPx   = Math.round(canvasH * headerEndPercent  / 100)  // e.g. 576px for 1440h
+          const footerStartPx = Math.round(canvasH * footerStartPercent / 100)  // e.g. 936px for 1440h
+          const detectedPx    = Math.round(canvasH * headerViolation.detectedTextY / 100)
+          console.log(`[v32.1 Zone Retry] Canvas: ${canvasW}x${canvasH}px | Header forbidden: 0–${headerEndPx}px | Footer forbidden: ${footerStartPx}–${canvasH}px`)
 
           // PREPEND the retry instruction so it has highest attention weight (not append)
-          const retryInstruction = `<instruction>(DO NOT RENDER) ⚠️ CRITICAL ZONE ENFORCEMENT — RETRY (v33.4):
-Your previous generation placed text/content in the TOP ${safeHeaderPercent}% of the canvas (detected at ${headerViolation.detectedTextY}%).
-This area is PHYSICALLY COVERED by logo overlay bars — your content is COMPLETELY HIDDEN there.
+          const retryInstruction = `<instruction>(DO NOT RENDER) ⚠️ CRITICAL ZONE ENFORCEMENT — RETRY (v40.6):
+CANVAS SIZE: ${canvasW}×${canvasH} pixels.
+Your previous generation placed text/content at y≈${detectedPx}px (top ${headerViolation.detectedTextY.toFixed(1)}% of canvas).
+This area is PHYSICALLY COVERED by a logo overlay bar — your content is COMPLETELY HIDDEN there.
 
-ABSOLUTE RULE: ALL text, headlines, titles, event names, dates, venues, and speaker names MUST start BELOW the ${safeHeaderPercent}% mark.
-The top ${safeHeaderPercent}% must contain ONLY smooth atmospheric background artwork — ZERO text, ZERO labels, ZERO icons.
-This is non-negotiable. Any content above ${safeHeaderPercent}% will not be visible in the final output.
+PIXEL-EXACT FORBIDDEN ZONES:
+  TOP FORBIDDEN:    y=0px    → y=${headerEndPx}px   (top ${headerEndPercent}%)  — NO TEXT, NO ICONS, NO LABELS
+  BOTTOM FORBIDDEN: y=${footerStartPx}px → y=${canvasH}px (bottom ${100-footerStartPercent}%) — NO TEXT, NO ICONS, NO LABELS
+
+PIXEL-EXACT CONTENT ZONE:
+  PLACE ALL TEXT:   y=${headerEndPx}px → y=${footerStartPx}px ONLY
+
+The zone reference image attached shows these exact pixel boundaries visually.
+Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or below y=${footerStartPx}px.
 </instruction>
 
 `
@@ -2201,7 +2292,8 @@ This is non-negotiable. Any content above ${safeHeaderPercent}% will not be visi
               model,
               0,
               thinkingLevel,
-              useImageSearch
+              useImageSearch,
+              zoneGuideBase64 // v40.3: Pass zone guide through retries
             )
 
             // Resize retry result to exact format dimensions
@@ -2236,131 +2328,17 @@ This is non-negotiable. Any content above ${safeHeaderPercent}% will not be visi
           }
         }
 
-        // v35.3: Footer retry — if footer violation detected, retry with footer constraint
-        const footerViolationCheck = violations.find(v => v.zoneType === 'footer' && v.severity === 'critical')
-        if (footerViolationCheck && storedPromptForRegeneration) {
-          // Re-verify current imageBuffer (may have been updated by header retry)
-          let needsFooterRetry = true
-          try {
-            const currentViolations = await detectTextInForbiddenZones(imageBuffer, headerEndPercent, footerStartPercent)
-            needsFooterRetry = !!currentViolations.find(v => v.zoneType === 'footer')
-          } catch { /* use original needsFooterRetry = true */ }
-
-          if (needsFooterRetry) {
-            console.log(`[v35.3 Footer Retry] 🔄 Critical footer violation at ${footerViolationCheck.detectedTextY.toFixed(1)}% — retrying`)
-
-            const footerRetryInstruction = `<instruction>(DO NOT RENDER) ⚠️ FOOTER ZONE VIOLATION — RETRY (v35.3):
-Your previous generation placed text/content BELOW the ${footerStartPercent}% mark (detected at ${footerViolationCheck.detectedTextY.toFixed(1)}%).
-This area is PHYSICALLY COVERED by logo overlay bars — your content is COMPLETELY HIDDEN there.
-
-ABSOLUTE RULE: ALL text, headlines, event names, dates, venues MUST be positioned ABOVE the ${footerStartPercent}% mark.
-The bottom ${100 - footerStartPercent}% must contain ONLY smooth atmospheric background artwork — ZERO text, ZERO labels.
-Text belongs in the 40–${footerStartPercent}% zone — overlaid ON the background scene, NOT below it.
-This is non-negotiable. Any content below ${footerStartPercent}% will not be visible in the final output.
-</instruction>
-
-`
-            const footerRetryPrompt = footerRetryInstruction + storedPromptForRegeneration
-
-            try {
-              const footerRetrySystemInstruction = YiPromptBuilder.getSystemInstruction()
-              const footerRetryResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
-
-              const footerRetryResult = await generateWithGemini(
-                footerRetryPrompt,
-                effectiveDesignData || null,
-                footerRetrySystemInstruction,
-                selectedFormat,
-                footerRetryResolution,
-                model,
-                0,
-                thinkingLevel,
-                useImageSearch
-              )
-
-              let footerRetryImageUrl = footerRetryResult.imageBase64
-              if (formatDimensions) {
-                footerRetryImageUrl = await resizeImageToExactDimensions(
-                  footerRetryImageUrl,
-                  formatDimensions.width,
-                  formatDimensions.height,
-                  'fill'
-                )
-              }
-
-              const footerRetryResponse = await fetch(footerRetryImageUrl)
-              if (footerRetryResponse.ok) {
-                const footerRetryBuffer = Buffer.from(await footerRetryResponse.arrayBuffer())
-                const footerRetryViolations = await detectTextInForbiddenZones(footerRetryBuffer, headerEndPercent, footerStartPercent)
-                const retryFooterViolation = footerRetryViolations.find(v => v.zoneType === 'footer')
-
-                if (!retryFooterViolation) {
-                  console.log('[v35.3 Footer Retry] ✅ Retry succeeded — no footer violations')
-                  imageUrl = footerRetryImageUrl
-                  imageBuffer = footerRetryBuffer
-                  if (footerRetryResult.actualModel) imageActualModel = footerRetryResult.actualModel
-                } else {
-                  console.warn('[v35.3 Footer Retry] ⚠️ Retry still has footer violation — using best available')
-                }
-              }
-            } catch (footerRetryError) {
-              console.error('[v35.3 Footer Retry] ❌ Retry failed, continuing:', footerRetryError)
-            }
-          }
-        }
+        // Footer zone violations are intentionally not retried — the logo overlay physically
+        // covers the footer area, so any text there is hidden by the overlay anyway.
+        // Retrying would double the API cost for no visible improvement.
       } else {
         console.log('[Spatial Verification] ✓ No violations detected')
       }
-      // v38.1: LAYER 3 — Content zone extraction
-      // Gemini generates full canvas but text may leak into header/footer zones.
-      // Fix: extract the 40-75% content zone (where text belongs), then extend
-      // the header/footer with smooth gradient fills sampled from the content edges.
-      // Result: clean header/footer for logo overlays, all text preserved in content zone.
-      try {
-        const sharpLib = await getSharp()
-        const targetWidth = formatDimensions?.width || 1080
-        const targetHeight = formatDimensions?.height || 1440
-
-        const contentStartPercent = 0.40
-        const contentEndPercent = 0.65
-        const contentStartPx = Math.floor(targetHeight * contentStartPercent)
-        const contentEndPx = Math.floor(targetHeight * contentEndPercent)
-        const contentHeight = contentEndPx - contentStartPx
-        const headerHeight = contentStartPx
-        const footerHeight = targetHeight - contentEndPx
-
-        // Extract the content zone (40-75%) — this is preserved as-is
-        const contentZone = await sharpLib(imageBuffer)
-          .extract({ left: 0, top: contentStartPx, width: targetWidth, height: contentHeight })
-          .toBuffer()
-
-        // v39.0: Extract header and blur at 200px (was 100px) to fully obliterate bold text
-        const headerBg = await sharpLib(imageBuffer)
-          .extract({ left: 0, top: 0, width: targetWidth, height: headerHeight })
-          .blur(200)
-          .toBuffer()
-
-        // v39.0: Extract footer and blur at 200px (was 100px) to fully obliterate bold text
-        const footerBg = await sharpLib(imageBuffer)
-          .extract({ left: 0, top: contentEndPx, width: targetWidth, height: footerHeight })
-          .blur(200)
-          .toBuffer()
-
-        // Composite: blurred header bg + sharp content zone + blurred footer bg
-        const fullCanvas = await sharpLib(imageBuffer)
-          .composite([
-            { input: headerBg, top: 0, left: 0 },
-            { input: contentZone, top: contentStartPx, left: 0 },
-            { input: footerBg, top: contentEndPx, left: 0 },
-          ])
-          .png()
-          .toBuffer()
-
-        imageBuffer = Buffer.from(fullCanvas)
-        console.log(`[v38.1 Content Zone] ✅ Kept 40-65% content zone sharp, blurred header/footer backgrounds (text removed, scene preserved)`)
-      } catch (extractError) {
-        console.error('[v38.1 Content Zone] ❌ Extraction failed (non-fatal, using original):', extractError)
-      }
+      // v41.8: Blur step removed entirely.
+      // Header zone: logo bar rows (alpha 0.1/0/0.85) composite on top — Gemini art shows through.
+      // Footer zone: footer strip composites on top — covers the full zone regardless of Gemini content.
+      // Sharp renders ALL event text (headline/tagline/date/venue) — no Gemini text to hide.
+      console.log('[v41.8] ✅ No blur applied — logo bars and footer strip cover both zones')
 
     } catch (verificationError) {
       // Don't fail the entire generation if verification fails
@@ -2934,6 +2912,98 @@ This is non-negotiable. Any content below ${footerStartPercent}% will not be vis
     }
 
     // ========================================================
+    // EVENT TEXT OVERLAY (v39.0: Sharp-rendered detail text)
+    // Renders date, venue, prize structure, registration info
+    // with pixel-perfect positioning — replaces Gemini text for details
+    // ========================================================
+    if (formatId === 'event_poster' && imageUrl) {
+      try {
+        const { renderEventTextOverlay } = await import('@/lib/sharp/event-text-overlay')
+        const sharpLib = (await import('sharp')).default
+
+        // Get image buffer from current imageUrl
+        let eventTextBuffer: Buffer
+        if (imageUrl.startsWith('data:')) {
+          const base64Data = imageUrl.split(',')[1]
+          eventTextBuffer = Buffer.from(base64Data, 'base64')
+        } else {
+          const resp = await fetch(imageUrl)
+          eventTextBuffer = Buffer.from(await resp.arrayBuffer())
+        }
+
+        // Format date/time for display
+        const eventDate = adjustedUserFormData?.eventDate as string | undefined
+        const eventTime = adjustedUserFormData?.eventTime as string | undefined
+        const eventEndTime = adjustedUserFormData?.eventEndTime as string | undefined
+        let dateTimeStr = ''
+        if (eventDate) {
+          try {
+            const d = new Date(eventDate + 'T00:00:00')
+            dateTimeStr = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+          } catch { dateTimeStr = eventDate }
+        }
+        const formatTime = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          const ampm = h >= 12 ? 'PM' : 'AM'
+          const h12 = h % 12 || 12
+          return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+        }
+        if (eventTime) {
+          // v43.1: Include endTime if provided — "3:00 PM – 5:00 PM"
+          const timeStr = eventEndTime
+            ? `${formatTime(eventTime)} – ${formatTime(eventEndTime)}`
+            : formatTime(eventTime)
+          dateTimeStr += ` | ${timeStr}`
+        }
+
+        const venue = (adjustedUserFormData?.venue as string) || ''
+        const additionalDetails = (adjustedUserFormData?.additionalDetails as string) || ''
+        const registrationInfo = (adjustedUserFormData?.registrationInfo as string) || ''
+        // v41.6: Sharp renders headline — Gemini only generates background
+        const eventNameStr = (adjustedUserFormData?.eventName as string) || ''
+        // v43.1: Use eventTagline (the dedicated tagline field) not eventDescription
+        // Fallback to eventDescription only if tagline field wasn't filled
+        const taglineStr = (adjustedUserFormData?.eventTagline as string) || (adjustedUserFormData?.eventDescription as string) || ''
+
+        const formatDims = selectedFormat
+        const cw = formatDims?.width || 1080
+        const ch = formatDims?.height || 1440
+
+        // Brand colors — use resolvedColors from earlier in the pipeline
+        const primaryColor = resolvedColors?.primaryColor || '#107023'
+        const secondaryColor = resolvedColors?.secondaryColor || '#fcff33'
+        const accentColor = resolvedColors?.accentColor || '#faf9f4'
+
+        const overlayResult = await renderEventTextOverlay(
+          eventTextBuffer,
+          {
+            headline: eventNameStr || undefined,    // v41.6: Sharp-rendered, replaces Gemini headline
+            tagline: taglineStr || undefined,        // v41.6: Sharp-rendered tagline
+            dateTime: dateTimeStr || undefined,
+            venue: venue || undefined,
+            additionalDetails: additionalDetails || undefined,
+            registrationInfo: registrationInfo || undefined,
+          },
+          {
+            canvasWidth: cw,
+            canvasHeight: ch,
+            // v41.6: Full zone from logo bar bottom (40%) to footer (83%)
+            // Headline at 40-55%, date/venue card follows immediately below
+            renderZone: { startPercent: 40, endPercent: 83 },
+            brandColors: { primary: primaryColor, secondary: secondaryColor, accent: accentColor },
+          }
+        )
+
+        // Update imageUrl with new buffer
+        const overlayBase64 = overlayResult.toString('base64')
+        imageUrl = `data:image/png;base64,${overlayBase64}`
+        console.log('[Event Text Overlay] ✅ Applied Sharp-rendered event details')
+      } catch (eventTextError) {
+        console.error('[Event Text Overlay] ❌ Failed (non-fatal):', eventTextError)
+      }
+    }
+
+    // ========================================================
     // SPEAKER PHOTO OVERLAY (v5.0: Multi-Speaker Support)
     // Handles both legacy single-speaker and new multi-speaker formats
     // ========================================================
@@ -3311,6 +3381,45 @@ This is non-negotiable. Any content below ${footerStartPercent}% will not be vis
       console.log('[Post-Processing] Skipped - base64 image or no image URL')
     }
 
+    // ========================================================
+    // v40.6: ZONE DEBUG OVERLAY (development only)
+    // Draws zone boundaries on the output image when DEBUG_ZONE_OVERLAY=true
+    // ========================================================
+    if (DEBUG_ZONE_OVERLAY && imageUrl && imageUrl.startsWith('data:image')) {
+      try {
+        const { addZoneDebugOverlay } = await import('@/lib/sharp/zone-debug-overlay')
+        const { ENHANCED_STRIP_ROW_HEIGHTS } = await import('@/lib/config/design-constants')
+        // Actual logo bar height: brand + spacing + vertical + spacing + initiative
+        const rowSpacingPx = 3
+        const actualHeaderBarPx =
+          ENHANCED_STRIP_ROW_HEIGHTS.brand +
+          rowSpacingPx +
+          ENHANCED_STRIP_ROW_HEIGHTS.vertical +
+          rowSpacingPx +
+          ENHANCED_STRIP_ROW_HEIGHTS.initiative
+        // Actual footer bar height: partner row + padding
+        const actualFooterBarPx = ENHANCED_STRIP_ROW_HEIGHTS.partner + 40 // ~160px total
+
+        const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '')
+        const debugBuffer = await addZoneDebugOverlay(
+          Buffer.from(base64Data, 'base64'),
+          {
+            headerEndPercent: 50,
+            footerStartPercent: 65,
+            actualHeaderBarPx,   // e.g. 256px — shows Gap B on image
+            actualFooterBarPx,   // e.g. 160px
+            renderZoneStart: formatId === 'event_poster' ? 55 : undefined,
+            renderZoneEnd:   formatId === 'event_poster' ? 70 : undefined,
+          }
+        )
+        console.log(`[Zone Debug] Bar heights — header: ${actualHeaderBarPx}px, footer: ${actualFooterBarPx}px`)
+        imageUrl = `data:image/png;base64,${debugBuffer.toString('base64')}`
+        console.log('[Zone Debug] ✅ Zone boundary overlay applied to output image')
+      } catch (dbgErr) {
+        console.warn('[Zone Debug] Overlay failed (non-fatal):', dbgErr)
+      }
+    }
+
     // Track image generation (estimated tokens for Gemini)
     // Cost calculation: Input tokens (text prompt) + flat image rate
     // Image cost is NOT based on output tokens - it's a flat rate per image:
@@ -3399,8 +3508,19 @@ This is non-negotiable. Any content below ${footerStartPercent}% will not be vis
     })
   } catch (error) {
     console.error('Generation error:', error)
+
+    const message = error instanceof Error ? error.message : 'Generation failed'
+
+    // Gemini rate limit — return 429 so the client shows a friendly message
+    if (message.includes('429') || message.toLowerCase().includes('too many requests') || message.toLowerCase().includes('quota')) {
+      return NextResponse.json(
+        { error: 'Gemini API rate limit reached. Please wait 60 seconds and try again, or contact your team leader to increase the API quota.' },
+        { status: 429 }
+      )
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Generation failed' },
+      { error: message },
       { status: 500 }
     )
   }
@@ -4113,7 +4233,8 @@ async function generateWithGemini(
   modelId?: string,           // Model ID from request (e.g., 'gemini-3-pro-image-preview')
   retryCount: number = 0,     // Retry counter for dimension drift auto-upgrade (Tier 3)
   thinkingLevel?: 'minimal' | 'High',  // Flash 3.1 only: 'minimal' (fast) | 'High' (quality)
-  useImageSearch?: boolean             // Flash 3.1 only: enable Google Image Search grounding (default true)
+  useImageSearch?: boolean,            // Flash 3.1 only: enable Google Image Search grounding (default true)
+  zoneGuideBase64?: string             // v40.3: Zone guide image — visual reference for logo overlay zones
 ): Promise<{ imageBase64: string; actualModel: string }> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -4132,6 +4253,7 @@ async function generateWithGemini(
     supportsImageSize: boolean     // Can use imageSize param (Flash 2.5 = false, others = true)
     supportsThinking: boolean      // Can control thinking level (Flash 3.1 only)
     supportsImageSearch: boolean   // Google Image Search grounding (Flash 3.1 only)
+    supportsImageInput: boolean    // v40.3: Can accept image reference (zone guide / scaffold)
   }> = {
     'gemini-2.5-flash-image': {
       supportedSizes: ['1K'],
@@ -4140,6 +4262,7 @@ async function generateWithGemini(
       supportsImageSize: false,      // Confirmed: returns 400 if imageSize is sent
       supportsThinking: false,
       supportsImageSearch: false,
+      supportsImageInput: false,     // Text-only generation
     },
     'gemini-2.0-flash-preview-image-generation': {
       supportedSizes: ['1K'],
@@ -4148,6 +4271,7 @@ async function generateWithGemini(
       supportsImageSize: false,
       supportsThinking: false,
       supportsImageSearch: false,
+      supportsImageInput: false,
     },
     'gemini-3.1-flash-image-preview': {              // Nano Banana 2
       supportedSizes: ['512px', '1K', '2K', '4K'],
@@ -4156,6 +4280,7 @@ async function generateWithGemini(
       supportsImageSize: true,
       supportsThinking: true,        // thinkingLevel: 'minimal' | 'High'
       supportsImageSearch: true,     // Google Image Search grounding (exclusive)
+      supportsImageInput: true,      // v40.3: Accepts image reference for zone enforcement
     },
     'gemini-3-pro-image-preview': {
       supportedSizes: ['1K', '2K', '4K'],
@@ -4164,11 +4289,27 @@ async function generateWithGemini(
       supportsImageSize: true,
       supportsThinking: false,       // Always thinks (level not configurable)
       supportsImageSearch: false,
+      supportsImageInput: true,      // v40.3: Accepts image reference for zone enforcement
     },
   }
 
   // Auto-override model if the selected format requires a specific model (e.g., ultra aspect ratios)
-  const effectiveModelId = format?.requiredModel || modelId
+  let effectiveModelId = format?.requiredModel || modelId
+
+  // v43.2: Scaffold only attached when the SELECTED model already supports image input.
+  // Previously (v41.4) stable gemini-2.5-flash-image was silently upgraded to the preview
+  // model (gemini-3.1-flash-image-preview) whenever a scaffold was present. This caused
+  // 429 errors because preview models have restricted quota even on paid accounts — every
+  // "Nano Banana" generation was unknowingly burning the tightly-gated Flash 3.1 quota.
+  // Fix: respect the user's model choice. Stable model → text zone instructions only.
+  // Flash 3.1 / Pro (explicitly selected, support image input) → scaffold attached as before.
+  const selectedModelSupportsImageInput = effectiveModelId ? (GEMINI_MODEL_CAPABILITIES[effectiveModelId]?.supportsImageInput ?? false) : false
+  const activeZoneGuide = (zoneGuideBase64 && selectedModelSupportsImageInput) ? zoneGuideBase64 : undefined
+  if (zoneGuideBase64 && !selectedModelSupportsImageInput) {
+    console.log(`[Scaffold v43.2] ℹ️ ${effectiveModelId} does not support image input — scaffold skipped, text zone instructions used (stable model quota preserved)`)
+  } else if (activeZoneGuide) {
+    console.log(`[Scaffold v43.2] ✅ ${effectiveModelId} supports image input — scaffold attached`)
+  }
 
   // Validate and constrain resolution based on model capabilities
   // Use effectiveModelId (may be overridden by format.requiredModel) or default to Flash
@@ -4283,11 +4424,20 @@ async function generateWithGemini(
     console.log(`[IMAGE SEARCH] Adding Google Image Search grounding tool for ${currentModel}`)
   }
 
+  // v40.3: Include zone guide image in parts when supported (visual zone enforcement)
+  const useZoneGuide = zoneGuideBase64 && modelCaps?.supportsImageInput
+  const contentParts: Array<Record<string, unknown>> = []
+  if (useZoneGuide) {
+    contentParts.push({ inlineData: { mimeType: 'image/png', data: zoneGuideBase64 } })
+    console.log('[Scaffold] ✅ Attaching logo bar scaffold to Gemini request (image-editing mode — bars physically occupy top/bottom)')
+  }
+  contentParts.push({ text: sanitizedPrompt })
+
   requestBody = {
     contents: [
       {
         role: 'user',
-        parts: [{ text: sanitizedPrompt }],
+        parts: contentParts,
       },
     ],
     generationConfig,
@@ -4309,73 +4459,75 @@ async function generateWithGemini(
     { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
   ]
 
-  // Use the selected Gemini model for image generation with retry logic
-  let response: Response
+  // Use the selected Gemini model for image generation with retry logic.
+  // Retry covers both the initial connection AND body reading — ECONNRESET can occur
+  // during response.json() on large image payloads even after a 200 status is received.
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`
+  const geminiHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
+  const geminiBody = JSON.stringify(requestBody)
+  const MAX_BODY_RETRIES = 3
 
-  try {
-    response = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify(requestBody),
-      },
-      {
-        maxRetries: 3,
-        baseDelay: 2000,      // 2s, 4s, 8s exponential backoff
-        timeout: 120000,      // 2 minutes for image generation
-        retryableStatuses: [408, 429, 500, 502, 503, 504],
-        requestId: `gemini-${Date.now()}`
-      }
-    )
-  } catch (error) {
-    // Categorize error for better user feedback
-    if (error instanceof NetworkError) {
-      console.error('=== GEMINI NETWORK ERROR ===')
-      console.error('After 3 retries with exponential backoff')
-      console.error('Error:', error.message)
-      console.error('Cause:', error.cause)
-      console.error('============================')
-      throw new Error('Network error connecting to Gemini API after 3 retries. Please check your internet connection and try again.')
-    } else if (error instanceof TimeoutError) {
-      console.error('=== GEMINI TIMEOUT ERROR ===')
-      console.error('Request exceeded 2 minute timeout')
-      console.error('Error:', error.message)
-      console.error('============================')
-      throw new Error('Gemini API request timed out after 2 minutes. The service may be overloaded. Please try again.')
-    } else {
-      // Re-throw other errors (auth, validation, etc.)
-      throw error
-    }
-  }
+  let data: any
+  for (let bodyAttempt = 0; bodyAttempt <= MAX_BODY_RETRIES; bodyAttempt++) {
+    let response: Response
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('=== GEMINI API ERROR ===')
-    console.error('Status:', response.status)
-    console.error('Status Text:', response.statusText)
-    console.error('Response Body:', errorText)
-    console.error('API Key (last 4 chars):', apiKey.slice(-4))
-    console.error('========================')
-
-    // Parse error for more specific message
-    let errorMessage = 'Failed to generate image with Gemini'
     try {
-      const errorJson = JSON.parse(errorText)
-      if (errorJson.error?.message) {
-        errorMessage = `Gemini API: ${errorJson.error.message}`
+      response = await fetchWithRetry(
+        geminiUrl,
+        { method: 'POST', headers: geminiHeaders, body: geminiBody },
+        {
+          maxRetries: 3,
+          baseDelay: 2000,
+          timeout: 150000,      // 2.5 minutes — large image responses need more time
+          retryableStatuses: [408, 500, 502, 503, 504],
+          retryOn429: false,    // v43.4: quota errors fail immediately — 429 won't recover in 2-8s
+          requestId: `gemini-${Date.now()}`
+        }
+      )
+    } catch (error) {
+      if (error instanceof NetworkError) {
+        console.error('=== GEMINI NETWORK ERROR ===')
+        console.error('After 3 retries with exponential backoff')
+        console.error('Error:', (error as Error).message)
+        console.error('============================')
+        throw new Error('Network error connecting to Gemini API after 3 retries. Please check your internet connection and try again.')
+      } else if (error instanceof TimeoutError) {
+        console.error('=== GEMINI TIMEOUT ERROR ===')
+        console.error('Error:', (error as Error).message)
+        console.error('============================')
+        throw new Error('Gemini API request timed out after 2.5 minutes. The service may be overloaded. Please try again.')
+      } else {
+        throw error
       }
-    } catch {
-      // Keep default message if parse fails
     }
 
-    throw new Error(errorMessage)
-  }
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('=== GEMINI API ERROR ===', response.status, errorText)
+      let errorMessage = 'Failed to generate image with Gemini'
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) errorMessage = `Gemini API: ${errorJson.error.message}`
+      } catch { /* keep default */ }
+      throw new Error(errorMessage)
+    }
 
-  const data = await response.json()
+    // Body read — retry on ECONNRESET (large image responses can drop mid-stream)
+    try {
+      data = await response.json()
+      break  // success — exit retry loop
+    } catch (bodyErr: any) {
+      const isReset = bodyErr?.cause?.code === 'ECONNRESET' || bodyErr?.message?.includes('terminated') || bodyErr?.message?.includes('ECONNRESET')
+      const isLast = bodyAttempt === MAX_BODY_RETRIES
+      if (isReset && !isLast) {
+        const delay = 3000 * (bodyAttempt + 1)
+        console.warn(`[Gemini] ⚠️ Body read ECONNRESET (attempt ${bodyAttempt + 1}/${MAX_BODY_RETRIES + 1}), retrying in ${delay}ms...`)
+        await new Promise(r => setTimeout(r, delay))
+        continue
+      }
+      throw bodyErr
+    }
+  }
 
   // Extract image from response
   const parts = data.candidates?.[0]?.content?.parts
