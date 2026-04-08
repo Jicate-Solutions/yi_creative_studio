@@ -40,7 +40,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         // Base overlay - with or without blur
-        "fixed inset-0 z-50",
+        "fixed inset-0 z-[110]",
         noBlur ? "bg-black/80" : "bg-black/40 backdrop-blur-md",
         // Animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -79,8 +79,8 @@ function DialogContent({
         className={cn(
           // Background - solid or premium glassmorphism (borderless)
           solidBackground
-            ? "bg-background fixed z-50 grid gap-4 shadow-[var(--shadow-dialog)]"
-            : "glass-premium fixed z-50 grid gap-4 shadow-[var(--shadow-dialog)]",
+            ? "bg-background fixed z-[110] grid gap-4 shadow-[var(--shadow-dialog)]"
+            : "glass-premium fixed z-[110] grid gap-4 shadow-[var(--shadow-dialog)]",
           // Animations with spring effect
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

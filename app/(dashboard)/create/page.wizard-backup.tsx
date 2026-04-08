@@ -336,8 +336,6 @@ export default function CreatePage() {
     resetForm,
     // Design mode actions
     setCreationMode,
-    updateTheme,
-    updateStyle,
     updateAspectRatio,
     updateResolution,
     updateCustomization,
@@ -1105,13 +1103,6 @@ export default function CreatePage() {
 
     // Update model selection
     selectModel(options.modelId)
-
-    // Update theme/style/resolution if provided (scratch mode only)
-    if (formData.creationMode === 'scratch') {
-      if (options.theme) updateTheme(options.theme)
-      if (options.style) updateStyle(options.style)
-      if (options.resolution) updateResolution(options.resolution)
-    }
 
     // Clear previous image and regenerate
     setGeneratedImage(null)
@@ -2463,10 +2454,6 @@ export default function CreatePage() {
             open={regenerateModalOpen}
             onOpenChange={setRegenerateModalOpen}
             currentModelId={selectedModel?.id}
-            currentTheme={formData.designData?.theme}
-            currentStyle={formData.designData?.style}
-            currentResolution={formData.designData?.resolution}
-            creationMode={formData.creationMode as 'template' | 'scratch'}
             models={models}
             onRegenerate={handleRegenerate}
             isRegenerating={isGenerating}

@@ -22,6 +22,7 @@ import {
   Instagram,
   AtSign,
   Bookmark,
+  MapPin,
 } from 'lucide-react'
 import { useState } from 'react'
 import { FooterPresetSelector } from '@/components/create/footer-preset-selector'
@@ -59,15 +60,17 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
     <div className={cn('space-y-2', className)}>
       {/* Footer Toggle Header */}
       <div className={cn(
-        'rounded-lg border-2 transition-all p-2',
-        footer.enabled ? 'border-orange-300 bg-orange-50/50' : 'border-muted'
+        'rounded-xl border transition-all p-2.5',
+        footer.enabled
+          ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+          : 'border-border/50 bg-card'
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-orange-500 flex items-center justify-center">
-              <ChevronRight className="h-3 w-3 text-white" />
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <ChevronRight className="h-3.5 w-3.5 text-primary" />
             </div>
-            <Label className="text-[10px] font-bold text-orange-700">Footer Bar</Label>
+            <Label className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/80">Footer Bar</Label>
           </div>
           <Switch checked={footer.enabled} onCheckedChange={setFooterEnabled} />
         </div>
@@ -76,29 +79,33 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
       {footer.enabled && (
         <>
           {/* Footer Presets */}
-          <div className="flex items-center justify-between bg-orange-50 rounded-lg p-1.5 border border-orange-200">
-            <div className="flex items-center gap-1">
-              <Bookmark className="h-2.5 w-2.5 text-orange-600" />
-              <span className="text-[8px] font-medium text-orange-800">Footer Presets</span>
+          <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card/60 p-2 shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 rounded-md bg-muted/60">
+                <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Presets</span>
             </div>
             <FooterPresetSelector onSaveClick={() => setShowSavePresetDialog(true)} />
           </div>
 
           {/* Zone 1: Signature */}
-          <div className="rounded-lg border border-teal-200 bg-teal-50/30 p-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1">
-                  <Paintbrush className="h-2.5 w-2.5 text-teal-600" />
-                  <span className="text-[9px] font-medium text-teal-700">🎨 Signature/Illustration</span>
+          <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-teal-500/10">
+                  <Paintbrush className="h-3.5 w-3.5 text-teal-500" />
                 </div>
-                <p className="text-[8px] text-muted-foreground">Watercolor landmark image (left side)</p>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Signature</span>
+                  <p className="text-[8px] text-muted-foreground/60">Watercolor landmark image (left side)</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {footer.signature?.enabled ? (
-                  <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">VISIBLE</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
                 ) : (
-                  <span className="text-[7px] bg-gray-100 text-gray-500 px-1 rounded">HIDDEN</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">Hidden</span>
                 )}
                 <Switch
                   checked={footer.signature?.enabled ?? false}
@@ -108,7 +115,7 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
             </div>
 
             {footer.signature?.enabled && (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {/* Signature Selector - from landmark_signatures table */}
                 <Select
                   value={footer.signature.signatureId || footer.signature.logoId || 'none'}
@@ -122,7 +129,7 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-5 text-[8px]">
+                  <SelectTrigger className="h-7 text-xs">
                     {(footer.signature.signatureId || footer.signature.logoId) ? (
                       <div className="flex items-center gap-1">
                         {(() => {
@@ -172,7 +179,7 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
 
                 {/* Width Slider */}
                 <div className="flex items-center gap-2">
-                  <Label className="text-[8px] text-muted-foreground w-8">Width</Label>
+                  <Label className="text-[9px] text-muted-foreground w-8">Width</Label>
                   <Slider
                     value={[footer.signature.width || 35]}
                     onValueChange={([value]) => updateFooterSignature({ width: value })}
@@ -181,30 +188,35 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
                     step={5}
                     className="flex-1"
                   />
-                  <span className="text-[8px] w-6">{footer.signature.width || 35}%</span>
+                  <span className="text-[9px] w-6 text-muted-foreground">{footer.signature.width || 35}%</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Zone 2: Center Info */}
-          <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-2 space-y-1">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <span className="text-[9px] font-medium text-blue-700">📍 Event Information</span>
-                <p className="text-[8px] text-muted-foreground">Hashtag, website & social (center)</p>
+          <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-blue-500/10">
+                  <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Event Info</span>
+                  <p className="text-[8px] text-muted-foreground/60">Hashtag, website & social (center)</p>
+                </div>
               </div>
-              <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">ALWAYS ON</span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Always On</span>
             </div>
 
             {/* Hashtag */}
-            <div className="flex items-center gap-1 p-1 rounded bg-white border">
-              <Hash className="h-3 w-3 text-green-600 shrink-0" />
+            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-background border border-border/50">
+              <Hash className="h-3.5 w-3.5 text-green-600 shrink-0" />
               <Input
                 value={footer.hashtag.text}
                 onChange={(e) => updateFooterHashtag({ text: e.target.value, enabled: true })}
                 placeholder="#YIERODE"
-                className="h-5 text-[9px] border-0 p-0 focus-visible:ring-0 font-bold"
+                className="h-7 text-xs border-0 p-0 focus-visible:ring-0 font-bold"
               />
               <input
                 type="color"
@@ -215,43 +227,45 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
             </div>
 
             {/* Website */}
-            <div className="flex items-center gap-1 p-1 rounded bg-white border">
-              <Globe className="h-3 w-3 text-blue-500 shrink-0" />
+            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-background border border-border/50">
+              <Globe className="h-3.5 w-3.5 text-blue-500 shrink-0" />
               <Input
                 value={footer.website.url}
                 onChange={(e) => updateFooterWebsite({ url: e.target.value, enabled: true })}
                 placeholder="www.youngindians.net"
-                className="h-5 text-[9px] border-0 p-0 focus-visible:ring-0"
+                className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
               />
             </div>
 
             {/* Social Handle */}
-            <div className="flex items-center gap-1 p-1 rounded bg-white border">
-              <Instagram className="h-3 w-3 text-pink-500 shrink-0" />
-              <AtSign className="h-2 w-2 text-slate-400 -ml-0.5" />
+            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-background border border-border/50">
+              <Instagram className="h-3.5 w-3.5 text-pink-500 shrink-0" />
+              <AtSign className="h-3 w-3 text-slate-400 -ml-0.5" />
               <Input
                 value={footer.website.socialHandle || ''}
                 onChange={(e) => updateFooterWebsite({ socialHandle: e.target.value })}
                 placeholder="yi.erode"
-                className="h-5 text-[9px] border-0 p-0 focus-visible:ring-0"
+                className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
               />
             </div>
           </div>
 
           {/* Zone 3: Digital Partner */}
-          <div className="rounded-lg border border-orange-200 bg-orange-50/30 p-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1">
-                  <Handshake className="h-2.5 w-2.5 text-orange-500" />
-                  <span className="text-[9px] font-medium text-orange-700">🤝 Digital Partner</span>
+          <div className="rounded-xl border border-border/50 bg-card/60 p-2.5 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-orange-500/10">
+                  <Handshake className="h-3.5 w-3.5 text-orange-500" />
                 </div>
-                <p className="text-[8px] text-muted-foreground">Partner/sponsor logo (right side)</p>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Digital Partner</span>
+                  <p className="text-[8px] text-muted-foreground/60">Partner/sponsor logo (right side)</p>
+                </div>
               </div>
               {footer.digitalPartner.logoId ? (
-                <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">SET</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Set</span>
               ) : (
-                <span className="text-[7px] bg-amber-100 text-amber-700 px-1 rounded">NOT SET</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
               )}
             </div>
 
@@ -260,7 +274,7 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
               value={footer.digitalPartner.logoId || ''}
               onValueChange={setFooterPartnerLogo}
             >
-              <SelectTrigger className="h-5 text-[8px]">
+              <SelectTrigger className="h-7 text-xs">
                 {footer.digitalPartner.logoId ? (
                   <div className="flex items-center gap-1">
                     {logos.find(l => l.id === footer.digitalPartner.logoId)?.file_url && (
@@ -285,7 +299,7 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
                       {logo.file_url ? (
                         <Image src={logo.file_url} alt="" width={20} height={20} className="object-contain" unoptimized />
                       ) : (
-                        <ImageIcon className="h-3 w-3 text-slate-300" />
+                        <ImageIcon className="h-3.5 w-3.5 text-slate-300" />
                       )}
                       <span className="text-[9px] truncate">{logo.name}</span>
                     </div>
@@ -296,13 +310,13 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
 
             {/* Label Text & Color - shown when partner logo is selected */}
             {footer.digitalPartner.logoId && (
-              <div className="flex items-center gap-1 p-1 rounded bg-white border mt-1">
-                <span className="text-[8px] text-muted-foreground shrink-0">Label:</span>
+              <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-background border border-border/50 mt-1">
+                <span className="text-[9px] text-muted-foreground shrink-0">Label:</span>
                 <Input
                   value={footer.digitalPartner.labelText || 'Digital Partner'}
                   onChange={(e) => updateFooterDigitalPartner({ labelText: e.target.value })}
                   placeholder="Digital Partner"
-                  className="h-5 text-[9px] border-0 p-0 focus-visible:ring-0"
+                  className="h-7 text-xs border-0 p-0 focus-visible:ring-0"
                 />
                 <input
                   type="color"
@@ -312,20 +326,6 @@ export function FooterBarSettings({ className }: FooterBarSettingsProps) {
                 />
               </div>
             )}
-          </div>
-
-          {/* Footer Background Color */}
-          <div className="flex items-center justify-between p-1.5 rounded-lg bg-muted/50 border">
-            <span className="text-[9px] text-muted-foreground">Bar Color</span>
-            <div className="flex items-center gap-1">
-              <input
-                type="color"
-                value={footer.background.color}
-                onChange={(e) => updateFooterBackground({ color: e.target.value })}
-                className="w-5 h-5 rounded border cursor-pointer"
-              />
-              <span className="text-[8px] text-muted-foreground font-mono">{footer.background.color}</span>
-            </div>
           </div>
         </>
       )}

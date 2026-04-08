@@ -19,7 +19,7 @@ import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
 import { toast } from 'sonner'
-import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Share2, Images } from 'lucide-react'
+import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Images, Check } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { CreatePageTour } from '@/components/onboarding/CreatePageTour'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
@@ -28,16 +28,7 @@ import { ShuffleButton } from '@/components/create/shuffle-button'
 import { ColorShuffleModal } from '@/components/create/color-shuffle-modal'
 import { ImagePreviewModal } from '@/components/create/image-preview-modal'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
 import { createClient } from '@/lib/supabase/client'
 import type { Json } from '@/types/database.types'
 import type { ExternalEvent } from '@/types/external-event.types'
@@ -137,19 +128,28 @@ export function CanvasCreatePage({
   const router = useRouter()
 
   // Handle validation changes from DetailsPanel
+  // If form becomes invalid while in review mode, drop back to edit so Generate stays locked
   const handleValidationChange = useCallback((isValid: boolean, missingFields: string[]) => {
     setIsFormValid(isValid)
     setMissingRequiredFields(missingFields)
+    if (!isValid) setPanelMode('edit')
   }, [])
 
-  // Handle switching to review mode
+  // Handle switching to review mode (desktop)
   const handleReviewClick = useCallback(() => {
     setPanelMode('review')
+  }, [])
+
+  // Mobile review: also close the Details sheet so header Generate button is visible
+  const handleMobileReviewClick = useCallback(() => {
+    setPanelMode('review')
+    setActivePanel(null)
   }, [])
 
   // Handle switching back to edit mode
   const handleBackToEdit = useCallback(() => {
     setPanelMode('edit')
+    // activePanel stays 'details' (sheet already open), so no change needed
   }, [])
 
   // Creative store state
@@ -176,9 +176,6 @@ export function CanvasCreatePage({
     importExternalEvent,
     clearExternalEventImport,
     setCreationMode,
-    // Styling updates for regeneration
-    updateTheme,
-    updateStyle,
     updateResolution,
   } = useCreativeStore()
 
@@ -542,13 +539,6 @@ export function CanvasCreatePage({
     // Update model selection
     setSelectedModelId(options.modelId)
 
-    // Update theme/style/resolution if provided (scratch mode only)
-    if (formData.creationMode === 'scratch') {
-      if (options.theme) updateTheme(options.theme)
-      if (options.style) updateStyle(options.style)
-      if (options.resolution) updateResolution(options.resolution as '512px' | '1K' | '2K' | '4K')
-    }
-
     // Clear previous image
     setGeneratedImage(null)
 
@@ -664,8 +654,6 @@ export function CanvasCreatePage({
     models,
     canAfford,
     formData,
-    updateTheme,
-    updateStyle,
     updateResolution,
     setGeneratedImage,
     setGenerating,
@@ -691,145 +679,246 @@ export function CanvasCreatePage({
   // Desktop layout - Canva-style tight panels
   if (!isMobile) {
     return (
-      <div className="flex flex-col h-screen bg-muted/40">
+      <div className="flex flex-col h-screen bg-gradient-to-br from-muted/50 via-background to-muted/30">
         {/* Header Bar */}
         <HeaderBar
           onGenerate={handleGenerateWithDateCheck}
           isGenerating={isGenerating}
-          canGenerate={panelMode === 'review' && isFormValid}
+          canGenerate={isFormValid}
           hasGeneratedImage={!!generatedImage}
           verticals={verticals}
           selectedVertical={selectedVertical}
           onVerticalChange={selectVertical}
         />
 
-        {/* Main Content - Canva-style layout */}
+        {/* Main Content — 2-panel: sidebar + canvas */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - Details or Review Summary */}
-          <div className="w-[320px] min-w-[320px] border-r bg-card overflow-y-auto h-full flex flex-col" data-tour="details-panel">
-            {panelMode === 'edit' ? (
-              <DetailsPanel
-                suggestionsLoading={suggestionsLoading}
-                onRequestSuggestions={requestSuggestions}
-                onAcceptSuggestion={acceptSuggestion}
-                onDismissSuggestion={dismissSuggestion}
-                getSuggestion={getSuggestion}
-                onValidationChange={handleValidationChange}
-                showReviewButton={isFormValid}
-                onReviewClick={handleReviewClick}
-                organizationId={currentOrganization?.id}
-              />
-            ) : (
-              <ReviewSummaryPanel onBackToEdit={handleBackToEdit} />
-            )}
+
+          {/* ── LEFT SIDEBAR: single scroll (Details → Setup) + pinned footer ── */}
+          <div className="w-[420px] min-w-[420px] border-r border-border/40 bg-card/95 h-full flex flex-col shadow-lg" data-tour="details-panel">
+
+            {/* Single scrollable area — Setup on top, Event Details below */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {panelMode === 'review' ? (
+                <ReviewSummaryPanel onBackToEdit={handleBackToEdit} />
+              ) : (
+                <>
+                  {/* Setup section — always on top */}
+                  <div>
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/40">
+                      <Palette className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Setup</p>
+                    </div>
+                    <LogosStylePanel
+                      embedded
+                      models={models}
+                      selectedModel={selectedModel}
+                      onModelChange={handleModelChange}
+                      isModelsLoading={isModelsLoading}
+                      resolution={formData.designData?.resolution || '2K'}
+                      onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+                      thinkingLevel={thinkingLevel}
+                      onThinkingLevelChange={setThinkingLevel}
+                      useImageSearch={useImageSearch}
+                      onImageSearchChange={setUseImageSearch}
+                    />
+                  </div>
+
+                  {/* Event Details — below setup */}
+                  <div className="border-t border-border/40">
+                    <div className="flex items-center gap-2 px-3.5 py-2.5">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Event Details</p>
+                    </div>
+                    <DetailsPanel
+                      embedded
+                      suggestionsLoading={suggestionsLoading}
+                      onRequestSuggestions={requestSuggestions}
+                      onAcceptSuggestion={acceptSuggestion}
+                      onDismissSuggestion={dismissSuggestion}
+                      getSuggestion={getSuggestion}
+                      onValidationChange={handleValidationChange}
+                      organizationId={currentOrganization?.id}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Pinned footer — Review → Generate flow */}
+            <div className="shrink-0 p-3.5 border-t border-border/40 bg-card/80 backdrop-blur-sm">
+              {generatedImage ? (
+                /* Post-generation: Download + Regen + Gallery */
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => setExportModalOpen(true)}
+                    className="flex-1 h-11 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                  <Button
+                    onClick={() => setRegenerateModalOpen(true)}
+                    variant="outline"
+                    className="h-11 w-11 p-0 border-border/50 hover:bg-muted/60 transition-colors rounded-xl"
+                    title="Regenerate"
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={() => router.push('/gallery')}
+                    variant="outline"
+                    className="h-11 w-11 p-0 border-border/50 hover:bg-muted/60 transition-colors rounded-xl"
+                    title="Gallery"
+                  >
+                    <Images className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : panelMode === 'review' ? (
+                /* Review confirmed — Generate is now unlocked */
+                <Button
+                  onClick={handleGenerateWithDateCheck}
+                  disabled={isGenerating}
+                  className="w-full h-12 gap-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                  data-tour="generate-btn"
+                >
+                  {isGenerating ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /><span className="font-semibold">Creating…</span></>
+                  ) : (
+                    <><Sparkles className="h-4 w-4" /><span className="font-semibold">Generate Now</span></>
+                  )}
+                </Button>
+              ) : (
+                /* Edit mode — Review button gates Generate */
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleReviewClick}
+                    disabled={!isFormValid}
+                    className={cn(
+                      "w-full h-12 gap-2 text-sm font-semibold transition-all duration-200",
+                      isFormValid
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                  >
+                    {isFormValid ? (
+                      <><Check className="h-4 w-4" /><span>Review Details</span></>
+                    ) : (
+                      <><FileText className="h-4 w-4" /><span>Fill required fields to continue</span></>
+                    )}
+                  </Button>
+                  {!isFormValid && (
+                    <p className="text-center text-[10px] text-muted-foreground/50">
+                      Complete the event details above
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Center - Canvas Preview OR Template Browser (no scroll, fit to screen) */}
-          <div className="flex-1 flex flex-col items-center justify-center px-2 overflow-hidden relative" id="preview-panel">
+          {/* Center - Canvas Preview OR Template Browser OR Empty State */}
+          <div className="flex-1 flex flex-col items-center justify-center overflow-hidden relative bg-gradient-to-br from-violet-500/[0.03] via-muted/15 to-indigo-500/[0.03]" id="preview-panel">
             {isGenerating ? (
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Generating your creative...</p>
+              /* Generating — show animated canvas-shaped placeholder */
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/10 via-indigo-500/8 to-purple-500/10 border border-violet-400/30 flex flex-col items-center justify-center gap-3 shadow-2xl shadow-violet-500/15"
+                  style={{
+                    width: 'min(320px, 45vw)',
+                    aspectRatio: `${selectedFormat?.width || 1080} / ${selectedFormat?.height || 1350}`,
+                    maxHeight: 'calc(100vh - 180px)',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-indigo-500/10 animate-pulse" />
+                  <Loader2 className="h-8 w-8 animate-spin text-violet-400 relative z-10" />
+                  <p className="text-xs font-semibold text-violet-500/80 relative z-10">Generating…</p>
+                </div>
+                <p className="text-xs text-muted-foreground">AI is crafting your {selectedFormat?.label || 'creative'}</p>
               </div>
             ) : formData.creationMode === 'template' && !generatedImage ? (
               <div className="w-full h-full max-w-4xl">
                 <TemplateBrowserPanel />
               </div>
+            ) : generatedImage ? (
+              /* Generated image — fills full canvas area, clickable for full-view */
+              <div
+                onClick={() => setPreviewModalOpen(true)}
+                className="w-full h-full cursor-pointer flex items-center justify-center p-6 hover:bg-muted/10 transition-colors duration-200"
+              >
+                <CanvasPreview onExpandClick={() => setPreviewModalOpen(true)} />
+              </div>
             ) : (
-              <div className="w-full max-w-2xl flex flex-col items-center">
-                {/* Clickable wrapper for full-view modal */}
+              /* Desktop empty state — Canva-style: show the actual canvas frame */
+              <div className="flex flex-col items-center gap-4">
+                {/* Canvas frame — correct aspect ratio, fills center visually */}
                 <div
-                  onClick={() => {
-                    if (generatedImage || selectedTemplate?.image_url) {
-                      setPreviewModalOpen(true)
-                    }
-                  }}
                   className={cn(
-                    generatedImage || selectedTemplate?.image_url
-                      ? 'cursor-pointer hover:scale-[1.02] hover:shadow-xl transition-all duration-200'
-                      : ''
+                    "relative rounded-2xl overflow-hidden flex flex-col items-center justify-center",
+                    "border-2 border-dashed transition-all duration-300",
+                    isFormValid
+                      ? "border-emerald-400/40 bg-gradient-to-br from-emerald-500/4 via-card to-indigo-500/4 shadow-xl shadow-emerald-500/10"
+                      : "border-border/40 bg-card shadow-xl shadow-black/5"
                   )}
+                  style={{
+                    width: 'min(340px, 42vw)',
+                    aspectRatio: `${selectedFormat?.width || 1080} / ${selectedFormat?.height || 1350}`,
+                    maxHeight: 'calc(100vh - 200px)',
+                  }}
                 >
-                  <CanvasPreview
-                    onExpandClick={
-                      generatedImage || selectedTemplate?.image_url
-                        ? () => setPreviewModalOpen(true)
-                        : undefined
-                    }
+                  {/* Subtle dot grid */}
+                  <div
+                    className="absolute inset-0 opacity-20"
+                    style={{
+                      backgroundImage: 'radial-gradient(circle, hsl(var(--muted-foreground)/0.3) 1px, transparent 1px)',
+                      backgroundSize: '28px 28px',
+                    }}
                   />
-                </div>
-                {/* Action buttons when image exists */}
-                {generatedImage && !isGenerating && (
-                  <div className="w-full max-w-sm grid grid-cols-2 gap-2 mt-3 px-4">
-                    <Button
-                      onClick={() => setExportModalOpen(true)}
-                      className="col-span-2 h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-md hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </Button>
 
-                    <Button
-                      onClick={() => router.push('/gallery')}
-                      className="h-10 gap-2 text-sm font-medium bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-sm hover:scale-[1.03] active:scale-[0.98] transition-all duration-150"
-                    >
-                      <Images className="h-4 w-4" />
-                      Gallery
-                    </Button>
-
-                    <Button
-                      onClick={() => setRegenerateModalOpen(true)}
-                      className="h-10 gap-2 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-sm hover:scale-[1.03] active:scale-[0.98] transition-all duration-150"
-                    >
-                      <RefreshCcw className="h-4 w-4" />
-                      Regenerate
-                    </Button>
+                  {/* Center content */}
+                  <div className="relative flex flex-col items-center gap-3 text-center p-6">
+                    <div className={cn(
+                      "h-14 w-14 rounded-2xl flex items-center justify-center shadow-sm",
+                      isFormValid
+                        ? "bg-gradient-to-br from-emerald-500/15 to-teal-500/15 border border-emerald-500/20"
+                        : "bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/15"
+                    )}>
+                      {isFormValid
+                        ? <Sparkles className="h-6 w-6 text-emerald-500" />
+                        : <Sparkles className="h-6 w-6 text-violet-400" />
+                      }
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">
+                        {isFormValid ? 'Ready to generate!' : 'Your creative appears here'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                        {isFormValid
+                          ? 'Click Generate → to create your design'
+                          : 'Fill event details on the left to get started'}
+                      </p>
+                    </div>
+                    {isFormValid && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span className="text-[10px] font-semibold text-emerald-600">Details ready</span>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Format label — bottom of canvas */}
+                  <div className="absolute bottom-3 left-0 right-0 flex justify-center">
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/70 backdrop-blur-sm border border-border/40 shadow-sm">
+                      <span className="text-[10px] font-medium text-muted-foreground/70">
+                        {selectedFormat?.label || 'Event Poster'} · {selectedFormat?.width}×{selectedFormat?.height}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Right Panel - Logos & Style */}
-          <div className="w-[300px] min-w-[300px] border-l bg-card flex flex-col" data-tour="style-panel">
-            <div className="flex-1 overflow-y-auto">
-              <LogosStylePanel
-                models={models}
-                selectedModel={selectedModel}
-                onModelChange={handleModelChange}
-                isModelsLoading={isModelsLoading}
-                resolution={formData.designData?.resolution || '2K'}
-                onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
-                thinkingLevel={thinkingLevel}
-                onThinkingLevelChange={setThinkingLevel}
-                useImageSearch={useImageSearch}
-                onImageSearchChange={setUseImageSearch}
-              />
-            </div>
-            {/* Generate button — pinned to bottom of right panel */}
-            {!generatedImage && (
-              <div className="shrink-0 p-3 border-t bg-card">
-                <Button
-                  onClick={handleGenerateWithDateCheck}
-                  disabled={isGenerating || !selectedFormat || !(panelMode === 'review' && isFormValid)}
-                  className="w-full h-11 gap-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  data-tour="generate-btn"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="font-semibold">Creating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      <span className="font-semibold">Generate</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Past Date Warning Dialog */}
@@ -868,10 +957,6 @@ export function CanvasCreatePage({
             open={regenerateModalOpen}
             onOpenChange={setRegenerateModalOpen}
             currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
-            currentTheme={formData.designData?.theme}
-            currentStyle={formData.designData?.style}
-            currentResolution={formData.designData?.resolution}
-            creationMode={formData.creationMode as 'template' | 'scratch'}
             models={models}
             isRegenerating={isGenerating}
             currentBalance={creditsBalance}
@@ -903,214 +988,157 @@ export function CanvasCreatePage({
     )
   }
 
-  // Mobile layout
+  // Mobile layout — mirrors desktop: single scroll (Setup → Details) + pinned footer
   return (
-    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
-      {/* Header Bar - Fixed at top with 3 bars */}
-      <div className="shrink-0">
-        <HeaderBar
-          onGenerate={handleGenerateWithDateCheck}
-          isGenerating={isGenerating}
-          canGenerate={panelMode === 'review' && isFormValid}
-          hasGeneratedImage={!!generatedImage}
-          verticals={verticals}
-          selectedVertical={selectedVertical}
-          onVerticalChange={selectVertical}
-          activePanel={activePanel}
-          onPanelChange={setActivePanel}
-        />
-      </div>
+    <div className="flex flex-col h-full bg-background overflow-hidden">
 
-      {/* Canvas Preview Area - Flexible but constrained */}
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-2 bg-muted/30 overflow-hidden">
-        {isGenerating ? (
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Generating your creative...</p>
-          </div>
-        ) : formData.creationMode === 'template' && !generatedImage ? (
-          <div className="w-full h-full max-h-full overflow-auto">
-            <TemplateBrowserPanel />
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
-            {/* Preview - Constrained to fit */}
-            <div
-              onClick={() => {
-                if (generatedImage || selectedTemplate?.image_url) {
-                  setPreviewModalOpen(true)
-                }
-              }}
-              className={cn(
-                "max-h-full w-full flex items-center justify-center",
-                generatedImage || selectedTemplate?.image_url
-                  ? 'cursor-pointer active:scale-[0.98] transition-all duration-200'
-                  : ''
-              )}
+      {/* Slim top bar — format pill only */}
+      {!generatedImage && (
+        <div className="shrink-0 border-b border-border/40 bg-card/90 backdrop-blur-md px-3 py-2 shadow-sm flex items-center gap-2">
+          <Palette className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+          <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50 flex-1">
+            {selectedFormat?.label || 'Event Poster'}
+          </span>
+          {panelMode === 'review' && (
+            <button
+              onClick={handleBackToEdit}
+              className="text-[11px] text-violet-500 hover:text-violet-700 font-semibold"
             >
-              <CanvasPreview
-                isMobile={isMobile}
-                onExpandClick={
-                  generatedImage || selectedTemplate?.image_url
-                    ? () => setPreviewModalOpen(true)
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-        )}
-      </div>
+              ← Edit
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* Post-generation action buttons - Only show when image exists */}
-      {generatedImage && !isGenerating && !activePanel && (
-        <div className="shrink-0 border-t bg-card px-4 py-3 space-y-2">
-          {/* Download + Regenerate + Gallery — uniform gradient */}
-          <div className="space-y-1.5">
-            <Button
-              onClick={() => setExportModalOpen(true)}
-              className="w-full h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-md active:scale-[0.98] transition-all"
-            >
-              <Download className="h-3.5 w-3.5 shrink-0" />
-              Download
-            </Button>
-            <div className="flex gap-1.5">
-              <Button
-                onClick={() => setRegenerateModalOpen(true)}
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-sm active:scale-[0.98] transition-all"
-              >
-                <RefreshCcw className="h-3.5 w-3.5" />
-                Regenerate
-              </Button>
-              <Button
-                onClick={() => router.push('/gallery')}
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-sm active:scale-[0.98] transition-all"
-              >
-                <Images className="h-3.5 w-3.5" />
-                Gallery
-              </Button>
+      {/* Main area: form scroll OR canvas preview after generation */}
+      {generatedImage ? (
+        <div className="flex-1 min-h-0 relative bg-background">
+          <div
+            onClick={() => setPreviewModalOpen(true)}
+            className="absolute inset-0 cursor-pointer active:scale-[0.98] transition-transform duration-200"
+          >
+            <CanvasPreview isMobile={isMobile} onExpandClick={() => setPreviewModalOpen(true)} />
+          </div>
+        </div>
+      ) : isGenerating ? (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+          </div>
+          <div className="text-center space-y-0.5">
+            <p className="text-sm font-semibold text-foreground">Crafting your design…</p>
+            <p className="text-xs text-muted-foreground">This takes about 30–60 seconds</p>
+          </div>
+        </div>
+      ) : (
+        /* Single scrollable panel — same order as desktop */
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Setup on top */}
+          <div>
+            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/40">
+              <Palette className="h-3.5 w-3.5 text-muted-foreground/50" />
+              <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Setup</p>
             </div>
+            <LogosStylePanel
+              embedded
+              models={models}
+              selectedModel={selectedModel}
+              onModelChange={handleModelChange}
+              isModelsLoading={isModelsLoading}
+              resolution={formData.designData?.resolution || '2K'}
+              onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+              thinkingLevel={thinkingLevel}
+              onThinkingLevelChange={setThinkingLevel}
+              useImageSearch={useImageSearch}
+              onImageSearchChange={setUseImageSearch}
+            />
+          </div>
+
+          {/* Event Details below */}
+          <div className="border-t border-border/40">
+            <div className="flex items-center gap-2 px-3.5 py-2.5">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
+              <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Event Details</p>
+            </div>
+            <DetailsPanel
+              embedded
+              suggestionsLoading={suggestionsLoading}
+              onRequestSuggestions={requestSuggestions}
+              onAcceptSuggestion={acceptSuggestion}
+              onDismissSuggestion={dismissSuggestion}
+              getSuggestion={getSuggestion}
+              onValidationChange={handleValidationChange}
+              organizationId={currentOrganization?.id}
+            />
           </div>
         </div>
       )}
 
-      {/* Mobile Bottom Sheets */}
-      <MobileBottomSheet
-        isOpen={activePanel === 'details'}
-        onClose={() => setActivePanel(null)}
-        title={panelMode === 'edit' ? 'Event Details' : 'Review Summary'}
-      >
-        {panelMode === 'edit' ? (
-          <DetailsPanel
-            suggestionsLoading={suggestionsLoading}
-            onRequestSuggestions={requestSuggestions}
-            onAcceptSuggestion={acceptSuggestion}
-            onDismissSuggestion={dismissSuggestion}
-            getSuggestion={getSuggestion}
-            onValidationChange={handleValidationChange}
-            showReviewButton={isFormValid}
-            onReviewClick={handleReviewClick}
-            organizationId={currentOrganization?.id}
-          />
-        ) : (
-          <ReviewSummaryPanel onBackToEdit={handleBackToEdit} />
-        )}
-      </MobileBottomSheet>
-
-      <MobileBottomSheet
-        isOpen={activePanel === 'style'}
-        onClose={() => setActivePanel(null)}
-        title="Creative Setup"
-      >
-        <LogosStylePanel
-          models={models}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
-          isModelsLoading={isModelsLoading}
-          resolution={formData.designData?.resolution || '2K'}
-          onResolutionChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
-          thinkingLevel={thinkingLevel}
-          onThinkingLevelChange={setThinkingLevel}
-          useImageSearch={useImageSearch}
-          onImageSearchChange={setUseImageSearch}
-        />
-      </MobileBottomSheet>
-
-      <MobileBottomSheet
-        isOpen={activePanel === 'generate'}
-        onClose={() => setActivePanel(null)}
-        title="Generate Settings"
-      >
-        <div className="p-4 space-y-4">
-          {/* AI Model Selector */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">AI Model</Label>
-            {isModelsLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select value={selectedModel?.id || ''} onValueChange={selectModel}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select AI Model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      <div className="flex items-center justify-between w-full gap-3">
-                        <span>{model.slug === 'ideogram' ? 'Design Forge' : model.slug === 'google' || model.slug === 'gemini' ? 'Vision Studio' : model.slug}</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                          {model.credits_cost} cr
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Resolution */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Resolution</Label>
-            <Select
-              value={formData.designData?.resolution || '2K'}
-              onValueChange={(val) => updateResolution(val as '512px' | '1K' | '2K' | '4K')}
+      {/* Pinned footer — Review → Generate gate (same as desktop) */}
+      <div className="shrink-0 p-3 border-t border-border/40 bg-card/90 backdrop-blur-sm">
+        {generatedImage ? (
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setExportModalOpen(true)}
+              className="flex-1 h-11 gap-2 text-sm font-bold bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white shadow-md shadow-violet-500/25 active:scale-[0.98] transition-all rounded-xl"
             >
-              <SelectTrigger className="h-10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {selectedModel?.model_id === 'gemini-3.1-flash-image-preview' && (
-                  <SelectItem value="512px">512px - Thumbnail</SelectItem>
-                )}
-                <SelectItem value="1K">1K - Standard</SelectItem>
-                <SelectItem value="2K">2K - High Quality</SelectItem>
-                <SelectItem value="4K">4K - Ultra HD</SelectItem>
-              </SelectContent>
-            </Select>
+              <Download className="h-4 w-4 shrink-0" />
+              Download
+            </Button>
+            <Button
+              onClick={() => setRegenerateModalOpen(true)}
+              variant="outline"
+              className="h-11 w-11 p-0 shrink-0 border-border/50 rounded-xl hover:bg-muted/60 transition-colors"
+              title="Regenerate"
+            >
+              <RefreshCcw className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
+              onClick={() => router.push('/gallery')}
+              variant="outline"
+              className="h-11 w-11 p-0 shrink-0 border-border/50 rounded-xl hover:bg-muted/60 transition-colors"
+              title="Gallery"
+            >
+              <Images className="h-4 w-4 text-muted-foreground" />
+            </Button>
           </div>
-
-          {/* Generate Button */}
+        ) : panelMode === 'review' ? (
           <Button
-            onClick={() => {
-              setActivePanel(null)
-              handleGenerate()
-            }}
-            disabled={isGenerating || !selectedFormat || !(panelMode === 'review' && isFormValid)}
-            className="w-full h-10 gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md"
+            onClick={handleGenerateWithDateCheck}
+            disabled={isGenerating}
+            className="w-full h-12 gap-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/40 active:scale-[0.98] transition-all duration-200 text-sm font-semibold rounded-xl"
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="font-medium">Creating...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                <span className="font-medium">Generate Creative</span>
-              </>
-            )}
+            {isGenerating
+              ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Creating…</span></>
+              : <><Sparkles className="h-4 w-4" /><span>Generate Now</span></>
+            }
           </Button>
-        </div>
-      </MobileBottomSheet>
+        ) : (
+          <div className="space-y-1.5">
+            <Button
+              onClick={handleMobileReviewClick}
+              disabled={!isFormValid}
+              className={cn(
+                "w-full h-12 gap-2 text-sm font-semibold rounded-xl transition-all duration-200",
+                isFormValid
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 active:scale-[0.98]"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              {isFormValid
+                ? <><Check className="h-4 w-4" /><span>Review Details</span></>
+                : <><FileText className="h-4 w-4" /><span>Fill required fields to continue</span></>
+              }
+            </Button>
+            {!isFormValid && (
+              <p className="text-center text-[10px] text-muted-foreground/50">Complete event details above</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Spacer for fixed bottom nav */}
+      <div className="shrink-0 h-14" />
 
       {/* Past Date Warning Dialog */}
       <PastDateWarningDialog
@@ -1129,10 +1157,6 @@ export function CanvasCreatePage({
           open={regenerateModalOpen}
           onOpenChange={setRegenerateModalOpen}
           currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
-          currentTheme={formData.designData?.theme}
-          currentStyle={formData.designData?.style}
-          currentResolution={formData.designData?.resolution}
-          creationMode={formData.creationMode as 'template' | 'scratch'}
           models={models}
           isRegenerating={isGenerating}
           currentBalance={creditsBalance}

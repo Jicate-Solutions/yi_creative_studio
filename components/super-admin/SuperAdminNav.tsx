@@ -122,8 +122,8 @@ function NavLink({
       className={cn(
         'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
         isActive
-          ? 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700'
-          : 'text-gray-700 hover:bg-gray-100'
+          ? 'bg-gradient-to-r from-purple-500/15 to-pink-500/15 text-purple-400 dark:text-purple-300'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       <Icon className="h-5 w-5 flex-shrink-0" />
@@ -142,7 +142,7 @@ export default function SuperAdminNav() {
   return (
     <>
       {/* Desktop Sidebar - Hidden on mobile/tablet */}
-      <nav className="hidden lg:block w-64 border-r border-gray-200 bg-white px-4 py-6 space-y-1 overflow-y-auto">
+      <nav className="hidden lg:block w-64 border-r border-border bg-card px-4 py-6 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.href}

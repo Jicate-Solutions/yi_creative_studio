@@ -32,6 +32,7 @@ export interface EventTextData {
   venue?: string             // "JKKN INSTITUTIONS, KUMARAPALAYAM BYPASS"
   additionalDetails?: string // Prize structure as single string
   registrationInfo?: string  // CTA text
+  speakers?: Array<{ name: string; designation?: string }> // Speakers without photos
 }
 
 export interface EventTextOverlayConfig {
@@ -179,6 +180,14 @@ export async function renderEventTextOverlay(
 
     // Build SVG elements
     const svgElements: string[] = []
+
+    // v44.0: Full-zone base scrim — covers the ENTIRE content zone so any
+    // text Gemini rendered in this area is hidden before we re-render it cleanly.
+    // Opacity 0.60 provides a solid base; individual element scrims add on top.
+    const baseScrimColor = bgIsDark ? '0,0,0' : '255,255,255'
+    const baseScrimOpacity = bgIsDark ? 0.60 : 0.55
+    svgElements.push(`<rect x="0" y="${zoneStartPx}" width="${canvasWidth}" height="${availableHeight}" fill="rgba(${baseScrimColor},${baseScrimOpacity})"/>`)
+
     let currentY = zoneStartPx
 
     // ── HEADLINE + TAGLINE (Sharp-rendered, replaces Gemini text) ──
@@ -208,6 +217,22 @@ export async function renderEventTextOverlay(
       )
       svgElements.push(cardResult.svg)
       currentY = cardResult.bottomY + SECTION_GAP
+    }
+
+    // ── SPEAKERS (name + designation, for speakers without photos) ──
+    if (eventData.speakers && eventData.speakers.length > 0) {
+      const speakerResult = buildSpeakerBlock(
+        eventData.speakers,
+        canvasWidth,
+        currentY,
+        zoneEndPx,
+        brandColors,
+        bgIsDark
+      )
+      if (speakerResult.svg) {
+        svgElements.push(speakerResult.svg)
+        currentY = speakerResult.bottomY + SECTION_GAP
+      }
     }
 
     // ── ADDITIONAL DETAILS (Prize Structure) ──
@@ -451,8 +476,9 @@ function buildHeadlineBlock(
 
   // === Soft gradient scrim behind text ===
   const scrimColor = bgIsDark ? '0,0,0' : '255,255,255'
-  const scrimPeak  = bgIsDark ? 0.68 : 0.60
-  const scrimFadeH = Math.round(bgHeight * 0.15)
+  // v44.0: 0.92/0.88 ensures Gemini's text (rendered at same zone) is fully hidden
+  const scrimPeak  = bgIsDark ? 0.92 : 0.88
+  const scrimFadeH = Math.round(bgHeight * 0.08)
   const scrimGradId = 'evt-scrim-grad'
   elements.unshift(`<defs>
     <linearGradient id="${scrimGradId}" x1="0" y1="0" x2="0" y2="1">
@@ -746,6 +772,84 @@ function buildRegistrationCTA(
   return {
     svg: `<g data-section="registration-cta">${elements.join('')}</g>`,
     bottomY: startY + cardHeight,
+  }
+}
+
+/**
+ * Build speaker name + designation block — rendered after the info card
+ * Shows each speaker (without photo) as: Name (bold, brand accent) + Designation (smaller, muted)
+ */
+function buildSpeakerBlock(
+  speakers: Array<{ name: string; designation?: string }>,
+  canvasWidth: number,
+  startY: number,
+  zoneEndPx: number,
+  brandColors: { primary: string; secondary: string; accent: string },
+  bgIsDark: boolean
+): { svg: string; bottomY: number } {
+  if (speakers.length === 0) return { svg: '', bottomY: startY }
+
+  const PADDING_X = 60
+  const maxTextWidth = canvasWidth - PADDING_X * 2
+  const NAME_SIZE = 26
+  const DESIG_SIZE = 18
+  const LINE_GAP = 8
+  const SPEAKER_GAP = 14
+  const BG_PAD_V = 14
+  const BG_PAD_H = 24
+
+  const nameColor = bgIsDark
+    ? (getLuminance(brandColors.secondary) > 0.20 ? brandColors.secondary : '#FFE066')
+    : getBestDarkColor(brandColors)
+  const desigColor = bgIsDark ? '#D0D0D0' : '#444444'
+
+  const elements: string[] = []
+  let currentY = startY + BG_PAD_V
+
+  for (const speaker of speakers) {
+    if (currentY + NAME_SIZE > zoneEndPx) break
+
+    // Speaker name — bold, brand secondary color
+    const nameLines = wrapText(speaker.name, 'poppins', NAME_SIZE, 'bold', maxTextWidth)
+    for (const line of nameLines) {
+      if (currentY + NAME_SIZE > zoneEndPx) break
+      currentY += NAME_SIZE
+      elements.push(`<g filter="url(#evt-headline-outline)">${textToPath(line, {
+        fontFamily: 'poppins', fontSize: NAME_SIZE, fontWeight: 'bold',
+        x: PADDING_X, y: currentY, fill: nameColor, textAnchor: 'start',
+      })}</g>`)
+    }
+
+    // Designation — smaller, muted
+    if (speaker.designation) {
+      const desigLines = wrapText(speaker.designation, 'poppins', DESIG_SIZE, 'regular', maxTextWidth)
+      for (const line of desigLines) {
+        if (currentY + DESIG_SIZE > zoneEndPx) break
+        currentY += DESIG_SIZE + LINE_GAP
+        elements.push(`<g filter="url(#evt-text-shadow)">${textToPath(line, {
+          fontFamily: 'poppins', fontSize: DESIG_SIZE, fontWeight: 'regular',
+          x: PADDING_X, y: currentY, fill: desigColor, textAnchor: 'start',
+        })}</g>`)
+      }
+    }
+
+    currentY += SPEAKER_GAP
+  }
+
+  currentY += BG_PAD_V
+
+  if (elements.length === 0) return { svg: '', bottomY: startY }
+
+  const blockHeight = currentY - startY
+  const scrimColor = bgIsDark ? '0,0,0' : '255,255,255'
+  const bg = `<rect x="0" y="${startY}" width="${canvasWidth}" height="${blockHeight}" fill="rgba(${scrimColor},0.45)"/>`
+  // Left accent line
+  const accent = `<rect x="${PADDING_X - 16}" y="${startY + BG_PAD_V}" width="4" height="${blockHeight - BG_PAD_V * 2}" rx="2" fill="${brandColors.secondary}"/>`
+
+  console.log(`[Speaker Block] Rendered ${speakers.length} speaker(s) — height: ${Math.round(blockHeight)}px`)
+  return {
+    svg: `<g data-section="speakers">${bg}${accent}${elements.join('\n')}</g>`,
+    bottomY: currentY,
   }
 }
 

@@ -57,7 +57,7 @@ export function useFieldExtraction({
     }
   }, [])
 
-  const { updateFormData, formData } = useCreativeStore()
+  const { updateFormData, updateCustomization, formData } = useCreativeStore()
 
   /**
    * Extract fields from raw text using AI
@@ -167,7 +167,10 @@ export function useFieldExtraction({
   )
 
   /**
-   * Apply extracted speakers to the form's speaker configuration
+   * Apply extracted speakers to the form's speaker configuration.
+   * Uses updateCustomization (not updateFormData) so data lands in
+   * formData.designData.customization.speakerPhoto — the correct location
+   * that the generation pipeline reads from (originalSpeakerPhotoConfig).
    */
   const applyExtractedSpeakers = useCallback(() => {
     if (!extractionResult?.speakers?.length) return
@@ -176,29 +179,20 @@ export function useFieldExtraction({
       id: crypto.randomUUID(),
       name: s.name,
       designation: s.designation || '',
-      photoUrl: undefined,
+      photoUrl: undefined as string | undefined,
     }))
 
-    // Get current design data
-    const currentDesignData = formData.designData || {}
-    const currentCustomization = currentDesignData.customization || {}
-    const currentSpeakerConfig = currentCustomization.speakerPhoto || {}
+    // Preserve existing speaker photo settings (shape, size, border, etc.)
+    const currentSpeakerConfig = formData.designData?.customization?.speakerPhoto || {}
 
-    // Update with new speakers
-    updateFormData({
-      designData: {
-        ...currentDesignData,
-        customization: {
-          ...currentCustomization,
-          speakerPhoto: {
-            ...currentSpeakerConfig,
-            speakers: speakerItems,
-            enabled: speakerItems.length > 0,
-          },
-        },
+    updateCustomization({
+      speakerPhoto: {
+        ...currentSpeakerConfig,
+        speakers: speakerItems,
+        enabled: speakerItems.length > 0,
       },
     })
-  }, [extractionResult, formData, updateFormData])
+  }, [extractionResult, formData.designData?.customization?.speakerPhoto, updateCustomization])
 
   /**
    * Clear extraction result and error

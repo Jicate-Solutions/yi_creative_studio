@@ -1,6 +1,7 @@
 'use client'
 
 import { useLayoutEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -31,6 +32,10 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
   const { setProfile, setMembership, setCurrentOrganization, setOrganizations, setLoading, setServerHydrated } = useAuthStore()
   const { createModeActive, analyticsModeActive, sidebarOpen, sidebarCollapsed } = useUIStore()
   const hydrationDone = useRef(false)
+  const pathname = usePathname()
+  // Apply tight (no-padding, h-screen) layout on /create without touching createModeActive,
+  // so the BottomNavbar remains visible (it only checks createModeActive, not pathname).
+  const tightLayout = createModeActive || pathname === '/create'
 
   // CRITICAL: Hydrate auth store SYNCHRONOUSLY on first render to prevent
   // auth-provider from making duplicate API calls. useLayoutEffect runs
@@ -98,10 +103,10 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
       <TooltipProvider>
         <div className={cn(
           "relative flex w-full text-foreground dark:text-white",
-          createModeActive ? "h-screen overflow-hidden" : "min-h-screen"
+          tightLayout ? "h-screen overflow-hidden" : "min-h-screen"
         )}>
-          {/* Animated Background - Only show when not in create mode */}
-          {!createModeActive && <AnimatedBackground />}
+          {/* Animated Background - Only show when not in tight/create mode */}
+          {!tightLayout && <AnimatedBackground />}
 
           {/* Sidebar - Desktop */}
           <Sidebar />
@@ -126,17 +131,17 @@ export function DashboardLayout({ children, className, initialAuthData }: Dashbo
             {/* Page Content */}
             <main className={cn(
               'flex-1',
-              createModeActive ? 'overflow-hidden' : 'overflow-x-hidden',
-              !createModeActive && 'p-2 sm:p-3 md:p-4',
+              tightLayout ? 'overflow-hidden' : 'overflow-x-hidden',
+              !tightLayout && 'p-2 sm:p-3 md:p-4',
               // Add bottom padding for mobile navbar (64px navbar + safe area)
-              !createModeActive && 'pb-20 md:pb-6',
+              !tightLayout && 'pb-20 md:pb-6',
               className
             )}>
               {children}
             </main>
 
-            {/* Application Footer - Hidden in create mode for cleaner workspace */}
-            {!createModeActive && (
+            {/* Application Footer - Hidden in tight/create mode for cleaner workspace */}
+            {!tightLayout && (
               <footer className="hidden md:flex items-center justify-center py-2 bg-muted/20">
                 <p className="text-[11px] text-muted-foreground/70">
                   Developed by <span className="font-medium text-muted-foreground">Roja</span> • Powered by{" "}

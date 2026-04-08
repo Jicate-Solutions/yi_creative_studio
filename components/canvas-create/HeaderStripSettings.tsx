@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Layers, X, ImageIcon, Bookmark, GripVertical } from 'lucide-react'
+import { Layers, X, ImageIcon, Bookmark, GripVertical, Building2, Tag, FileText } from 'lucide-react'
 import { useState } from 'react'
 import {
   DndContext,
@@ -72,7 +72,7 @@ function SortableLogo({ logoId, logo, onRemove }: SortableLogoProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        'relative flex items-center justify-center bg-slate-50 rounded p-1.5 h-14 min-w-[70px] transition-all group',
+        'relative flex items-center justify-center bg-slate-50 rounded-lg p-1.5 h-14 min-w-[70px] transition-all group',
         isDragging && 'ring-2 ring-primary shadow-lg'
       )}
       title={logo.name || 'Logo'}
@@ -180,16 +180,25 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
     .filter((logo): logo is typeof logos[0] => logo !== undefined)
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2.5', className)}>
       {/* Master Toggle */}
       <div className={cn(
-        'rounded-lg border transition-all p-2',
-        enhanced4Row.enabled ? 'border-primary bg-primary/5' : 'border-muted'
+        'rounded-xl border transition-all p-3',
+        enhanced4Row.enabled
+          ? 'border-primary/30 bg-primary/5'
+          : 'border-border/50 bg-card/80'
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Layers className="h-3 w-3 text-primary" />
-            <Label className="text-[10px] font-medium">Logo Strip</Label>
+            <div className={cn(
+              'p-1 rounded-md transition-colors',
+              enhanced4Row.enabled ? 'bg-primary/10' : 'bg-muted'
+            )}>
+              <Layers className={cn('h-3.5 w-3.5', enhanced4Row.enabled ? 'text-primary' : 'text-muted-foreground')} />
+            </div>
+            <Label className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">
+              Logo Strip
+            </Label>
           </div>
           <Switch
             checked={enhanced4Row.enabled}
@@ -207,18 +216,23 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
       {enhanced4Row.enabled && (
         <>
           {/* ROW 1 - Brand Logos */}
-          <div className="rounded-lg border bg-card p-2">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <span className="text-[9px] font-medium">🏢 Official Brand Logos</span>
-                <p className="text-[8px] text-muted-foreground">Yi, Bharat ONE, CII - auto-detected</p>
+          <div className="rounded-xl border border-border/50 bg-card/80 p-2.5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-blue-500/10">
+                  <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Official Brand Logos</span>
+                  <p className="text-[8px] text-muted-foreground mt-0.5">Yi, Bharat ONE, CII — auto-detected</p>
+                </div>
               </div>
-              <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">AUTO</span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Auto</span>
             </div>
             {brandLogos.length > 0 ? (
               <div className="flex items-center gap-1">
                 {brandLogos.map((logo) => (
-                  <div key={logo.id} className="flex-1 flex items-center justify-center bg-slate-50 rounded p-1 h-10">
+                  <div key={logo.id} className="flex-1 flex items-center justify-center bg-slate-50 rounded-lg p-1 h-10">
                     {logo.file_url && (
                       <Image
                         src={logo.file_url}
@@ -240,17 +254,22 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
           </div>
 
           {/* ROW 2 - Program Logos */}
-          <div className="rounded-lg border bg-card p-2">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <span className="text-[9px] font-medium">🏷️ Program/Initiative Logos</span>
-                <p className="text-[8px] text-muted-foreground">Add logos for your event (max 6, drag to reorder)</p>
+          <div className="rounded-xl border border-border/50 bg-card/80 p-2.5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-violet-500/10">
+                  <Tag className="h-3.5 w-3.5 text-violet-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Program Logos</span>
+                  <p className="text-[8px] text-muted-foreground mt-0.5">Add logos for your event (max 6, drag to reorder)</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {enhanced4Row.rows.vertical.enabled ? (
-                  <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">VISIBLE</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Visible</span>
                 ) : (
-                  <span className="text-[7px] bg-gray-100 text-gray-500 px-1 rounded">HIDDEN</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Hidden</span>
                 )}
                 <VerticalPresetSelector onSaveClick={() => setShowSaveVerticalPresetDialog(true)} />
                 <Switch
@@ -260,9 +279,9 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
               </div>
             </div>
             {enhanced4Row.rows.vertical.enabled && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Select onValueChange={addVerticalLogo4Row}>
-                  <SelectTrigger className="h-6 text-[9px]">
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Add program logo (max 6)" />
                   </SelectTrigger>
                   <SelectContent>
@@ -305,17 +324,22 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
           </div>
 
           {/* ROW 3 - Chapter Name */}
-          <div className="rounded-lg border bg-card p-2">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <span className="text-[9px] font-medium">📝 Chapter/Event Title</span>
-                <p className="text-[8px] text-muted-foreground">Text displayed below logos (e.g., "Yi Erode")</p>
+          <div className="rounded-xl border border-border/50 bg-card/80 p-2.5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-amber-500/10">
+                  <FileText className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Chapter / Event Title</span>
+                  <p className="text-[8px] text-muted-foreground mt-0.5">Text displayed below logos (e.g., "Yi Erode")</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {enhanced4Row.rows.initiative.enabled ? (
-                  <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">VISIBLE</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Visible</span>
                 ) : (
-                  <span className="text-[7px] bg-gray-100 text-gray-500 px-1 rounded">HIDDEN</span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Hidden</span>
                 )}
                 <Switch
                   checked={enhanced4Row.rows.initiative.enabled}
@@ -324,11 +348,11 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
               </div>
             </div>
             {enhanced4Row.rows.initiative.enabled && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between bg-muted/50 rounded p-1">
-                  <div className="flex items-center gap-1">
-                    <Bookmark className="h-2.5 w-2.5 text-muted-foreground" />
-                    <span className="text-[8px] text-muted-foreground">Saved Texts</span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between bg-muted/50 rounded-lg p-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Bookmark className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[9px] text-muted-foreground">Saved Texts</span>
                   </div>
                   <InitiativePresetSelector onSaveClick={() => setShowSaveInitiativePresetDialog(true)} />
                 </div>
@@ -336,7 +360,7 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
                   value={enhanced4Row.rows.initiative.text}
                   onChange={(e) => updateInitiativeText({ text: e.target.value })}
                   placeholder="Yi Erode Initiative"
-                  className="h-6 text-[9px]"
+                  className="h-7 text-xs"
                 />
               </div>
             )}

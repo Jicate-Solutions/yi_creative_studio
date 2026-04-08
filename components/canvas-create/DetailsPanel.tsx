@@ -1,24 +1,18 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import dynamic from 'next/dynamic'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useCreativeStore } from '@/stores/creative-store'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { ChevronDown, ChevronUp, User, Sparkles, Check, X, AlertCircle } from 'lucide-react'
+import { User, Sparkles, Check, X, AlertCircle, Camera, Plus, Loader2, Upload } from 'lucide-react'
 import { SmartPasteInput, ExtractionPreview } from '@/components/create/smart-paste'
 import { useFieldExtraction } from '@/hooks/use-field-extraction'
 import { cn } from '@/lib/utils'
 import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
-import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
+import type { SpeakerPhotoCustomization, SpeakerItem } from '@/lib/config/design-constants'
 import type { SuggestableField } from '@/types/suggestions'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
 import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
@@ -39,11 +33,13 @@ const API_TO_SCHEMA_MAP: Record<string, string[]> = {
 // Only these fields get AI suggestions (from types/suggestions.ts)
 const AI_TEXT_FIELDS = ['description', 'eventTagline'] as const
 
-// Lazy load MultiSpeakerInput to reduce initial bundle size
-const MultiSpeakerInput = dynamic(
-  () => import('@/components/create/multi-speaker-input').then(mod => ({ default: mod.MultiSpeakerInput })),
-  { ssr: false, loading: () => <Skeleton className="h-32 w-full" /> }
-)
+const fileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
 interface DetailsPanelProps {
   suggestionsLoading?: boolean
@@ -57,6 +53,8 @@ interface DetailsPanelProps {
   onReviewClick?: () => void
   // Smart Paste props
   organizationId?: string
+  // When true: natural height, no internal scroll — parent container handles scrolling
+  embedded?: boolean
 }
 
 export function DetailsPanel({
@@ -69,6 +67,7 @@ export function DetailsPanel({
   showReviewButton = false,
   onReviewClick,
   organizationId,
+  embedded = false,
 }: DetailsPanelProps = {}) {
   const {
     selectedFormat,
@@ -82,9 +81,9 @@ export function DetailsPanel({
   // v24.26: Fix - use dynamicSchema.isLoading instead of non-existent dynamicSchemaLoading
   const dynamicSchemaLoading = dynamicSchema.isLoading
 
-  const [showMore, setShowMore] = useState(false)
-  const [speakerSectionOpen, setSpeakerSectionOpen] = useState(false)
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set())
+  // After AI extraction is applied, switch to form view so user can see/fill missing fields
+  const [postExtraction, setPostExtraction] = useState(false)
 
   const {
     isExtracting,
@@ -103,8 +102,9 @@ export function DetailsPanel({
 
   const handleApplyExtracted = useCallback((selectedFieldIds: string[]) => {
     applyExtractedFields(selectedFieldIds)
-    toast.success('Fields applied — ready to generate!')
     clearExtraction()
+    setPostExtraction(true)
+    toast.success('Fields applied — check and complete any missing fields')
   }, [applyExtractedFields, clearExtraction])
 
   // Check if format supports speaker photo
@@ -171,6 +171,32 @@ export function DetailsPanel({
 
   const requiredFields = fields.filter((f) => f.required)
   const optionalFields = fields.filter((f) => !f.required)
+
+  // After AI extraction: only show optional fields that have a value (hide empty ones).
+  // Required fields always show regardless. In manual mode, show everything.
+  const getFieldRawValue = (fieldId: string): string => {
+    // Try all possible IDs for this field via the API map
+    for (const [, ids] of Object.entries(API_TO_SCHEMA_MAP)) {
+      if (ids.includes(fieldId)) {
+        for (const id of ids) {
+          const v = (formData.formData[id] as string) || ''
+          if (v.trim()) return v
+        }
+      }
+    }
+    return (formData.formData[fieldId] as string) || ''
+  }
+  const visibleFields = postExtraction
+    ? fields.filter(f => f.required || !!getFieldRawValue(f.id).trim())
+    : fields
+
+  // When switching to post-extraction form view, mark all required fields as touched
+  // so validation errors surface immediately for any fields the AI missed
+  useEffect(() => {
+    if (postExtraction && requiredFields.length > 0) {
+      setTouchedFields(new Set(requiredFields.map(f => f.id)))
+    }
+  }, [postExtraction]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Find field value by trying multiple possible IDs
@@ -313,10 +339,10 @@ export function DetailsPanel({
     }
 
     return (
-      <div key={field.id} className="space-y-1.5">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor={field.id} className={cn(
-            "text-[13px] font-medium leading-none",
+            "text-sm font-semibold leading-none tracking-wide",
             showError ? "text-destructive" : "text-foreground/80"
           )}>
             <span className="flex items-center gap-1">
@@ -365,11 +391,11 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             placeholder={field.placeholder}
-            rows={field.rows || 2}
+            rows={field.rows || 3}
             maxLength={field.maxLength}
             className={cn(
-              "resize-none text-sm min-h-[72px]",
-              showError && "border-destructive focus-visible:ring-destructive"
+              "resize-none text-sm min-h-[80px] bg-muted/30 border-border/60",
+              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
             )}
           />
         ) : field.type === 'date' ? (
@@ -380,8 +406,8 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "h-10 text-sm",
-              showError && "border-destructive focus-visible:ring-destructive"
+              "h-10 text-sm bg-muted/30 border-border/60",
+              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
             )}
           />
         ) : field.type === 'time' ? (
@@ -392,8 +418,8 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "h-10 text-sm",
-              showError && "border-destructive focus-visible:ring-destructive"
+              "h-10 text-sm bg-muted/30 border-border/60",
+              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
             )}
           />
         ) : field.type === 'select' && field.options ? (
@@ -403,8 +429,8 @@ export function DetailsPanel({
             onChange={(e) => handleFieldChange(field.id, e.target.value)}
             onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
             className={cn(
-              "w-full h-10 px-3 rounded-md border border-input bg-background text-sm",
-              showError && "border-destructive focus:ring-destructive"
+              "w-full h-10 px-3 rounded-lg border border-border/60 bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
+              showError && "border-destructive bg-destructive/5"
             )}
           >
             <option value="">{field.placeholder || 'Select...'}</option>
@@ -424,8 +450,8 @@ export function DetailsPanel({
             placeholder={field.placeholder}
             maxLength={field.maxLength}
             className={cn(
-              "h-10 text-sm",
-              showError && "border-destructive focus-visible:ring-destructive"
+              "h-10 text-sm bg-muted/30 border-border/60",
+              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
             )}
           />
         )}
@@ -498,11 +524,11 @@ export function DetailsPanel({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className={embedded ? "flex flex-col" : "h-full flex flex-col overflow-hidden"}>
       {/* Content Area */}
-      <div className="px-4 py-3 space-y-4">
+      <div className={embedded ? "px-3 py-3 space-y-3" : "flex-1 overflow-y-auto px-3 py-3 space-y-3"}>
         {/* Smart Paste Mode (always active when organizationId present) */}
-        {organizationId ? (
+        {organizationId && !postExtraction ? (
           <div className="space-y-3">
             {!extractionResult ? (
               <SmartPasteInput
@@ -523,127 +549,55 @@ export function DetailsPanel({
           </div>
         ) : (
           <>
-            {/* Required Fields — card */}
-            {requiredFields.length > 0 && (
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
-                  <div className="p-1.5 rounded-lg bg-violet-500/10">
-                    <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                  </div>
-                  <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/80">
-                    {selectedFormat?.label || 'Event Details'}
-                  </span>
+            {/* Post-extraction banner — only shown after AI paste */}
+            {postExtraction && (
+              <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-violet-500/8 border border-violet-400/30">
+                <Sparkles className="h-3.5 w-3.5 text-violet-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-violet-700">AI filled your details</p>
+                  <p className="text-[10px] text-violet-600/70 mt-0.5">Review below and fill in any missing fields</p>
                 </div>
-                <div className="px-3 pb-3 space-y-3">
-                  {requiredFields.map(renderField)}
-                </div>
+                <button
+                  onClick={() => setPostExtraction(false)}
+                  className="text-[10px] text-violet-500 hover:text-violet-700 font-medium underline underline-offset-2 shrink-0"
+                >
+                  Re-paste
+                </button>
               </div>
             )}
 
-            {/* Optional Fields Toggle */}
-            {optionalFields.length > 0 && (
-              <Collapsible open={showMore} onOpenChange={setShowMore}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full py-2.5 px-3 rounded-xl bg-muted/40 hover:bg-muted/70 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 hover:scale-[1.01] border border-dashed border-border/60">
-                  <span className="flex items-center gap-1.5">
-                    {showMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {showMore ? 'Hide optional fields' : `Show ${optionalFields.length} optional fields`}
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-2">
-                    <div className="px-3 pt-3 pb-3 space-y-3">
-                      {optionalFields.map(renderField)}
+            {/* All fields — single flat card, no section split */}
+            {visibleFields.length > 0 && (
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="divide-y divide-border/40">
+                  {visibleFields.map((field) => (
+                    <div key={field.id} className="px-3.5 py-3">
+                      {renderField(field)}
                     </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}
 
-        {/* Speaker Photo Section (if format supports it) */}
+        {/* Speaker Section — always-open inline, no nesting */}
         {supportsSpeakerPhoto && (
-          <Collapsible
-            open={speakerSectionOpen}
-            onOpenChange={setSpeakerSectionOpen}
-            className="mt-2 rounded-xl border border-border/60 overflow-hidden"
-          >
-            <CollapsibleTrigger className="flex items-center justify-between w-full text-left px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center gap-2.5">
-                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
-                  <User className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <span className="text-[13px] font-medium">Speaker Photo</span>
-                {speakerPhotoValue?.speakers && speakerPhotoValue.speakers.length > 0 && (
-                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                    {speakerPhotoValue.speakers.length}
-                  </span>
-                )}
-              </div>
-              {speakerSectionOpen ? (
-                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="border-t border-border/60">
-              <div className="p-4">
-              <MultiSpeakerInput
-                speakers={speakerPhotoValue?.speakers || []}
-                sharedSettings={{
-                  shape: speakerPhotoValue?.shape || 'circle',
-                  size: speakerPhotoValue?.size || 200,
-                  border: speakerPhotoValue?.border || { width: 3, color: '#005B96' },
-                  shadow: speakerPhotoValue?.shadow ?? true,
-                  position: speakerPhotoValue?.position || 'center',
-                  verticalPosition: speakerPhotoValue?.verticalPosition || 'middle',
-                }}
-                layoutMode={speakerPhotoValue?.layoutMode || 'auto'}
-                layoutStrategy={speakerPhotoValue?.layoutStrategy}
-                spacing={speakerPhotoValue?.spacing || 20}
-                onAddSpeaker={() => {
-                  const currentSpeakers = speakerPhotoValue?.speakers || []
-                  handleSpeakerPhotoChange({
-                    speakers: [
-                      ...currentSpeakers,
-                      {
-                        id: crypto.randomUUID(),
-                        name: '',
-                        designation: '',
-                      }
-                    ]
-                  })
-                }}
-                onRemoveSpeaker={(speakerId) => {
-                  const currentSpeakers = speakerPhotoValue?.speakers || []
-                  const updatedSpeakers = currentSpeakers.filter(s => s.id !== speakerId)
-                  const hasAnyPhoto = updatedSpeakers.some(s => s.photoUrl)
-                  handleSpeakerPhotoChange({
-                    speakers: updatedSpeakers,
-                    enabled: hasAnyPhoto
-                  })
-                }}
-                onUpdateSpeaker={(speakerId, updates) => {
-                  const currentSpeakers = speakerPhotoValue?.speakers || []
-                  const updatedSpeakers = currentSpeakers.map(s =>
-                    s.id === speakerId ? { ...s, ...updates } : s
-                  )
-                  const hasAnyPhoto = updatedSpeakers.some(s => s.photoUrl)
-                  handleSpeakerPhotoChange({
-                    speakers: updatedSpeakers,
-                    enabled: hasAnyPhoto
-                  })
-                }}
-                onUpdateSettings={(settings) => {
-                  handleSpeakerPhotoChange(settings)
-                }}
-                onUpdateLayout={(layoutMode, layoutStrategy) => {
-                  handleSpeakerPhotoChange({ layoutMode, layoutStrategy })
-                }}
-              />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <InlineSpeakerSection
+            speakers={speakerPhotoValue?.speakers || []}
+            onAddSpeaker={() => {
+              const current = speakerPhotoValue?.speakers || []
+              handleSpeakerPhotoChange({ speakers: [...current, { id: crypto.randomUUID(), name: '', designation: '' }] })
+            }}
+            onRemoveSpeaker={(id) => {
+              const updated = (speakerPhotoValue?.speakers || []).filter(s => s.id !== id)
+              handleSpeakerPhotoChange({ speakers: updated, enabled: updated.some(s => s.name?.trim()) })
+            }}
+            onUpdateSpeaker={(id, updates) => {
+              const updated = (speakerPhotoValue?.speakers || []).map(s => s.id === id ? { ...s, ...updates } : s)
+              handleSpeakerPhotoChange({ speakers: updated, enabled: updated.some(s => s.name?.trim()) })
+            }}
+          />
         )}
 
         {/* Empty State */}
@@ -656,17 +610,195 @@ export function DetailsPanel({
 
       {/* Review Button - Fixed at bottom when form is valid */}
       {showReviewButton && onReviewClick && (
-        <div className="px-4 py-3 border-t border-border/60 bg-card/95">
+        <div className="shrink-0 px-4 py-3 border-t border-border/60 bg-card/95">
           <Button
             onClick={onReviewClick}
             className="w-full h-10 gap-2 text-sm font-semibold bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
           >
             <Sparkles className="h-4 w-4" />
-            Review & Generate
+            Review
           </Button>
         </div>
       )}
 
+    </div>
+  )
+}
+
+// ─── Inline Speaker Section ───────────────────────────────────────────────────
+// Renders speaker fields directly — no nested expand/collapse, no separate step.
+interface InlineSpeakerSectionProps {
+  speakers: SpeakerItem[]
+  onAddSpeaker: () => void
+  onRemoveSpeaker: (id: string) => void
+  onUpdateSpeaker: (id: string, updates: Partial<SpeakerItem>) => void
+}
+
+function InlineSpeakerSection({ speakers, onAddSpeaker, onRemoveSpeaker, onUpdateSpeaker }: InlineSpeakerSectionProps) {
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [uploading, setUploading] = useState<string | null>(null)
+
+  const handlePhotoUpload = async (speakerId: string, file: File) => {
+    if (file.size > 5 * 1024 * 1024) { toast.error('Max 5MB'); return }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { toast.error('Use PNG, JPG, or WebP'); return }
+    setUploading(speakerId)
+    try {
+      const url = await fileToDataUrl(file)
+      onUpdateSpeaker(speakerId, { photoUrl: url })
+    } catch { toast.error('Upload failed') }
+    setUploading(null)
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2 border-b border-border/40">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-muted/60">
+            <User className="h-3.5 w-3.5 text-foreground/60" />
+          </div>
+          <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/60">Speaker</p>
+          {speakers.length > 0 && (
+            <span className="bg-violet-500/10 text-violet-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              {speakers.length}
+            </span>
+          )}
+        </div>
+        {speakers.length > 0 && speakers.length < 4 && (
+          <button
+            onClick={onAddSpeaker}
+            className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 px-2 py-1 rounded-lg hover:bg-violet-500/8 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Add
+          </button>
+        )}
+      </div>
+
+      {/* Body */}
+      {speakers.length === 0 ? (
+        /* Empty nudge */
+        <button
+          onClick={onAddSpeaker}
+          className="w-full flex flex-col items-center gap-1.5 px-3.5 py-5 hover:bg-muted/20 transition-colors group"
+        >
+          <div className="h-10 w-10 rounded-full border-2 border-dashed border-border/50 flex items-center justify-center group-hover:border-violet-400/60 transition-colors">
+            <User className="h-4 w-4 text-muted-foreground/30 group-hover:text-violet-400/70 transition-colors" />
+          </div>
+          <p className="text-[11px] text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors">
+            Tap to add speaker name &amp; photo
+          </p>
+        </button>
+      ) : (
+        /* Speaker rows — always expanded, no toggle */
+        <div className="divide-y divide-border/30">
+          {speakers.map((speaker, idx) => (
+            <div key={speaker.id} className="px-3.5 py-3 space-y-2.5">
+              {/* Row header: number + remove */}
+              {speakers.length > 1 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                    Speaker {idx + 1}
+                  </span>
+                  <button
+                    onClick={() => onRemoveSpeaker(speaker.id)}
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Name + Designation inline */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground/60">Name</label>
+                  <Input
+                    placeholder="Dr. Jane Smith"
+                    value={speaker.name}
+                    onChange={(e) => onUpdateSpeaker(speaker.id, { name: e.target.value })}
+                    className="h-8 text-xs bg-muted/30 border-border/50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground/60">Role</label>
+                  <Input
+                    placeholder="CEO, Company"
+                    value={speaker.designation || ''}
+                    onChange={(e) => onUpdateSpeaker(speaker.id, { designation: e.target.value })}
+                    className="h-8 text-xs bg-muted/30 border-border/50"
+                  />
+                </div>
+              </div>
+
+              {/* Photo upload */}
+              <input
+                ref={(el) => { fileRefs.current[speaker.id] = el }}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (file) await handlePhotoUpload(speaker.id, file)
+                  e.target.value = ''
+                }}
+              />
+              {speaker.photoUrl ? (
+                <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-emerald-200/60 bg-emerald-50/40">
+                  <div className="relative group shrink-0">
+                    <img src={speaker.photoUrl} alt={speaker.name || 'Speaker'} className="w-10 h-10 rounded-lg object-cover ring-1 ring-emerald-300/50" />
+                    <button
+                      onClick={() => onUpdateSpeaker(speaker.id, { photoUrl: undefined })}
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Photo added
+                    </p>
+                    <button
+                      onClick={() => fileRefs.current[speaker.id]?.click()}
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileRefs.current[speaker.id]?.click()}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl border-2 border-dashed border-border/40 hover:border-violet-300 hover:bg-violet-50/30 transition-all group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                    {uploading === speaker.id
+                      ? <Loader2 className="h-3.5 w-3.5 text-violet-500 animate-spin" />
+                      : <Camera className="h-3.5 w-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
+                    }
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-medium text-foreground/70 group-hover:text-foreground transition-colors">
+                      {uploading === speaker.id ? 'Uploading…' : 'Upload photo'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">PNG, JPG · max 5MB</p>
+                  </div>
+                  <Upload className="h-3 w-3 text-muted-foreground/30 ml-auto shrink-0" />
+                </button>
+              )}
+
+              {/* Remove button for single speaker */}
+              {speakers.length === 1 && (
+                <button
+                  onClick={() => onRemoveSpeaker(speaker.id)}
+                  className="text-[10px] text-muted-foreground/40 hover:text-destructive transition-colors"
+                >
+                  Remove speaker
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,14 +5,12 @@ import Image from 'next/image'
 import {
   Sparkles,
   Image as ImageIcon,
-  Palette,
   Lock,
   User,
   AlertTriangle,
   Calendar,
   Clock,
   MapPin,
-  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -519,71 +517,6 @@ export function GenerateSummaryCard({
         </div>
       )}
 
-      {/* Design Card - Theme, Style, Resolution */}
-      {(formData.designData?.theme || formData.designData?.style || formData.designData?.resolution) && (
-        <div className="rounded-lg border bg-card/50 p-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {formData.designData?.theme && (
-              <div className="flex items-center gap-1.5 text-sm">
-                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="capitalize">{formData.designData.theme.replace(/_/g, ' ')}</span>
-              </div>
-            )}
-            {formData.designData?.style && (
-              <div className="flex items-center gap-1.5 text-sm">
-                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="capitalize">{formData.designData.style.replace(/_/g, ' ')}</span>
-              </div>
-            )}
-            {formData.designData?.resolution && (
-              <Badge variant="outline" className="text-xs uppercase">
-                {formData.designData.resolution}
-              </Badge>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Logos Card - Only show if Logo Strip is enabled */}
-      {formData.enhanced4RowStrip?.enabled && logoData.length > 0 && (
-        <div className="rounded-lg border bg-card/50 p-2 space-y-1">
-          <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground mb-1">
-            <ImageIcon className="h-3.5 w-3.5" />
-            <span>{logoData.length} logos</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {logoData.map(({ placement, logo }) => {
-              const isLocked = selectedFormat?.logoMode !== 'institution' && logo?.name && isLogoAutoLocked(logo.name)
-              return (
-                <div
-                  key={placement.logoId}
-                  className="relative h-8 w-8 rounded border bg-white shrink-0 overflow-hidden"
-                  title={`${logo?.name || 'Logo'} - ${formatPositionLabel(placement.position)}`}
-                >
-                  {logo?.file_url ? (
-                    <Image
-                      src={logo.file_url}
-                      alt={logo.name || 'Logo'}
-                      fill
-                      className="object-contain p-0.5"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
-                  {isLocked && (
-                    <div className="absolute bottom-0 right-0 bg-background/80 rounded-tl p-0.5">
-                      <Lock className="h-2.5 w-2.5 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Inline Edit Modal */}
       {editModal.isOpen && (

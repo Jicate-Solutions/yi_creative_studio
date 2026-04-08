@@ -772,15 +772,25 @@ export async function POST(request: NextRequest) {
       const eventName = formDataContent.eventName || compiledData.eventName || parsedContent.eventName || ''
 
       // v6.6 FIX: Hoist speakers definition to main scope so it's available for validation later
+      // v29.1 FIX: Collect from ALL sources — multi-speaker array, single speaker field, and compiledData
       const speakers: Array<{ name: string, designation?: string }> = []
-      const speakerName = formDataContent.guestName || compiledData.speakerName
-      const speakerDesignation = formDataContent.guestDesignation || compiledData.speakerDesignation
 
-      if (speakerName) {
-        speakers.push({
-          name: speakerName,
-          designation: speakerDesignation ?? undefined
-        })
+      // Source 1: speakers array from userFormData (MultiSpeakerInput / designData injection)
+      if (Array.isArray(adjustedUserFormData?.speakers)) {
+        for (const s of adjustedUserFormData.speakers as Array<{ name?: string; designation?: string }>) {
+          if (s.name?.trim()) {
+            speakers.push({ name: s.name.trim(), designation: s.designation?.trim() || undefined })
+          }
+        }
+      }
+
+      // Source 2: Single speaker from extractFromFormData (backwards compat, only if no array)
+      if (speakers.length === 0) {
+        const speakerName = formDataContent.guestName || compiledData.speakerName
+        const speakerDesignation = formDataContent.guestDesignation || compiledData.speakerDesignation
+        if (speakerName) {
+          speakers.push({ name: speakerName, designation: speakerDesignation ?? undefined })
+        }
       }
 
       if (formatId && shouldUseEventUnderstanding(formatId, eventName)) {
@@ -1824,30 +1834,51 @@ export async function POST(request: NextRequest) {
         // Photo overlay zones are controlled separately via multiSpeakerLayout or speakerPhotoZoneCoordinates
         // The overlay function will filter to only speakers WITH photos using getSpeakersWithPhotos()
 
-        // v29.0: Inject speaker data from designData into userFormData
-        // Speaker data lives in designData.customization.speakerPhoto.speakers (design panel),
-        // NOT in userFormData (form fields). The event-poster builder looks for speakers in
-        // rawData (userFormData), so we must inject them here for <text role="speaker_name"> tags.
+        // v29.1: Comprehensive speaker merge — collect from ALL sources and deduplicate.
+        // Speakers can live in three places depending on how they were entered:
+        //   A) userFormData.speakers  — from MultiSpeakerInput (direct form input)
+        //   B) designData.customization.speakerPhoto.speakers — from smart-paste or design panel
+        //   C) userFormData.speakerName / guestName — single-speaker backwards-compat fields
         const enrichedFormData: Record<string, unknown> = { ...(userFormData || {}) }
+        const mergedSpeakers: Array<{ name: string; designation: string }> = []
 
-        if (!enrichedFormData.speakers && originalSpeakerPhotoConfig?.speakers?.length) {
-          const injectedSpeakers = originalSpeakerPhotoConfig.speakers
-            .map((s: any) => ({
-              name: s.name || '',
-              designation: s.designation || '',
-            }))
-            .filter((s: any) => s.name?.trim())
-
-          if (injectedSpeakers.length > 0) {
-            enrichedFormData.speakers = injectedSpeakers
-            console.log(`[Generate] Injected ${injectedSpeakers.length} speaker(s) from designData into formData`)
+        // Source A: multi-speaker array already in userFormData
+        if (Array.isArray(enrichedFormData.speakers)) {
+          for (const s of enrichedFormData.speakers as Array<{ name?: string; designation?: string }>) {
+            if (s.name?.trim()) {
+              mergedSpeakers.push({ name: s.name.trim(), designation: s.designation?.trim() || '' })
+            }
           }
         }
 
-        // Also inject single-speaker fields for backward compatibility
-        if (!enrichedFormData.speakerName && (enrichedFormData.speakers as any)?.[0]?.name) {
-          enrichedFormData.speakerName = (enrichedFormData.speakers as any)[0].name
-          enrichedFormData.speakerDesignation = (enrichedFormData.speakers as any)[0].designation
+        // Source B: designData.customization.speakerPhoto (from smart-paste or design panel)
+        if (originalSpeakerPhotoConfig?.speakers?.length) {
+          for (const s of originalSpeakerPhotoConfig.speakers) {
+            const name = (s as any).name?.trim()
+            if (name && !mergedSpeakers.some((m) => m.name === name)) {
+              mergedSpeakers.push({ name, designation: (s as any).designation?.trim() || '' })
+            }
+          }
+        }
+
+        // Source C: single-speaker fields (backwards compat)
+        const singleName = (enrichedFormData.speakerName || enrichedFormData.guestName || enrichedFormData.speaker) as string | undefined
+        if (singleName?.trim() && !mergedSpeakers.some((m) => m.name === singleName.trim())) {
+          mergedSpeakers.push({
+            name: singleName.trim(),
+            designation: (enrichedFormData.speakerDesignation || enrichedFormData.guestDesignation || '') as string,
+          })
+        }
+
+        if (mergedSpeakers.length > 0) {
+          enrichedFormData.speakers = mergedSpeakers
+          console.log(`[Generate v29.1] Merged ${mergedSpeakers.length} speaker(s) from all sources into enrichedFormData`)
+        }
+
+        // Backward-compat single-speaker fields for builders that only read speakerName
+        if (!enrichedFormData.speakerName && mergedSpeakers[0]?.name) {
+          enrichedFormData.speakerName = mergedSpeakers[0].name
+          enrichedFormData.speakerDesignation = mergedSpeakers[0].designation
         }
 
         // Build XML-structured prompt using YiPromptBuilder
@@ -2965,6 +2996,12 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
         // Fallback to eventDescription only if tagline field wasn't filled
         const taglineStr = (adjustedUserFormData?.eventTagline as string) || (adjustedUserFormData?.eventDescription as string) || ''
 
+        // Speakers without photos — render their names in the text overlay
+        // (speakers WITH photos are handled by the photo overlay which draws the circle + name below it)
+        const speakersForText = (speakerPhoto?.speakers ?? [])
+          .filter(s => !s.photoUrl && s.name?.trim())
+          .map(s => ({ name: s.name.trim(), designation: s.designation?.trim() || undefined }))
+
         const formatDims = selectedFormat
         const cw = formatDims?.width || 1080
         const ch = formatDims?.height || 1440
@@ -2983,13 +3020,15 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
             venue: venue || undefined,
             additionalDetails: additionalDetails || undefined,
             registrationInfo: registrationInfo || undefined,
+            speakers: speakersForText.length > 0 ? speakersForText : undefined,
           },
           {
             canvasWidth: cw,
             canvasHeight: ch,
-            // v41.6: Full zone from logo bar bottom (40%) to footer (83%)
-            // Headline at 40-55%, date/venue card follows immediately below
-            renderZone: { startPercent: 40, endPercent: 83 },
+            // v44.0: Start at 25% (content zone top) so the scrim fully covers
+            // the area where Gemini also renders the headline (25-35%).
+            // Previously 40% left a 40-216px gap showing Gemini's headline above Sharp's re-render.
+            renderZone: { startPercent: 25, endPercent: 83 },
             brandColors: { primary: primaryColor, secondary: secondaryColor, accent: accentColor },
           }
         )

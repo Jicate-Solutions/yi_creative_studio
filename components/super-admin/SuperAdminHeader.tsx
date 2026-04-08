@@ -40,7 +40,7 @@ export default function SuperAdminHeader({ user }: SuperAdminHeaderProps) {
     .toUpperCase() || 'SA'
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-between sticky top-0 z-50">
+    <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between sticky top-0 z-50">
       {/* Logo & Title */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
@@ -48,8 +48,8 @@ export default function SuperAdminHeader({ user }: SuperAdminHeaderProps) {
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Yi Platform Admin</h1>
-            <p className="text-xs text-gray-500">Super Administrator Portal</p>
+            <h1 className="text-lg font-bold text-foreground">Yi Platform Admin</h1>
+            <p className="text-xs text-muted-foreground">Super Administrator Portal</p>
           </div>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function SuperAdminHeader({ user }: SuperAdminHeaderProps) {
             <DropdownMenuLabel>
               <div className="flex flex-col">
                 <span className="text-sm font-medium">Super Admin</span>
-                <span className="text-xs text-gray-500 truncate">{user.email}</span>
+                <span className="text-xs text-muted-foreground truncate">{user.email}</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

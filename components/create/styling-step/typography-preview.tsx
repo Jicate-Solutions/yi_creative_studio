@@ -117,18 +117,18 @@ export function TypographyPreview({
   const baseCaptionSize = 14 * scale
 
   return (
-    <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-8 shadow-sm">
+    <div className="rounded-lg border-2 border-dashed border-border bg-card p-8 shadow-sm">
       <div className="space-y-6">
         {/* Preview Header */}
         <div className="flex items-center justify-between border-b pb-3">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700">Typography Preview</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-sm font-semibold text-foreground">Typography Preview</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Live preview of font pairing and color system
             </p>
           </div>
           {!fontsLoaded && !loadingError && (
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               Loading fonts...
             </div>
@@ -147,7 +147,7 @@ export function TypographyPreview({
         <div className="space-y-5" style={{ opacity: fontsLoaded ? 1 : 0.5 }}>
           {/* Hero Text */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Hero/Title
             </p>
             <h1
@@ -170,7 +170,7 @@ export function TypographyPreview({
 
           {/* Headline Text */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Headline
             </p>
             <h2
@@ -192,7 +192,7 @@ export function TypographyPreview({
 
           {/* Subheadline Text */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Subheadline
             </p>
             <h3
@@ -214,7 +214,7 @@ export function TypographyPreview({
 
           {/* Body Text */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Body Text
             </p>
             <p
@@ -238,7 +238,7 @@ export function TypographyPreview({
 
           {/* Call-to-Action */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Call-to-Action
             </p>
             <div
@@ -264,7 +264,7 @@ export function TypographyPreview({
 
           {/* Caption Text */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Caption
             </p>
             <p
@@ -286,7 +286,7 @@ export function TypographyPreview({
 
           {/* Label/Metadata */}
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
               Label/Metadata
             </p>
             <p

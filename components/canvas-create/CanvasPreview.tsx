@@ -125,12 +125,28 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
 
   // If we have a generated image, show it
   if (generatedImage) {
+    // Mobile: fills the bounded flex-1 container top-to-bottom, no gaps
+    if (isMobile) {
+      return (
+        <div className="w-full h-full relative overflow-hidden">
+          <ExpandIconButton onClick={onExpandClick} />
+          <Image
+            src={generatedImage}
+            alt="Generated creative"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
+      )
+    }
+
+    // Desktop: fill container with calculated dimensions
     return (
-      <div className="flex flex-col items-center gap-2 w-full max-w-2xl">
-        {/* Image container with proper aspect ratio handling */}
+      <div className="flex flex-col items-center gap-2 max-w-2xl w-full">
         <div className="w-full flex justify-center">
           <div
-            className="relative bg-white rounded-lg shadow-lg overflow-hidden"
+            className="relative overflow-hidden bg-white rounded-lg shadow-lg"
             style={{
               width: previewDims.width,
               height: previewDims.height,
@@ -148,15 +164,10 @@ export function CanvasPreview({ onExpandClick, isMobile = false }: CanvasPreview
           </div>
         </div>
 
-        {/* Format info - hide on mobile to save space */}
-        {!isMobile && (
-          <div className="text-center text-sm text-muted-foreground">
-            <p className="font-medium">{selectedFormat?.label}</p>
-            <p>
-              {selectedFormat?.width} x {selectedFormat?.height}
-            </p>
-          </div>
-        )}
+        <div className="text-center text-sm text-muted-foreground">
+          <p className="font-medium">{selectedFormat?.label}</p>
+          <p>{selectedFormat?.width} x {selectedFormat?.height}</p>
+        </div>
       </div>
     )
   }
