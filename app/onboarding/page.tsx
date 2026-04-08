@@ -247,6 +247,7 @@ function OnboardingContent() {
                           placeholder="YTFHDX"
                           className="text-center text-lg tracking-widest uppercase font-mono"
                           maxLength={6}
+                          autoCapitalize="characters"
                           {...field}
                           onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         />
@@ -257,7 +258,7 @@ function OnboardingContent() {
                 />
                 <Button
                   type="submit"
-                  className="gradient-yi shrink-0"
+                  className="h-11 gradient-yi shrink-0"
                   disabled={isJoining || joinForm.watch('inviteCode').length < 6}
                 >
                   {isJoining ? (
@@ -310,7 +311,7 @@ function OnboardingContent() {
                 <Button
                   type="submit"
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-11"
                   disabled={isCreating}
                 >
                   {isCreating ? (

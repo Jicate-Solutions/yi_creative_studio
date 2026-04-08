@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import {
   Form,
   FormControl,
@@ -136,7 +137,7 @@ function LoginContent() {
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="w-full h-11"
             onClick={signInWithGoogle}
             disabled={isGoogleLoading}
           >
@@ -189,6 +190,7 @@ function LoginContent() {
                       <Input
                         type="email"
                         placeholder="your@email.com"
+                        autoComplete="email"
                         {...field}
                       />
                     </FormControl>
@@ -206,15 +208,15 @@ function LoginContent() {
                       <FormLabel>Password</FormLabel>
                       <Link
                         href="/auth/forgot-password"
-                        className="text-sm text-primary hover:underline"
+                        className="text-sm text-primary hover:underline py-2 px-1 -mr-1"
                       >
                         Forgot password?
                       </Link>
                     </div>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="Enter your password"
+                        autoComplete="current-password"
                         {...field}
                       />
                     </FormControl>
@@ -223,7 +225,7 @@ function LoginContent() {
                 )}
               />
 
-              <Button type="submit" className="w-full gradient-yi" disabled={isLoading}>
+              <Button type="submit" className="w-full h-11 gradient-yi" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Sign in
               </Button>
@@ -234,7 +236,7 @@ function LoginContent() {
         <CardFooter className="flex flex-col gap-4 px-4 sm:px-6">
           <p className="text-sm text-muted-foreground text-center">
             Don&apos;t have an account?{' '}
-            <Link href={ROUTES.signup} className="text-primary hover:underline font-medium">
+            <Link href={ROUTES.signup} className="text-primary hover:underline font-medium py-2 px-1">
               Sign up
             </Link>
           </p>

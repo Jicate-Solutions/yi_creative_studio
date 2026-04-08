@@ -57,6 +57,7 @@ import { ExportModal } from '@/components/export'
 import type { Creative } from '@/types/database.types'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 export default function GalleryPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -79,6 +80,14 @@ export default function GalleryPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [creativeForExport, setCreativeForExport] = useState<Creative | null>(null)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  const [isMobileSheet, setIsMobileSheet] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobileSheet(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // PERFORMANCE: Debounce search to prevent re-fetch on every keystroke
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -446,8 +455,8 @@ export default function GalleryPage() {
                     )}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-[-4px] group-hover:translate-y-0">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300" />
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-200 translate-y-[-4px] group-hover:translate-y-0">
                   <Button
                     size="icon"
                     variant="secondary"
@@ -490,7 +499,7 @@ export default function GalleryPage() {
                     </div>
                   </div>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                   <h3 className="text-white font-semibold text-sm truncate">{creative.title || 'Untitled'}</h3>
                 </div>
               </div>
@@ -514,8 +523,13 @@ export default function GalleryPage() {
       <Sheet open={!!selectedCreative} onOpenChange={(open) => { if (!open) setSelectedCreative(null) }}>
         {selectedCreative && (
           <SheetContent
-            side="right"
-            className="w-full sm:w-[480px] md:w-[560px] p-0 overflow-hidden flex flex-col bg-background border-l border-border"
+            side={isMobileSheet ? 'bottom' : 'right'}
+            className={cn(
+              "p-0 overflow-hidden flex flex-col bg-background",
+              isMobileSheet
+                ? "h-[92dvh] w-full rounded-t-2xl border-t border-border"
+                : "w-full sm:w-[480px] md:w-[560px] border-l border-border"
+            )}
           >
             <SheetHeader className="sr-only">
               <SheetTitle>{selectedCreative.title || 'Creative Details'}</SheetTitle>

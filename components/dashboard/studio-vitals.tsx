@@ -33,7 +33,7 @@ export function StudioVitals({ credits, streak = { days: 7, active: true } }: St
 
             <div className="flex flex-col items-center gap-5">
                 {/* 1. Credit Ring */}
-                <div className="relative w-28 h-28 flex items-center justify-center">
+                <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center">
                     {/* Glow behind */}
                     <div className="absolute inset-2 bg-primary/10 blur-2xl rounded-full" />
 

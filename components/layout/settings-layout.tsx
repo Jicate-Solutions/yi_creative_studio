@@ -152,8 +152,35 @@ export function SettingsLayout({
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 min-h-full">
+      {/* Mobile: horizontal scrollable settings nav */}
+      <div className="block lg:hidden overflow-x-auto -mx-4 px-4 pb-2 scrollbar-none">
+        <div className="flex gap-2 w-max">
+          {SETTINGS_NAV.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              pathname.startsWith(item.href + '/') ||
+              (item.children && item.children.some((c) => pathname === c.href))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors shrink-0',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <item.icon className="h-3.5 w-3.5" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Sidebar Navigation */}
-      <aside className="lg:w-64 shrink-0">
+      <aside className="hidden lg:block lg:w-64 shrink-0">
         <nav className="glass-elevated p-4 rounded-2xl sticky top-4">
           <div className="flex items-center gap-2 px-3 py-2 mb-4">
             <Settings className="h-5 w-5 text-muted-foreground" />

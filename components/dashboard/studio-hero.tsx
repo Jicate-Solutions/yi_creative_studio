@@ -61,7 +61,7 @@ export function StudioHero() {
     const welcomeMessage = `${greeting}, ${firstName}`
 
     return (
-        <div className="relative w-full h-[260px] rounded-2xl overflow-hidden group">
+        <div className="relative w-full h-[180px] sm:h-[220px] md:h-[260px] rounded-2xl overflow-hidden group">
             <AnimatePresence mode="popLayout">
                 <motion.div
                     key={current}
@@ -98,7 +98,7 @@ export function StudioHero() {
                     </div>
 
                     {/* Content Layer */}
-                    <div className="relative z-10 w-full h-full flex flex-col items-start justify-center text-left px-10">
+                    <div className="relative z-10 w-full h-full flex flex-col items-start justify-center text-left px-5 sm:px-10">
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}

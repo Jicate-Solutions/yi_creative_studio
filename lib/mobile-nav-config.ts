@@ -4,7 +4,6 @@ import {
   Sparkles,
   Images,
   Library,
-  Layers,
   Palette,
   Image as ImageIcon,
   Users,
@@ -63,11 +62,6 @@ export function getMobileNavConfig(
           label: 'Create',
           icon: Sparkles,
         },
-        {
-          href: ROUTES.bulk,
-          label: 'Bulk Generate',
-          icon: Layers,
-        },
       ],
     },
     {
@@ -109,9 +103,17 @@ export function getMobileNavConfig(
     },
   ]
 
-  // Admin-only settings group (appears in More menu)
+  // Settings group (appears in More menu for all users)
+  const settingsMenus: MobileNavItem[] = [
+    {
+      href: ROUTES.integrations,
+      label: 'Integrations',
+      icon: Settings,
+    },
+  ]
+
   if (isAdmin) {
-    const settingsMenus: MobileNavItem[] = [
+    settingsMenus.push(
       {
         href: ROUTES.brandConfig,
         label: 'Brand Config',
@@ -142,25 +144,25 @@ export function getMobileNavConfig(
         icon: CreditCard,
         adminOnly: true,
       },
-    ]
+    )
+  }
 
-    // Add super admin credits if applicable
-    if (isSuperAdmin) {
-      settingsMenus.push({
-        href: ROUTES.adminCredits,
-        label: 'Admin Credits',
-        icon: Coins,
-        superAdminOnly: true,
-      })
-    }
-
-    groups.push({
-      id: 'settings',
-      groupLabel: 'Settings',
-      icon: Settings,
-      menus: settingsMenus,
+  // Add super admin credits if applicable
+  if (isSuperAdmin) {
+    settingsMenus.push({
+      href: ROUTES.adminCredits,
+      label: 'Admin Credits',
+      icon: Coins,
+      superAdminOnly: true,
     })
   }
+
+  groups.push({
+    id: 'settings',
+    groupLabel: 'Settings',
+    icon: Settings,
+    menus: settingsMenus,
+  })
 
   return groups
 }

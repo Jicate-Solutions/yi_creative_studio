@@ -181,13 +181,6 @@ export async function renderEventTextOverlay(
     // Build SVG elements
     const svgElements: string[] = []
 
-    // v44.0: Full-zone base scrim — covers the ENTIRE content zone so any
-    // text Gemini rendered in this area is hidden before we re-render it cleanly.
-    // Opacity 0.60 provides a solid base; individual element scrims add on top.
-    const baseScrimColor = bgIsDark ? '0,0,0' : '255,255,255'
-    const baseScrimOpacity = bgIsDark ? 0.60 : 0.55
-    svgElements.push(`<rect x="0" y="${zoneStartPx}" width="${canvasWidth}" height="${availableHeight}" fill="rgba(${baseScrimColor},${baseScrimOpacity})"/>`)
-
     let currentY = zoneStartPx
 
     // ── HEADLINE + TAGLINE (Sharp-rendered, replaces Gemini text) ──

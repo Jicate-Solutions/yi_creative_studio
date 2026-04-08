@@ -371,39 +371,41 @@ export default function BillingPage() {
                 ))}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Package</TableHead>
-                    <TableHead>Credits</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {creditRequests.slice(0, 10).map((req) => (
-                    <TableRow key={req.id}>
-                      <TableCell className="font-medium">{req.package_name}</TableCell>
-                      <TableCell>{req.credits_amount.toLocaleString()}</TableCell>
-                      <TableCell>₹{req.price_inr.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {getStatusBadge(req.status)}
-                          {req.rejection_reason && (
-                            <span className="text-xs text-red-600">
-                              {req.rejection_reason}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(req.created_at), 'MMM d, yyyy')}
-                      </TableCell>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <Table className="min-w-[500px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Package</TableHead>
+                      <TableHead>Credits</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {creditRequests.slice(0, 10).map((req) => (
+                      <TableRow key={req.id}>
+                        <TableCell className="font-medium">{req.package_name}</TableCell>
+                        <TableCell>{req.credits_amount.toLocaleString()}</TableCell>
+                        <TableCell>₹{req.price_inr.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {getStatusBadge(req.status)}
+                            {req.rejection_reason && (
+                              <span className="text-xs text-red-600">
+                                {req.rejection_reason}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(req.created_at), 'MMM d, yyyy')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -433,46 +435,48 @@ export default function BillingPage() {
               <p>No transactions yet</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getTransactionIcon(tx.type)}
-                        <span className="capitalize">{tx.type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {tx.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          tx.amount > 0 ? 'text-green-600' : 'text-orange-600'
-                        }
-                      >
-                        {tx.amount > 0 ? '+' : ''}
-                        {tx.amount}
-                      </span>
-                    </TableCell>
-                    <TableCell>{tx.balance_after}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(tx.created_at), 'MMM d, yyyy')}
-                    </TableCell>
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <Table className="min-w-[500px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getTransactionIcon(tx.type)}
+                          <span className="capitalize">{tx.type}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tx.description || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={
+                            tx.amount > 0 ? 'text-green-600' : 'text-orange-600'
+                          }
+                        >
+                          {tx.amount > 0 ? '+' : ''}
+                          {tx.amount}
+                        </span>
+                      </TableCell>
+                      <TableCell>{tx.balance_after}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(tx.created_at), 'MMM d, yyyy')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

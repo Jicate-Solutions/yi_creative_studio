@@ -86,12 +86,12 @@ export function DashboardContent({ initialData, initialPreferences }: DashboardC
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5 auto-rows-[minmax(100px,auto)]">
 
         {/* ZONE A: HERO (Span 3 Cols) */}
-        <div className="md:col-span-3 lg:col-span-3 h-[260px]">
+        <div className="md:col-span-3 lg:col-span-3 h-[180px] sm:h-[220px] md:h-[260px]">
           <StudioHero />
         </div>
 
         {/* ZONE B: VITALS (Span 1 Col) */}
-        <div className="md:col-span-1 lg:col-span-1 h-[260px]">
+        <div className="md:col-span-1 lg:col-span-1 h-[160px] sm:h-[200px] md:h-[260px]">
           <StudioVitals credits={initialData.credits} />
         </div>
 

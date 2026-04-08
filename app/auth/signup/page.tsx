@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import {
   Form,
   FormControl,
@@ -77,6 +78,7 @@ function SignupContent() {
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
+    mode: 'onChange',
     defaultValues: {
       fullName: '',
       email: '',
@@ -220,6 +222,7 @@ function SignupContent() {
                     <FormControl>
                       <Input
                         placeholder="John Doe"
+                        autoComplete="name"
                         {...field}
                       />
                     </FormControl>
@@ -238,6 +241,7 @@ function SignupContent() {
                       <Input
                         type="email"
                         placeholder="your@email.com"
+                        autoComplete="email"
                         {...field}
                       />
                     </FormControl>
@@ -253,9 +257,9 @@ function SignupContent() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="Create a password"
+                        autoComplete="new-password"
                         {...field}
                       />
                     </FormControl>
@@ -271,9 +275,9 @@ function SignupContent() {
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="Confirm your password"
+                        autoComplete="new-password"
                         {...field}
                       />
                     </FormControl>
@@ -293,13 +297,13 @@ function SignupContent() {
             <strong>Next step after signup:</strong> You&apos;ll need to create a new organization or join an existing one to access the platform and start creating.
           </div>
 
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center leading-relaxed">
             By signing up, you agree to our{' '}
-            <Link href="/terms" className="text-primary hover:underline">
+            <Link href="/terms" className="text-primary hover:underline underline">
               Terms of Service
             </Link>{' '}
             and{' '}
-            <Link href="/privacy" className="text-primary hover:underline">
+            <Link href="/privacy" className="text-primary hover:underline underline">
               Privacy Policy
             </Link>
           </p>
@@ -308,7 +312,7 @@ function SignupContent() {
         <CardFooter>
           <p className="text-sm text-muted-foreground text-center w-full">
             Already have an account?{' '}
-            <Link href={ROUTES.login} className="text-primary hover:underline font-medium">
+            <Link href={ROUTES.login} className="text-primary hover:underline font-medium py-2 px-1">
               Sign in
             </Link>
           </p>

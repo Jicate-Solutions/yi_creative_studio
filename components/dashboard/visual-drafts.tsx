@@ -240,7 +240,7 @@ function AssetCard({
                         </div>
 
                         {/* Quick Action Button Group */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-200">
                             {onDownload && (
                                 <button onClick={() => onDownload(creative)} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-blue-500 transition-colors" title="Download">
                                     <Download className="w-3.5 h-3.5" />
@@ -274,7 +274,7 @@ function AssetCard({
 
             {/* List Mode: Actions (Inline) */}
             {viewMode === 'list' && (
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 px-4">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-200 px-4">
                     {onDownload && (
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-500" onClick={() => onDownload(creative)}>
                             <Download className="w-4 h-4" />

@@ -16,8 +16,8 @@ export default function IntegrationsPage() {
   // Loading state
   if (!isReady || !organization) {
     return (
-      <div className="container max-w-4xl py-8">
-        <div className="mb-8">
+      <div className="space-y-6">
+        <div>
           <Skeleton className="mb-2 h-8 w-48" />
           <Skeleton className="h-4 w-96" />
         </div>
@@ -32,7 +32,7 @@ export default function IntegrationsPage() {
   // Not admin
   if (!isAdmin) {
     return (
-      <div className="container max-w-4xl py-8">
+      <div className="space-y-6">
         <Card className="border-destructive/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -49,9 +49,9 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="container max-w-4xl py-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
+      <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Link2 className="h-6 w-6" />
           Integrations

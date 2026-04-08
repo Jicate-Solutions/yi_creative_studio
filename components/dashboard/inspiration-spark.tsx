@@ -89,7 +89,7 @@ export function InspirationSpark() {
 
                         {/* Content */}
                         <div className="absolute inset-0 p-4 flex flex-col justify-end">
-                            <span className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-1 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-300">
+                            <span className="text-[10px] font-medium text-white/70 uppercase tracking-wider mb-1 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-y-0 transition-all duration-300">
                                 {style.category}
                             </span>
                             <h4 className="text-white font-medium text-sm leading-tight translate-y-2 group-hover/card:translate-y-0 transition-transform duration-300">
@@ -98,7 +98,7 @@ export function InspirationSpark() {
                         </div>
 
                         {/* Action Icon */}
-                        <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover/card:opacity-100 hover:!bg-white/20 transition-all duration-300 translate-y-2 group-hover/card:translate-y-0">
+                        <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 hover:!bg-white/20 transition-all duration-300 translate-y-2 group-hover/card:translate-y-0 [@media(hover:none)]:translate-y-0">
                             <Wand2 className="w-4 h-4 text-white" />
                         </div>
 

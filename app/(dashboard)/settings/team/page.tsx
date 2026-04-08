@@ -26,6 +26,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -84,6 +94,7 @@ export default function TeamPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [newRole, setNewRole] = useState<UserRole>('viewer')
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; userId: string } | null>(null)
 
   const fetchMembers = useCallback(async () => {
     if (!currentOrganization?.id) return
@@ -198,7 +209,7 @@ export default function TeamPage() {
     }
   }
 
-  const removeMember = async (memberId: string, memberUserId: string) => {
+  const removeMember = (memberId: string, memberUserId: string) => {
     if (!isReady || !isAdmin) return
 
     // Can't remove yourself
@@ -207,13 +218,17 @@ export default function TeamPage() {
       return
     }
 
-    if (!confirm('Are you sure you want to remove this member?')) return
+    setRemoveTarget({ id: memberId, userId: memberUserId })
+  }
+
+  const confirmRemoveMember = async () => {
+    if (!removeTarget) return
 
     try {
       const response = await fetch('/api/team/remove-member', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId }),
+        body: JSON.stringify({ memberId: removeTarget.id }),
       })
 
       const data = await response.json()
@@ -228,6 +243,8 @@ export default function TeamPage() {
     } catch (error) {
       console.error('Failed to remove member:', error)
       toast.error('Failed to remove member')
+    } finally {
+      setRemoveTarget(null)
     }
   }
 
@@ -515,6 +532,27 @@ export default function TeamPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Remove Member Confirmation */}
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove their access to the organization. They can be re-invited later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmRemoveMember}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

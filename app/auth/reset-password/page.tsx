@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import {
   Form,
   FormControl,
@@ -86,9 +87,9 @@ export default function ResetPasswordPage() {
                   <FormItem>
                     <FormLabel>New password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="At least 8 characters"
+                        autoComplete="new-password"
                         {...field}
                       />
                     </FormControl>
@@ -104,9 +105,9 @@ export default function ResetPasswordPage() {
                   <FormItem>
                     <FormLabel>Confirm new password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="Re-enter your password"
+                        autoComplete="new-password"
                         {...field}
                       />
                     </FormControl>

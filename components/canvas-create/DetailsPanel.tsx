@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { User, Sparkles, Check, X, AlertCircle, Camera, Plus, Loader2, Upload } from 'lucide-react'
-import { SmartPasteInput, ExtractionPreview } from '@/components/create/smart-paste'
+import { SmartPasteInput } from '@/components/create/smart-paste'
 import { useFieldExtraction } from '@/hooks/use-field-extraction'
 import { cn } from '@/lib/utils'
 import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
@@ -93,19 +93,23 @@ export function DetailsPanel({
     applyExtractedFields,
     applyExtractedSpeakers,
     clearExtraction,
-    editExtractedField,
   } = useFieldExtraction({ organizationId: organizationId || '' })
 
   const handleExtract = useCallback(async (text: string) => {
     await extractFields(text, selectedVertical?.slug, selectedFormat?.id)
   }, [extractFields, selectedVertical?.slug, selectedFormat?.id])
 
-  const handleApplyExtracted = useCallback((selectedFieldIds: string[]) => {
-    applyExtractedFields(selectedFieldIds)
+  // Auto-apply all extracted fields immediately — no preview step
+  useEffect(() => {
+    if (!extractionResult) return
+    applyExtractedFields() // apply all fields
+    if (extractionResult.speakers?.length) {
+      applyExtractedSpeakers()
+    }
     clearExtraction()
     setPostExtraction(true)
-    toast.success('Fields applied — check and complete any missing fields')
-  }, [applyExtractedFields, clearExtraction])
+    toast.success('Fields applied — fill any missing required fields below')
+  }, [extractionResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if format supports speaker photo
   const supportsSpeakerPhoto = selectedFormat
@@ -530,22 +534,12 @@ export function DetailsPanel({
         {/* Smart Paste Mode (always active when organizationId present) */}
         {organizationId && !postExtraction ? (
           <div className="space-y-3">
-            {!extractionResult ? (
-              <SmartPasteInput
-                onExtract={handleExtract}
-                isExtracting={isExtracting}
-                error={extractionError}
-                compact
-              />
-            ) : (
-              <ExtractionPreview
-                result={extractionResult}
-                onApply={handleApplyExtracted}
-                onApplySpeakers={applyExtractedSpeakers}
-                onCancel={clearExtraction}
-                onEditField={editExtractedField}
-              />
-            )}
+            <SmartPasteInput
+              onExtract={handleExtract}
+              isExtracting={isExtracting}
+              error={extractionError}
+              compact
+            />
           </div>
         ) : (
           <>
@@ -748,7 +742,7 @@ function InlineSpeakerSection({ speakers, onAddSpeaker, onRemoveSpeaker, onUpdat
                     <img src={speaker.photoUrl} alt={speaker.name || 'Speaker'} className="w-10 h-10 rounded-lg object-cover ring-1 ring-emerald-300/50" />
                     <button
                       onClick={() => onUpdateSpeaker(speaker.id, { photoUrl: undefined })}
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>

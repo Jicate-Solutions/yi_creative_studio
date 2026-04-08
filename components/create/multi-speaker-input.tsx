@@ -386,7 +386,7 @@ function SpeakerCard({
                   <button
                     type="button"
                     onClick={onRemovePhoto}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -395,7 +395,7 @@ function SpeakerCard({
                   <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
                     <Check className="h-3 w-3" /> Photo ready
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Hover to remove</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Tap X to remove</p>
                 </div>
               </div>
             ) : (

@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/form'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
-import { Loader2, Palette, Save, RotateCcw } from 'lucide-react'
+import { Loader2, Palette, Save, RotateCcw, Info } from 'lucide-react'
 import { DEFAULT_BRAND_CONFIG } from '@/lib/config/constants'
 
 const brandConfigSchema = z.object({
@@ -140,6 +140,13 @@ export default function BrandConfigPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {isReady && !isAdmin && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>Only admins can edit brand settings. Contact your organization admin to make changes.</span>
+            </div>
+          )}
+
           {/* Colors */}
           <Card>
             <CardHeader>

@@ -24,6 +24,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -69,6 +79,7 @@ export default function LogoManagementPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [logoName, setLogoName] = useState('')
   const [logoCategory, setLogoCategory] = useState<LogoCategory>('primary')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,9 +116,14 @@ export default function LogoManagementPage() {
     }
   }
 
-  const handleDelete = async (logoId: string) => {
-    if (!confirm('Are you sure you want to delete this logo?')) return
-    await deleteLogo(logoId)
+  const handleDelete = (logoId: string) => {
+    setDeleteTarget(logoId)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    await deleteLogo(deleteTarget)
+    setDeleteTarget(null)
   }
 
   const handleSetDefault = async (logoId: string) => {
@@ -332,6 +348,27 @@ export default function LogoManagementPage() {
           })}
         </div>
       )}
+
+      {/* Delete Logo Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete logo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This logo will be permanently removed from your organization.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -100,7 +100,7 @@ export function QuickCreateHub() {
                                     )} />
                                 </div>
                                 <div className={cn(
-                                    "w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-300 -translate-y-2 group-hover/card:translate-y-0",
+                                    "w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 -translate-y-2 group-hover/card:translate-y-0 [@media(hover:none)]:translate-y-0",
                                     "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                                 )}>
                                     <Plus className="w-4 h-4" />
