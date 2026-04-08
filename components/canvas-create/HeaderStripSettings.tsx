@@ -348,7 +348,7 @@ export function HeaderStripSettings({ className }: HeaderStripSettingsProps) {
               </div>
             </div>
             {enhanced4Row.rows.initiative.enabled && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pb-2">
                 <div className="flex items-center justify-between bg-muted/50 rounded-lg p-1.5">
                   <div className="flex items-center gap-1.5">
                     <Bookmark className="h-3 w-3 text-muted-foreground" />

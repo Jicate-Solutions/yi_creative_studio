@@ -2793,36 +2793,12 @@ export async function createLogoBarScaffold(
   headerHeightPx: number,
   footerHeightPx: number,
 ): Promise<Buffer> {
-  const footerTopY = height - footerHeightPx
-
-  // v41.7: TRANSPARENT scaffold — bars are boundary markers only, not solid fills.
-  //
-  // The scaffold is INPUT to Gemini. The Sharp logo rows (alpha: 0.1/0/0.85) are OUTPUT.
-  // With transparent scaffold, Gemini generates art across the FULL canvas including the
-  // header/footer zones. The transparent logo overlay then lets that art show through,
-  // creating the intended "Gemini art visible behind logo bars" effect (CLAUDE.md v24.6).
-  //
-  // Any Gemini text that leaks into the bar zones is obliterated by the blur step.
-  // Sharp renders ALL event text (headline/tagline/date/venue) on top anyway.
-  const base = await sharp({
-    create: { width, height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } }
+  // v43.3: FULLY TRANSPARENT scaffold — no white fill, no SVG markers, no lines.
+  // A transparent PNG base means Gemini generates the full poster freely from scratch,
+  // without inheriting any white background that would bleed through the mid-canvas.
+  // Zone guidance is communicated entirely through the text prompt (pixel coordinates
+  // included in the CANVAS GUIDE instruction). Transparent scaffold = zero white bias.
+  return sharp({
+    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
   }).png().toBuffer()
-
-  // v43.2: LINES REMOVED — orange dashed boundary lines (FF4400, 4px, dasharray="24,12") were
-  // interpreted by Gemini's vision model as storyboard scene separators, causing a visible
-  // horizontal SPLIT in the generated background (upper zone = architecture, lower = people).
-  // Gemini cannot distinguish "guide line" from "visual scene boundary" — it just sees opaque pixels.
-  //
-  // Fix: scaffold is now a plain white canvas with NO lines and NO tints.
-  // Zone guidance is communicated entirely through the text prompt (pixel coordinates already
-  // included in the CANVAS GUIDE instruction). A blank scaffold = unified seamless background.
-  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-    <!-- No visual markers — plain white canvas, zones described in text prompt only -->
-  </svg>`)
-
-  return sharp(base)
-    .composite([{ input: svg, top: 0, left: 0 }])
-    .flatten({ background: { r: 255, g: 255, b: 255 } })
-    .png()
-    .toBuffer()
 }

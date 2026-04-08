@@ -2509,29 +2509,25 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
         // Log vertical logo IDs for debugging
         console.log('[Enhanced 4-Row Strip] Vertical logo IDs to fetch:', enhanced4RowStrip.rows.vertical.logoIds)
 
-        // Fetch all brand logos (Yi, Bharat ONE, CII - from logosPlacements)
+        // Fetch brand, vertical, and partner logos all in parallel
         const brandLogoIds = enhanced4RowStrip.rows.brand.logoIds.length > 0
           ? enhanced4RowStrip.rows.brand.logoIds
           : logosPlacements?.slice(0, 3).map(p => p.logoId) || []
 
-        const brandLogosPromises = brandLogoIds.map(fetchLogoBuffer)
-        const brandLogosResults = await Promise.all(brandLogosPromises)
-        const brandLogos = brandLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
-
-        // Fetch vertical logos
-        const verticalLogosPromises = enhanced4RowStrip.rows.vertical.logoIds.map(fetchLogoBuffer)
-        const verticalLogosResults = await Promise.all(verticalLogosPromises)
-        const verticalLogos = verticalLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
-
-        // Fetch partner logo if configured (unified mode uses rows.partner, split mode uses footer.digitalPartner)
-        let partnerLogo: { logoId: string; buffer: Buffer; width: number; height: number } | undefined
         const partnerLogoId = isSplitLayout
           ? enhanced4RowStrip.footer?.digitalPartner?.logoId
           : enhanced4RowStrip.rows.partner.logoId
-        if (partnerLogoId) {
-          const result = await fetchLogoBuffer(partnerLogoId)
-          if (result) partnerLogo = result
-        }
+
+        console.log('[Enhanced 4-Row Strip] Fetching brand, vertical, and partner logos in parallel...')
+        const [brandLogosResults, verticalLogosResults, partnerLogoResult] = await Promise.all([
+          Promise.all(brandLogoIds.map(fetchLogoBuffer)),
+          Promise.all(enhanced4RowStrip.rows.vertical.logoIds.map(fetchLogoBuffer)),
+          partnerLogoId ? fetchLogoBuffer(partnerLogoId) : Promise.resolve(null),
+        ])
+
+        const brandLogos = brandLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
+        const verticalLogos = verticalLogosResults.filter((l): l is NonNullable<typeof l> => l !== null)
+        let partnerLogo: { logoId: string; buffer: Buffer; width: number; height: number } | undefined = partnerLogoResult ?? undefined
 
         // v14.0: Fetch signature from landmark_signatures table (NEW) or logos table (legacy)
         let signatureLogo: { logoId: string; buffer: Buffer; width: number; height: number } | undefined

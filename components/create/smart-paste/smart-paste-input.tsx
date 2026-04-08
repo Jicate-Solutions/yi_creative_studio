@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Sparkles, ClipboardPaste, Trash2, AlertCircle, FileText } from 'lucide-react'
@@ -36,24 +36,24 @@ export function SmartPasteInput({
 }: SmartPasteInputProps) {
   const [rawText, setRawText] = useState('')
   const [isFocused, setIsFocused] = useState(false)
-  const hasExtractedRef = useRef(false)
+  const [isApproved, setIsApproved] = useState(false)
 
-  // Auto-extract when valid text is pasted
-  useEffect(() => {
-    const isValidLength = rawText.trim().length >= EXTRACTION_CONFIG.minTextLength
-    const isTooLong = rawText.length > EXTRACTION_CONFIG.maxTextLength
+  const isValidLength = rawText.trim().length >= EXTRACTION_CONFIG.minTextLength
+  const isTooLong = rawText.length > EXTRACTION_CONFIG.maxTextLength
+  const hasContent = rawText.trim().length > 0
 
-    if (isValidLength && !isTooLong && !isExtracting && !hasExtractedRef.current) {
-      hasExtractedRef.current = true
-      onExtract(rawText)
-    }
-  }, [rawText, isExtracting, onExtract])
+  // Step 1: user clicks Approve — this triggers AI extraction
+  const handleApprove = () => {
+    if (!isValidLength || isTooLong || isExtracting) return
+    setIsApproved(true)
+    onExtract(rawText)
+  }
 
   // Handle paste button click
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      hasExtractedRef.current = false // Reset to allow extraction
+      setIsApproved(false) // Reset approval when new text pasted
       setRawText(text)
     } catch {
       // Clipboard access denied - user will need to paste manually
@@ -62,17 +62,13 @@ export function SmartPasteInput({
 
   // Handle direct paste into textarea (Ctrl+V)
   const handleTextareaPaste = () => {
-    hasExtractedRef.current = false // Reset to allow extraction
+    setIsApproved(false) // Reset approval when text changes
   }
 
   const handleClear = () => {
     setRawText('')
-    hasExtractedRef.current = false
+    setIsApproved(false)
   }
-
-  const isValidLength = rawText.trim().length >= EXTRACTION_CONFIG.minTextLength
-  const isTooLong = rawText.length > EXTRACTION_CONFIG.maxTextLength
-  const hasContent = rawText.trim().length > 0
 
   return (
     <div className={cn("space-y-3", !compact && "space-y-5")}>
@@ -195,12 +191,24 @@ export function SmartPasteInput({
             +{EXTRACTION_CONFIG.minTextLength - rawText.length}
           </span>
         )}
-        {isValidLength && !isTooLong && !isExtracting && (
-          <span className={cn("shrink-0 text-emerald-600 bg-emerald-500/10 rounded-full", compact ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5")}>
-            ✓ Ready
-          </span>
-        )}
       </div>
+      {isValidLength && !isTooLong && (
+        <Button
+          type="button"
+          onClick={handleApprove}
+          disabled={isExtracting || isApproved}
+          className={cn(
+            "w-full gap-2 shadow-md",
+            isApproved
+              ? "bg-emerald-500 hover:bg-emerald-500 text-white shadow-emerald-500/20"
+              : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-violet-500/20",
+            compact ? "h-8 text-[12px]" : "h-10 text-sm"
+          )}
+        >
+          <Sparkles className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+          {isApproved ? 'Approved — Extracting…' : 'Approve & Extract'}
+        </Button>
+      )}
     </div>
   )
 }

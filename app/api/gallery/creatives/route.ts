@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const organizationId = searchParams.get('organizationId')
     const sortBy = searchParams.get('sortBy') || 'newest'
     const verticalFilter = searchParams.get('vertical')
+    const format = searchParams.get('format')
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
     const searchQuery = searchParams.get('search')
 
@@ -45,6 +46,10 @@ export async function GET(request: Request) {
 
     if (verticalFilter && verticalFilter !== 'all') {
       query = query.eq('vertical', verticalFilter)
+    }
+
+    if (format && format !== 'all') {
+      query = query.eq('creative_type', format)
     }
 
     if (favoritesOnly) {
