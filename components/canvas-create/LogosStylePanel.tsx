@@ -203,6 +203,7 @@ export function LogosStylePanel({
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Logo Strip</span>
             </div>
             <Switch
+              aria-label="Enable logo strip"
               checked={logoStripEnabled}
               onCheckedChange={(enabled) => {
                 setEnhanced4RowEnabled(enabled)
@@ -438,7 +439,7 @@ export function LogosStylePanel({
                 <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1" style={{ backgroundColor: YI_BRAND.secondary }} />
               </div>
               <span className="text-[10px] text-muted-foreground">Yi Brand</span>
-              <Switch checked={isBrandMode} onCheckedChange={handleBrandToggle} />
+              <Switch aria-label="Enable Yi brand colors" checked={isBrandMode} onCheckedChange={handleBrandToggle} />
             </div>
           </div>
 

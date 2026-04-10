@@ -1485,6 +1485,38 @@ Integrate this creative twist prominently into the background or decorative elem
     ✅ MANDATORY: Background in ${CONTENT_START}%–${CONTENT_END}% must be NOTICEABLY LIGHTER — pale sky, soft gradients, bright open environment.
     ❌ FORBIDDEN: Dark walls, deep shadows, or low-luminance tones in the content zone.`
 
+  const contentZoneShadowGuidance = `TEXT READABILITY CARDS (v44.5 — MANDATORY BAKED-IN DESIGN ELEMENTS):
+    The content zone (${CONTENT_START}%–${CONTENT_END}%) will have event text composited by Sharp AFTER generation.
+    You MUST paint the following design elements DIRECTLY into the scene as part of the artwork:
+
+    1. HEADLINE BACKDROP (${CONTENT_START}%–35% vertical):
+       Paint a wide semi-transparent dark frosted-glass panel spanning 80% of canvas width.
+       Style: frosted glass / glassmorphism / dark overlay with slight blur effect.
+       Opacity: ~50-60% dark overlay so scene shows through but text area is noticeably darker.
+
+    2. INFO CARD PANEL (36%–42% vertical):
+       Paint a smaller semi-transparent rounded card/panel (centered, ~60% canvas width).
+       Style: frosted glass with rounded corners, subtle border/glow, dark or brand-tinted overlay.
+       Opacity: ~55-65% — this holds date, venue, and event details.
+
+    3. SPEAKER STRIP (43%–50% vertical):
+       Paint a narrow semi-transparent dark band or subtle card.
+       Style: thin frosted strip or soft dark gradient.
+       Opacity: ~40-50% — just enough to read speaker names.
+
+    STYLING RULES:
+    ✅ These cards should look like NATURAL UI elements integrated into the poster design
+    ✅ Use glassmorphism, frosted glass, or dark gradient overlay aesthetic
+    ✅ Cards can be tinted with the brand primary color (slight green/brand tint)
+    ✅ Rounded corners (8-12px radius feel) on the info card panel
+    ✅ The scene/background should be visible THROUGH these cards (they are semi-transparent)
+    ✅ Think: modern event poster design with floating frosted info panels over a photographic scene
+
+    ❌ NEVER skip these cards — every poster MUST have them
+    ❌ NEVER make them fully opaque (scene must show through)
+    ❌ NEVER use flat white rectangles — always dark or brand-tinted frosted glass
+    ❌ NEVER make them look like a bug or artifact — they should look intentionally designed`
+
   return `
 <!-- ============================================= -->
 <!-- SPATIAL LAYOUT CONSTRAINTS (v24.0 - LAYER 1) -->
@@ -1710,6 +1742,8 @@ ${contentDensityAnalysis.density === 'dense' ? `
     • Bottom (${CONTENT_END}%–100%): Rich visual — ground, subjects, lower environment
 
     ${textContrastGuidance}
+
+    ${contentZoneShadowGuidance}
 
 4. FULL-CANVAS VISUAL FLOW (v24.12.2 - MANDATORY):
 

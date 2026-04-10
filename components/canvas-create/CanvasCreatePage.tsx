@@ -705,9 +705,9 @@ export function CanvasCreatePage({
                 <>
                   {/* Setup section — always on top */}
                   <div>
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/40">
-                      <Palette className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Setup</p>
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/60 bg-muted/20">
+                      <Palette className="h-3.5 w-3.5 text-muted-foreground/70" />
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/70">Setup</p>
                     </div>
                     <LogosStylePanel
                       embedded
@@ -725,10 +725,10 @@ export function CanvasCreatePage({
                   </div>
 
                   {/* Event Details — below setup */}
-                  <div className="border-t border-border/40">
-                    <div className="flex items-center gap-2 px-3.5 py-2.5">
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Event Details</p>
+                  <div className="border-t border-border/60">
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-muted/20">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground/70" />
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/70">Event Details</p>
                     </div>
                     <DetailsPanel
                       embedded
@@ -798,7 +798,7 @@ export function CanvasCreatePage({
                       "w-full h-12 gap-2 text-sm font-semibold transition-all duration-200",
                       isFormValid
                         ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "bg-muted/20 text-muted-foreground/60 border border-border/30 hover:bg-muted/30 hover:text-muted-foreground/80 transition-colors"
                     )}
                   >
                     {isFormValid ? (
@@ -808,7 +808,7 @@ export function CanvasCreatePage({
                     )}
                   </Button>
                   {!isFormValid && (
-                    <p className="text-center text-[10px] text-muted-foreground/50">
+                    <p className="text-center text-[10px] text-muted-foreground/40">
                       Complete the event details above
                     </p>
                   )}
@@ -818,7 +818,9 @@ export function CanvasCreatePage({
           </div>
 
           {/* Center - Canvas Preview OR Template Browser OR Empty State */}
-          <div className="flex-1 flex flex-col items-center justify-center overflow-hidden relative bg-gradient-to-br from-violet-500/[0.03] via-muted/15 to-indigo-500/[0.03]" id="preview-panel">
+          <div className="flex-1 flex flex-col items-center justify-center overflow-hidden relative bg-[#070710]" id="preview-panel">
+            {/* Ambient radial glow — makes canvas area feel intentional, not empty */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 55% 45% at 50% 50%, rgba(109,40,217,0.10) 0%, rgba(59,130,246,0.05) 50%, transparent 100%)' }} />
             {isGenerating ? (
               /* Generating — show animated canvas-shaped placeholder */
               <div className="flex flex-col items-center gap-4">

@@ -40,7 +40,7 @@ export function useAIModels() {
     setIsLoading(false)
 
     if (error) {
-      console.error('Error fetching AI models:', error)
+      console.error('Error fetching AI models:', error.message, `[${error.code}]`, error.details)
       return
     }
 

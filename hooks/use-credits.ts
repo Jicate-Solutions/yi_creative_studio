@@ -29,7 +29,7 @@ export function useCredits() {
     setIsLoading(false)
 
     if (error) {
-      console.error('Error fetching transactions:', error)
+      console.error('Error fetching transactions:', error.message, `[${error.code}]`, error.details)
       return
     }
 

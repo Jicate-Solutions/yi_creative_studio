@@ -8,7 +8,6 @@
 import { ExternalEvent } from '@/types/external-event.types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Calendar, Clock, MapPin, Users, Sparkles, Globe, Video } from 'lucide-react'
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns'
 
@@ -76,8 +75,7 @@ export function EventListCard({ event, onCreatePoster }: EventListCardProps) {
   }
 
   return (
-    <Card className={`group transition-all hover:shadow-lg hover:border-primary/30 ${isEventPast ? 'opacity-60' : ''}`}>
-      <CardContent className="p-2 sm:p-3">
+    <div className={`group transition-all duration-200 rounded-xl bg-[#1f1f25] hover:bg-[#252530] p-3 sm:p-4 ${isEventPast ? 'opacity-50' : ''}`}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
           {/* Event Info */}
           <div className="flex-1 min-w-0 space-y-1.5">
@@ -103,12 +101,12 @@ export function EventListCard({ event, onCreatePoster }: EventListCardProps) {
             </div>
 
             {/* Event name */}
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
               {event.name}
             </h3>
 
             {/* Date and time */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3 h-3 text-primary" />
                 <span className={isEventToday ? 'font-semibold text-primary' : ''}>
@@ -128,7 +126,7 @@ export function EventListCard({ event, onCreatePoster }: EventListCardProps) {
 
             {/* Location */}
             {(event.venue || event.city) && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
                 <span className="truncate">
                   {[event.venue, event.city].filter(Boolean).join(', ')}
@@ -229,8 +227,7 @@ export function EventListCard({ event, onCreatePoster }: EventListCardProps) {
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 

@@ -1888,18 +1888,23 @@
   }
 
   .badge-pill-primary {
-    background: rgba(0, 91, 150, 0.1);
-    color: var(--color-yi-blue);
+    background: rgba(0, 91, 150, 0.12);
+    color: var(--primary);
+  }
+
+  .badge-pill-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--muted-foreground);
   }
 
   .badge-pill-success {
-    background: rgba(0, 168, 107, 0.1);
-    color: var(--color-yi-green);
+    background: rgba(0, 168, 107, 0.12);
+    color: #4ade80;
   }
 
   .badge-pill-warning {
-    background: rgba(255, 107, 53, 0.1);
-    color: var(--color-yi-orange);
+    background: rgba(255, 107, 53, 0.12);
+    color: #fb923c;
   }
 
   /* Premium Gold Badge */

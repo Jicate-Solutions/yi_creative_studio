@@ -186,7 +186,7 @@ export function Sidebar() {
         </div>
 
         {isExpanded ? (
-          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-50 hover:opacity-100" onClick={() => setSidebarCollapsed(true)}>
+          <Button variant="ghost" size="icon" aria-label="Collapse sidebar" className="h-8 w-8 opacity-50 hover:opacity-100" onClick={() => setSidebarCollapsed(true)}>
             <ChevronRight className="h-4 w-4 rotate-180" />
           </Button>
         ) : (
@@ -195,6 +195,7 @@ export function Sidebar() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Expand sidebar"
                 className="h-8 w-8 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
                 onClick={() => setSidebarCollapsed(false)}
               >
@@ -252,12 +253,12 @@ export function Sidebar() {
         {/* User Profile & Settings */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={cn(
+            <button aria-label={!isExpanded ? 'Open account menu' : undefined} className={cn(
               "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-muted/50 group outline-none",
               !isExpanded ? "justify-center" : ""
             )}>
               <Avatar className="h-9 w-9 rounded-xl border border-white/10 shadow-sm transition-transform group-hover:scale-105">
-                <AvatarImage src={profile?.avatar_url || undefined} className="object-cover" />
+                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || user?.email || 'User avatar'} className="object-cover" />
                 <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-[10px]">{initials}</AvatarFallback>
               </Avatar>
 
@@ -299,6 +300,7 @@ export function Sidebar() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Expand sidebar"
                 className="h-8 w-8 opacity-80 hover:opacity-100 bg-muted/40 hover:bg-muted/60"
                 onClick={() => setSidebarCollapsed(false)}
               >
@@ -323,6 +325,7 @@ function NavLink({ item, isActive, collapsed }: NavLinkProps) {
   const content = (
     <Link
       href={item.href}
+      aria-label={collapsed ? item.title : undefined}
       className={cn(
         'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-300 relative group',
         isActive

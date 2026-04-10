@@ -29,6 +29,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import Link from 'next/link'
 import {
   Download,
   Heart,
@@ -46,6 +47,7 @@ import {
   Clock,
   Coins,
   ImageOff,
+  Plus,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -331,9 +333,17 @@ export default function GalleryPage() {
             Browse and manage your generated creatives
           </p>
         </div>
-        <span className="badge-pill badge-pill-primary font-semibold">
-          {creatives.length} creative{creatives.length !== 1 ? 's' : ''}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="badge-pill badge-pill-primary font-semibold">
+            {creatives.length} creative{creatives.length !== 1 ? 's' : ''}
+          </span>
+          <Button asChild className="gap-2 h-9 bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/20 hover:scale-[1.02] transition-all duration-200">
+            <Link href="/create">
+              <Plus className="h-4 w-4" />
+              New Creative
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -347,7 +357,54 @@ export default function GalleryPage() {
             className="pl-10 input-premium"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        {/* Mobile filter row — single line, no scroll */}
+        <div className="flex gap-2 md:hidden">
+          <Select value={verticalFilter} onValueChange={setVerticalFilter}>
+            <SelectTrigger className="h-9 flex-1 min-w-0 text-sm">
+              <Filter className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <SelectValue placeholder="Vertical" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Verticals</SelectItem>
+              {verticals.map((v) => (
+                <SelectItem key={v} value={v || ''}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={formatFilter} onValueChange={setFormatFilter}>
+            <SelectTrigger className="h-9 flex-1 min-w-0 text-sm">
+              <Sparkles className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <SelectValue placeholder="Format" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Formats</SelectItem>
+              {formats.map((f) => (
+                <SelectItem key={f} value={f || ''}>{f}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant={favoritesOnly ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setFavoritesOnly(!favoritesOnly)}
+            className="h-9 w-9 flex-shrink-0"
+            aria-label="Toggle favorites"
+          >
+            <Star className={`h-4 w-4 ${favoritesOnly ? 'fill-current' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortBy(sortBy === 'newest' ? 'oldest' : 'newest')}
+            className="h-9 w-9 flex-shrink-0"
+            aria-label={sortBy === 'newest' ? 'Sort oldest first' : 'Sort newest first'}
+          >
+            {sortBy === 'newest' ? <SortDesc className="h-4 w-4" /> : <SortAsc className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {/* Desktop filter row — full labels */}
+        <div className="hidden md:flex gap-2">
           <Select value={verticalFilter} onValueChange={setVerticalFilter}>
             <SelectTrigger className="h-9 w-[140px] flex-shrink-0 text-sm">
               <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -400,7 +457,7 @@ export default function GalleryPage() {
 
       {/* Gallery Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="glass-card border-none shadow-none">
               <div
@@ -426,11 +483,11 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
           {creatives.map((creative) => (
             <div
               key={creative.id}
-              className="glass-card group cursor-pointer hover:scale-[1.01] transition-all duration-300"
+              className="glass-card group cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-black/30 transition-all duration-300"
               onClick={() => setSelectedCreative(creative)}
             >
               <div className="relative overflow-hidden rounded-t-xl">
@@ -503,12 +560,12 @@ export default function GalleryPage() {
                   <h3 className="text-white font-semibold text-sm truncate">{creative.title || 'Untitled'}</h3>
                 </div>
               </div>
-              <div className="p-3 rounded-b-xl bg-background/50 backdrop-blur-sm">
+              <div className="p-3 rounded-b-xl bg-background/80 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-2">
                   {creative.vertical && (
                     <span className="badge-pill badge-pill-secondary text-xs truncate max-w-[100px]">{creative.vertical}</span>
                   )}
-                  <span className="text-muted-foreground text-xs flex items-center gap-1 flex-shrink-0">
+                  <span className="text-muted-foreground/90 text-xs font-medium flex items-center gap-1 flex-shrink-0">
                     <Calendar className="h-3 w-3" />
                     {format(new Date(creative.created_at), 'MMM d')}
                   </span>

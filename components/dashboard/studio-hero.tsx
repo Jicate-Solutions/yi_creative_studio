@@ -62,13 +62,13 @@ export function StudioHero() {
 
     return (
         <div className="relative w-full h-[180px] sm:h-[220px] md:h-[260px] rounded-2xl overflow-hidden group">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
                 <motion.div
                     key={current}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 1 }}
+                    transition={{ duration: 0.5 }}
                     className="absolute inset-0"
                 >
                     {/* Background Image */}

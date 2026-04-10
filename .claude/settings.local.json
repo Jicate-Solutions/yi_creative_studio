@@ -321,7 +321,10 @@
       "WebFetch(domain:dev.to)",
       "WebFetch(domain:www.cliprise.app)",
       "WebFetch(domain:skywork.ai)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "mcp__stitch__list_screens",
+      "mcp__stitch__get_project",
+      "mcp__stitch__generate_screen_from_text"
     ],
     "deny": [],
     "ask": [],

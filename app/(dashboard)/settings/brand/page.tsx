@@ -148,7 +148,7 @@ export default function BrandConfigPage() {
           )}
 
           {/* Colors */}
-          <Card>
+          <Card className="border-0 bg-[#1f1f25] shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
@@ -258,30 +258,33 @@ export default function BrandConfigPage() {
               </div>
 
               {/* Color Preview */}
-              <div className="p-4 rounded-lg border bg-muted/30">
-                <Label className="text-sm text-muted-foreground mb-2 block">
-                  Color Preview
-                </Label>
-                <div className="flex gap-2">
-                  <div
-                    className="flex-1 h-20 rounded-lg"
-                    style={{ backgroundColor: watchPrimary }}
-                  />
-                  <div
-                    className="flex-1 h-20 rounded-lg"
-                    style={{ backgroundColor: watchSecondary }}
-                  />
-                  <div
-                    className="flex-1 h-20 rounded-lg"
-                    style={{ backgroundColor: watchAccent }}
-                  />
-                </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Primary', hex: watchPrimary },
+                  { label: 'Secondary', hex: watchSecondary },
+                  { label: 'Accent', hex: watchAccent },
+                ].map(({ label, hex }) => (
+                  <div key={label} className="rounded-xl overflow-hidden bg-[#1f1f25]">
+                    <div
+                      className="w-full transition-all duration-300"
+                      style={{
+                        aspectRatio: '3/2',
+                        background: `linear-gradient(135deg, ${hex}99 0%, ${hex} 60%, ${hex}dd 100%)`,
+                        boxShadow: `0 4px 24px ${hex}50`,
+                      }}
+                    />
+                    <div className="px-3 py-2">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+                      <p className="text-xs font-mono text-foreground/80">{hex}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
           {/* Typography */}
-          <Card>
+          <Card className="border-0 bg-[#1f1f25] shadow-none">
             <CardHeader>
               <CardTitle>Typography</CardTitle>
               <CardDescription>
@@ -336,7 +339,7 @@ export default function BrandConfigPage() {
           </Card>
 
           {/* Layout Zones */}
-          <Card>
+          <Card className="border-0 bg-[#1f1f25] shadow-none">
             <CardHeader>
               <CardTitle>Layout Settings</CardTitle>
               <CardDescription>
@@ -397,7 +400,7 @@ export default function BrandConfigPage() {
           </Card>
 
           {/* Footer Info */}
-          <Card>
+          <Card className="border-0 bg-[#1f1f25] shadow-none">
             <CardHeader>
               <CardTitle>Footer Information</CardTitle>
               <CardDescription>
@@ -502,7 +505,7 @@ export default function BrandConfigPage() {
               </div>
 
               {/* Social Media Handles */}
-              <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-4 pt-2">
                 <Label className="text-sm font-medium">Social Media Handles</Label>
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField

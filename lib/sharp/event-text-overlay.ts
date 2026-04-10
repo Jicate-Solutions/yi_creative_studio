@@ -467,22 +467,8 @@ function buildHeadlineBlock(
   const taglineTotalH  = taglineLines.length * TAGLINE_LINE_HEIGHT + 8
   const bgHeight = BG_PADDING_TOP + headlineTotalH + taglineTotalH + BG_PADDING_BOTTOM
 
-  // === Soft gradient scrim behind text ===
-  const scrimColor = bgIsDark ? '0,0,0' : '255,255,255'
-  // v44.0: 0.92/0.88 ensures Gemini's text (rendered at same zone) is fully hidden
-  const scrimPeak  = bgIsDark ? 0.92 : 0.88
-  const scrimFadeH = Math.round(bgHeight * 0.08)
-  const scrimGradId = 'evt-scrim-grad'
-  elements.unshift(`<defs>
-    <linearGradient id="${scrimGradId}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="rgba(${scrimColor},0)"/>
-      <stop offset="${Math.round(scrimFadeH / bgHeight * 100)}%"  stop-color="rgba(${scrimColor},${scrimPeak})"/>
-      <stop offset="${100 - Math.round(scrimFadeH / bgHeight * 100)}%" stop-color="rgba(${scrimColor},${scrimPeak})"/>
-      <stop offset="100%" stop-color="rgba(${scrimColor},0)"/>
-    </linearGradient>
-  </defs>
-  <rect x="0" y="${startY}" width="${canvasWidth}" height="${bgHeight}"
-        fill="url(#${scrimGradId})"/>`)
+  // v44.2: Scrim removed — text renders directly over Gemini background.
+  // Readability comes from the 2-layer text shadow + outline applied below.
 
   // === Render ALL headline lines (no zone-break guard — sizing guarantees fit) ===
   let currentY = startY + BG_PADDING_TOP
@@ -605,16 +591,12 @@ function buildInfoCard(
 
   const cardHeight = textY - startY + CARD_PADDING_Y
 
-  // v43.0: Semi-transparent card bg — 0.58/0.62 sits in "balanced" range (art visible, text clear)
-  // Research: 0.35–0.45 = subtle (text may compete), 0.55–0.65 = balanced, 0.75+ = strong
-  const bgCard = `<rect x="${cardX - CARD_PADDING_X}" y="${startY - 6}" width="${cardWidth + CARD_PADDING_X * 2}" height="${cardHeight + 12}" rx="10" ry="10" fill="${bgIsDark ? 'rgba(0,0,0,0.58)' : 'rgba(255,255,255,0.62)'}"/>`
-
-  // Left accent bar (secondary color) — visual grouping cue without blocking background
+  // v44.5: Sharp card disabled — Gemini bakes frosted cards into scene via prompt
+  // Left accent bar (secondary color) — visual grouping cue
   const accentBar = `<rect x="${cardX}" y="${startY + 6}" width="4" height="${cardHeight - 12}" rx="2" ry="2" fill="${brandColors.secondary}"/>`
 
   return {
     svg: `<g data-section="info-card">
-      ${bgCard}
       ${accentBar}
       ${elements.join('\n      ')}
     </g>`,
@@ -691,11 +673,10 @@ function buildAdditionalDetails(
 
   if (elements.length === 0) return { svg: '', bottomY: startY }
 
-  const bgHeight = currentY - startY + 10
-  const bg = `<rect x="${margin - 10}" y="${startY - 2}" width="${canvasWidth - margin * 2 + 20}" height="${bgHeight}" rx="8" ry="8" fill="rgba(0,0,0,0.35)"/>`
+  // v44.5: Sharp bg disabled — Gemini bakes frosted cards into scene via prompt
   const topBorder = `<line x1="${margin - 10}" y1="${startY - 2}" x2="${canvasWidth - margin + 10}" y2="${startY - 2}" stroke="${brandColors.secondary}" stroke-width="2"/>`
   return {
-    svg: `<g data-section="additional-details">${bg}${topBorder}${elements.join('')}</g>`,
+    svg: `<g data-section="additional-details">${topBorder}${elements.join('')}</g>`,
     bottomY: currentY,
   }
 }
@@ -834,14 +815,13 @@ function buildSpeakerBlock(
   if (elements.length === 0) return { svg: '', bottomY: startY }
 
   const blockHeight = currentY - startY
-  const scrimColor = bgIsDark ? '0,0,0' : '255,255,255'
-  const bg = `<rect x="0" y="${startY}" width="${canvasWidth}" height="${blockHeight}" fill="rgba(${scrimColor},0.45)"/>`
+  // v44.5: Sharp bg disabled — Gemini bakes frosted cards into scene via prompt
   // Left accent line
   const accent = `<rect x="${PADDING_X - 16}" y="${startY + BG_PAD_V}" width="4" height="${blockHeight - BG_PAD_V * 2}" rx="2" fill="${brandColors.secondary}"/>`
 
   console.log(`[Speaker Block] Rendered ${speakers.length} speaker(s) — height: ${Math.round(blockHeight)}px`)
   return {
-    svg: `<g data-section="speakers">${bg}${accent}${elements.join('\n')}</g>`,
+    svg: `<g data-section="speakers">${accent}${elements.join('\n')}</g>`,
     bottomY: currentY,
   }
 }

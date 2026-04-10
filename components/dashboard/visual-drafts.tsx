@@ -109,7 +109,7 @@ export function VisualDrafts({
             <div className={cn(
                 "grid gap-6 transition-all duration-500",
                 viewMode === 'grid'
-                    ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5"
+                    ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5"
                     : "grid-cols-1"
             )}>
                 {creatives.map((creative, i) => (

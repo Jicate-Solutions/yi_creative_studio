@@ -59,7 +59,7 @@ export function QuickCreateHub() {
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
                 <h3 className="text-foreground font-semibold text-sm tracking-tight">Creation Hub</h3>
-                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" asChild>
+                <Button variant="ghost" size="sm" className="h-8 text-xs text-primary/70 hover:text-primary hover:bg-primary/8 font-medium" asChild>
                     <Link href={ROUTES.templates}>
                         Customize
                     </Link>

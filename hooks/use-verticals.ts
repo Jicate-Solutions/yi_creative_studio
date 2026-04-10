@@ -43,7 +43,7 @@ export function useVerticals() {
         .order('display_order', { ascending: true })
 
       if (fetchError) {
-        console.error('Error fetching verticals:', fetchError)
+        console.error('Error fetching verticals:', fetchError.message, `[${fetchError.code}]`, fetchError.details)
         setError(fetchError.message)
         return
       }

@@ -282,7 +282,8 @@ export default function EventsPage() {
           {selectedDate && hasFilteredEvents && (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-foreground mb-2">
+                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-full bg-primary/60 inline-block" />
                   Events on {format(selectedDateObj!, 'MMMM d, yyyy')}
                 </h2>
                 <Button
@@ -311,8 +312,8 @@ export default function EventsPage() {
               {/* Today's Events */}
               {groupedEvents.todayEvents.length > 0 && (
                 <div className="space-y-2.5">
-                  <h2 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                     Today&apos;s Events
                   </h2>
                   {groupedEvents.todayEvents.map((event) => (
@@ -328,7 +329,8 @@ export default function EventsPage() {
               {/* Tomorrow's Events */}
               {groupedEvents.tomorrowEvents.length > 0 && (
                 <div className="space-y-2.5">
-                  <h2 className="text-base font-semibold text-foreground mb-2">
+                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-1 h-4 rounded-full bg-primary/60 inline-block" />
                     Tomorrow
                   </h2>
                   {groupedEvents.tomorrowEvents.map((event) => (
@@ -344,7 +346,8 @@ export default function EventsPage() {
               {/* Upcoming Events */}
               {groupedEvents.upcomingEvents.length > 0 && (
                 <div className="space-y-2.5">
-                  <h2 className="text-base font-semibold text-foreground mb-2">
+                  <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-1 h-4 rounded-full bg-primary/40 inline-block" />
                     Upcoming This Month
                   </h2>
                   {groupedEvents.upcomingEvents.map((event) => (
@@ -365,7 +368,8 @@ export default function EventsPage() {
             hasEvents &&
             groupedEvents.pastEvents.length > 0 && (
               <div className="space-y-2.5">
-                <h2 className="text-base font-semibold text-foreground mb-2">
+                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-full bg-muted-foreground/30 inline-block" />
                   Past Events
                 </h2>
                 {groupedEvents.pastEvents.slice(0, 5).map((event) => (
@@ -407,7 +411,7 @@ export default function EventsPage() {
       </div>
 
       {/* Mobile Calendar Toggle (shown only on mobile) */}
-      <div className="lg:hidden fixed bottom-20 right-4 z-50">
+      <div className="lg:hidden fixed bottom-[200px] right-4 z-50">
         <MobileCalendarSheet
           currentMonth={currentMonthDate}
           onMonthChange={handleMonthChange}
