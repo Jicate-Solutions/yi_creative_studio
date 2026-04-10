@@ -1485,37 +1485,21 @@ Integrate this creative twist prominently into the background or decorative elem
     ✅ MANDATORY: Background in ${CONTENT_START}%–${CONTENT_END}% must be NOTICEABLY LIGHTER — pale sky, soft gradients, bright open environment.
     ❌ FORBIDDEN: Dark walls, deep shadows, or low-luminance tones in the content zone.`
 
-  const contentZoneShadowGuidance = `TEXT READABILITY CARDS (v44.5 — MANDATORY BAKED-IN DESIGN ELEMENTS):
-    The content zone (${CONTENT_START}%–${CONTENT_END}%) will have event text composited by Sharp AFTER generation.
-    You MUST paint the following design elements DIRECTLY into the scene as part of the artwork:
+  const contentZoneShadowGuidance = `TEXT READABILITY SHADOW (v44.0 — MANDATORY BAKED-IN OVERLAY):
+    Paint a subtle dark atmospheric shadow DIRECTLY INTO the ${CONTENT_START}%–${CONTENT_END}% zone of the scene itself — as if a soft cloud shadow, depth-of-field darkening, or moody stage lighting naturally darkens this band of the image.
 
-    1. HEADLINE BACKDROP (${CONTENT_START}%–35% vertical):
-       Paint a wide semi-transparent dark frosted-glass panel spanning 80% of canvas width.
-       Style: frosted glass / glassmorphism / dark overlay with slight blur effect.
-       Opacity: ~50-60% dark overlay so scene shows through but text area is noticeably darker.
+    ✅ Execute as: ~35–45% opacity dark wash integrated into the scene art
+    ✅ Must read as atmospheric / natural lighting — NOT a flat rectangle, NOT a visible text box
+    ✅ Examples: dramatic overhead cloud shadow, golden-hour rim-light on edges with darker center, soft vertical gradient, dimmed depth-of-field zone, cinematic vignette
+    ✅ The ${CONTENT_START}%–${CONTENT_END}% vertical band should be ~40% darker than the top (0–${CONTENT_START}%) and bottom (${CONTENT_END}–100%) regions
+    ✅ Keep 50–60% of the underlying scene visible through the shadow — do NOT black it out
 
-    2. INFO CARD PANEL (36%–42% vertical):
-       Paint a smaller semi-transparent rounded card/panel (centered, ~60% canvas width).
-       Style: frosted glass with rounded corners, subtle border/glow, dark or brand-tinted overlay.
-       Opacity: ~55-65% — this holds date, venue, and event details.
+    ❌ NEVER a solid white / cream / light background behind text
+    ❌ NEVER a flat colored rectangle or card
+    ❌ NEVER visible edges, borders, or hard transitions around the darkened zone
+    ❌ NEVER place bright elements (sky, pale walls, white objects) in the ${CONTENT_START}%–${CONTENT_END}% band
 
-    3. SPEAKER STRIP (43%–50% vertical):
-       Paint a narrow semi-transparent dark band or subtle card.
-       Style: thin frosted strip or soft dark gradient.
-       Opacity: ~40-50% — just enough to read speaker names.
-
-    STYLING RULES:
-    ✅ These cards should look like NATURAL UI elements integrated into the poster design
-    ✅ Use glassmorphism, frosted glass, or dark gradient overlay aesthetic
-    ✅ Cards can be tinted with the brand primary color (slight green/brand tint)
-    ✅ Rounded corners (8-12px radius feel) on the info card panel
-    ✅ The scene/background should be visible THROUGH these cards (they are semi-transparent)
-    ✅ Think: modern event poster design with floating frosted info panels over a photographic scene
-
-    ❌ NEVER skip these cards — every poster MUST have them
-    ❌ NEVER make them fully opaque (scene must show through)
-    ❌ NEVER use flat white rectangles — always dark or brand-tinted frosted glass
-    ❌ NEVER make them look like a bug or artifact — they should look intentionally designed`
+    This shadow is WHERE the event text will be composited by Sharp after generation — the darker pixels must give enough contrast for light text to read clearly, while still feeling like natural scene lighting.`
 
   return `
 <!-- ============================================= -->

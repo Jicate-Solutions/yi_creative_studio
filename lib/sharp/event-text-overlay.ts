@@ -323,7 +323,7 @@ function buildSvgDefs(brandColors: { primary: string; secondary: string; accent:
 
     <!-- General text drop shadow — for venue, tagline, details -->
     <filter id="evt-text-shadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.92"/>
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.95"/>
     </filter>
 
     <!-- Headline outline via feMorphology dilate — adds crisp dark border around glyphs -->
@@ -341,14 +341,14 @@ function buildSvgDefs(brandColors: { primary: string; secondary: string; accent:
     <!-- Headline combined: outline + heavy drop shadow for maximum contrast -->
     <!-- Uses explicit primitives (not feDropShadow shorthand) so intermediate results stay separate -->
     <filter id="evt-headline-strong" x="-15%" y="-20%" width="130%" height="140%">
-      <!-- Outline: dilate alpha → flood black → mask to outline shape -->
-      <feMorphology in="SourceAlpha" operator="dilate" radius="2.5" result="expanded"/>
+      <!-- v44.6: Tighter outline + closer shadow for better contrast -->
+      <feMorphology in="SourceAlpha" operator="dilate" radius="4" result="expanded"/>
       <feFlood flood-color="#000000" result="outlineFlood"/>
       <feComposite in="outlineFlood" in2="expanded" operator="in" result="outline"/>
-      <!-- Drop shadow: offset alpha → blur → flood black → mask to blur shape -->
-      <feOffset in="SourceAlpha" dx="3" dy="4" result="shadowOffset"/>
-      <feGaussianBlur in="shadowOffset" stdDeviation="5" result="shadowBlur"/>
-      <feFlood flood-color="#000000" flood-opacity="0.88" result="shadowFlood"/>
+      <!-- Drop shadow: closer offset, tighter blur, higher opacity -->
+      <feOffset in="SourceAlpha" dx="1" dy="2" result="shadowOffset"/>
+      <feGaussianBlur in="shadowOffset" stdDeviation="2" result="shadowBlur"/>
+      <feFlood flood-color="#000000" flood-opacity="0.95" result="shadowFlood"/>
       <feComposite in="shadowFlood" in2="shadowBlur" operator="in" result="shadow"/>
       <!-- Merge back-to-front: shadow → outline → original fill -->
       <feMerge>
@@ -478,13 +478,14 @@ function buildHeadlineBlock(
 
   for (const line of headlineLines) {
     currentY += LINE_HEIGHT
-    elements.push(`<g opacity="0.8">${textToPath(line, {
+    // v44.6: Tighter shadow offsets + higher opacity for better contrast
+    elements.push(`<g opacity="0.90">${textToPath(line, {
       fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
-      x: PADDING_X + 6, y: currentY + 6, fill: shadowFillA, textAnchor: 'start',
+      x: PADDING_X + 3, y: currentY + 3, fill: shadowFillA, textAnchor: 'start',
     })}</g>`)
-    elements.push(`<g opacity="0.95">${textToPath(line, {
+    elements.push(`<g opacity="1.0">${textToPath(line, {
       fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
-      x: PADDING_X + 3, y: currentY + 3, fill: shadowFillB, textAnchor: 'start',
+      x: PADDING_X + 1, y: currentY + 1, fill: shadowFillB, textAnchor: 'start',
     })}</g>`)
     elements.push(`<g filter="url(#evt-headline-strong)">${textToPath(line, {
       fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
@@ -591,12 +592,15 @@ function buildInfoCard(
 
   const cardHeight = textY - startY + CARD_PADDING_Y
 
-  // v44.5: Sharp card disabled — Gemini bakes frosted cards into scene via prompt
-  // Left accent bar (secondary color) — visual grouping cue
+  // v44.3: Restored card bg at low opacity — scene visible, text readable
+  const bgCard = `<rect x="${cardX - CARD_PADDING_X}" y="${startY - 6}" width="${cardWidth + CARD_PADDING_X * 2}" height="${cardHeight + 12}" rx="10" ry="10" fill="${bgIsDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)'}"/>`
+
+  // Left accent bar (secondary color) — visual grouping cue without blocking background
   const accentBar = `<rect x="${cardX}" y="${startY + 6}" width="4" height="${cardHeight - 12}" rx="2" ry="2" fill="${brandColors.secondary}"/>`
 
   return {
     svg: `<g data-section="info-card">
+      ${bgCard}
       ${accentBar}
       ${elements.join('\n      ')}
     </g>`,
@@ -673,10 +677,12 @@ function buildAdditionalDetails(
 
   if (elements.length === 0) return { svg: '', bottomY: startY }
 
-  // v44.5: Sharp bg disabled — Gemini bakes frosted cards into scene via prompt
+  // v44.3: Restored bg at low opacity — scene visible, text readable
+  const bgHeight = currentY - startY + 10
+  const bg = `<rect x="${margin - 10}" y="${startY - 2}" width="${canvasWidth - margin * 2 + 20}" height="${bgHeight}" rx="8" ry="8" fill="rgba(0,0,0,0.40)"/>`
   const topBorder = `<line x1="${margin - 10}" y1="${startY - 2}" x2="${canvasWidth - margin + 10}" y2="${startY - 2}" stroke="${brandColors.secondary}" stroke-width="2"/>`
   return {
-    svg: `<g data-section="additional-details">${topBorder}${elements.join('')}</g>`,
+    svg: `<g data-section="additional-details">${bg}${topBorder}${elements.join('')}</g>`,
     bottomY: currentY,
   }
 }
@@ -815,13 +821,15 @@ function buildSpeakerBlock(
   if (elements.length === 0) return { svg: '', bottomY: startY }
 
   const blockHeight = currentY - startY
-  // v44.5: Sharp bg disabled — Gemini bakes frosted cards into scene via prompt
+  // v44.3: Restored bg at low opacity — scene visible, text readable
+  const scrimColor = bgIsDark ? '0,0,0' : '255,255,255'
+  const bg = `<rect x="0" y="${startY}" width="${canvasWidth}" height="${blockHeight}" fill="rgba(${scrimColor},0.40)"/>`
   // Left accent line
   const accent = `<rect x="${PADDING_X - 16}" y="${startY + BG_PAD_V}" width="4" height="${blockHeight - BG_PAD_V * 2}" rx="2" fill="${brandColors.secondary}"/>`
 
   console.log(`[Speaker Block] Rendered ${speakers.length} speaker(s) — height: ${Math.round(blockHeight)}px`)
   return {
-    svg: `<g data-section="speakers">${accent}${elements.join('\n')}</g>`,
+    svg: `<g data-section="speakers">${bg}${accent}${elements.join('\n')}</g>`,
     bottomY: currentY,
   }
 }
