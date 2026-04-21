@@ -2287,11 +2287,49 @@ export const useCreativeStore = create<CreativeState>()(
               return // Success - exit retry loop
             }
 
-            // If got fallback but more retries available, try again on timeout
-            if (data.fallbackSchema && attempt < maxRetries && data.code === 'TIMEOUT') {
-              console.log(`[DynamicSchema] Attempt ${attempt + 1} timed out, retrying...`)
-              await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)))
-              continue
+            // On timeout: apply fallback immediately so form fields render now,
+            // then retry silently in background to upgrade to AI schema
+            if (data.fallbackSchema && data.code === 'TIMEOUT') {
+              set({
+                dynamicSchema: {
+                  schema: data.fallbackSchema,
+                  isLoading: false,
+                  error: null,
+                  cacheKey,
+                  isFallback: true,
+                },
+              })
+
+              if (attempt === 0) {
+                console.log(`[DynamicSchema] Timeout — showing fallback fields, retrying in background`)
+                setTimeout(async () => {
+                  if (currentRequestId !== dynamicSchemaRequestId) return
+                  try {
+                    const retryResponse = await fetch('/api/generate-fields', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ formatId, verticalSlug, organizationId }),
+                    })
+                    if (currentRequestId !== dynamicSchemaRequestId) return
+                    const retryData = await retryResponse.json()
+                    if (retryData.success && currentRequestId === dynamicSchemaRequestId) {
+                      set({
+                        dynamicSchema: {
+                          schema: retryData.schema,
+                          isLoading: false,
+                          error: null,
+                          cacheKey,
+                          isFallback: false,
+                        },
+                      })
+                      console.log(`[DynamicSchema] Background retry succeeded — upgraded to AI schema`)
+                    }
+                  } catch {
+                    // Background retry failed — user already has fallback fields
+                  }
+                }, 500)
+              }
+              return
             }
 
             // No more retries or non-timeout failure - use fallback

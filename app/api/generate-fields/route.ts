@@ -13,6 +13,8 @@ import {
   claudeCacheManager,
   getCacheKey,
 } from '@/lib/claude/cache-manager'
+
+export const maxDuration = 30
 import {
   FIELD_GENERATION_SYSTEM_PROMPT,
   buildFieldGenerationPrompt,
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
       const result = await claudeCacheManager.generateContentWithTimeout<GeneratedSchema>(
         FIELD_GENERATION_SYSTEM_PROMPT,
         userPrompt,
-        12000, // 12 second timeout (increased from 8s to handle cold starts)
+        25000, // 25 second timeout — handles cold start (~12s) with 13s buffer
         {
           temperature: 0.7,
           maxTokens: 2048,

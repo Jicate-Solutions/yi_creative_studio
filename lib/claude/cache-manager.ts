@@ -95,7 +95,8 @@ class ClaudeCacheManager {
     options: {
       temperature?: number
       maxTokens?: number
-      cacheKey?: string // For in-memory caching
+      cacheKey?: string
+      signal?: AbortSignal
     } = {}
   ): Promise<GenerateResponse<T>> {
     const apiKey = process.env.ANTHROPIC_API_KEY
@@ -119,21 +120,24 @@ class ClaudeCacheManager {
       }
     }
 
-    const { temperature = 0.7, maxTokens = 2048 } = options
+    const { temperature = 0.7, maxTokens = 2048, signal } = options
 
     try {
-      const response = await this.client.messages.create({
-        model: this.modelName,
-        max_tokens: maxTokens,
-        temperature,
-        system: systemPrompt + '\n\nIMPORTANT: Respond with valid JSON only. No markdown, no code blocks, just raw JSON.',
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      })
+      const response = await this.client.messages.create(
+        {
+          model: this.modelName,
+          max_tokens: maxTokens,
+          temperature,
+          system: systemPrompt + '\n\nIMPORTANT: Respond with valid JSON only. No markdown, no code blocks, just raw JSON.',
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
+        },
+        signal ? { signal } : undefined
+      )
 
       // Extract text content from response
       const textBlock = response.content.find((block) => block.type === 'text')
@@ -193,7 +197,7 @@ class ClaudeCacheManager {
 
     try {
       const result = await Promise.race([
-        this.generateContent<T>(systemPrompt, userPrompt, options),
+        this.generateContent<T>(systemPrompt, userPrompt, { ...options, signal: controller.signal }),
         new Promise<never>((_, reject) => {
           controller.signal.addEventListener('abort', () => {
             reject(new Error('AI_TIMEOUT'))
