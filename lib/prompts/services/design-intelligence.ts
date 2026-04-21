@@ -959,7 +959,8 @@ export async function generateDesignContext(
   promptStyleOptions?: {
     temperatures?: { eventContext?: number | null; storytelling?: number | null }
     creativeDirection?: string // v31.0: Prompt style creative direction
-  }
+  },
+  preComputedAiEventContext?: AIEventContext | null // Nebula: pre-launched in parallel with Stage 0
 ): Promise<DesignIntelligenceResult> {
   const startTime = Date.now()
   const MAX_ATTEMPTS = 2
@@ -993,7 +994,14 @@ export async function generateDesignContext(
   // This replaces hardcoded keyword detection with intelligent AI analysis
   // ORDERING FIX: Must run BEFORE storytelling fusion so aiEventContext is populated
   // when fuseStorytellingContext() runs — it was previously always null at fusion time.
-  if (shouldUseAIEventAnalysis()) {
+  if (preComputedAiEventContext !== undefined) {
+    // Nebula optimization: caller pre-launched analyzeEventContext in parallel with Stage 0
+    aiEventContext = preComputedAiEventContext
+    if (aiEventContext) {
+      console.log('[Design Intelligence] ⚡ AI Event Analysis: Using pre-computed context (Nebula parallel)')
+      console.log('[Design Intelligence] ✅ AI Event Analysis Complete')
+    }
+  } else if (shouldUseAIEventAnalysis()) {
     try {
       console.log('[Design Intelligence] 🤖 AI Event Analysis: Starting comprehensive context analysis')
 

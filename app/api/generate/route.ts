@@ -77,6 +77,7 @@ import {
 import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
 import { compileFormData, summarizeCompiledData, buildSceneNarrative } from '@/lib/prompts/services/form-data-compiler'
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
+import { generateCreativeDirectorBrief } from '@/lib/prompts/services/creative-director'
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
@@ -86,6 +87,12 @@ import { sanitizeForGemini, detectLabelLeaks, stripFieldLabelsOnly, isXmlStructu
 import { sanitizeForLogging } from '@/lib/utils/sanitize-log-data'
 import { randomUUID } from 'crypto'
 import type { FooterRowConfig } from '@/lib/config/design-constants'
+import {
+  analyzeEventContext,
+  shouldUseAIEventAnalysis,
+  type AIEventContext,
+  type EventFormData,
+} from '@/lib/ai/event-context-analyzer'
 
 // ============================================================================
 // v24.6: FULL-CANVAS GENERATION PROTECTION
@@ -793,6 +800,44 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // ── NEBULA: Fire AI calls that don't depend on Stage 0 outputs ──────────
+      // analyzeEventContext only needs raw form data — launch it now so it runs
+      // in parallel with generateEventUnderstanding + typography intelligence (~10-16s overlap).
+      const _nebulaFormData: EventFormData = {
+        eventName,
+        eventDescription: [compiledData.tagline, compiledData.description].filter(Boolean).join('. ') || formDataContent.description || '',
+        venue: (formDataContent.venue || compiledData.venue) ?? undefined,
+        date: (adjustedUserFormData as Record<string, unknown>)?.eventDate as string | undefined,
+        time: (adjustedUserFormData as Record<string, unknown>)?.eventTime as string | undefined,
+        speakers: speakers.length > 0 ? speakers : undefined,
+        theme: (adjustedUserFormData as Record<string, unknown>)?.theme as string | undefined,
+        style: (adjustedUserFormData as Record<string, unknown>)?.style as string | undefined,
+        targetAudience: (adjustedUserFormData as Record<string, unknown>)?.targetAudience as string | undefined,
+      }
+      const _nebulaStyleOptions = styleConfig.id !== 'auto'
+        ? { temperature: styleConfig.temperatures?.eventContext ?? undefined, creativeDirection: styleConfig.creativeDirection ?? undefined }
+        : {}
+      const analyzeEventContextPromise: Promise<AIEventContext | null> = shouldUseAIEventAnalysis()
+        ? analyzeEventContext(_nebulaFormData, _nebulaStyleOptions).catch(() => null)
+        : Promise.resolve(null)
+
+      // recentOrgPrompts: Supabase DB fetch — fire early, await before Ultra-Pro
+      const recentOrgPromptsPromise: Promise<string[]> = (organizationId && formatId)
+        ? Promise.resolve(
+            supabase
+              .from('creatives')
+              .select('prompt_used')
+              .eq('organization_id', organizationId)
+              .eq('creative_type', formatId)
+              .not('prompt_used', 'is', null)
+              .neq('prompt_used', '')
+              .order('created_at', { ascending: false })
+              .limit(3)
+          ).then(({ data }) => (data ?? []).map(c => c.prompt_used as string).filter(Boolean))
+           .catch(() => [])
+        : Promise.resolve([])
+      // ─────────────────────────────────────────────────────────────────────────
+
       if (formatId && shouldUseEventUnderstanding(formatId, eventName)) {
         console.log('[Generate] === STAGE 1: EVENT UNDERSTANDING ===')
         console.log('[Generate] Event:', eventName)
@@ -1158,12 +1203,37 @@ export async function POST(request: NextRequest) {
         targetAudience: compiledData.targetAudience || undefined,
 
         // v33.1: Pass visual direction to Design Intelligence for concept-aware background generation
+        // v45.0 yi_spotlight: Creative Director brief overrides/augments user visual direction
         additionalVisualBrief: compiledData.visualDirection || undefined,
+      }
+
+      // v45.0: Creative Director step — only for yi_spotlight vertical
+      // Runs BEFORE Design Intelligence so the brief is injected as HIGHEST PRIORITY visual direction
+      if (verticalSlug === 'yi_spotlight' && !compiledData.visualDirection) {
+        console.log('[Creative Director] Generating designer-level visual concept for Spotlight tab...')
+        try {
+          const cdResult = await generateCreativeDirectorBrief({
+            eventName: compiledData.eventName || '',
+            eventDescription: compiledData.description || compiledData.tagline || '',
+            venue: compiledData.venue || '',
+            targetAudience: compiledData.targetAudience || '',
+            tagline: compiledData.tagline || '',
+            eventType: formDataContent.eventType || '',
+          })
+          // Inject as highest-priority visual brief
+          designBrief.additionalVisualBrief = cdResult.fullBrief
+          console.log('[Creative Director] Brief injected:', cdResult.fullBrief.substring(0, 150) + '...')
+        } catch (cdErr) {
+          console.error('[Creative Director] Non-blocking error:', cdErr)
+          // Continue without brief — fallback to normal generation
+        }
       }
 
       // Generate AI-powered design context
       // v6.0 Phase 2: Pass resolvedColors for color-aware background generation
       // v6.5 Phase 1: Pass eventProfile from Stage 1 for concept-driven design
+      // Nebula: pass pre-computed AIEventContext so DI skips its internal analyzeEventContext call
+      const preComputedAiEventContext = await analyzeEventContextPromise
       const designContextResult = await generateDesignContextSafe(
         designBrief,
         resolvedColors,
@@ -1174,7 +1244,8 @@ export async function POST(request: NextRequest) {
             storytelling: styleConfig.temperatures.storytelling,
           },
           creativeDirection: styleConfig.creativeDirection || undefined,
-        } : undefined
+        } : undefined,
+        preComputedAiEventContext
       )
 
       // CRITICAL: Sanitize Design Context to filter risky single-word keywords
@@ -1241,26 +1312,10 @@ export async function POST(request: NextRequest) {
       const dualStripeMode = (logoStripMode?.enabled || false) && !!verticalSlug
       console.log('[Generate] Dual-Stripe Mode:', dualStripeMode ? 'YES (20% text start)' : 'NO (15% text start)')
 
-      // v36.0 — Generation Memory: fetch org's recent successful prompts for this format
-      let recentOrgPrompts: string[] = []
-      if (organizationId && formatId) {
-        try {
-          const { data: recentCreatives } = await supabase
-            .from('creatives')
-            .select('prompt_used')
-            .eq('organization_id', organizationId)
-            .eq('creative_type', formatId)
-            .not('prompt_used', 'is', null)
-            .neq('prompt_used', '')
-            .order('created_at', { ascending: false })
-            .limit(3)
-          recentOrgPrompts = recentCreatives
-            ?.map(c => c.prompt_used as string)
-            .filter(Boolean) || []
-          if (recentOrgPrompts.length > 0) {
-            console.log(`[v36.0 Generation Memory] Found ${recentOrgPrompts.length} recent prompts for org=${organizationId}, format=${formatId}`)
-          }
-        } catch { /* non-blocking — generation memory is optional enrichment */ }
+      // v36.0 — Generation Memory: fetch org's recent successful prompts (pre-launched in Nebula block)
+      const recentOrgPrompts = await recentOrgPromptsPromise
+      if (recentOrgPrompts.length > 0) {
+        console.log(`[v36.0 Generation Memory] Found ${recentOrgPrompts.length} recent prompts for org=${organizationId}, format=${formatId}`)
       }
 
       const ultraProResult = await generateUltraProPromptSafe(
@@ -1891,8 +1946,13 @@ export async function POST(request: NextRequest) {
         })
 
         // Inject vertical context if applicable (redundant with buildOptions.verticalId but kept for compatibility)
+        // v46.0: Pass brand colors so vertical's hardcoded Yi palette (jewel tones, Yi Orange,
+        // tricolor accents) is overridden for non-Yi orgs that have their own brand colors.
+        const verticalBrandColors = resolvedColors && resolvedColors.source !== 'fallback'
+          ? { primary: resolvedColors.primaryColor, secondary: resolvedColors.secondaryColor, accent: resolvedColors.accentColor }
+          : undefined
         const finalXmlPrompt = verticalSlug
-          ? injectVerticalContext(xmlPrompt, verticalSlug)
+          ? injectVerticalContext(xmlPrompt, verticalSlug, verticalBrandColors)
           : xmlPrompt
 
         // v24.0: Store prompt for potential regeneration if text violations are detected
