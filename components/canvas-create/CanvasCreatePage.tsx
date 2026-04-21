@@ -19,7 +19,7 @@ import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
 import { toast } from 'sonner'
-import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Images, Check } from 'lucide-react'
+import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Images, Check, Pencil } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
 import { CreatePageTour } from '@/components/onboarding/CreatePageTour'
 import { RegenerateModal, type RegenerateOptions } from '@/components/create/regenerate-modal'
@@ -28,6 +28,7 @@ import { ShuffleButton } from '@/components/create/shuffle-button'
 import { ColorShuffleModal } from '@/components/create/color-shuffle-modal'
 import { ImagePreviewModal } from '@/components/create/image-preview-modal'
 import { Button } from '@/components/ui/button'
+import { CanvasEditorModal } from '@/components/canvas-editor/canvas-editor-modal'
 
 import { createClient } from '@/lib/supabase/client'
 import type { Json } from '@/types/database.types'
@@ -123,6 +124,7 @@ export function CanvasCreatePage({
   const [shuffleModalOpen, setShuffleModalOpen] = useState(false)
   const [creativeId, setCreativeId] = useState<string | null>(null)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [canvasEditorOpen, setCanvasEditorOpen] = useState(false)
 
   // Router for navigation
   const router = useRouter()
@@ -405,7 +407,11 @@ export function CanvasCreatePage({
         prompt: '', // Will be generated server-side from form data
         model: modelToUse.model_id,
         provider: modelToUse.provider,
-        verticalSlug: selectedVertical?.slug || 'events',
+        // Spotlight tab bypasses the 'membership' vertical restriction so the event poster
+        // builder uses SCENE-BASED BACKGROUND (vibrant/photographic) instead of plain blue gradient
+        verticalSlug: creationMode === 'spotlight' && selectedVertical?.slug === 'membership'
+          ? 'yi_spotlight'
+          : (selectedVertical?.slug || 'events'),
         logosPlacements: formData.logosPlacements,
         logoBackgroundColor: formData.logoBackgroundColor,
         logoStripMode: formData.logoStripMode,
@@ -413,7 +419,7 @@ export function CanvasCreatePage({
         organizationId: currentOrganization.id,
         templateId: isTemplateMode ? selectedTemplate.id : null,
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
-        creationMode: creationMode as 'template' | 'scratch',
+        creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         designData: formData.designData,
         formatId: selectedFormat.id,
         customDimensions: formData.customDimensions || null,
@@ -567,7 +573,9 @@ export function CanvasCreatePage({
         prompt: '',
         model: regenerateModel.model_id,
         provider: regenerateModel.provider,
-        verticalSlug: selectedVertical?.slug || 'events',
+        verticalSlug: creationMode === 'spotlight' && selectedVertical?.slug === 'membership'
+          ? 'yi_spotlight'
+          : (selectedVertical?.slug || 'events'),
         logosPlacements: formData.logosPlacements,
         logoBackgroundColor: formData.logoBackgroundColor,
         logoStripMode: formData.logoStripMode,
@@ -575,7 +583,7 @@ export function CanvasCreatePage({
         organizationId: currentOrganization?.id,
         templateId: isTemplateMode ? selectedTemplate.id : null,
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
-        creationMode: creationMode as 'template' | 'scratch',
+        creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         designData: formData.designData,
         formatId: selectedFormat?.id,
         customDimensions: formData.customDimensions || null,
@@ -748,7 +756,7 @@ export function CanvasCreatePage({
             {/* Pinned footer — Review → Generate flow */}
             <div className="shrink-0 p-3.5 border-t border-border/40 bg-card/80 backdrop-blur-sm">
               {generatedImage ? (
-                /* Post-generation: Download + Regen + Gallery */
+                /* Post-generation: Download + Edit + Regen + Gallery */
                 <div className="flex items-center gap-2">
                   <Button
                     onClick={() => setExportModalOpen(true)}
@@ -756,6 +764,14 @@ export function CanvasCreatePage({
                   >
                     <Download className="h-4 w-4" />
                     Download
+                  </Button>
+                  <Button
+                    onClick={() => setCanvasEditorOpen(true)}
+                    variant="outline"
+                    className="h-11 w-11 p-0 border-border/50 hover:bg-muted/60 transition-colors rounded-xl"
+                    title="Edit creative"
+                  >
+                    <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
                     onClick={() => setRegenerateModalOpen(true)}
@@ -1088,6 +1104,14 @@ export function CanvasCreatePage({
               Download
             </Button>
             <Button
+              onClick={() => setCanvasEditorOpen(true)}
+              variant="outline"
+              className="h-11 w-11 p-0 shrink-0 border-border/50 rounded-xl hover:bg-muted/60 transition-colors"
+              title="Edit creative"
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
               onClick={() => setRegenerateModalOpen(true)}
               variant="outline"
               className="h-11 w-11 p-0 shrink-0 border-border/50 rounded-xl hover:bg-muted/60 transition-colors"
@@ -1183,6 +1207,23 @@ export function CanvasCreatePage({
         onOpenChange={setShuffleModalOpen}
         creativeId={creativeId}
       />
+
+      {/* Canvas Editor Modal */}
+      {generatedImage && creativeId && selectedFormat && (
+        <CanvasEditorModal
+          open={canvasEditorOpen}
+          onOpenChange={setCanvasEditorOpen}
+          backgroundImageUrl={generatedImage}
+          designWidth={selectedFormat.width}
+          designHeight={selectedFormat.height}
+          parentCreativeId={creativeId}
+          organizationId={currentOrganization?.id ?? ''}
+          orgLogos={logos.map((l) => ({ id: l.id, name: l.name, url: l.file_url }))}
+          onVariantSaved={() => {
+            router.push('/gallery')
+          }}
+        />
+      )}
     </div>
   )
 }
