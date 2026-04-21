@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useOrganization } from '@/hooks'
 import { useClientAdmin } from '@/hooks/use-client-admin'
-import { GoogleCalendarCard, WebhookIntegrationsSection } from '@/components/settings/integrations'
+import { GoogleCalendarCard, WebhookIntegrationsSection, CanvaIntegrationCard } from '@/components/settings/integrations'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -68,6 +68,13 @@ export default function IntegrationsPage() {
 
         {/* Google Calendar */}
         <GoogleCalendarCard organizationId={organization.id} />
+
+        {/* Canva */}
+        <CanvaIntegrationCard
+          organizationId={organization.id}
+          isConnected={!!(organization.brand_config as Record<string, unknown> | null)?.canva_access_token}
+          connectedAt={(organization.brand_config as Record<string, unknown> | null)?.canva_connected_at as string | null}
+        />
 
         {/* Webhook Integrations */}
         <WebhookIntegrationsSection organizationId={organization.id} />
