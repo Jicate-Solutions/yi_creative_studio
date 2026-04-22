@@ -280,14 +280,20 @@ export interface LogoStripZoneCoordinates {
 }
 
 export type BackgroundStyleId =
-  | 'scene'        // Realistic photorealistic scene (default)
-  | 'abstract'     // Abstract gradients & flowing shapes
-  | 'dark'         // Dark cinematic with light rays/glows
-  | 'illustrated'  // Flat vector-style illustrated elements
-  | 'bokeh'        // Soft bokeh / light particles
-  | 'geometric'    // Bold geometric patterns & shapes
-  | 'texture'      // Physical material texture (marble, fabric, paper)
-  | 'split'        // Split layout: scene left, solid color right
+  | 'scene'          // Realistic photorealistic scene (default)
+  | 'abstract'       // Abstract gradients & flowing shapes
+  | 'dark'           // Dark cinematic with light rays/glows
+  | 'illustrated'    // Flat vector-style illustrated elements
+  | 'bokeh'          // Soft bokeh / light particles
+  | 'geometric'      // Bold geometric patterns & shapes
+  | 'texture'        // Physical material texture (marble, fabric, paper)
+  | 'split'          // Split layout: scene left, solid color right
+  | 'neon'           // Electric neon glow trails on dark base
+  | 'duotone'        // Two-color photographic overlay (brand palette)
+  | 'glassmorphism'  // Frosted glass translucent layered panels
+  | 'watercolor'     // Organic paint washes & soft brush strokes
+  | 'mandala'        // Indian ornate radial patterns & traditional motifs
+  | 'custom'         // User-defined: own gradient colors + visual description
 
 export interface BackgroundStyleConfig {
   id: BackgroundStyleId
@@ -395,6 +401,7 @@ export interface EnhancedBuildOptions {
   // Tells Gemini AI to reserve space for logo strips (header and footer)
   // This prevents text/content from overlapping with logo overlay areas
   logoStripZoneCoordinates?: LogoStripZoneCoordinates
+
 }
 
 // ============================================================

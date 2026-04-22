@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useCreativeStore } from '@/stores/creative-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Pipette, Sparkles, Loader2, UserRound } from 'lucide-react'
+import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Sparkles, Loader2, UserRound, Paintbrush } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EnhancedStripCanvas } from '@/components/create/logo-step/enhanced-strip-canvas'
@@ -76,20 +77,27 @@ export function LogosStylePanel({
   embedded = false,
 }: LogosStylePanelProps = {}) {
   const { formData, setColorPalette, setUseBrandColors, setEnhanced4RowEnabled, setCustomColors, setCreationMode, updateFormData, selectedVertical, selectVertical } = useCreativeStore()
+  const { currentOrganization } = useAuthStore()
   const { logos } = useLogos()
   const { verticals } = useVerticals()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [headerOpen, setHeaderOpen] = useState(true)
-  const [footerOpen, setFooterOpen] = useState(true)
+  // Visual Style section collapsed by default — users rarely need to change it
+  const [styleOpen, setStyleOpen] = useState(false)
   // Mobile dialog active tab: 'header' | 'footer'
   const [mobileTab, setMobileTab] = useState<'header' | 'footer'>('header')
   const creationMode = formData.creationMode || 'scratch'
   const colorConfig = formData.designData?.colorConfig
 
+  // Read org brand colors from brand_config — fall back to Yi defaults
+  const orgBrandConfig = currentOrganization?.brand_config as Record<string, string> | null
+  const orgPrimary   = orgBrandConfig?.primaryColor   || YI_BRAND.primary
+  const orgSecondary = orgBrandConfig?.secondaryColor || YI_BRAND.secondary
+  const orgAccent    = orgBrandConfig?.accentColor    || ''
+
   // Brand toggle: ON by default (useBrandColors true OR no palette set yet)
   const isBrandMode = colorConfig?.useBrandColors !== false && colorConfig?.selectedPalette !== 'custom'
 
-  const customColors = colorConfig?.customColors || { primary: YI_BRAND.primary, secondary: YI_BRAND.secondary, accent: '' }
+  const customColors = colorConfig?.customColors || { primary: orgPrimary, secondary: orgSecondary, accent: orgAccent }
 
   // Local input state for custom color text fields
   const [primaryInput, setPrimaryInput] = useState(customColors.primary || '')
@@ -97,6 +105,33 @@ export function LogosStylePanel({
   const [tertiaryInput, setTertiaryInput] = useState(customColors.accent || '')
 
   const brandLogos = logos.filter(l => detectLogoType(l.name || '') === 'brand')
+
+  // Visual style data — promoted to component scope so the collapsed summary row can read them
+  const bgStyle = ((formData.formData as any)?.backgroundStyle || 'scene') as string
+  const bgStyles = [
+    { id: 'scene',         label: 'Realistic',   icon: '🏞' },
+    { id: 'abstract',      label: 'Abstract',    icon: '🎨' },
+    { id: 'dark',          label: 'Cinematic',   icon: '🎬' },
+    { id: 'illustrated',   label: 'Illustrated', icon: '✏️' },
+    { id: 'bokeh',         label: 'Bokeh',       icon: '✨' },
+    { id: 'geometric',     label: 'Geometric',   icon: '🔷' },
+    { id: 'texture',       label: 'Textured',    icon: '🪨' },
+    { id: 'split',         label: 'Split',       icon: '▧' },
+    { id: 'neon',          label: 'Neon',        icon: '⚡' },
+    { id: 'duotone',       label: 'Duotone',     icon: '🎭' },
+    { id: 'glassmorphism', label: 'Glass',       icon: '🪟' },
+    { id: 'watercolor',    label: 'Watercolor',  icon: '🖌️' },
+    { id: 'mandala',       label: 'Mandala',     icon: '🪷' },
+    { id: 'custom',        label: 'Custom',      icon: '🖊️' },
+  ]
+  const bgStyleLabel = bgStyles.find(s => s.id === bgStyle)?.label ?? 'Realistic'
+  const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
+  const spotlightThemes = [
+    { id: 'tricolor' as const, label: 'Tricolor',  colors: ['#FF9933', '#FFFFFF', '#138808'] },
+    { id: 'brand'    as const, label: 'Yi Blue',   colors: ['#005B96', '#0071BC'] },
+    { id: 'gradient' as const, label: 'Gradient',  colors: ['#005B96', '#1a2332'] },
+  ]
+  const spotlightThemeLabel = spotlightThemes.find(t => t.id === spotlightTheme)?.label ?? 'Tricolor'
   const enhanced4Row = formData.enhanced4RowStrip
   const logoStripEnabled = enhanced4Row?.enabled !== false
 
@@ -107,13 +142,14 @@ export function LogosStylePanel({
     } else {
       setUseBrandColors(false)
       setColorPalette('custom')
-      // Seed inputs with brand colors if nothing set yet
-      const p = customColors.primary || YI_BRAND.primary
-      const s = customColors.secondary || YI_BRAND.secondary
+      // Seed inputs with org brand colors (or Yi defaults) if nothing custom set yet
+      const p = customColors.primary || orgPrimary
+      const s = customColors.secondary || orgSecondary
+      const a = customColors.accent   || orgAccent
       setPrimaryInput(p)
       setSecondaryInput(s)
-      setTertiaryInput('')
-      setCustomColors({ primary: p, secondary: s, accent: '' })
+      setTertiaryInput(a)
+      setCustomColors({ primary: p, secondary: s, accent: a })
     }
   }
 
@@ -166,92 +202,94 @@ export function LogosStylePanel({
                 </SelectContent>
               </Select>
             )}
-            {creationMode === 'spotlight' && (() => {
-              const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
-              const themes = [
-                {
-                  id: 'tricolor' as const,
-                  label: 'Tricolor',
-                  colors: ['#FF9933', '#FFFFFF', '#138808'],
-                  desc: 'Saffron · White · Green',
-                },
-                {
-                  id: 'brand' as const,
-                  label: 'Yi Blue',
-                  colors: ['#005B96', '#0071BC'],
-                  desc: 'Professional blue',
-                },
-                {
-                  id: 'gradient' as const,
-                  label: 'Gradient',
-                  colors: ['#005B96', '#1a2332'],
-                  desc: 'Blue to navy',
-                },
-              ]
-              return (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-0.5">Background Theme</p>
-                  <div className="grid grid-cols-3 gap-1">
-                    {themes.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => updateFormData({ spotlightTheme: t.id })}
-                        className={cn(
-                          'flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all duration-150 text-center',
-                          spotlightTheme === t.id
-                            ? 'border-primary bg-primary/5 shadow-sm'
-                            : 'border-border/40 hover:border-border/80 hover:bg-muted/30'
-                        )}
-                      >
-                        <div className="flex h-5 w-full rounded overflow-hidden">
-                          {t.colors.map((c, i) => (
-                            <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
+            {/* ── Visual Style (collapsed by default) ── */}
+            {creationMode !== 'template' && (
+              <div className="mt-1 rounded-lg border border-border/30 overflow-hidden">
+                {/* Collapsed header — always visible */}
+                <button
+                  onClick={() => setStyleOpen(v => !v)}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-muted/40 transition-colors duration-150"
+                >
+                  <Paintbrush className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 flex-1 text-left">Visual Style</span>
+                  <div className="flex items-center gap-1.5">
+                    {/* Current selection chips */}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-medium">
+                      {bgStyleLabel}
+                    </span>
+                    {creationMode === 'spotlight' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-medium">
+                        {spotlightThemeLabel}
+                      </span>
+                    )}
+                    <ChevronDown className={cn(
+                      'h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-200',
+                      styleOpen && 'rotate-180'
+                    )} />
+                  </div>
+                </button>
+
+                {/* Expanded content */}
+                {styleOpen && (
+                  <div className="px-2.5 pb-2.5 space-y-2.5 border-t border-border/30 pt-2">
+
+                    {/* Background Theme — Spotlight only */}
+                    {creationMode === 'spotlight' && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Background Theme</p>
+                        <div className="grid grid-cols-3 gap-1">
+                          {spotlightThemes.map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => updateFormData({ spotlightTheme: t.id })}
+                              className={cn(
+                                'flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all duration-150',
+                                spotlightTheme === t.id
+                                  ? 'border-primary bg-primary/5 shadow-sm'
+                                  : 'border-border/40 hover:border-border/70 hover:bg-muted/30'
+                              )}
+                            >
+                              <div className="flex h-4 w-full rounded overflow-hidden">
+                                {t.colors.map((c, i) => (
+                                  <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
+                                ))}
+                              </div>
+                              <span className={cn('text-[10px] font-semibold', spotlightTheme === t.id ? 'text-primary' : 'text-muted-foreground')}>
+                                {t.label}
+                              </span>
+                            </button>
                           ))}
                         </div>
-                        <span className={cn('text-[10px] font-semibold leading-tight', spotlightTheme === t.id ? 'text-primary' : 'text-muted-foreground')}>{t.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
+                      </div>
+                    )}
 
-            {/* ── Background Style ── */}
-            {(() => {
-              const bgStyle = ((formData.formData as any)?.backgroundStyle || 'scene') as string
-              const bgStyles = [
-                { id: 'scene',      label: 'Realistic',   icon: '🏞' },
-                { id: 'abstract',   label: 'Abstract',    icon: '🎨' },
-                { id: 'dark',       label: 'Cinematic',   icon: '🎬' },
-                { id: 'illustrated',label: 'Illustrated', icon: '✏️' },
-                { id: 'bokeh',      label: 'Bokeh',       icon: '✨' },
-                { id: 'geometric',  label: 'Geometric',   icon: '🔷' },
-                { id: 'texture',    label: 'Textured',    icon: '🪨' },
-                { id: 'split',      label: 'Split',       icon: '▧' },
-              ]
-              return (
-                <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2 mt-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 block mb-1.5">Background Style</span>
-                  <div className="grid grid-cols-4 gap-1">
-                    {bgStyles.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => updateFormData({ backgroundStyle: s.id })}
-                        className={cn(
-                          'flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all duration-150 text-center',
-                          bgStyle === s.id
-                            ? 'border-primary bg-primary/5 shadow-sm'
-                            : 'border-border/40 hover:border-border/80 hover:bg-muted/30'
-                        )}
-                      >
-                        <span className="text-base leading-none">{s.icon}</span>
-                        <span className={cn('text-[9px] font-semibold leading-tight', bgStyle === s.id ? 'text-primary' : 'text-muted-foreground')}>{s.label}</span>
-                      </button>
-                    ))}
+                    {/* Background Style */}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Background Style</p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {bgStyles.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => updateFormData({ backgroundStyle: s.id })}
+                            className={cn(
+                              'flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all duration-150',
+                              bgStyle === s.id
+                                ? 'border-primary bg-primary/5 shadow-sm'
+                                : 'border-border/40 hover:border-border/70 hover:bg-muted/30'
+                            )}
+                          >
+                            <span className="text-base leading-none">{s.icon}</span>
+                            <span className={cn('text-[9px] font-semibold', bgStyle === s.id ? 'text-primary' : 'text-muted-foreground')}>
+                              {s.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )
-            })()}
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -524,19 +562,24 @@ export function LogosStylePanel({
             </div>
             <div className="flex items-center gap-1.5">
               <div className="flex">
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: YI_BRAND.primary }} />
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1" style={{ backgroundColor: YI_BRAND.secondary }} />
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: orgPrimary }} />
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1" style={{ backgroundColor: orgSecondary }} />
               </div>
-              <span className="text-[10px] text-muted-foreground">Yi Brand</span>
-              <Switch aria-label="Enable Yi brand colors" checked={isBrandMode} onCheckedChange={handleBrandToggle} />
+              <span className="text-[10px] text-muted-foreground">Brand</span>
+              <Switch aria-label="Enable brand colors" checked={isBrandMode} onCheckedChange={handleBrandToggle} />
             </div>
           </div>
 
-          {/* Brand ON: compact confirmed bar */}
+          {/* Brand ON: compact confirmed bar showing actual org colors */}
           {isBrandMode && (
             <div className="mx-2 mb-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/15">
               <Check className="h-3 w-3 text-primary shrink-0" />
-              <span className="text-[11px] text-primary font-medium">Yi Blue #005B96 · Orange #FF6B35</span>
+              <div className="flex items-center gap-1">
+                <div className="w-3.5 h-3.5 rounded-sm border border-white/20" style={{ backgroundColor: orgPrimary }} />
+                <div className="w-3.5 h-3.5 rounded-sm border border-white/20" style={{ backgroundColor: orgSecondary }} />
+                {orgAccent && <div className="w-3.5 h-3.5 rounded-sm border border-white/20" style={{ backgroundColor: orgAccent }} />}
+              </div>
+              <span className="text-[11px] text-primary font-medium">Brand colors active</span>
             </div>
           )}
 
@@ -544,8 +587,8 @@ export function LogosStylePanel({
           {!isBrandMode && (
             <div className="px-2 pb-2 space-y-1.5">
               {([
-                { key: 'primary', label: 'Primary', input: primaryInput, setInput: setPrimaryInput, fallback: YI_BRAND.primary, placeholder: '#1a2744 or navy blue' },
-                { key: 'secondary', label: 'Secondary', input: secondaryInput, setInput: setSecondaryInput, fallback: YI_BRAND.secondary, placeholder: '#FF6B35 or coral' },
+                { key: 'primary', label: 'Primary', input: primaryInput, setInput: setPrimaryInput, fallback: orgPrimary, placeholder: '#1a2744 or navy blue' },
+                { key: 'secondary', label: 'Secondary', input: secondaryInput, setInput: setSecondaryInput, fallback: orgSecondary, placeholder: '#FF6B35 or coral' },
                 { key: 'accent', label: 'Tertiary', input: tertiaryInput, setInput: setTertiaryInput, fallback: '#00A0B0', placeholder: '#00A0B0 or teal' },
               ] as const).map(({ key, label, input, setInput, fallback, placeholder }) => (
                 <div key={key} className="flex items-center gap-1.5">

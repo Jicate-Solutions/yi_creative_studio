@@ -90,9 +90,9 @@ FULL DESCRIPTION: ${input.details || ''}
 ${input.venue ? `VENUE: ${input.venue}` : ''}
 ${input.targetAudience ? `TARGET AUDIENCE: ${input.targetAudience}` : ''}
 ADDITIONAL CONTEXT: ${input.additionalContext || ''}
-${input.additionalVisualBrief ? `USER VISUAL DIRECTION (HIGHEST PRIORITY — this is the user's direct creative brief for the background visual):
+${input.additionalVisualBrief ? `USER VISUAL DIRECTION (HIGHEST PRIORITY — this overrides all default concept preferences below):
 "${input.additionalVisualBrief}"
-Your CONCEPT 1 (SCENE-BASED) MUST reflect this visual direction. The user has explicitly described what they want to see.` : ''}
+IMPORTANT: If this direction specifies a non-scene style (abstract, geometric, bokeh, dark, illustrated, texture), OVERRIDE the SCENE-BASED preference. Select CONCEPT 2 or CONCEPT 3 instead. Abstract gradients, geometric patterns, and non-photorealistic styles ARE acceptable when the user explicitly requests them.` : ''}
 THEME: ${input.theme || ''}
 STYLE: ${input.style || ''}
 HOST ORGANIZATION: ${input.organizationName || ''} (For branding only - NOT the event theme)

@@ -98,6 +98,30 @@ const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
     'BACKGROUND STYLE: TEXTURED MATERIAL — A physical material surface as the primary backdrop: marble with veining, woven fabric, paper grain, brushed metal, or wood grain — tinted in the brand palette. Tactile, premium, analogue warmth.',
   split:
     'BACKGROUND STYLE: SPLIT LAYOUT — Divide the canvas vertically: left 50% is an event-relevant scene or atmospheric photo; right 50% is a clean solid brand-color panel. Text sits on the solid panel side for maximum readability. A sharp or soft diagonal edge separates the two halves.',
+  neon:
+    'BACKGROUND STYLE: NEON GLOW — Deep near-black base with vivid electric neon light trails, glowing grid lines, bioluminescent halos, and pulsing light streaks in the brand accent color. Neon signs, glowing circuit lines, or light arcs float in the darkness. High-contrast, electric, futuristic. No realistic scenes or people.',
+  duotone:
+    'BACKGROUND STYLE: DUOTONE — Map the entire image to exactly TWO colors from the brand palette: shadows become the primary brand color, highlights become the secondary/accent color. The result is a bold, high-contrast monochromatic poster feel. Can include a subtle underlying scene silhouette or abstract shapes, all rendered purely in the two chosen colors.',
+  glassmorphism:
+    'BACKGROUND STYLE: GLASSMORPHISM — Multiple translucent frosted-glass panels layered over a soft gradient or blurred background. Each panel has subtle white border glow, soft shadow, and 60–80% blur transparency. Background uses soft gradient blobs or bokeh in brand colors. Clean, modern, premium depth. No realistic scenes or people.',
+  watercolor:
+    'BACKGROUND STYLE: WATERCOLOR — Soft organic paint washes and flowing pigment spreads in the brand palette. Wet-on-wet watercolor bleeds, delicate brush strokes, visible paper grain texture underneath. Colors blend and bleed naturally at the edges. Gentle, artistic, human warmth. No photorealistic elements — purely painterly.',
+  mandala:
+    'BACKGROUND STYLE: MANDALA & INDIAN MOTIFS — Intricate radial mandala pattern as the central background element, with detailed geometric petal layers, paisley motifs, and traditional Indian floral ornaments in the brand palette. Rich, ornate, symmetrical. Gold or accent color outlines on darker base. Suitable for cultural, festival, and spiritual events.',
+  custom: '', // Dynamic — built at call time via buildCustomThemeGuidance()
+}
+
+function buildCustomThemeGuidance(contentStart: number, contentEnd: number, canvasHeight: number): string {
+  const focalEnd = Math.floor(contentStart + (contentEnd - contentStart) * 0.4)
+  const focalStartPx = Math.floor(canvasHeight * contentStart / 100)
+  const focalEndPx = Math.floor(canvasHeight * focalEnd / 100)
+  const textEndPx = Math.floor(canvasHeight * contentEnd / 100)
+  return `BACKGROUND STYLE: AI CUSTOM THEME — ` +
+    `Full-canvas vivid gradient background (your chosen colors matching the event mood). ` +
+    `FOCAL VISUAL: ONE clean iconic symbol/object at ${contentStart}%–${focalEnd}% (${focalStartPx}px–${focalEndPx}px vertical) — centred, bold, flat or semi-realistic icon/motif that best represents THIS event theme. ` +
+    `NOT a realistic scene. NOT a person. NOT generic imagery. A symbol, object, or motif (e.g. wheat sheaf, blood drop, gear, circuit board, book, trophy, etc.). ` +
+    `TEXT ZONE: Event headline, tagline, date/venue card at ${focalEnd}%–${contentEnd}% (${focalEndPx}px–${textEndPx}px) — BELOW the focal visual. ` +
+    `Gradient fills the ENTIRE canvas. Nothing photorealistic in the background.`
 }
 
 function buildBackgroundStyleOverride(
@@ -106,6 +130,7 @@ function buildBackgroundStyleOverride(
   _designContext?: DesignContextForPrompt
 ): string {
   if (!style || style === 'scene') return sceneBackground
+  if (style === 'custom') return '' // custom guidance injected separately via buildCustomThemeGuidance()
   return BACKGROUND_STYLE_GUIDANCE[style] || sceneBackground
 }
 
@@ -869,13 +894,15 @@ export function buildEventPosterPrompt(
   // Scaffold shows EXACT bar heights → CONTENT_START/END must match or Gemini gets contradictory signals.
   // headerHeight (from logoStripZoneCoordinates) = actual rendered header height in Sharp (e.g. ~350px on 1440h)
   // footerBarHeight = actual rendered footer height in Sharp (e.g. ~259px on 1440h)
-  // 10px buffer above/below the bars so text never butts against the bar edge.
+  // Buffer above/below bars so text never touches bar edges.
+  // v49.2: Footer buffer raised to 3% of canvas (~43px) — 10px was only 0.7%, bullets were clipping into footer strip.
+  const FOOTER_BUFFER_PX = Math.round(CANVAS_HEIGHT * 0.05) // 72px @ 1440h — v49.3: raised from 3% (43px), text still clipped at 3%
   const CONTENT_START = Math.max(
     Math.ceil(((headerHeight + 10) / CANVAS_HEIGHT) * 100),
     40  // v47.1: 40% hard floor — logo bars + float cards occupy ~40% of canvas top
   )
   const CONTENT_END = footerBarHeight > 0
-    ? Math.floor(((CANVAS_HEIGHT - footerBarHeight - 10) / CANVAS_HEIGHT) * 100) // e.g. (1440-259-10)/1440 = 81%
+    ? Math.floor(((CANVAS_HEIGHT - footerBarHeight - FOOTER_BUFFER_PX) / CANVAS_HEIGHT) * 100)
     : (hasSpeakerPhotoEarly ? 65 : 70)   // fallback if no footer bar info
   const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 25% available for text (or 20% with speaker photo)
 
@@ -1820,7 +1847,25 @@ Integrate this creative twist prominently into the background or decorative elem
 
   // v47.0: Creative Vision Header — placed BEFORE spatial constraints so Gemini reads
   // the design concept (color story, visual anchor, mood) before entering compliance mode.
-  const creativeVisionHeader = buildCreativeVisionHeader(
+  const creativeVisionHeader = options.backgroundStyle === 'custom'
+    ? `<instruction>
+(DO NOT RENDER — creative brief for visual composition only)
+╔══ AI CUSTOM THEME — ${eventName} ══╗
+CONCEPT: You are the creative director. Based on the event details, autonomously design this poster.
+LAYOUT (TOP TO BOTTOM — STRICTLY FOLLOW PIXEL ZONES):
+  • 0–${CONTENT_START}% (0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): Logo bar safe zone — gradient fills this area, NO visual objects, NO text here
+  • ${CONTENT_START}–${Math.floor(CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4)}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}–${Math.floor(CANVAS_HEIGHT * (CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4) / 100)}px): FOCAL VISUAL ZONE — place ONE clean iconic symbol/object that represents this event (NOT a person, NOT a realistic scene)
+  • ${Math.floor(CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4)}–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4) / 100)}–${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}px): TEXT ZONE — headline, tagline, date/venue card
+  • ${CONTENT_END}–100% (${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}–${CANVAS_HEIGHT}px): Footer safe zone — gradient only, NO text
+BACKGROUND: Vivid full-canvas gradient — choose 2 colors that perfectly match the event mood
+FOCAL VISUAL: ONE clean, bold, flat or semi-realistic ICON/SYMBOL/OBJECT (e.g. wheat sheaf, blood drop, gear, book) — centred, prominent, isolated on the gradient
+TEXT: Bold typography for headline, smaller for tagline and details — all BELOW the focal visual
+╚══ BRIEF END ══╝
+Absorb this before reading constraints below.
+</instruction>
+
+`
+    : buildCreativeVisionHeader(
     options.designContext,
     options.resolvedColors,
     eventName
@@ -1839,9 +1884,6 @@ ${pixelPreciseConstraints}
 <!-- ============================================= -->
 
 ${(() => {
-  // v27.0: Build mandatory color enforcement block for ALL color sources
-  // Previously, strong color enforcement only triggered for colorSource === 'custom'.
-  // The ultraProContext.colorPaletteHints were never injected at all.
   const rc = options.resolvedColors
   const bc = options.brandContext
   const primaryHex = rc?.primaryColor || bc?.primaryColor || ''
@@ -1849,13 +1891,29 @@ ${(() => {
   const accentHex = rc?.accentColor || bc?.accentColor || ''
   const ultraProColorHints = options.ultraProContext?.colorPaletteHints || ''
 
+  // v49.1: Detect dark primary colors — prevent filling entire background with dark brand color
+  const hexLum = (hex: string): number => {
+    try {
+      const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255
+      const lin = (c: number) => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4)
+      return 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b)
+    } catch { return 0.5 }
+  }
+  const primaryIsDark = primaryHex ? hexLum(primaryHex) < 0.18 : false
+
   if (primaryHex) {
+    const primaryRole = primaryIsDark
+      ? `headline text, key accent details, and dark gradient anchor only. NEVER use as the solid background fill — the background MUST include BRIGHT, VIVID, well-lit areas with energy and warmth`
+      : `dominant background color, gradients, and shapes`
+    const bgBrightNote = primaryIsDark
+      ? `\nBRIGHTNESS REQUIREMENT: The background MUST be visually bright and vibrant. Use ${secondaryHex || 'secondary color'} and lighter tones for large background areas. Dark ${primaryHex} only appears in text, borders, and accent highlights — NOT as the background fill.`
+      : ''
     return `<instruction>
 MANDATORY COLOR PALETTE — NON-NEGOTIABLE:
-PRIMARY: ${primaryHex} — dominant background color, gradients, and shapes
+PRIMARY: ${primaryHex} — ${primaryRole}
 SECONDARY: ${secondaryHex || 'complementary'} — MUST appear on ALL headline text and key visual accents
 ACCENT: ${accentHex || 'contrast color'} — body text, atmospheric elements, and small highlights
-
+${bgBrightNote}
 The secondary color ${secondaryHex} MUST be visibly present in the design. A poster missing this color is REJECTED.
 Do NOT substitute these colors with AI default palettes, navy/gold, or earth tones.
 ${ultraProColorHints ? `\nULTRA-PRO COLOR DIRECTION: ${ultraProColorHints}` : ''}
@@ -1888,7 +1946,7 @@ A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 
 ${initiativeColorContext ? `
 ${initiativeColorContext}
 
-` : ''}${options.ultraProContext?.visualScene
+` : ''}${(options.ultraProContext?.visualScene && options.backgroundStyle !== 'custom')
       ? `<instruction>(DO NOT RENDER — visual scene blueprint for composition only. NEVER convert any phrase here into visible text, label, caption, banner, or annotation on the image. Visualize silently.)
 VISUAL SCENE (ULTRA-PRO DIRECTION — DRAW THIS, DO NOT WRITE THIS):
 ${stripHexCodes(options.ultraProContext.visualScene)}
@@ -1939,31 +1997,37 @@ ${logoContext}
 <!-- TEXT CONTENT (v46.0 — RENDER ALL OF THIS)   -->
 <!-- ============================================= -->
 
+<instruction>(DO NOT RENDER AS TEXT) TEXT FIDELITY RULE — HIGHEST PRIORITY: Every text value inside <text_content> MUST be rendered EXACTLY as provided. Copy each string character-for-character. Do NOT paraphrase, summarise, translate, alter spelling, or invent any words. If you cannot fit the text, reduce font size — never substitute or omit words.</instruction>
+
 <text_content>
   <text role="headline"
     weight="ultra-bold-900"
     size="DOMINANT — fill 70%+ canvas width, towering scale, each letter tall and commanding"
     case="ALL-CAPS for maximum power — OR split-case drama: key word(s) in UPPERCASE at 130% size, secondary words in smaller caps or title case for visual tension (e.g. 'NATURE bloom FEST' or 'KNOWLEDGE light DAY')"
     effects="APPLY AT LEAST 2: gradient-color-fill (sweep primary→accent across letters) | 3D-extrusion-with-depth-shadow | per-word-color (each word different palette color) | outline-stroke-in-contrast-color | subtle-inner-glow on hero word"
+    render="VERBATIM — do NOT alter, paraphrase, or invent words"
     zone="${textZones.headline.start}%–${textZones.headline.end}%">${eventName}</text>
 ${eventDescription ? `  <text role="tagline"
     weight="semibold-600"
     size="medium — 35–45% of headline height"
     case="Sentence case (first word capitalised only) for a warm conversational feel — OR Title Case for formal events — NEVER all-caps (reserved for headline only)"
     effects="clean italic for elegance | single accent-color word | wide letter-spacing for a premium airy look"
+    render="VERBATIM — copy these EXACT words: '${eventDescription}' — do NOT paraphrase, shorten, translate, or invent any words. Reduce font size if needed, never change the text."
     zone="${textZones.tagline.start}%–${textZones.tagline.end}%">${eventDescription}</text>` : ''}
 ${(formattedDateTime || venueStr) ? `  <text role="date_venue"
     style="INFO-CARD — frosted-glass panel | dark pill badge | translucent rounded block — NEVER plain bare text"
-    icons="🗓 before date/time · 📍 before venue"
+    icons="📅 before date · 🕐 before time range · 📍 before venue — use ONLY these three icons"
     weight="medium"
     case="Mixed case as formatted (e.g. 'Fri, 5 Jun, 2026') — do NOT force all-caps; readability is priority"
     effects="card has subtle drop-shadow or glow edge; HIGH-CONTRAST text inside the card"
+    render="VERBATIM — copy date and venue strings exactly as given"
     zone="${textZones.dateVenue.start}%–${textZones.dateVenue.end}%">${[formattedDateTime, venueStr].filter(Boolean).join(' · ')}</text>` : ''}
 ${eventNote ? `  <text role="additional_details"
     style="chip row | icon-led bullets | 2-col grid — NEVER a plain paragraph"
     weight="regular-to-medium"
     case="Title Case for each chip/item label (e.g. 'Tree Plantation', 'Seed Ball Workshop') — short, scannable"
     effects="each chip has a small accent icon; subtle background pill behind each item"
+    render="VERBATIM — render each item label exactly as given, do not rephrase"
     zone="${textZones.additionalDetails.start}%–${textZones.additionalDetails.end}%">${eventNote}</text>` : ''}
 </text_content>
 
@@ -1990,7 +2054,7 @@ ${eventNote ? `  <text role="additional_details"
     1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.29):
   - CONTENT ZONE: ${CONTENT_START}% to ${CONTENT_END}% of canvas height (${Math.floor(1440 * CONTENT_START / 100)}px to ${Math.floor(1440 * CONTENT_END / 100)}px for 1440px canvas)
   - ALL TEXT MUST FIT within this ${CENTER_ZONE_HEIGHT}% vertical zone (${Math.floor(1440 * CENTER_ZONE_HEIGHT / 100)}px available height)
-  - HEADER ZONE (0-${CONTENT_START}%): FORBIDDEN for text - reserved for logo overlays
+  - HEADER ZONE (0-${CONTENT_START}%, 0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): FORBIDDEN — NO text, NO decorative UI elements, NO corner frames, NO dot patterns, NO geometric ornaments — logo overlays sit here
   - ⚠️ NEVER render any logo, logo placeholder, "LOGO" text, emoji icon (🍀, 🏷️, etc.), "[LOGO]", or any brand mark in the image — logos are composited programmatically AFTER generation. Leave header/footer zones as pure, clean background artwork only.
   ${hasSpeakerPhoto ? `- SPEAKER OVERLAY ZONE (60%-90%): FORBIDDEN for text - reserved for speaker photo overlays (864px to 1296px)` : ''}
   - FOOTER ZONE (${CONTENT_END}%-100%): FORBIDDEN for text - reserved for footer bar
@@ -2037,10 +2101,16 @@ ${contentDensityAnalysis.density === 'dense' ? `
   TAGLINE: Semi-bold (600). 35–45% of headline scale. Sentence case. One accent-color word or clean italic for contrast. Compact gap below headline.
 
   DATE/VENUE (info-card): NEVER bare floating text. Render inside a DESIGNED CONTAINER:
-    • Frosted-glass rounded card (60–80% opacity, subtle blur, calendar 🗓 + pin 📍 icons)
+    • Frosted-glass rounded card (60–80% opacity, subtle blur)
     • Dark translucent badge with glowing border edge
     • Gradient-fill pill with high-contrast white text inside
     Card must have a drop-shadow or glow so it visually floats above the background.
+    CARD LAYOUT — STRICTLY 2 LINES:
+      LINE 1: 📅 [date portion]  🕐 [time range portion]
+            (split the datetime string at the | separator: 📅 goes before date, 🕐 goes before time range)
+      LINE 2: 📍 [venue name]
+    ICON RULES: Use ONLY 📅 for date, 🕐 for time, 📍 for venue. Do NOT use 🗓, ♪, ⏰ or any other icon.
+    The 📍 pin icon MUST be at the START of LINE 2, NOT at the end of LINE 1. Both lines are centred inside the card.
 
   ADDITIONAL DETAILS: Scannable chip row, icon-led bullets, or compact 2-column grid. Never a plain paragraph.
 
@@ -2131,7 +2201,7 @@ ${contentDensityAnalysis.density === 'dense' ? `
 ${eventDescription ? `- TAGLINE ZONE (<text_zone id="tagline">): Event description rendering area
   - RULE: Simple gradient background only, NO competing visual elements
 ` : ''}
-- Decorative elements (phones, speedometers, icons) should be placed in CORNERS and EDGES
+- Decorative elements (phones, speedometers, icons) should be placed in CORNERS and EDGES of the CONTENT ZONE ONLY (${CONTENT_START}%–${CONTENT_END}%) — NEVER in the header (0–${CONTENT_START}%) or footer (${CONTENT_END}–100%) zones
 - Use SUBTLE OPACITY for background elements near text zones
 - If element conflicts with any <text_zone>, REMOVE the element
 
@@ -2142,10 +2212,11 @@ LAYERING SPECIFICATION:
 ${hasFooterContent && footerReservePercent > 0 ? `
 
 6. FORBIDDEN ZONES (CRITICAL):
-  - <forbidden_zone id="header_branding"> (top ${CONTENT_START}%): ABSOLUTELY NO text or focal elements
-  - <forbidden_zone id="footer_bar"> (bottom ${100 - CONTENT_END}%): ABSOLUTELY NO content
-  - These zones will be covered by overlays - anything placed there will be invisible
-  - Background (solid colors, gradients) may flow through these zones
+  - <forbidden_zone id="header_branding"> (top ${CONTENT_START}%, 0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): ABSOLUTELY NO text, focal elements, decorative UI chrome, corner brackets, corner frames, dot grids, geometric ornaments, or icons of any kind — ONLY clean gradient/color background continuation
+  - <forbidden_zone id="footer_bar"> (bottom ${100 - CONTENT_END}%, ${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}–${CANVAS_HEIGHT}px): ABSOLUTELY NO content, text, or decorative elements — clean gradient background only
+  - These zones will be covered by logo bar overlays — anything placed there will be invisible or clipped
+  - Background gradient/color texture MAY flow through these zones seamlessly
+  - ⚠️ Corner decorations, dot patterns, bracket frames MUST stay inside the CONTENT ZONE (${CONTENT_START}%–${CONTENT_END}%) only — NEVER in header or footer zones
 ` : ''}
 ${customFieldsText.length > 0 ? `
 
@@ -2248,16 +2319,28 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
 ALL text content zone: ${CONTENT_START}%–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px–${_contentEndPx}px).
 Anything outside this zone is covered by logo overlays and will be invisible.
 
-${/* v26.0: Inject storytelling narrative BEFORE decorative elements */''}${options.designContext?.storytellingContext ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
+${/* v26.0: Inject storytelling narrative BEFORE decorative elements — skipped for custom theme */''}${(options.backgroundStyle !== 'custom' && options.designContext?.storytellingContext) ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
 
-` : ''}${decorativeElementsContext}
+` : ''}${options.backgroundStyle !== 'custom' ? decorativeElementsContext : ''}
 
 ${backgroundSettingContext}
 
 ${contentDensityGuidance ? `${contentDensityGuidance}
 
+` : ''}${(options.backgroundStyle && options.backgroundStyle !== 'scene') ? `
+<instruction>(DO NOT RENDER AS TEXT) BACKGROUND STYLE ENFORCEMENT — HIGHEST PRIORITY:
+The user has selected "${options.backgroundStyle.toUpperCase()}" background style. This OVERRIDES any scene-based visual direction earlier in this prompt.
+${options.backgroundStyle === 'custom'
+  ? buildCustomThemeGuidance(CONTENT_START, CONTENT_END, CANVAS_HEIGHT)
+  : BACKGROUND_STYLE_GUIDANCE[options.backgroundStyle as BackgroundStyleId]}
+DO NOT generate a photorealistic Indian scene. DO NOT place real people in the background unless the style specifically calls for them. The background MUST match the selected style above.
+</instruction>
 ` : ''}VISUAL STYLE:
-${options.designContext?.designStrategy || eventContext.style} with ${colors} color palette.The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style} -vibe(${tg_cat}) with ${tg_align} -aligned layout that commands attention.Event details are clean and readable with supportive icons.The call - to - action button has bold, high contrast styling.Energy level: ${eventContext.energy}.
+${(options.backgroundStyle && options.backgroundStyle !== 'scene')
+  ? (options.backgroundStyle === 'custom'
+      ? buildCustomThemeGuidance(CONTENT_START, CONTENT_END, CANVAS_HEIGHT)
+      : BACKGROUND_STYLE_GUIDANCE[options.backgroundStyle as BackgroundStyleId])
+  : (options.designContext?.designStrategy || eventContext.style)} with ${colors} color palette. The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style}-vibe(${tg_cat}) with ${tg_align}-aligned layout that commands attention. Event details are clean and readable with supportive icons. The call-to-action button has bold, high contrast styling. Energy level: ${eventContext.energy}.
 
 ${options.multiColorTypography ? `
 ${buildMultiColorTypographyInstructions(options.multiColorTypography)}
@@ -2336,11 +2419,14 @@ The goal is a visually stunning poster that immediately communicates "${data.eve
       : (sophistication === 'rich' ? ', with a fully integrated, immersive header.' : ', while keeping the top header area clean and simple.')
     }
 
-⚠️ FINAL ZONE ENFORCEMENT (NON-NEGOTIABLE):
-ANY text above ${CONTENT_START}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px) WILL BE PHYSICALLY CUT OFF by logo overlays.
-ANY text below ${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}px) WILL BE PHYSICALLY CUT OFF by footer overlays.
-This is a hardware constraint — not a design guideline. Text outside ${CONTENT_START}%-${CONTENT_END}% is INVISIBLE in the final output.
-ALL text elements MUST be between ${CONTENT_START}% and ${CONTENT_END}% from the top edge. No exceptions.
+⚠️ FINAL ZONE ENFORCEMENT (NON-NEGOTIABLE — READ LAST, APPLY FIRST):
+ANY text above ${CONTENT_START}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px) WILL BE PHYSICALLY CUT OFF by header overlays.
+ANY text below ${CONTENT_END}% (${_contentEndPx}px) WILL BE PHYSICALLY CUT OFF by footer overlays.
+This is a hardware compositing constraint — NOT a design guideline. Overflow is INVISIBLE.
+
+⚠️ DATE/VENUE CARD HARD STOP: The bottom edge of the info card (including its padding/shadow) MUST be fully above ${_contentEndPx - 20}px from the top. If the card would exceed this, reduce font size and card padding — do NOT allow it to cross ${_contentEndPx}px under any circumstances.
+
+ALL text elements MUST be between ${CONTENT_START}% and ${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px–${_contentEndPx}px). No exceptions. No partial overflows.
 `.trim()
 }
 
