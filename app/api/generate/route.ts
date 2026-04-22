@@ -77,7 +77,7 @@ import {
 import { getTemplateForFormat } from '@/lib/prompts/knowledge-base'
 import { compileFormData, summarizeCompiledData, buildSceneNarrative } from '@/lib/prompts/services/form-data-compiler'
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
-import { generateCreativeDirectorBrief } from '@/lib/prompts/services/creative-director'
+import { generateCreativeDirectorBrief, generateSpotlightCreativeBrief } from '@/lib/prompts/services/creative-director'
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
@@ -307,6 +307,8 @@ export async function POST(request: NextRequest) {
       thinkingLevel, // Flash 3.1 only: 'minimal' (fast) | 'High' (quality)
       useImageSearch, // Flash 3.1 only: whether to enable Google Image Search grounding
       promptStyle, // v31.0: Named creative mode (auto, creative, stunning, cinematic, bold, elegant, minimal)
+      creativeMode, // 'spotlight' — triggers Spotlight Creative Brief instead of Creative Director
+      backgroundStyle, // v47.1: Background visual treatment (scene, abstract, dark, illustrated, bokeh, geometric, texture, split)
     } = body as {
       prompt: string
       model: string
@@ -334,6 +336,8 @@ export async function POST(request: NextRequest) {
       thinkingLevel?: 'minimal' | 'High' // Flash 3.1 only: thinking mode control
       useImageSearch?: boolean // Flash 3.1 only: enable Google Image Search grounding (default true)
       promptStyle?: string // v31.0: Prompt style ID (auto, creative, stunning, cinematic, bold, elegant, minimal)
+      creativeMode?: string // 'spotlight' | undefined
+      backgroundStyle?: string // v47.1: background style id
     }
 
     // SECURITY: Verify user has editor+ role for this specific organization
@@ -1207,24 +1211,49 @@ export async function POST(request: NextRequest) {
         additionalVisualBrief: compiledData.visualDirection || undefined,
       }
 
-      // v45.0: Creative Director step — only for yi_spotlight vertical
-      // Runs BEFORE Design Intelligence so the brief is injected as HIGHEST PRIORITY visual direction
-      if (verticalSlug === 'yi_spotlight' && !compiledData.visualDirection) {
-        console.log('[Creative Director] Generating designer-level visual concept for Spotlight tab...')
+      // v47.1: Background style → inject visual direction into DI brief BEFORE DI runs
+      // Only set when no user visual direction already exists (don't override Spotlight Brief)
+      if (backgroundStyle && backgroundStyle !== 'scene' && !designBrief.additionalVisualBrief) {
+        const BG_STYLE_DI_HINTS: Record<string, string> = {
+          abstract:    'BACKGROUND DIRECTION: Generate ABSTRACT visual elements — flowing color gradients, geometric shapes, fluid art in the brand palette. NO realistic scenes, people, or outdoor/indoor environments. Typography-first composition where abstract form supports the headline.',
+          dark:        'BACKGROUND DIRECTION: Generate DARK CINEMATIC visual elements — deep near-black atmosphere with dramatic light rays, glowing halos, and bokeh particles using the brand accent color as the light source. Moody, premium, high-contrast. People and environments are silhouettes or shadows only.',
+          illustrated: 'BACKGROUND DIRECTION: Generate FLAT ILLUSTRATED visual elements — vector-style icons, bold graphic shapes, and clean art related to the event theme. Solid fills, minimal shading, no photorealism. Modern graphic-design aesthetic.',
+          bokeh:       'BACKGROUND DIRECTION: Generate BOKEH & LIGHT visual elements — soft out-of-focus atmosphere with glowing light orbs, warm sparkle particles, and ambient halos in the brand palette. All elements are blurred and dreamy, not sharp or photorealistic.',
+          geometric:   'BACKGROUND DIRECTION: Generate GEOMETRIC PATTERN visual elements — bold shapes (hexagons, triangles, diagonal bands, tessellation grids) in the brand palette. Structural, modern, tech-forward. No organic or representational imagery.',
+          texture:     'BACKGROUND DIRECTION: Generate TEXTURED MATERIAL visual elements — the background is a physical material surface (marble veining, woven fabric, paper grain, or brushed metal) tinted in the brand palette. Tactile, analogue, premium. No scenes or people.',
+          split:       'BACKGROUND DIRECTION: Generate a SPLIT LAYOUT — left half is an event-relevant atmospheric scene or illustration; right half is a clean solid brand-color panel where all text will be placed. Sharp or soft diagonal edge separates the two halves.',
+        }
+        designBrief.additionalVisualBrief = BG_STYLE_DI_HINTS[backgroundStyle]
+      }
+
+      // Creative brief step — runs BEFORE Design Intelligence so brief is injected as HIGHEST PRIORITY
+      // • creativeMode === 'spotlight' → Spotlight Creative Brief (single focal visual)
+      // • verticalSlug === 'yi_spotlight' → legacy Creative Director (backward compat)
+      if ((creativeMode === 'spotlight' || verticalSlug === 'yi_spotlight') && !compiledData.visualDirection) {
+        const isSpotlight = creativeMode === 'spotlight'
+        console.log(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Generating visual concept...`)
         try {
-          const cdResult = await generateCreativeDirectorBrief({
+          const briefInput = {
             eventName: compiledData.eventName || '',
             eventDescription: compiledData.description || compiledData.tagline || '',
             venue: compiledData.venue || '',
             targetAudience: compiledData.targetAudience || '',
             tagline: compiledData.tagline || '',
             eventType: formDataContent.eventType || '',
-          })
+          }
+
+          const cdResult = isSpotlight
+            ? await generateSpotlightCreativeBrief(
+                briefInput,
+                ((adjustedUserFormData as Record<string, unknown>)?.theme as 'tricolor' | 'brand' | 'gradient') || 'tricolor'
+              )
+            : await generateCreativeDirectorBrief(briefInput)
+
           // Inject as highest-priority visual brief
           designBrief.additionalVisualBrief = cdResult.fullBrief
-          console.log('[Creative Director] Brief injected:', cdResult.fullBrief.substring(0, 150) + '...')
+          console.log(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Brief injected:`, cdResult.fullBrief.substring(0, 150) + '...')
         } catch (cdErr) {
-          console.error('[Creative Director] Non-blocking error:', cdErr)
+          console.error(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Non-blocking error:`, cdErr)
           // Continue without brief — fallback to normal generation
         }
       }
@@ -1484,6 +1513,7 @@ export async function POST(request: NextRequest) {
           // NEW v3.1: Theme & style preferences
           theme: effectiveDesignData?.theme,
           style: effectiveDesignData?.style,
+          backgroundStyle: backgroundStyle as import('@/lib/prompts/services/yi-prompt-builder/types').BackgroundStyleId | undefined,
 
           // NEW v3.1: Layout zone configuration (header/footer heights)
           layout: layoutConfig ? {
@@ -2998,105 +3028,8 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
       }
     }
 
-    // ========================================================
-    // EVENT TEXT OVERLAY (v39.0: Sharp-rendered detail text)
-    // Renders date, venue, prize structure, registration info
-    // with pixel-perfect positioning — replaces Gemini text for details
-    // ========================================================
-    if (formatId === 'event_poster' && imageUrl) {
-      try {
-        const { renderEventTextOverlay } = await import('@/lib/sharp/event-text-overlay')
-        const sharpLib = (await import('sharp')).default
-
-        // Get image buffer from current imageUrl
-        let eventTextBuffer: Buffer
-        if (imageUrl.startsWith('data:')) {
-          const base64Data = imageUrl.split(',')[1]
-          eventTextBuffer = Buffer.from(base64Data, 'base64')
-        } else {
-          const resp = await fetch(imageUrl)
-          eventTextBuffer = Buffer.from(await resp.arrayBuffer())
-        }
-
-        // Format date/time for display
-        const eventDate = adjustedUserFormData?.eventDate as string | undefined
-        const eventTime = adjustedUserFormData?.eventTime as string | undefined
-        const eventEndTime = adjustedUserFormData?.eventEndTime as string | undefined
-        let dateTimeStr = ''
-        if (eventDate) {
-          try {
-            const d = new Date(eventDate + 'T00:00:00')
-            dateTimeStr = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-          } catch { dateTimeStr = eventDate }
-        }
-        const formatTime = (t: string) => {
-          const [h, m] = t.split(':').map(Number)
-          const ampm = h >= 12 ? 'PM' : 'AM'
-          const h12 = h % 12 || 12
-          return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
-        }
-        if (eventTime) {
-          // v43.1: Include endTime if provided — "3:00 PM – 5:00 PM"
-          const timeStr = eventEndTime
-            ? `${formatTime(eventTime)} – ${formatTime(eventEndTime)}`
-            : formatTime(eventTime)
-          dateTimeStr += ` | ${timeStr}`
-        }
-
-        const venue = (adjustedUserFormData?.venue as string) || ''
-        const additionalDetails = (adjustedUserFormData?.additionalDetails as string) || ''
-        const registrationInfo = (adjustedUserFormData?.registrationInfo as string) || ''
-        // v41.6: Sharp renders headline — Gemini only generates background
-        const eventNameStr = (adjustedUserFormData?.eventName as string) || ''
-        // v43.1: Use eventTagline (the dedicated tagline field) not eventDescription
-        // Fallback to eventDescription only if tagline field wasn't filled
-        const taglineStr = (adjustedUserFormData?.eventTagline as string) || (adjustedUserFormData?.eventDescription as string) || ''
-
-        // Speakers without photos — render their names in the text overlay
-        // (speakers WITH photos are handled by the photo overlay which draws the circle + name below it)
-        const speakersForText = (speakerPhoto?.speakers ?? [])
-          .filter(s => !s.photoUrl && s.name?.trim())
-          .map(s => ({ name: s.name.trim(), designation: s.designation?.trim() || undefined }))
-
-        const formatDims = selectedFormat
-        const cw = formatDims?.width || 1080
-        const ch = formatDims?.height || 1440
-
-        // Brand colors — use resolvedColors from earlier in the pipeline
-        const primaryColor = resolvedColors?.primaryColor || '#107023'
-        const secondaryColor = resolvedColors?.secondaryColor || '#fcff33'
-        const accentColor = resolvedColors?.accentColor || '#faf9f4'
-
-        const overlayResult = await renderEventTextOverlay(
-          eventTextBuffer,
-          {
-            headline: eventNameStr || undefined,    // v41.6: Sharp-rendered, replaces Gemini headline
-            tagline: taglineStr || undefined,        // v41.6: Sharp-rendered tagline
-            dateTime: dateTimeStr || undefined,
-            venue: venue || undefined,
-            additionalDetails: additionalDetails || undefined,
-            registrationInfo: registrationInfo || undefined,
-            speakers: speakersForText.length > 0 ? speakersForText : undefined,
-          },
-          {
-            canvasWidth: cw,
-            canvasHeight: ch,
-            // v44.0: Start at 25% (content zone top) so the scrim fully covers
-            // the area where Gemini also renders the headline (25-35%).
-            // Previously 40% left a 40-216px gap showing Gemini's headline above Sharp's re-render.
-            renderZone: { startPercent: 25, endPercent: 83 },
-            brandColors: { primary: primaryColor, secondary: secondaryColor, accent: accentColor },
-          }
-        )
-
-        // Update imageUrl with new buffer
-        const overlayBase64 = overlayResult.toString('base64')
-        imageUrl = `data:image/png;base64,${overlayBase64}`
-        console.log('[Event Text Overlay] ✅ Applied Sharp-rendered event details')
-      } catch (eventTextError) {
-        console.error('[Event Text Overlay] ❌ Failed (non-fatal):', eventTextError)
-      }
-    }
+    // v46.0: Event text is now rendered by Gemini as part of the design (removed Sharp text overlay)
+    // Gemini receives <text_content> tags with actual event data in the prompt builder
 
     // ========================================================
     // SPEAKER PHOTO OVERLAY (v5.0: Multi-Speaker Support)

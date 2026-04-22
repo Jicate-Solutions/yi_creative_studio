@@ -77,6 +77,39 @@ import {
 import type { StorytellingOutput } from '../../storytelling-fusion'
 
 // ============================================================
+// BACKGROUND STYLE SYSTEM (v47.1)
+// ============================================================
+
+import type { BackgroundStyleId } from '../types'
+
+const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
+  scene: '',  // Uses Design Intelligence scene description as-is (no override)
+  abstract:
+    'BACKGROUND STYLE: ABSTRACT & GRADIENT — Generate a pure abstract background using flowing color gradients, soft geometric shapes, and fluid art in the brand palette. NO realistic scenes, people, or environments. Let typography be the hero against a clean expressive backdrop.',
+  dark:
+    'BACKGROUND STYLE: DARK CINEMATIC — Deep near-black base with dramatic light rays, glowing halos, bokeh particles, or atmospheric haze using the brand accent color as the light source. High-contrast, moody, cinematic. Text pops powerfully against darkness.',
+  illustrated:
+    'BACKGROUND STYLE: ILLUSTRATED / FLAT — Flat vector-style illustrated elements related to the event theme: simple icons, bold shapes, clean art. Solid fills, minimal shadows, no photorealism. Modern graphic-design aesthetic.',
+  bokeh:
+    'BACKGROUND STYLE: BOKEH & LIGHT — Soft out-of-focus atmosphere with glowing light orbs, warm sparkle particles, and ambient light halos in the brand palette. Elegant, dreamy, premium. Elements are blurred and atmospheric, not sharp.',
+  geometric:
+    'BACKGROUND STYLE: GEOMETRIC PATTERN — Bold geometric shapes (hexagons, triangles, diagonal lines, grid, tessellation) in the brand palette. Modern, structural, tech-forward. Patterns may be full-bleed or concentrated in corners/edges.',
+  texture:
+    'BACKGROUND STYLE: TEXTURED MATERIAL — A physical material surface as the primary backdrop: marble with veining, woven fabric, paper grain, brushed metal, or wood grain — tinted in the brand palette. Tactile, premium, analogue warmth.',
+  split:
+    'BACKGROUND STYLE: SPLIT LAYOUT — Divide the canvas vertically: left 50% is an event-relevant scene or atmospheric photo; right 50% is a clean solid brand-color panel. Text sits on the solid panel side for maximum readability. A sharp or soft diagonal edge separates the two halves.',
+}
+
+function buildBackgroundStyleOverride(
+  style: BackgroundStyleId | undefined,
+  sceneBackground: string,
+  _designContext?: DesignContextForPrompt
+): string {
+  if (!style || style === 'scene') return sceneBackground
+  return BACKGROUND_STYLE_GUIDANCE[style] || sceneBackground
+}
+
+// ============================================================
 // HEX CODE SANITIZATION (v29.0)
 // ============================================================
 
@@ -86,6 +119,94 @@ import type { StorytellingOutput } from '../../storytelling-fusion'
  */
 function stripHexCodes(text: string): string {
   return text.replace(/#[0-9a-fA-F]{6}\b/g, '').replace(/\s{2,}/g, ' ').trim()
+}
+
+// ============================================================
+// CREATIVE VISION HEADER (v47.0)
+// ============================================================
+
+/**
+ * Builds a punchy 5-8 line creative brief that is prepended to the prompt BEFORE
+ * any spatial constraints or zone instructions.
+ *
+ * WHY THIS MATTERS: Gemini processes the prompt from top to bottom. If the very
+ * first thing it reads is "SPATIAL LAYOUT CONSTRAINTS", it enters a compliance
+ * mindset and produces safe, generic backgrounds. By leading with the creative
+ * vision — the feeling, the color story, the iconic element — Gemini approaches
+ * the design as an art director would: concept first, production spec second.
+ *
+ * This is equivalent to a creative director's brief that primes the designer's
+ * imagination before any technical constraints are discussed.
+ */
+function buildCreativeVisionHeader(
+  designContext?: DesignContextForPrompt,
+  resolvedColors?: ResolvedColors,
+  eventName?: string
+): string {
+  if (!designContext && !resolvedColors) return ''
+
+  const lines: string[] = []
+
+  // 1 — Core mood / concept sentence (from moodDirection, 1 sentence max)
+  const mood = designContext?.moodDirection
+  if (mood) {
+    const firstSentence = mood.split(/[.!]/)[0]?.trim()
+    if (firstSentence && firstSentence.length > 10) {
+      lines.push(`VISUAL CONCEPT: ${stripHexCodes(firstSentence)}.`)
+    }
+  }
+
+  // 2 — Color story: primary role + secondary role in plain English
+  const colorStory = designContext?.colorStorytelling?.dominantHues
+  const primary = resolvedColors?.primaryColor
+  const secondary = resolvedColors?.secondaryColor
+  if (primary && secondary) {
+    const primaryRole = colorStory?.[0]?.role
+      ? stripHexCodes(colorStory[0].role).split('—')[0].trim()
+      : 'dominant background and gradients'
+    const secondaryRole = colorStory?.[1]?.role
+      ? stripHexCodes(colorStory[1].role).split('—')[0].trim()
+      : 'highlights and accents'
+    lines.push(`COLOR STORY: ${primary} = ${primaryRole} | ${secondary} = ${secondaryRole}`)
+  } else if (primary) {
+    lines.push(`DOMINANT COLOR: ${primary}`)
+  }
+
+  // 3 — The single iconic visual anchor (most important concrete element)
+  const iconic = designContext?.iconicImagery?.[0]
+  if (iconic) {
+    const anchor = stripHexCodes(iconic).split(',')[0]?.trim()
+    if (anchor && anchor.length > 10) {
+      lines.push(`VISUAL ANCHOR: ${anchor}`)
+    }
+  }
+
+  // 4 — Vibe keywords + energy level
+  const vibes = designContext?.vibeAndMood?.vibeKeywords?.slice(0, 3).join(' · ')
+  const energy = designContext?.vibeAndMood?.energyDynamics
+  if (vibes || energy) {
+    const parts = [vibes, energy ? `${energy} energy` : ''].filter(Boolean)
+    lines.push(`FEEL: ${parts.join(' | ')}`)
+  }
+
+  // 5 — Emotional job (what the viewer should feel)
+  const emotionalJob = designContext?.emotionalJob
+  if (emotionalJob) {
+    lines.push(`VIEWER EMOTION: ${emotionalJob}`)
+  }
+
+  if (lines.length === 0) return ''
+
+  const eventLabel = eventName ? ` — ${eventName}` : ''
+  return `<instruction>
+(DO NOT RENDER — creative brief for visual composition only)
+╔══ CREATIVE BRIEF${eventLabel} ══╗
+${lines.join('\n')}
+╚══ BRIEF END — Technical constraints follow ══╝
+Absorb this brief fully before reading the constraints below. Let it drive every composition decision.
+</instruction>
+
+`
 }
 
 // ============================================================
@@ -654,6 +775,33 @@ export function buildEventPosterPrompt(
     }
   }
 
+  // v46.0: Format date/time for Gemini text rendering (was previously done in route.ts for Sharp)
+  const _rawDate = data.eventDate || (rawData.eventDate as string) || ''
+  const _rawTime = data.eventTime || (rawData.eventTime as string) || ''
+  const _rawEndTime = data.eventEndTime || (rawData.eventEndTime as string) || ''
+  const _fmtTime = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+  }
+  let formattedDateTime = ''
+  if (_rawDate) {
+    try {
+      const d = new Date(_rawDate + 'T00:00:00')
+      formattedDateTime = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    } catch { formattedDateTime = _rawDate }
+    if (_rawTime) {
+      formattedDateTime += ` | ${_rawEndTime ? `${_fmtTime(_rawTime)} – ${_fmtTime(_rawEndTime)}` : _fmtTime(_rawTime)}`
+    }
+  }
+  const venueStr = data.venue || (rawData.venue as string) || ''
+
+  // v44.0: Yi chapter events (membership vertical) use clean minimal backgrounds
+  // Reference: Yi Kanniyakumari Instagram (@yi.kanniyakumari) — corporate, typographic, no photographic scenes
+  const isYiChapterEvent = options.verticalId === 'membership'
+  // v45.0: Yi Spotlight events use creative vibrant backgrounds (Instagram-style)
+  // Reference: @yi.kanniyakumari — gradient + creative overlay + large focal subject + bold typography
+  const isYiSpotlight = options.verticalId === 'yi_spotlight'
+
   // v6.0: Pass resolvedColors and designContext for dynamic color-aware generation
   const eventContext = getEventContext(data.eventType, options.resolvedColors, options.designContext)
 
@@ -722,7 +870,10 @@ export function buildEventPosterPrompt(
   // headerHeight (from logoStripZoneCoordinates) = actual rendered header height in Sharp (e.g. ~350px on 1440h)
   // footerBarHeight = actual rendered footer height in Sharp (e.g. ~259px on 1440h)
   // 10px buffer above/below the bars so text never butts against the bar edge.
-  const CONTENT_START = Math.ceil(((headerHeight + 10) / CANVAS_HEIGHT) * 100)   // e.g. (350+10)/1440 = 25%
+  const CONTENT_START = Math.max(
+    Math.ceil(((headerHeight + 10) / CANVAS_HEIGHT) * 100),
+    40  // v47.1: 40% hard floor — logo bars + float cards occupy ~40% of canvas top
+  )
   const CONTENT_END = footerBarHeight > 0
     ? Math.floor(((CANVAS_HEIGHT - footerBarHeight - 10) / CANVAS_HEIGHT) * 100) // e.g. (1440-259-10)/1440 = 81%
     : (hasSpeakerPhotoEarly ? 65 : 70)   // fallback if no footer bar info
@@ -750,23 +901,23 @@ export function buildEventPosterPrompt(
   const speakerZoneHeight = speakers.length > 0 && !hasSpeakerPhotoEarly ?
     (speakers.length > 2 ? 8 : 6) : 0 // No speaker text zone when photo overlay mode
 
-  // v39.0: Distribute text proportionally within 40-65% content zone (25% total)
-  // Updated zone order: additionalDetails BEFORE speakers
+  // v39.0 zones restored — zones are anchor POSITIONS for Gemini, not size constraints.
+  // Visual quality comes from effects/style attributes in <text_content>, not zone height.
+  // v46.2: +3% soft pad on headline start so tall uppercase letters don't bleed into logo bar.
+  const _headlinePad = 8  // v47.0: increased from 3→8 so tall uppercase headlines clear the logo bar
   const textZones = {
     header: { start: 0, end: CONTENT_START },
-    headline: { start: CONTENT_START, end: CONTENT_START + 6 },          // 40-46%
-    tagline: { start: CONTENT_START + 7, end: CONTENT_START + 10 },      // 47-50%
-    dateVenue: { start: CONTENT_START + 11, end: CONTENT_START + 16 },   // 51-56%
-    // v39.0: Additional details tightened (57-62%)
+    headline: { start: CONTENT_START + _headlinePad, end: CONTENT_START + _headlinePad + 6 },
+    tagline: { start: CONTENT_START + _headlinePad + 7, end: CONTENT_START + _headlinePad + 10 },
+    dateVenue: { start: CONTENT_START + _headlinePad + 11, end: CONTENT_START + _headlinePad + 16 },
     additionalDetails: hasSpeakerPhotoEarly
-      ? { start: CONTENT_START + 17, end: CONTENT_END - 2 }  // 57-58% (compressed when photo overlay)
-      : { start: CONTENT_START + 17, end: CONTENT_START + 22 }, // 57-62%
-    // Speakers zone (63-65%) — skipped when photo overlay enabled
+      ? { start: CONTENT_START + _headlinePad + 17, end: CONTENT_END - 2 }
+      : { start: CONTENT_START + _headlinePad + 17, end: CONTENT_START + _headlinePad + 22 },
     speakers: hasSpeakerPhotoEarly
-      ? { start: 0, end: 0 }  // Skip - Sharp renders speaker text with photo
-      : { start: CONTENT_START + 23, end: CONTENT_START + 24 },    // 63-64%
-    buffer: { start: CONTENT_END, end: CONTENT_END },                    // No buffer needed
-    footer: { start: CONTENT_END, end: 100 }                             // Dynamic based on CONTENT_END
+      ? { start: 0, end: 0 }
+      : { start: CONTENT_START + _headlinePad + 23, end: CONTENT_START + _headlinePad + 24 },
+    buffer: { start: CONTENT_END, end: CONTENT_END },
+    footer: { start: CONTENT_END, end: 100 }
   }
 
   console.log('[Event Poster v24.50] Dynamic Text Distribution:', {
@@ -811,7 +962,10 @@ export function buildEventPosterPrompt(
   // Use ACTUAL Sharp pixel values (not artificial 40%/70% zone boundaries)
   // Previously passed pixelZones.contentStart (576px, 40%) as headerHeight — WRONG
   // Now passes real Sharp header height (e.g., 290px) so Gemini sees the true boundary
-  const _actualHeaderPx = options.logoStripZoneCoordinates?.headerHeight ?? pixelZones.contentStart
+  const _actualHeaderPx = Math.max(
+    options.logoStripZoneCoordinates?.headerHeight ?? pixelZones.contentStart,
+    Math.floor(CANVAS_HEIGHT * 0.40)  // v47.1: 40% hard floor so pixel constraints match CONTENT_START
+  )
   const _actualFooterPx = options.logoStripZoneCoordinates?.footerHeight ?? (CANVAS_HEIGHT - pixelZones.footerStart)
   const _contentEndPx = Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)  // derived from CONTENT_END — consistent with percentage label
 
@@ -903,7 +1057,8 @@ export function buildEventPosterPrompt(
     includeIconicImagery: true,
     sophistication,
   })
-  const backgroundSettingContext = buildBackgroundSettingSection(options.designContext, sophistication)
+  const _sceneBackground = buildBackgroundSettingSection(options.designContext, sophistication)
+  const backgroundSettingContext = buildBackgroundStyleOverride(options.backgroundStyle, _sceneBackground, options.designContext)
 
   // NEW v3.4: Build AI-enhanced typography and decorative sections
   // NEW v3.9: Color-aware typography with role-based color specifications
@@ -1143,16 +1298,14 @@ FONT STYLES (MOOD-BASED):
 - Body Style: ${tg.bodyStyle}
 - Hierarchy: ${tg.hierarchy}
 
-TEXT RENDERING (v42.2 — SHARP HANDLES ALL TEXT):
+TEXT RENDERING (v46.0 — GEMINI RENDERS ALL TEXT):
 
-(DO NOT RENDER any text in the image — no headline, no tagline, no event name, no date, no venue)
-Sharp composites ALL text on top of your background after generation.
-Your job: generate BACKGROUND SCENE ONLY with a clean, visually rich environment.
+Render ALL text elements as part of the poster design. Typography IS the design — make it visually powerful and cohesive with the background.
 
-COLOR GUIDANCE FOR BACKGROUND (use these as scene/environment colors):
-- Primary environment color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color}
-- Secondary accent in scene: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color}
-- Atmospheric/ambient tone: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color}
+TEXT COLOR PALETTE:
+- Headline color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}
+- Tagline/subtext color: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}
+- Detail text color: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}
 
 SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
 
@@ -1167,6 +1320,87 @@ that sit ON TOP of the seamless background. They do not break the background con
 
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
 
+${isYiChapterEvent ? `
+YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram Style):
+
+STYLE REFERENCE: Yi Kanniyakumari (@yi.kanniyakumari) — professional, clean, corporate-minimal.
+This is an OFFICIAL Yi chapter communication. Typography is the visual hero. Background must be calm and uncluttered.
+
+BACKGROUND — choose the most suitable:
+  OPTION A (Yi Blue Gradient, most on-brand): Deep Yi blue (#005B96) at top, midnight navy (#003A6E) at bottom. A subtle soft radial glow from upper-center adds depth without clutter. This is the canonical Yi chapter look.
+  OPTION B (Brand Color Minimal): The event's primary brand color as a clean solid/gradient background with generous negative space.
+  OPTION C (White Professional): Clean off-white (#F8FAFF) background with one bold Yi blue accent element (corner block, thick side border, or top-band at 8% of canvas height).
+
+OPTIONAL — at most ONE symbolic watermark (8–12% opacity, behind the text zone):
+  Dental/health event → clean tooth outline or smile arc
+  Running/sports event → single runner silhouette
+  Technology event → minimal circuit node or line pattern
+  Award/meeting event → none needed — pure gradient is the correct choice for Yi chapter
+
+MANDATORY:
+✅ At least 70% of canvas is the pure, uncluttered background color
+✅ Background is calm — overlaid text (white/yellow) must be instantly legible
+✅ Professional corporate quality comparable to CII national communications
+
+ABSOLUTE PROHIBITIONS (Yi chapter non-negotiables):
+❌ NO photographic scenes — no action photography, no people running or gathered in parks
+❌ NO crowds, groups, or multiple-person scenes of any kind
+❌ NO stock-photo or cinematic-style environmental storytelling
+❌ NO decorative medals, confetti, ribbons, trophy icons, or celebration clutter
+❌ NO cinematic depth-of-field, dramatic shadows, or complex lighting narratives
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area empty and clean — user's speaker photo will be overlaid here.` : ''}
+` : isYiSpotlight ? `
+YI SPOTLIGHT CREATIVE BACKGROUND — Freepik / Behance premium poster quality:
+
+DESIGN STANDARD: This poster must look like it belongs on Freepik's premium collection or a Behance featured project.
+Not a generic event flyer. A DESIGNED PIECE that stops someone mid-scroll.
+
+━━ FOCAL POINT LAW ━━
+ONE dominant visual element commands the entire composition.
+Every other element — color, texture, light, type — exists only to amplify that one focal point.
+If someone squints from across the room, they should still know exactly what this poster is about.
+
+━━ DEPTH LAYERS (premium technique) ━━
+Build the image as 4–5 stacked layers from back to front:
+  Layer 1 — GRADIENT BASE: A deep, rich gradient (dark jewel tone at top, slightly warmer at bottom).
+    The gradient color comes from the event's emotional theme — let the event decide.
+    NOT flat corporate blue. Deep, dimensional, atmospheric.
+  Layer 2 — TEXTURE: A subtle painterly grain or brush texture at 8–10% opacity over the gradient.
+    This single layer transforms a flat gradient into a premium, tactile surface.
+  Layer 3 — ATMOSPHERIC GLOW: A soft radial bloom of warm or cool light directly behind the focal subject.
+    This separates the subject from the background with luminous depth — the "Freepik look."
+  Layer 4 — FOCAL SUBJECT: The main visual — a person, symbolic object, or conceptual image.
+    Large. Confident. Lit from front or above. Occupying 45–60% of canvas height.
+    DYNAMIC pose or unexpected angle — NOT stiffly centered.
+  Layer 5 — FOREGROUND ACCENT: Optional — a subtle graphic element, diagonal color band, or
+    abstract shape in the near foreground at low opacity to add three-dimensional framing.
+
+━━ COMPOSITION ENERGY ━━
+Choose ONE composition strategy that fits the event's emotion:
+  DIAGONAL TENSION — subject or key lines run diagonally for energy, movement, forward motion
+  ASYMMETRIC BALANCE — subject off-center with generous negative space on one side for sophistication
+  RADIAL DRAW — elements converge on the focal subject, pulling the eye inward
+NEVER: flat centered stacking with equal visual weight top and bottom.
+
+━━ COLOR DRAMA ━━
+2–3 deliberate colors chosen for EMOTIONAL IMPACT, not event categorisation:
+  The brief above from the Creative Director specifies the colors — follow it.
+  If no brief is provided: choose deep, rich tones (jewel palette) with one warm accent.
+  Ensure strong contrast between background and any overlaid text zones.
+
+━━ INFO ANCHOR BAND ━━
+At 75%–85% vertical position: a clean horizontal band in the event's accent color (Yi orange #FF6B35 or
+the Creative Director's specified accent) spanning full width. Height ≈ 8–10% of canvas.
+This band anchors date and venue information visually. Keep it clean — content sits on top.
+
+━━ INDIAN AUTHENTICITY ━━
+Indian/South Asian faces, clothing, and settings. Authentic Indian architecture, vegetation, and signage.
+The poster should feel instantly recognisable to a Tamil Nadu / South Indian audience as THEIR poster.
+
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people and atmospheric elements should appear in the upper portion only.` : ''}
+` : `
 SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
 
 The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
@@ -1218,14 +1452,15 @@ THE STORY TEST: Can a viewer understand what this event is about JUST from the b
 "I see abstract pink and teal waves" → Could be anything ❌
 ${hasSpeakerPhotoEarly ? `
 SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
+`}
 
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}.
 
-Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color} (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}).
+Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}.
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).color} (${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description} with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).color} (${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}.` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability
@@ -1247,16 +1482,14 @@ COLOR APPLICATION:
 TYPOGRAPHY SYSTEM:
 - Alignment Strategy: ${fallbackAlignment}-aligned layout (varied composition)
 
-TEXT RENDERING (v42.2 — SHARP HANDLES ALL TEXT):
+TEXT RENDERING (v46.0 — GEMINI RENDERS ALL TEXT):
 
-(DO NOT RENDER any text in the image — no headline, no tagline, no event name, no date, no venue)
-Sharp composites ALL text on top of your background after generation.
-Your job: generate BACKGROUND SCENE ONLY with a clean, visually rich environment.
+Render ALL text elements as part of the poster design. Typography IS the design — make it visually powerful and cohesive with the background.
 
-COLOR GUIDANCE FOR BACKGROUND (use these as scene/environment colors):
-- Primary environment color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).color}
-- Secondary accent in scene: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color}
-- Atmospheric/ambient tone: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color}
+TEXT COLOR PALETTE:
+- Headline color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}
+- Tagline/subtext color: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}
+- Detail text color: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}
 
 SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
 
@@ -1271,6 +1504,87 @@ that sit ON TOP of the seamless background. They do not break the background con
 
 The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
 
+${isYiChapterEvent ? `
+YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram Style):
+
+STYLE REFERENCE: Yi Kanniyakumari (@yi.kanniyakumari) — professional, clean, corporate-minimal.
+This is an OFFICIAL Yi chapter communication. Typography is the visual hero. Background must be calm and uncluttered.
+
+BACKGROUND — choose the most suitable:
+  OPTION A (Yi Blue Gradient, most on-brand): Deep Yi blue (#005B96) at top, midnight navy (#003A6E) at bottom. A subtle soft radial glow from upper-center adds depth without clutter. This is the canonical Yi chapter look.
+  OPTION B (Brand Color Minimal): The event's primary brand color as a clean solid/gradient background with generous negative space.
+  OPTION C (White Professional): Clean off-white (#F8FAFF) background with one bold Yi blue accent element (corner block, thick side border, or top-band at 8% of canvas height).
+
+OPTIONAL — at most ONE symbolic watermark (8–12% opacity, behind the text zone):
+  Dental/health event → clean tooth outline or smile arc
+  Running/sports event → single runner silhouette
+  Technology event → minimal circuit node or line pattern
+  Award/meeting event → none needed — pure gradient is the correct choice for Yi chapter
+
+MANDATORY:
+✅ At least 70% of canvas is the pure, uncluttered background color
+✅ Background is calm — overlaid text (white/yellow) must be instantly legible
+✅ Professional corporate quality comparable to CII national communications
+
+ABSOLUTE PROHIBITIONS (Yi chapter non-negotiables):
+❌ NO photographic scenes — no action photography, no people running or gathered in parks
+❌ NO crowds, groups, or multiple-person scenes of any kind
+❌ NO stock-photo or cinematic-style environmental storytelling
+❌ NO decorative medals, confetti, ribbons, trophy icons, or celebration clutter
+❌ NO cinematic depth-of-field, dramatic shadows, or complex lighting narratives
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area empty and clean — user's speaker photo will be overlaid here.` : ''}
+` : isYiSpotlight ? `
+YI SPOTLIGHT CREATIVE BACKGROUND — Freepik / Behance premium poster quality:
+
+DESIGN STANDARD: This poster must look like it belongs on Freepik's premium collection or a Behance featured project.
+Not a generic event flyer. A DESIGNED PIECE that stops someone mid-scroll.
+
+━━ FOCAL POINT LAW ━━
+ONE dominant visual element commands the entire composition.
+Every other element — color, texture, light, type — exists only to amplify that one focal point.
+If someone squints from across the room, they should still know exactly what this poster is about.
+
+━━ DEPTH LAYERS (premium technique) ━━
+Build the image as 4–5 stacked layers from back to front:
+  Layer 1 — GRADIENT BASE: A deep, rich gradient (dark jewel tone at top, slightly warmer at bottom).
+    The gradient color comes from the event's emotional theme — let the event decide.
+    NOT flat corporate blue. Deep, dimensional, atmospheric.
+  Layer 2 — TEXTURE: A subtle painterly grain or brush texture at 8–10% opacity over the gradient.
+    This single layer transforms a flat gradient into a premium, tactile surface.
+  Layer 3 — ATMOSPHERIC GLOW: A soft radial bloom of warm or cool light directly behind the focal subject.
+    This separates the subject from the background with luminous depth — the "Freepik look."
+  Layer 4 — FOCAL SUBJECT: The main visual — a person, symbolic object, or conceptual image.
+    Large. Confident. Lit from front or above. Occupying 45–60% of canvas height.
+    DYNAMIC pose or unexpected angle — NOT stiffly centered.
+  Layer 5 — FOREGROUND ACCENT: Optional — a subtle graphic element, diagonal color band, or
+    abstract shape in the near foreground at low opacity to add three-dimensional framing.
+
+━━ COMPOSITION ENERGY ━━
+Choose ONE composition strategy that fits the event's emotion:
+  DIAGONAL TENSION — subject or key lines run diagonally for energy, movement, forward motion
+  ASYMMETRIC BALANCE — subject off-center with generous negative space on one side for sophistication
+  RADIAL DRAW — elements converge on the focal subject, pulling the eye inward
+NEVER: flat centered stacking with equal visual weight top and bottom.
+
+━━ COLOR DRAMA ━━
+2–3 deliberate colors chosen for EMOTIONAL IMPACT, not event categorisation:
+  The brief above from the Creative Director specifies the colors — follow it.
+  If no brief is provided: choose deep, rich tones (jewel palette) with one warm accent.
+  Ensure strong contrast between background and any overlaid text zones.
+
+━━ INFO ANCHOR BAND ━━
+At 75%–85% vertical position: a clean horizontal band in the event's accent color (Yi orange #FF6B35 or
+the Creative Director's specified accent) spanning full width. Height ≈ 8–10% of canvas.
+This band anchors date and venue information visually. Keep it clean — content sits on top.
+
+━━ INDIAN AUTHENTICITY ━━
+Indian/South Asian faces, clothing, and settings. Authentic Indian architecture, vegetation, and signage.
+The poster should feel instantly recognisable to a Tamil Nadu / South Indian audience as THEIR poster.
+
+${hasSpeakerPhotoEarly ? `
+SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people and atmospheric elements should appear in the upper portion only.` : ''}
+` : `
 SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
 
 The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
@@ -1322,14 +1636,15 @@ THE STORY TEST: Can a viewer understand what this event is about JUST from the b
 "I see abstract pink and teal waves" → Could be anything ❌
 ${hasSpeakerPhotoEarly ? `
 SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
+`}
 
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).color} (${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}).
+Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}.
 
-Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).color} (${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}).
+Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}.
 ${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).color} (${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description}) with high visual contrast.` : ''}
+The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description} with high visual contrast.` : ''}
 ${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).color} (${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}).` : ''}
+Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}.` : ''}
 
 COLOR APPLICATION:
 - Each text role has a DIFFERENT color for visual hierarchy and readability
@@ -1343,7 +1658,8 @@ COLOR APPLICATION:
     }
   }
 
-  const aiDecorativeSection = options.designContext?.decorativeElements
+  // v44.0: Yi chapter events suppress decorative/creative-twist — they add medals, confetti, complex scenes
+  const aiDecorativeSection = (!isYiChapterEvent && options.designContext?.decorativeElements)
     ? `
 <ai_decorative_elements>
 Corner Treatment: ${options.designContext.decorativeElements.corners}
@@ -1354,7 +1670,8 @@ Accent Elements: ${options.designContext.decorativeElements.accents}
     : ''
 
   // NEW v3.5: Build creative twist section for unique visual signature
-  const creativeTwistSection = options.designContext?.creativeTwist
+  // v44.0: Suppressed for Yi chapter events — keeps design minimal and clean
+  const creativeTwistSection = (!isYiChapterEvent && options.designContext?.creativeTwist)
     ? `
 <creative_twist>
 UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
@@ -1501,8 +1818,15 @@ Integrate this creative twist prominently into the background or decorative elem
 
     This shadow is WHERE the event text will be composited by Sharp after generation — the darker pixels must give enough contrast for light text to read clearly, while still feeling like natural scene lighting.`
 
-  return `
-<!-- ============================================= -->
+  // v47.0: Creative Vision Header — placed BEFORE spatial constraints so Gemini reads
+  // the design concept (color story, visual anchor, mood) before entering compliance mode.
+  const creativeVisionHeader = buildCreativeVisionHeader(
+    options.designContext,
+    options.resolvedColors,
+    eventName
+  )
+
+  return `${creativeVisionHeader}<!-- ============================================= -->
 <!-- SPATIAL LAYOUT CONSTRAINTS (v24.0 - LAYER 1) -->
 <!-- ============================================= -->
 
@@ -1612,6 +1936,38 @@ ${logoStripZoneContext ? `${logoStripZoneContext}
 ` : ''}
 ${logoContext}
 <!-- ============================================= -->
+<!-- TEXT CONTENT (v46.0 — RENDER ALL OF THIS)   -->
+<!-- ============================================= -->
+
+<text_content>
+  <text role="headline"
+    weight="ultra-bold-900"
+    size="DOMINANT — fill 70%+ canvas width, towering scale, each letter tall and commanding"
+    case="ALL-CAPS for maximum power — OR split-case drama: key word(s) in UPPERCASE at 130% size, secondary words in smaller caps or title case for visual tension (e.g. 'NATURE bloom FEST' or 'KNOWLEDGE light DAY')"
+    effects="APPLY AT LEAST 2: gradient-color-fill (sweep primary→accent across letters) | 3D-extrusion-with-depth-shadow | per-word-color (each word different palette color) | outline-stroke-in-contrast-color | subtle-inner-glow on hero word"
+    zone="${textZones.headline.start}%–${textZones.headline.end}%">${eventName}</text>
+${eventDescription ? `  <text role="tagline"
+    weight="semibold-600"
+    size="medium — 35–45% of headline height"
+    case="Sentence case (first word capitalised only) for a warm conversational feel — OR Title Case for formal events — NEVER all-caps (reserved for headline only)"
+    effects="clean italic for elegance | single accent-color word | wide letter-spacing for a premium airy look"
+    zone="${textZones.tagline.start}%–${textZones.tagline.end}%">${eventDescription}</text>` : ''}
+${(formattedDateTime || venueStr) ? `  <text role="date_venue"
+    style="INFO-CARD — frosted-glass panel | dark pill badge | translucent rounded block — NEVER plain bare text"
+    icons="🗓 before date/time · 📍 before venue"
+    weight="medium"
+    case="Mixed case as formatted (e.g. 'Fri, 5 Jun, 2026') — do NOT force all-caps; readability is priority"
+    effects="card has subtle drop-shadow or glow edge; HIGH-CONTRAST text inside the card"
+    zone="${textZones.dateVenue.start}%–${textZones.dateVenue.end}%">${[formattedDateTime, venueStr].filter(Boolean).join(' · ')}</text>` : ''}
+${eventNote ? `  <text role="additional_details"
+    style="chip row | icon-led bullets | 2-col grid — NEVER a plain paragraph"
+    weight="regular-to-medium"
+    case="Title Case for each chip/item label (e.g. 'Tree Plantation', 'Seed Ball Workshop') — short, scannable"
+    effects="each chip has a small accent icon; subtle background pill behind each item"
+    zone="${textZones.additionalDetails.start}%–${textZones.additionalDetails.end}%">${eventNote}</text>` : ''}
+</text_content>
+
+<!-- ============================================= -->
 <!-- VISUAL CONTEXT (WITHIN SPATIAL ZONES)       -->
 <!-- ============================================= -->
 
@@ -1660,46 +2016,49 @@ ${contentDensityAnalysis.density === 'dense' ? `
   - If alignment is 'asymmetric', create a dynamic balance between text and visuals WITHIN zones
   - Alignment applies WITHIN each <text_zone>, not across the entire canvas
 
-3. DATE, TIME, AND VENUE (v40.4 — SHARP HANDLED):
-  - DO NOT render date, time, venue, prize, or registration info as text in the image.
-  - These fields are overlaid by the system (Sharp) with exact verified data after generation.
-  - Leave the 55%–70% zone as CLEAN BACKGROUND — no text, no visual containers, no info cards.
-  - Keep the ${CONTENT_START}%–${CONTENT_END}% zone as clean atmospheric background — text will be composited on top.
+3. TEXT ELEMENTS TO RENDER (v46.0 — GEMINI RENDERS ALL TEXT):
+  All text in <text_content> is YOUR responsibility — render it as a DESIGNED element, not raw text.
 
-    (DO NOT RENDER ANY OF THE FOLLOWING INSTRUCTIONS — DESIGN GUIDANCE ONLY)
-    3A. ZONE OWNERSHIP (v42.2):
+  CASE TREATMENT HIERARCHY (creates visual rhythm and instant readability):
+    • HEADLINE  → ALL-CAPS (dominant, authoritative) OR split-case drama (hero word ALL-CAPS large + secondary words smaller caps/title case)
+    • TAGLINE   → Sentence case ("Plant today, breathe tomorrow!") — warm, human, contrasts with all-caps headline
+    • DATE/VENUE→ Mixed case as naturally formatted ("Fri, 5 Jun, 2026 | 10:00 AM") — never all-caps
+    • DETAILS   → Title Case per chip ("Tree Plantation" · "Seed Ball Workshop") — scannable labels
+    The visual rhythm: SHOUT (headline) → speak (tagline) → inform (date/venue) → list (details)
 
-    GEMINI renders: BACKGROUND SCENE ONLY — no text whatsoever.
-    SHARP renders: Headline, tagline, date, venue, prize, CTA — all text, composited after generation.
+  HEADLINE: Ultra-bold (weight 800–900). Fill ~70% canvas width — undisputed visual anchor. Apply MULTIPLE effects:
+    • GRADIENT FILL: sweep event palette colors left→right across letters
+    • 3D EXTRUSION: letters have visible depth/thickness with a cast shadow
+    • PER-WORD COLOR: each word in a different palette color
+    • CONTRAST STROKE: thin outline so letters pop off any background
+    • SIZE DRAMA: hero word(s) at 130–150% scale vs rest of headline
+    — Apply at least 2. Flat monochrome text is NOT acceptable.
 
-    Leave 55%–70% as CLEAN BACKGROUND. Sharp will composite the info card there after generation.
-    DO NOT add a date/venue card, badge strip, or colored bar in the 55%–70% zone.
+  TAGLINE: Semi-bold (600). 35–45% of headline scale. Sentence case. One accent-color word or clean italic for contrast. Compact gap below headline.
 
-    3B. READING FLOW (v33.0 - MANDATORY):
+  DATE/VENUE (info-card): NEVER bare floating text. Render inside a DESIGNED CONTAINER:
+    • Frosted-glass rounded card (60–80% opacity, subtle blur, calendar 🗓 + pin 📍 icons)
+    • Dark translucent badge with glowing border edge
+    • Gradient-fill pill with high-contrast white text inside
+    Card must have a drop-shadow or glow so it visually floats above the background.
+
+  ADDITIONAL DETAILS: Scannable chip row, icon-led bullets, or compact 2-column grid. Never a plain paragraph.
+
+  All text MUST fit within the content zone: ${CONTENT_START}%–${CONTENT_END}%
+
+    3A. READING FLOW (v33.0 - MANDATORY):
 
     The viewer's eye MUST follow a PREDICTABLE PATH through the poster:
     STEP 1 (0.5s): Eye lands on HEADLINE — the largest, boldest element
     STEP 2 (1.0s): Eye moves to TAGLINE — positioned directly below headline, smaller but clear
-    STEP 3 (1.5s): Eye finds INFO CARD — the visually distinct date/time/venue container
+    STEP 3 (1.5s): Eye finds date/venue info — visually integrated, readable detail section
     STEP 4 (2.5s): Eye sees SPEAKER/CONTEXT — names, designations, or additional details
-    STEP 5 (3.0s): Eye reaches CTA — registration info or action prompt
 
     Achieved through: SIZE PROGRESSION, VISUAL WEIGHT, SPATIAL GAPS, ALIGNMENT CONSISTENCY.
 
-    3C. TEXT RENDERING SPLIT (v41.6 — MANDATORY):
-
-    Gemini renders: BACKGROUND SCENE ONLY — NO TEXT WHATSOEVER.
-    Sharp overlays: ALL text — headline, tagline, date, venue, time, details, CTA (composited after generation).
-
-    GEMINI RESPONSIBILITIES (v41.6):
-    - Generate ONLY the background visual scene (people, environment, atmosphere, lighting)
-    - DO NOT render any text, headline, event name, tagline, date, venue, or labels
-    - DO NOT render any logo, brand mark, or placeholder icons
-    - Leave the content area (${CONTENT_START}%–${CONTENT_END}%) with CLEAN BACKGROUND that text can be overlaid on top of
-
-    TEXT-SAFE ZONE (v43.0 — ACTIVE BACKGROUND DESIGN RULE):
-    The ${CONTENT_START}%–${CONTENT_END}% zone is where headline, tagline, date, and venue will be composited.
-    You MUST ACTIVELY DESIGN this zone to be text-readable — not just avoid content there.
+    TEXT-SAFE BACKGROUND (v43.0):
+    Design the ${CONTENT_START}%–${CONTENT_END}% background zone to make Gemini-rendered text readable:
+    You MUST ACTIVELY DESIGN this zone to have a clean, text-readable background.
 
     REQUIRED VISUAL TREATMENT for ${CONTENT_START}%–${CONTENT_END}%:
     ✅ OPTION A — Atmospheric gradient band: smooth color wash (sky fading to tone, open wall, stage backdrop)
@@ -1885,25 +2244,9 @@ The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESI
 - Make ${options.brandContext.primaryColor} the DOMINANT color of the entire design
 ` : (options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : '')}
 
-// v6.12.1: Debug logging for unauthorized tagline issue
-  if (eventDescription) {
-    console.warn('[Event Poster v6.12.1] ⚠️ UNAUTHORIZED TAGLINE DETECTED:', eventDescription)
-    console.warn('[Event Poster v6.12.1] Source check: data.eventDescription:', data.eventDescription)
-    console.warn('[Event Poster v6.12.1] Source check: rawData.eventTagline:', (rawData as any).eventTagline)
-    console.warn('[Event Poster v6.12.1] Source check: rawData.tagline:', (rawData as any).tagline)
-  }
-
-⚠️ RENDER BOUNDARY: Every element listed below MUST render within ${CONTENT_START}%-55% zone (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px-${Math.floor(CANVAS_HEIGHT * 55 / 100)}px).
-The area below 55% is reserved for programmatic text overlays (date, venue, details) — keep it as CLEAN BACKGROUND only.
-Anything below ${_contentEndPx}px is covered by logo overlays and will be invisible.
-
-${'' /* v41.8: ALL text rendering moved to Sharp (renderEventTextOverlay).
-  Removed <text role> tags — they directly caused Gemini to render the headline/tagline,
-  which then appeared twice when Sharp also rendered them in the 40-83% zone.
-  Gemini now generates BACKGROUND SCENE ONLY. Sharp composites all text on top. */}
-TEXT RENDERING — HANDLED BY SHARP POST-PROCESSING (v41.8):
-(DO NOT RENDER any text, event name, tagline, date, venue, or labels in the image)
-ALL text is composited on top after generation — your job is BACKGROUND SCENE ONLY with a clean, uncluttered ${CONTENT_START}%–${CONTENT_END}% mid-section.
+⚠️ LAYOUT BOUNDARY (v46.0):
+ALL text content zone: ${CONTENT_START}%–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px–${_contentEndPx}px).
+Anything outside this zone is covered by logo overlays and will be invisible.
 
 ${/* v26.0: Inject storytelling narrative BEFORE decorative elements */''}${options.designContext?.storytellingContext ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
 
@@ -1922,27 +2265,24 @@ ${buildMultiColorTypographyInstructions(options.multiColorTypography)}
 
 ${EVENT_POSTER_EXAMPLES}
 
-QUALITY STANDARDS (v41.8 - BACKGROUND SCENE QUALITY):
-This background scene passes the CLEAN CANVAS TEST:
-✅ The mid-section (${CONTENT_START}%–${CONTENT_END}%) has a CLEAN, UNCLUTTERED background — text will be composited on top
-✅ NO text, NO rendered headlines, NO info cards, NO placeholder labels visible anywhere
-✅ Visual elements (people, environment, atmosphere, lighting) are in the background layer only
-✅ Mid-section is atmospheric and clear — contrast is sufficient for white/colored text to be readable when overlaid
-✅ Event information (date, venue, details) will be rendered by the system — leave clean space in this zone
-✅ Professional background quality with strong visual depth, lighting, and atmosphere
-✅ The background looks like a premium editorial photograph or cinematic still
-✅ NO watermarks, NO text overlays, NO graphic design elements — pure scene art only
+QUALITY STANDARDS (v46.0 - INTEGRATED DESIGN QUALITY):
+This integrated poster passes the COHESIVE DESIGN TEST:
+✅ Text and background are ONE unified composition — typography is woven INTO the visual, not layered on top
+✅ Headline, tagline, date, and venue are rendered with visual style matching the event mood
+✅ High contrast: all text is clearly readable against its background
+✅ Professional finish: strong visual depth, lighting, atmosphere, and typographic hierarchy
+✅ NO watermarks, NO placeholder labels, NO generic stock photo aesthetics
 ${sophistication === 'rich'
-      ? 'The design is visually stunning with adequate contrast in the top area.'
-      : 'The top header section should have a simple, clean background (solid color or subtle gradient). Keep this area empty.'
+      ? 'The design is visually stunning — rich, layered backgrounds that frame and elevate the text.'
+      : 'The design is clean and focused — text has clear breathing room against a well-composed background.'
     }
 ${hasFooterContent && footerReservePercent > 0
-      ? ` The bottom footer section is completely empty with ZERO text or graphics - only clean background for footer bar overlay.`
+      ? ` The bottom footer section is completely clean — ZERO text or graphics below ${CONTENT_END}% (logo overlays will be placed there).`
       : ''
     }${customFieldsText.length > 0 && footerReservePercent > 0
-      ? ` Additional Details text is positioned in the middle-lower area, with adequate spacing above the footer boundary.`
+      ? ` Additional Details text is in the lower content zone, clearly above the footer boundary.`
       : ''
-    } All text elements respect the Y-coordinate boundaries defined in <spatial_layout_constraints> above. NO text overlaps the header zone or footer zone. The background flows seamlessly without creating visible separation bands.
+    } All text is within ${CONTENT_START}%–${CONTENT_END}% and the design flows seamlessly without separation bands.
 
 DESIGN CONSTRAINTS:
 ${sophistication === 'rich'

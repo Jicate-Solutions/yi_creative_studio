@@ -79,7 +79,7 @@ const FIELD_MAPPINGS: FieldMappingConfig[] = [
 
   // Registration - registrationInfo is canonical
   { externalField: 'registrationUrl', formField: 'registrationInfo' },
-  { externalField: 'entryFee', formField: 'specialOffer' },
+  { externalField: 'entryFee', formField: 'entryFee' },
   // v2.0: Capacity fields
   { externalField: 'registrationDeadline', formField: 'registrationDeadline' },
   { externalField: 'registrationStartDate', formField: 'registrationStartDate' },
@@ -127,7 +127,7 @@ const FIELD_LABELS: Record<string, string> = {
   hashtags: 'Hashtags',
   isFeatured: 'Featured Event',
   registrationInfo: 'Registration URL',
-  specialOffer: 'Entry Fee',
+  entryFee: 'Entry Fee',
   // v2.0: Capacity
   registrationDeadline: 'Registration Deadline',
   registrationStartDate: 'Registration Opens',
@@ -328,11 +328,19 @@ export function inferFormatFromEventType(event: ExternalEvent): {
     }
   }
 
-  // Networking/Meetup → Invitation
+  // Networking/Meetup/Social → Event Poster (invitations are explicit, not inferred)
   if (['networking', 'meetup', 'social'].some((t) => eventType.includes(t))) {
     return {
+      formatId: 'event_poster',
+      reasoning: 'Social/networking event → Portrait poster format',
+    }
+  }
+
+  // Explicit invitation events only
+  if (['invitation', 'invite', 'gala', 'banquet'].some((t) => eventType.includes(t))) {
+    return {
       formatId: 'invitation',
-      reasoning: 'Social event → Invitation format',
+      reasoning: 'Invitation event → Invitation format',
     }
   }
 

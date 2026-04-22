@@ -435,14 +435,14 @@ function buildHeadlineBlock(
   let headlineSize = 40  // fallback minimum
   let taglineSize  = 18
   let headlineLines: string[] = headline ? wrapText(headline, 'poppins', 40, 'bold', maxTextWidth) : []
-  let taglineLines: string[]  = tagline  ? wrapText(tagline, 'poppins', 18, 'regular', maxTextWidth) : []
+  let taglineLines: string[]  = tagline  ? wrapText(tagline, 'poppins', 18, 'bold', maxTextWidth) : []
 
   // Find the largest combo (headline size × tagline size) where everything fits
   outer: for (const hs of HEADLINE_SIZES) {
     const hLines = headline ? wrapText(headline, 'poppins', hs, 'bold', maxTextWidth) : []
     const lineH  = hs * 1.15
     for (const ts of TAGLINE_SIZES) {
-      const tLines = tagline ? wrapText(tagline, 'poppins', ts, 'regular', maxTextWidth) : []
+      const tLines = tagline ? wrapText(tagline, 'poppins', ts, 'bold', maxTextWidth) : []
       const tagH   = ts * 1.3
       const totalH = BG_PADDING_TOP + hLines.length * lineH + 16 + tLines.length * tagH + BG_PADDING_BOTTOM
       if (totalH <= availableHeight) {
@@ -495,14 +495,13 @@ function buildHeadlineBlock(
   currentY += 16
 
   // === Render ALL tagline lines ===
-  const taglineColor = bgIsDark
-    ? (getLuminance(brandColors.secondary) > 0.20 ? brandColors.secondary : (getLuminance(brandColors.accent) > 0.20 ? brandColors.accent : '#E8E8E8'))
-    : getBestDarkColor(brandColors)
+  // Canva-style: on dark bg → pure white; on light bg → brand dark color
+  const taglineColor = bgIsDark ? '#FFFFFF' : getBestDarkColor(brandColors)
 
   for (const line of taglineLines) {
     currentY += TAGLINE_LINE_HEIGHT
     elements.push(`<g filter="url(#evt-text-shadow)">${textToPath(line, {
-      fontFamily: 'poppins', fontSize: taglineSize, fontWeight: 'regular',
+      fontFamily: 'poppins', fontSize: taglineSize, fontWeight: 'bold',
       x: PADDING_X, y: currentY, fill: taglineColor, textAnchor: 'start',
     })}</g>`)
   }
@@ -571,8 +570,8 @@ function buildInfoCard(
   // v43.1: wrapText prevents "JKKN INSTITUTIONS, KUMARAPALAYAM BYPASS" from being clipped to "JKKN INST..."
   if (venue) {
     const maxVenueWidth = cardWidth - CARD_PADDING_X * 2 - iconSize - iconGap
-    const venueLines = wrapText(venue, FONT_FAMILY, VENUE_FONT_SIZE, 'regular', maxVenueWidth).slice(0, 2)
-    const venueFill = bgIsDark ? '#E8E8E8' : getBestDarkColor(brandColors)
+    const venueLines = wrapText(venue, FONT_FAMILY, VENUE_FONT_SIZE, 'bold', maxVenueWidth).slice(0, 2)
+    const venueFill = bgIsDark ? '#FFFFFF' : getBestDarkColor(brandColors)
     const iconFill = bgIsDark ? brandColors.secondary : getBestDarkColor(brandColors)
     // Pin icon anchored to first line
     elements.push(PIN_ICON(cardX + CARD_PADDING_X, textY, iconSize, iconFill))
@@ -580,7 +579,7 @@ function buildInfoCard(
       const venuePath = textToPath(vLine, {
         fontFamily: FONT_FAMILY,
         fontSize: VENUE_FONT_SIZE,
-        fontWeight: 'regular',
+        fontWeight: 'bold',
         x: innerTextStartX,
         y: textY,
         fill: venueFill,
@@ -781,7 +780,7 @@ function buildSpeakerBlock(
   const nameColor = bgIsDark
     ? (getLuminance(brandColors.secondary) > 0.20 ? brandColors.secondary : '#FFE066')
     : getBestDarkColor(brandColors)
-  const desigColor = bgIsDark ? '#D0D0D0' : '#444444'
+  const desigColor = bgIsDark ? '#FFFFFF' : '#444444'
 
   const elements: string[] = []
   let currentY = startY + BG_PAD_V
@@ -802,12 +801,12 @@ function buildSpeakerBlock(
 
     // Designation — smaller, muted
     if (speaker.designation) {
-      const desigLines = wrapText(speaker.designation, 'poppins', DESIG_SIZE, 'regular', maxTextWidth)
+      const desigLines = wrapText(speaker.designation, 'poppins', DESIG_SIZE, 'bold', maxTextWidth)
       for (const line of desigLines) {
         if (currentY + DESIG_SIZE > zoneEndPx) break
         currentY += DESIG_SIZE + LINE_GAP
         elements.push(`<g filter="url(#evt-text-shadow)">${textToPath(line, {
-          fontFamily: 'poppins', fontSize: DESIG_SIZE, fontWeight: 'regular',
+          fontFamily: 'poppins', fontSize: DESIG_SIZE, fontWeight: 'bold',
           x: PADDING_X, y: currentY, fill: desigColor, textAnchor: 'start',
         })}</g>`)
       }

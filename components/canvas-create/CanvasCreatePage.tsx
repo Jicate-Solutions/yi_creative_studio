@@ -28,7 +28,11 @@ import { ShuffleButton } from '@/components/create/shuffle-button'
 import { ColorShuffleModal } from '@/components/create/color-shuffle-modal'
 import { ImagePreviewModal } from '@/components/create/image-preview-modal'
 import { Button } from '@/components/ui/button'
-import { CanvasEditorModal } from '@/components/canvas-editor/canvas-editor-modal'
+import dynamic from 'next/dynamic'
+const CanvasEditorModal = dynamic(
+  () => import('@/components/canvas-editor/canvas-editor-modal').then(m => m.CanvasEditorModal),
+  { ssr: false }
+)
 
 import { createClient } from '@/lib/supabase/client'
 import type { Json } from '@/types/database.types'
@@ -64,10 +68,11 @@ export function CanvasCreatePage({
     }
   }, [setSidebarCollapsed])
 
-  // External Event Integration - URL params (?eventId=xxx&source=yyy)
+  // External Event Integration - URL params (?eventId=xxx&source=yyy&formatId=zzz)
   const searchParams = useSearchParams()
   const eventId = searchParams.get('eventId')
   const eventSource = searchParams.get('source')
+  const urlFormatId = searchParams.get('formatId') as import('@/lib/config/creative-formats').CreativeFormatId | null
   const { event: externalEvent, isLoading: isLoadingEvent, error: eventError } = useExternalEvent(
     eventId,
     eventSource || undefined,
@@ -297,21 +302,28 @@ export function CanvasCreatePage({
       mappingResult.mappedFields
     )
 
+    // Resolve format priority: URL param (explicit user intent) > inferred > event_poster fallback
+    const resolvedFormatId = urlFormatId
+      || mappingResult.recommendedFormatId
+      || (!selectedFormat ? 'event_poster' : undefined)
+
     // Import into store with format inference
     importExternalEvent(
       meta,
       mappingResult.formData,
       mappingResult.mappedFields,
       mappingResult.dynamicFields,
-      mappingResult.recommendedFormatId
+      resolvedFormatId
     )
 
     // Auto-switch format with toast notification
-    if (mappingResult.recommendedFormatId && mappingResult.recommendedFormatId !== selectedFormat?.id) {
-      selectFormat(mappingResult.recommendedFormatId)
-      toast.success(`Switched to ${mappingResult.formatReasoning || 'recommended format'}`, {
-        description: `Based on event type: ${externalEvent.eventType || 'general'}`,
-      })
+    if (resolvedFormatId && resolvedFormatId !== selectedFormat?.id) {
+      selectFormat(resolvedFormatId)
+      if (mappingResult.recommendedFormatId) {
+        toast.success(`Switched to ${mappingResult.formatReasoning || 'recommended format'}`, {
+          description: `Based on event type: ${externalEvent.eventType || 'general'}`,
+        })
+      }
     }
 
     // Show success toast
@@ -331,6 +343,7 @@ export function CanvasCreatePage({
   }, [
     eventId,
     eventSource,
+    urlFormatId,
     externalEvent,
     isLoadingEvent,
     eventError,
@@ -407,11 +420,7 @@ export function CanvasCreatePage({
         prompt: '', // Will be generated server-side from form data
         model: modelToUse.model_id,
         provider: modelToUse.provider,
-        // Spotlight tab bypasses the 'membership' vertical restriction so the event poster
-        // builder uses SCENE-BASED BACKGROUND (vibrant/photographic) instead of plain blue gradient
-        verticalSlug: creationMode === 'spotlight' && selectedVertical?.slug === 'membership'
-          ? 'yi_spotlight'
-          : (selectedVertical?.slug || 'events'),
+        verticalSlug: selectedVertical?.slug || 'events',
         logosPlacements: formData.logosPlacements,
         logoBackgroundColor: formData.logoBackgroundColor,
         logoStripMode: formData.logoStripMode,
@@ -420,11 +429,15 @@ export function CanvasCreatePage({
         templateId: isTemplateMode ? selectedTemplate.id : null,
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
+        creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
         designData: formData.designData,
         formatId: selectedFormat.id,
         customDimensions: formData.customDimensions || null,
         language: (formData.formData?.language as string) || 'en',
-        userFormData: formData.formData,
+        userFormData: creationMode === 'spotlight'
+          ? { ...formData.formData, theme: (formData.formData as any)?.spotlightTheme || 'tricolor' }
+          : formData.formData,
         // Flash 3.1 only: thinkingLevel controls quality vs speed, useImageSearch enables grounding
         ...(modelToUse.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
       }
@@ -573,9 +586,7 @@ export function CanvasCreatePage({
         prompt: '',
         model: regenerateModel.model_id,
         provider: regenerateModel.provider,
-        verticalSlug: creationMode === 'spotlight' && selectedVertical?.slug === 'membership'
-          ? 'yi_spotlight'
-          : (selectedVertical?.slug || 'events'),
+        verticalSlug: selectedVertical?.slug || 'events',
         logosPlacements: formData.logosPlacements,
         logoBackgroundColor: formData.logoBackgroundColor,
         logoStripMode: formData.logoStripMode,
@@ -584,11 +595,15 @@ export function CanvasCreatePage({
         templateId: isTemplateMode ? selectedTemplate.id : null,
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
+        creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
         designData: formData.designData,
         formatId: selectedFormat?.id,
         customDimensions: formData.customDimensions || null,
         language: (formData.formData?.language as string) || 'en',
-        userFormData: formData.formData,
+        userFormData: creationMode === 'spotlight'
+          ? { ...formData.formData, theme: (formData.formData as any)?.spotlightTheme || 'tricolor' }
+          : formData.formData,
       }
 
       // Call original /api/generate endpoint
@@ -1000,6 +1015,23 @@ export function CanvasCreatePage({
           creativeId={creativeId}
         />
 
+        {/* Canvas Editor Modal */}
+        {generatedImage && selectedFormat && (
+          <CanvasEditorModal
+            open={canvasEditorOpen}
+            onOpenChange={setCanvasEditorOpen}
+            backgroundImageUrl={generatedImage}
+            designWidth={selectedFormat.width}
+            designHeight={selectedFormat.height}
+            parentCreativeId={creativeId ?? undefined}
+            organizationId={currentOrganization?.id ?? ''}
+            orgLogos={logos.map((l) => ({ id: l.id, name: l.name, url: l.file_url }))}
+            onVariantSaved={() => {
+              router.push('/gallery')
+            }}
+          />
+        )}
+
         {/* Spotlight Tour for first-time users */}
         <CreatePageTour />
       </div>
@@ -1209,14 +1241,14 @@ export function CanvasCreatePage({
       />
 
       {/* Canvas Editor Modal */}
-      {generatedImage && creativeId && selectedFormat && (
+      {generatedImage && selectedFormat && (
         <CanvasEditorModal
           open={canvasEditorOpen}
           onOpenChange={setCanvasEditorOpen}
           backgroundImageUrl={generatedImage}
           designWidth={selectedFormat.width}
           designHeight={selectedFormat.height}
-          parentCreativeId={creativeId}
+          parentCreativeId={creativeId ?? undefined}
           organizationId={currentOrganization?.id ?? ''}
           orgLogos={logos.map((l) => ({ id: l.id, name: l.name, url: l.file_url }))}
           onVariantSaved={() => {

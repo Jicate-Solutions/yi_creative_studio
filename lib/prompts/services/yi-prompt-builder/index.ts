@@ -48,6 +48,7 @@ export type {
   PresentationFormData,
   WebBannerFormData,
   SocialPostFormData,
+  MemberSpotlightFormData,
   EventContext,
   InstagramContext,
 } from './types'
@@ -83,6 +84,7 @@ export {
   buildWebBannerPrompt,
   buildSocialPostPrompt,
   buildGenericPrompt,
+  buildMemberSpotlightPrompt,
 } from './format-builders'
 
 // Few-shot examples (v3.0)

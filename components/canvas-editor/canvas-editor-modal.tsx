@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import * as fabric from 'fabric'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import type * as fabric from 'fabric'
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Save, X } from 'lucide-react'
@@ -20,7 +20,7 @@ interface CanvasEditorModalProps {
   backgroundImageUrl: string
   designWidth: number
   designHeight: number
-  parentCreativeId: string
+  parentCreativeId?: string
   organizationId: string
   orgLogos: OrgLogo[]
   onVariantSaved?: (variantId: string, imageUrl: string) => void
@@ -43,10 +43,12 @@ export function CanvasEditorModal({
   const redoFnRef = useRef<() => void>(() => {})
   const deleteFnRef = useRef<() => void>(() => {})
 
-  // Calculate display size — fit in modal (max 70vh height)
-  const maxDisplayHeight = typeof window !== 'undefined' ? window.innerHeight * 0.7 : 800
-  const maxDisplayWidth = maxDisplayHeight * (designWidth / designHeight)
-  const scale = Math.min(maxDisplayWidth / designWidth, maxDisplayHeight / designHeight)
+  // Canvas display size — fill available space inside the modal.
+  // Right panel: w-56 = 224px. Header: ~52px. Canvas area p-6 = 48px h-padding.
+  // Use sm:max-w-[95vw] override so we need 95vw minus right panel and padding.
+  const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.95 - 60) : 700
+  const maxW = typeof window !== 'undefined' ? Math.floor(window.innerWidth  * 0.95 - 224 - 48) : 600
+  const scale = Math.min(maxW / designWidth, maxH / designHeight, 1)
   const displayWidth = Math.round(designWidth * scale)
   const displayHeight = Math.round(designHeight * scale)
 
@@ -57,6 +59,7 @@ export function CanvasEditorModal({
 
   // Keyboard shortcuts
   useEffect(() => {
+    if (!open) return
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') deleteFnRef.current?.()
       if (e.ctrlKey && e.key === 'z') undoFnRef.current?.()
@@ -64,13 +67,19 @@ export function CanvasEditorModal({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [])
+  }, [open])
 
   const handleSave = async () => {
-    if (!canvas) return
+    if (!canvas || !parentCreativeId) return
     setIsSaving(true)
     try {
-      const blob = await exportCanvasAsBlob(canvas, designWidth, displayWidth)
+      let blob: Blob
+      try {
+        blob = await exportCanvasAsBlob(canvas, designWidth, displayWidth)
+      } catch (exportErr) {
+        console.error('[canvas-editor] export failed:', exportErr)
+        throw new Error('Could not export canvas. If you added external images, they may block export due to CORS.')
+      }
 
       const fd = new FormData()
       fd.append('image', blob, 'variant.png')
@@ -78,7 +87,11 @@ export function CanvasEditorModal({
       fd.append('organizationId', organizationId)
 
       const res = await fetch('/api/creatives/save-variant', { method: 'POST', body: fd })
-      if (!res.ok) throw new Error('Save failed')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        console.error('[canvas-editor] save-variant error:', res.status, errData)
+        throw new Error(errData.details || errData.error || `Save failed (${res.status})`)
+      }
 
       const { variantId, imageUrl } = await res.json()
       toast.success('Edited version saved to gallery!')
@@ -94,23 +107,36 @@ export function CanvasEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0 gap-0 overflow-hidden">
+      {/*
+        Override DialogContent defaults:
+          - sm:max-w-[95vw]  overrides the built-in sm:max-w-lg (512px)
+          - max-h-none        overrides the built-in max-h-[90vh]
+          - showCloseButton=false  we add our own X inside the header
+      */}
+      <DialogContent
+        solidBackground
+        showCloseButton={false}
+        className="sm:max-w-[95vw] w-full h-[95vh] max-h-none flex flex-col p-0 gap-0 overflow-hidden"
+      >
         {/* Header */}
         <DialogHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
           <DialogTitle className="text-base font-semibold">Edit Creative</DialogTitle>
           <div className="flex items-center gap-2">
             <Button
               onClick={handleSave}
-              disabled={isSaving || !canvas}
+              disabled={isSaving || !canvas || !parentCreativeId}
+              title={!parentCreativeId ? 'Creative not saved to gallery yet' : undefined}
               size="sm"
               className="gap-2 bg-gradient-to-r from-violet-500 to-indigo-500 text-white hover:from-violet-600 hover:to-indigo-600"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save to Gallery
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </div>
         </DialogHeader>
 

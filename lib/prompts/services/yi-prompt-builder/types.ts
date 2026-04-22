@@ -279,6 +279,23 @@ export interface LogoStripZoneCoordinates {
   }
 }
 
+export type BackgroundStyleId =
+  | 'scene'        // Realistic photorealistic scene (default)
+  | 'abstract'     // Abstract gradients & flowing shapes
+  | 'dark'         // Dark cinematic with light rays/glows
+  | 'illustrated'  // Flat vector-style illustrated elements
+  | 'bokeh'        // Soft bokeh / light particles
+  | 'geometric'    // Bold geometric patterns & shapes
+  | 'texture'      // Physical material texture (marble, fabric, paper)
+  | 'split'        // Split layout: scene left, solid color right
+
+export interface BackgroundStyleConfig {
+  id: BackgroundStyleId
+  label: string          // User-facing label
+  description: string    // Short description for UI tooltip
+  promptGuidance: string // Injected into Gemini prompt
+}
+
 export interface EnhancedBuildOptions {
   // Existing fields
   verticalId?: string
@@ -296,6 +313,7 @@ export interface EnhancedBuildOptions {
   // NEW v3.1: Previously lost data now properly passed
   theme?: string                        // User's selected theme (professional, creative, elegant, etc.)
   style?: string                        // Design style preference
+  backgroundStyle?: BackgroundStyleId   // Background visual treatment
   layout?: LayoutZoneConfig             // Layout zone configuration
   speakerPhotoConfig?: SpeakerPhotoConfig  // Speaker photo settings for zone reservation
   organizationContext?: OrganizationContext // Organization branding context
@@ -547,6 +565,21 @@ export interface SocialPostFormData {
   eventNote?: string
 }
 
+export interface MemberSpotlightFormData {
+  /** Person's full name — rendered large and bold (e.g., "SUBIN GNANA SELVAM") */
+  memberName: string
+  /** Role or designation (e.g., "Co Chair 2026", "Chapter Member") */
+  memberTitle: string
+  /** Chapter name, auto-filled from org (e.g., "Yi Kanniyakumari") */
+  chapterName?: string
+  /** Committee year (e.g., "2026") */
+  committeeYear?: string
+  /** Optional 1-line bio or achievement highlight */
+  bio?: string
+  /** Visual background theme for the spotlight card */
+  theme?: 'tricolor' | 'brand' | 'gradient'
+}
+
 // Generic form data type for any format
 export type FormData =
   | CertificateFormData
@@ -560,6 +593,7 @@ export type FormData =
   | PresentationFormData
   | WebBannerFormData
   | SocialPostFormData
+  | MemberSpotlightFormData
   | Record<string, unknown>
 
 // ============================================================

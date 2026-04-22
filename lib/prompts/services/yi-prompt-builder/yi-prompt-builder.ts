@@ -32,6 +32,7 @@ import type {
   PresentationFormData,
   WebBannerFormData,
   SocialPostFormData,
+  MemberSpotlightFormData,
 } from './types'
 
 import { injectVerticalContext } from './vertical-contexts'
@@ -48,6 +49,7 @@ import {
   buildWebBannerPrompt,
   buildSocialPostPrompt,
   buildGenericPrompt,
+  buildMemberSpotlightPrompt,
 } from './format-builders'
 
 // ============================================================
@@ -321,6 +323,10 @@ const FORMAT_ALIASES: Record<string, string> = {
   facebook_post: 'social_post',
   twitter_post: 'social_post',
   x_post: 'social_post',
+
+  // Member spotlight variants
+  member_spotlight: 'member_spotlight',
+  spotlight: 'member_spotlight',
 }
 
 // ============================================================
@@ -415,6 +421,9 @@ export class YiPromptBuilder {
 
       case 'social_post':
         return buildSocialPostPrompt(formData as SocialPostFormData, formatId, options)
+
+      case 'member_spotlight':
+        return buildMemberSpotlightPrompt(formData as MemberSpotlightFormData, options)
 
       default:
         return buildGenericPrompt(formatId, formData as Record<string, unknown>, options)

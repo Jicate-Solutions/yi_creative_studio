@@ -167,7 +167,7 @@ export default function EventsPage() {
         _sourceAppId?: string
       }
       const source = eventWithMetadata._sourceAppId || 'external'
-      router.push(`/create?eventId=${event.id}&source=${source}`)
+      router.push(`/create?eventId=${event.id}&source=${source}&formatId=event_poster`)
     },
     [router]
   )

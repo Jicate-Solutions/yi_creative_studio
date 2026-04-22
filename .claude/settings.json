@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.freepik.com)",
+      "WebFetch(domain:kreafolk.com)"
+    ]
+  }
+}

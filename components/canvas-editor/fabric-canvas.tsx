@@ -1,16 +1,14 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as fabric from 'fabric'
+import type * as fabric from 'fabric'
 import { useFabricCanvas } from './hooks/use-fabric-canvas'
 import { cn } from '@/lib/utils'
 
 interface FabricCanvasProps {
   backgroundImageUrl: string
-  /** Native design dimensions (e.g. 1080 × 1440) */
   designWidth: number
   designHeight: number
-  /** Display dimensions — the canvas is scaled to fit the modal */
   displayWidth: number
   displayHeight: number
   onCanvasReady: (canvas: fabric.Canvas) => void
@@ -34,18 +32,18 @@ export function FabricCanvas({
 }: FabricCanvasProps) {
   const { canvasRef, canvas, isReady, undo, redo, deleteSelected } = useFabricCanvas({
     backgroundImageUrl,
-    width: designWidth,
-    height: designHeight,
+    designWidth,
+    designHeight,
+    displayWidth,
+    displayHeight,
   })
-
-  const scale = displayWidth / designWidth
 
   useEffect(() => {
     if (canvas && isReady) {
       onCanvasReady(canvas)
-      onUndo(() => undo)
-      onRedo(() => redo)
-      onDeleteSelected(() => deleteSelected)
+      onUndo(undo)
+      onRedo(redo)
+      onDeleteSelected(deleteSelected)
     }
   }, [canvas, isReady, onCanvasReady, onUndo, onRedo, onDeleteSelected, undo, redo, deleteSelected])
 
@@ -59,15 +57,7 @@ export function FabricCanvas({
           <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
         </div>
       )}
-      <canvas
-        ref={canvasRef}
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          width: designWidth,
-          height: designHeight,
-        }}
-      />
+      <canvas ref={canvasRef} />
     </div>
   )
 }

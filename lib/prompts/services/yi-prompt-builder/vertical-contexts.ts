@@ -147,6 +147,57 @@ The design must:
   },
 
   // ============================================================
+  // YI MEMBERSHIP — Chapter events, meetings, leadership programs
+  // Design reference: Yi Kanniyakumari Instagram (@yi.kanniyakumari)
+  // Style: clean, minimal, corporate — typography is the visual hero
+  // ============================================================
+  membership: {
+    verticalId: 'membership',
+    name: 'Yi Membership',
+    additionalContext: `
+<vertical_context>
+This is for Yi Membership — chapter events, leadership meetings, award ceremonies, and member activities organized by Young Indians (Yi), a flagship initiative of the Confederation of Indian Industry (CII).
+
+DESIGN MANDATE — Yi Kanniyakumari Instagram Style:
+The design MUST follow the clean, professional, corporate-minimal aesthetic seen on Yi chapter official communications.
+- Clean solid or gradient background (Yi blue #005B96 is the canonical choice)
+- Bold typography as the VISUAL HERO — event name must dominate the canvas
+- Maximum ONE subtle thematic element (watermark-style, 8–12% opacity)
+- Comparable in quality to CII national communications and official India Inc. materials
+- Zero visual clutter — negative space is a deliberate design choice, not emptiness
+</vertical_context>`,
+    colorPreferences: 'Yi Blue (#005B96) as dominant background. White (#FFFFFF) for primary text. Yi Orange (#FF6B35) as a sparingly-used accent only. Midnight navy (#003A6E) for gradient depth.',
+    imageryGuidance: 'NO photographic scenes. Clean gradient or solid background only. At most one subtle thematic watermark at 8–12% opacity (tooth for dental, runner silhouette for sports, etc.). For general Yi events, pure gradient is preferred.',
+    avoidance: 'All photographic scenes, crowds, people groups, busy action photography, stock photos, cinematic depth-of-field, decorative medals/confetti/ribbons, celebration clutter, complex visual narratives',
+  },
+
+  // ============================================================
+  // YI SPOTLIGHT — Creative event poster style
+  // Design reference: Yi Kanniyakumari Instagram (@yi.kanniyakumari)
+  // Style: vibrant gradient + creative overlays + large focal subject + dynamic typography
+  // ============================================================
+  yi_spotlight: {
+    verticalId: 'yi_spotlight',
+    name: 'Yi Spotlight Event',
+    additionalContext: `
+<vertical_context>
+This is a Yi Kanniyakumari chapter event poster using the CREATIVE SPOTLIGHT STYLE — inspired by @yi.kanniyakumari Instagram's vibrant, graphically-rich event posters.
+
+DESIGN MANDATE:
+- Rich gradient background tuned to the event theme (deep jewel tones, NOT flat corporate blue)
+- Creative geometric or diagonal overlay elements: subtle tricolor accent bands (saffron #FF9933 + green #138808) at 15–20% opacity, or diagonal light streaks
+- Large focal subject: a single Indian person or relevant object occupying 45–60% of the canvas height — dynamic pose, emotionally engaged with the event topic
+- Bold split-typography style: event name rendered in TWO LINES with contrasting weight
+- Optional calligraphy/script accent for connecting words
+- Color-blocked information strip concept: a vibrant horizontal band near the bottom anchoring date/venue info
+- Instagram-shareable energy — poster must look premium and post-ready
+</vertical_context>`,
+    colorPreferences: 'Deep jewel-tone gradient derived from the event theme — let the event content drive the color choice. Yi Orange (#FF6B35) for the info-anchor band. Tricolor diagonal accents (saffron #FF9933 + green #138808) at 15–20% opacity where appropriate.',
+    imageryGuidance: 'Scene-based content (people, environment, props) driven by the event topic. Focal subject should feel large and dynamic. Creative diagonal overlay adds texture. Color-blocked info band at bottom.',
+    avoidance: 'Plain flat corporate gradients, static stiff poses, generic stock-photo look, Western faces, non-Indian appearance',
+  },
+
+  // ============================================================
   // SPECIAL EDITION: NEW YEAR 2026
   // ============================================================
   new_year_2026: {
@@ -173,28 +224,66 @@ The design strategy must be EXTREMELY PREMIUM:
 // ============================================================
 
 /**
- * Inject vertical-specific context into a base prompt
- * Adds additional guidance, color preferences, and avoidance rules
+ * Brand colors passed by the caller to override vertical-specific color preferences.
+ * When provided, the vertical's hardcoded palette (e.g. Yi Orange, jewel tones) is
+ * replaced with the user's actual brand colors so Gemini doesn't ignore them.
+ */
+export interface VerticalBrandColors {
+  primary: string
+  secondary: string
+  accent?: string
+}
+
+/**
+ * Inject vertical-specific context into a base prompt.
+ * Adds additional guidance, color preferences, and avoidance rules.
+ *
+ * @param brandColors - When provided, the vertical's hardcoded color preferences are
+ *   replaced with the user's brand colors and a final override block is appended.
+ *   This prevents Yi-specific palettes (jewel tones, Yi Orange, tricolor accents)
+ *   from overriding non-Yi organizations' brand colors.
  */
 export function injectVerticalContext(
   basePrompt: string,
-  verticalId: string | undefined
+  verticalId: string | undefined,
+  brandColors?: VerticalBrandColors
 ): string {
   if (!verticalId) return basePrompt
 
   const context = VERTICAL_CONTEXTS[verticalId]
   if (!context) return basePrompt
 
+  // When the caller supplies brand colors, replace the vertical's hardcoded color
+  // preferences so Gemini doesn't follow Yi-specific palettes for non-Yi orgs.
+  const colorSection = brandColors
+    ? `<vertical_colors>Use the user's brand colors as the dominant palette: Primary ${brandColors.primary}, Secondary ${brandColors.secondary}${brandColors.accent ? `, Accent ${brandColors.accent}` : ''}. These OVERRIDE any color suggestions in the vertical context above.</vertical_colors>`
+    : `<vertical_colors>${context.colorPreferences}</vertical_colors>`
+
+  // Final override block injected only when brand colors are provided — placed at the
+  // very end of the prompt so it wins over any earlier "jewel tones / Yi Orange /
+  // tricolor accents" language that may appear in additionalContext.
+  const brandOverride = brandColors
+    ? `\n<instruction>
+BRAND COLOR FINAL OVERRIDE — NON-NEGOTIABLE:
+The user has specified explicit brand colors that MUST dominate the design.
+Primary background/gradient: ${brandColors.primary}
+Secondary accents/highlights: ${brandColors.secondary}${brandColors.accent ? `\nTertiary/accent: ${brandColors.accent}` : ''}
+Do NOT use deep jewel tones, Yi Orange (#FF6B35), or tricolor Indian accents (saffron #FF9933 / flag green #138808) unless they exactly match the brand colors listed above.
+The MANDATORY COLOR PALETTE earlier in this prompt is authoritative — all color references in the vertical context are OVERRIDDEN by it.
+</instruction>`
+    : ''
+
   // Find the constraints section
   const constraintsIndex = basePrompt.indexOf('<constraints>')
   if (constraintsIndex === -1) {
-    // No constraints section - append at end
+    // No constraints section — append at end
     return (
       basePrompt +
       '\n\n' +
       context.additionalContext +
       `\n<vertical_imagery>${context.imageryGuidance}</vertical_imagery>` +
-      `\n<vertical_colors>${context.colorPreferences}</vertical_colors>`
+      `\n${colorSection}` +
+      brandOverride
     )
   }
 
@@ -213,8 +302,9 @@ export function injectVerticalContext(
     context.additionalContext +
     '\n\n' +
     `<vertical_imagery>${context.imageryGuidance}</vertical_imagery>\n` +
-    `<vertical_colors>${context.colorPreferences}</vertical_colors>\n\n` +
-    modifiedConstraints
+    `${colorSection}\n\n` +
+    modifiedConstraints +
+    brandOverride
   )
 }
 

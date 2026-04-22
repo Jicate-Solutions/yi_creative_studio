@@ -1,4 +1,4 @@
-import * as fabric from 'fabric'
+import type * as fabric from 'fabric'
 
 /**
  * Exports the full Fabric canvas as a PNG blob at native design resolution.

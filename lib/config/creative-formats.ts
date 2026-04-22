@@ -80,6 +80,8 @@ export type CreativeFormatId =
   | 'admission_office_flex'
   | 'admission_achievers_flex'
   | 'admission_photo_booth'
+  // Spotlight
+  | 'member_spotlight'
   // Custom
   | 'custom'
 
@@ -794,6 +796,21 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Photo booths', 'Event backdrops', 'Campus stalls'],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Member Spotlight Format
+  // ---------------------------------------------------------------------------
+  member_spotlight: {
+    id: 'member_spotlight',
+    label: 'Member Spotlight',
+    category: 'social_media',
+    aspectRatio: '9:16',
+    width: 1080,
+    height: 1920,
+    description: 'Member showcase card with photo, name, and role',
+    popular: false,
+    useCases: ['Chapter leadership', 'Member introductions', 'Committee announcements'],
   },
 
   // ---------------------------------------------------------------------------

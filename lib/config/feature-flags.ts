@@ -16,10 +16,10 @@ export const FEATURE_FLAGS = {
    * When disabled, external events import without formatId
    * (user must manually select format before generating).
    *
-   * @default false (opt-in for safe rollout)
+   * @default true (opt-out — set NEXT_PUBLIC_ENABLE_FORMAT_INFERENCE=false to disable)
    * @since v3.1
    */
-  ENABLE_FORMAT_INFERENCE: process.env.NEXT_PUBLIC_ENABLE_FORMAT_INFERENCE === 'true',
+  ENABLE_FORMAT_INFERENCE: process.env.NEXT_PUBLIC_ENABLE_FORMAT_INFERENCE !== 'false',
 } as const
 
 /**

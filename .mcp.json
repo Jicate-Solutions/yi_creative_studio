@@ -87,6 +87,16 @@
     "vercel": {
       "type": "http",
       "url": "https://mcp.vercel.com/JKKN-Institutions/yicreatives-studio"
+    },
+    "canva-dev": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@canva/cli@latest",
+        "mcp"
+      ]
     }
   }
 }

@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Pipette, Sparkles, Loader2 } from 'lucide-react'
+import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Pipette, Sparkles, Loader2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EnhancedStripCanvas } from '@/components/create/logo-step/enhanced-strip-canvas'
@@ -75,7 +75,7 @@ export function LogosStylePanel({
   onGenerate,
   embedded = false,
 }: LogosStylePanelProps = {}) {
-  const { formData, setColorPalette, setUseBrandColors, setEnhanced4RowEnabled, setCustomColors, setCreationMode, selectedVertical, selectVertical } = useCreativeStore()
+  const { formData, setColorPalette, setUseBrandColors, setEnhanced4RowEnabled, setCustomColors, setCreationMode, updateFormData, selectedVertical, selectVertical } = useCreativeStore()
   const { logos } = useLogos()
   const { verticals } = useVerticals()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -131,27 +131,30 @@ export function LogosStylePanel({
           {/* Format + Mode in one compact row */}
           <div className="p-2 space-y-1.5">
             <FormatDropdown />
-            <div className="flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
+            <div className="flex items-center p-0.5 bg-muted/60 rounded-lg border border-border/30">
               {[
-                { mode: 'scratch', icon: Wand2, label: 'AI Create' },
-                { mode: 'template', icon: ImageIcon, label: 'Template' },
+                { mode: 'scratch',   icon: Wand2,      label: 'AI Create' },
+                { mode: 'template',  icon: ImageIcon,  label: 'Template' },
+                { mode: 'spotlight', icon: UserRound,  label: 'Spotlight' },
               ].map(({ mode, icon: Icon, label }) => (
                 <button
                   key={mode}
-                  onClick={() => setCreationMode(mode as 'scratch' | 'template')}
+                  onClick={() => {
+                    setCreationMode(mode as 'scratch' | 'template' | 'spotlight')
+                  }}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold transition-all duration-150',
+                    'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-all duration-150',
                     creationMode === mode
-                      ? 'bg-card text-foreground shadow-sm border border-border/40'
+                      ? 'bg-background text-primary shadow-sm border border-border/40'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Icon className={cn("h-3 w-3", creationMode === mode ? "text-primary" : "")} />
+                  <Icon className={cn("h-3.5 w-3.5", creationMode === mode ? "text-primary" : "")} />
                   {label}
                 </button>
               ))}
             </div>
-            {creationMode === 'template' && (
+            {(creationMode === 'template' || creationMode === 'spotlight') && (
               <Select value={selectedVertical?.id || ''} onValueChange={selectVertical}>
                 <SelectTrigger className="h-7 text-[11px] w-full rounded-md">
                   <SelectValue placeholder="Select Vertical" />
@@ -163,6 +166,92 @@ export function LogosStylePanel({
                 </SelectContent>
               </Select>
             )}
+            {creationMode === 'spotlight' && (() => {
+              const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
+              const themes = [
+                {
+                  id: 'tricolor' as const,
+                  label: 'Tricolor',
+                  colors: ['#FF9933', '#FFFFFF', '#138808'],
+                  desc: 'Saffron · White · Green',
+                },
+                {
+                  id: 'brand' as const,
+                  label: 'Yi Blue',
+                  colors: ['#005B96', '#0071BC'],
+                  desc: 'Professional blue',
+                },
+                {
+                  id: 'gradient' as const,
+                  label: 'Gradient',
+                  colors: ['#005B96', '#1a2332'],
+                  desc: 'Blue to navy',
+                },
+              ]
+              return (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-0.5">Background Theme</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {themes.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => updateFormData({ spotlightTheme: t.id })}
+                        className={cn(
+                          'flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all duration-150 text-center',
+                          spotlightTheme === t.id
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border/40 hover:border-border/80 hover:bg-muted/30'
+                        )}
+                      >
+                        <div className="flex h-5 w-full rounded overflow-hidden">
+                          {t.colors.map((c, i) => (
+                            <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
+                          ))}
+                        </div>
+                        <span className={cn('text-[10px] font-semibold leading-tight', spotlightTheme === t.id ? 'text-primary' : 'text-muted-foreground')}>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── Background Style ── */}
+            {(() => {
+              const bgStyle = ((formData.formData as any)?.backgroundStyle || 'scene') as string
+              const bgStyles = [
+                { id: 'scene',      label: 'Realistic',   icon: '🏞' },
+                { id: 'abstract',   label: 'Abstract',    icon: '🎨' },
+                { id: 'dark',       label: 'Cinematic',   icon: '🎬' },
+                { id: 'illustrated',label: 'Illustrated', icon: '✏️' },
+                { id: 'bokeh',      label: 'Bokeh',       icon: '✨' },
+                { id: 'geometric',  label: 'Geometric',   icon: '🔷' },
+                { id: 'texture',    label: 'Textured',    icon: '🪨' },
+                { id: 'split',      label: 'Split',       icon: '▧' },
+              ]
+              return (
+                <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2 mt-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 block mb-1.5">Background Style</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {bgStyles.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => updateFormData({ backgroundStyle: s.id })}
+                        className={cn(
+                          'flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all duration-150 text-center',
+                          bgStyle === s.id
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border/40 hover:border-border/80 hover:bg-muted/30'
+                        )}
+                      >
+                        <span className="text-base leading-none">{s.icon}</span>
+                        <span className={cn('text-[9px] font-semibold leading-tight', bgStyle === s.id ? 'text-primary' : 'text-muted-foreground')}>{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
 
