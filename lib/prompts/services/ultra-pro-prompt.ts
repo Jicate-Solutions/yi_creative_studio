@@ -328,12 +328,18 @@ export async function generateUltraProPrompt(
     creativeDirection?: string          // v31.0: Prompt style creative direction
     modelGuidance?: string              // v31.0: Model-specific prompt tuning guidance
   },
-  recentOrgPrompts?: string[] // v36.0: Recent org prompts for generation memory
+  recentOrgPrompts?: string[], // v36.0: Recent org prompts for generation memory
+  // v44.0: Downstream image-generation model. The system prompt's 40–83% content-zone
+  // and top/bottom logo-bar assumptions are ONLY valid for Gemini (where Sharp overlays
+  // logo bars post-generation). When 'openai', we append an override block that
+  // neutralizes those assumptions so gpt-image-1 doesn't place text in the cropped zones.
+  targetProvider: 'gemini' | 'openai' = 'gemini'
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
   console.log('[Ultra-Pro Prompt] Format:', compiledData.format?.name || 'default')
   console.log('[Ultra-Pro Prompt] Provider:', provider)
+  console.log('[Ultra-Pro Prompt] Target Provider:', targetProvider)
   console.log('[Ultra-Pro Prompt] Design Context:', designContext ? 'PROVIDED (v5.0 enhancement)' : 'NOT PROVIDED (fallback mode)')
   console.log('[Ultra-Pro Prompt] Dual-Stripe Mode:', dualStripeMode ? 'YES (18% reserved, 20% text start)' : 'NO (8% reserved, 15% text start)')
 
@@ -357,6 +363,7 @@ export async function generateUltraProPrompt(
     hasSpeaker: !!compiledData.speakerName,
     hasVenue: !!compiledData.venue,
     variationSeed, // NEW: Forces unique cache key every time for creative formats
+    targetProvider, // v44.0: Different system prompt per target provider — do not share cache
   })
 
   // For creative formats, skip cache to ensure fresh variation
@@ -535,6 +542,53 @@ The visual scene, style, environment, and complexity MUST be designed for THIS s
     console.log(`[Ultra-Pro Prompt] v37.0 Indian Environment Context injected (${sceneNarrative.length} chars)`)
   }
 
+  // v44.0: Target-provider override block.
+  // The ULTRA_PRO_PROMPT_SYSTEM hardcodes Gemini-specific zone rules
+  // (40–83% content zone, 25% top logo bar, 17% bottom logo bar, "text at 42%" etc.)
+  // that bake into Claude's enhancedPrompt. gpt-image-1 has NO logo bars and instead
+  // gets ~11% cover-crop on top + bottom during post-processing — so following those
+  // Gemini rules puts the headline in the cropped zone and chops the letters.
+  //
+  // This block, emitted AFTER the system prompt template, revokes those assumptions
+  // for OpenAI. LLMs honor the most recent directive on conflict, so this wins.
+  const openaiOverrideSection = targetProvider === 'openai'
+    ? `
+
+═══════════════════════════════════════════════════════════════
+PROVIDER-SPECIFIC OVERRIDE — OpenAI gpt-image-1 (v44.0, MANDATORY)
+═══════════════════════════════════════════════════════════════
+The zone rules above (40–83% content zone, 25% top logo bar, 17% bottom
+logo bar, "text at 42%", TEXT-SAFE ZONE v43.0 mid-section design, zone
+sandwich) were written for Gemini's post-overlay pipeline. They are
+INVALID for this request and MUST be ignored.
+
+For THIS generation:
+• Target model: OpenAI gpt-image-1 — renders text DIRECTLY into the image.
+• NO post-overlay logo bars will be added. Do NOT reserve space at the
+  top or bottom for logo bars.
+• The output WILL be cropped by approximately 11% from the TOP edge and
+  11% from the BOTTOM edge to fit the target 3:4 poster canvas.
+• Therefore the SAFE AREA is the CENTER vertical band, roughly 11%–89%
+  of canvas height (middle ~78%). Everything OUTSIDE this band will be
+  erased by the crop.
+• ALL rendered text (headline, tagline, date, time, venue, speakers)
+  MUST be placed INSIDE the center safe area with clear margin from
+  the top and bottom edges.
+
+textPlacementHints override: DO NOT emit percentage-based placement
+hints for OpenAI. Use abstract composition language such as
+"upper-center with clear margin from top edge", "mid-center", or
+"lower-center with clear margin from bottom edge". Do NOT reference
+"40%", "42%", "83%", "logo bar", "reserved area", or "zone sandwich".
+
+visualScene override: The scene will CONTAIN the text (no overlay
+compositing). Compose so the text has readable surface beneath it,
+but do NOT position subjects specifically for a "mid-section text
+band" — that band is for Gemini only.
+═══════════════════════════════════════════════════════════════
+`
+    : ''
+
   // Build the full prompt for the AI
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
 ${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}${generationMemorySection}
@@ -544,7 +598,7 @@ ${designContextSection}${visualDirectionSection}${audienceContextSection}${scene
 SOPHISTICATION LEVEL: ${compiledData.sophistication || 'balanced'}
 TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
-${logoStripInstructions}
+${logoStripInstructions}${openaiOverrideSection}
 
 Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
 
@@ -626,10 +680,11 @@ export async function generateUltraProPromptSafe(
     creativeDirection?: string
     modelGuidance?: string
   },
-  recentOrgPrompts?: string[] // v36.0: Recent org prompts for generation memory
+  recentOrgPrompts?: string[], // v36.0: Recent org prompts for generation memory
+  targetProvider: 'gemini' | 'openai' = 'gemini' // v44.0: Downstream image model — activates provider override block
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions, recentOrgPrompts)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions, recentOrgPrompts, targetProvider)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {

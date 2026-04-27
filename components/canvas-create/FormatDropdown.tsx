@@ -22,12 +22,16 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 export function FormatDropdown() {
-  const { selectedFormat, selectFormat, recentFormats } = useCreativeStore()
+  const { selectedFormat, selectFormat, recentFormats, selectedModel } = useCreativeStore()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
-  // Convert Record to array for easier manipulation
-  const formatsArray = Object.values(CREATIVE_FORMATS)
+  const isOpenAI = selectedModel?.provider === 'openai'
+
+  // Convert Record to array, filtering incompatible formats when OpenAI model is selected
+  const formatsArray = Object.values(CREATIVE_FORMATS).filter(f =>
+    isOpenAI ? f.gptImageSize != null : true
+  )
 
   // Group formats by category
   const formatsByCategory = formatsArray.reduce((acc, format) => {

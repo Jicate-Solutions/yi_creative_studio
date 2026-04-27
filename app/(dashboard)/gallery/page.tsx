@@ -56,14 +56,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ExportModal } from '@/components/export'
-import type { Creative } from '@/types/database.types'
+import type { Creative, AIModel } from '@/types/database.types'
+import { useAIModels } from '@/hooks/use-ai-models'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 
+function getProviderBadge(
+  creative: Creative,
+  getModelById: (id: string) => AIModel | undefined
+): { label: string; className: string } {
+  const model = creative.ai_model_id ? getModelById(creative.ai_model_id) : undefined
+  const name = (creative.ai_model ?? '').toLowerCase()
+  const isOpenAI = model?.provider === 'openai' || name.includes('chatgpt') || name.includes('gpt')
+  return isOpenAI
+    ? { label: 'OpenAI', className: 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/30' }
+    : { label: 'Gemini', className: 'bg-blue-500/20 text-blue-100 border border-blue-400/30' }
+}
+
 export default function GalleryPage() {
   const supabase = useMemo(() => createClient(), [])
   const { currentOrganization, user, _hasHydrated, serverHydrated } = useAuthStore()
+  const { getModelById } = useAIModels()
   const [creatives, setCreatives] = useState<Creative[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -549,13 +563,27 @@ export default function GalleryPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                {creative.is_favorite && (
-                  <div className="absolute top-2 left-2 group-hover:opacity-0 transition-opacity">
-                    <div className="bg-white/90 rounded-full p-1.5 shadow-md">
+                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+                  {(() => {
+                    const badge = getProviderBadge(creative, getModelById)
+                    return (
+                      <span
+                        className={cn(
+                          "badge-pill text-xs font-medium shadow-md backdrop-blur-sm flex items-center gap-1 self-start",
+                          badge.className
+                        )}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {badge.label}
+                      </span>
+                    )
+                  })()}
+                  {creative.is_favorite && (
+                    <div className="bg-white/90 rounded-full p-1.5 shadow-md self-start group-hover:opacity-0 transition-opacity">
                       <Heart className="h-4 w-4 fill-red-500 text-red-500" />
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                   <h3 className="text-white font-semibold text-sm truncate">{creative.title || 'Untitled'}</h3>
                 </div>

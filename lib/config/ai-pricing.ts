@@ -27,11 +27,30 @@ export interface ModelPricing {
   outputPerMillion: number          // USD per 1M output tokens (text)
   imageOutputPerMillion?: number    // USD per 1M output tokens (images) - NEW
   imageGeneration?: number          // USD per image (flat rate convenience)
+  imageGenerationByQuality?: {      // OpenAI GPT-image-1: tiered pricing by quality
+    low: number
+    medium: number
+    high: number
+  }
   cachedInputPerMillion?: number    // USD per 1M cached tokens
 }
 
 export const AI_PRICING: Record<AIProvider, Record<string, ModelPricing>> = {
   openai: {
+    // GPT-image-1 — ChatGPT Images 2.0 image generation model
+    // Pricing: https://openai.com/api/pricing
+    // Quality tiers: high=$0.167, medium=$0.042, low=$0.011 per 1024×1024 image
+    'gpt-image-1': {
+      inputPerMillion: 5.00,
+      outputPerMillion: 15.00,
+      imageGeneration: 0.167, // default to high quality flat rate
+      imageGenerationByQuality: {
+        low: 0.011,
+        medium: 0.042,
+        high: 0.167,
+      },
+      cachedInputPerMillion: 0,
+    },
     // GPT-4.1 - Primary text model for ultra-pro prompt generation
     // Quality-first choice: supports temperature 0–2, native JSON schema, 1M context
     // Pricing: https://openai.com/api/pricing (as of Q1 2026)
@@ -272,18 +291,24 @@ export function calculateTokenCost(
 
 /**
  * Calculate cost for image generation
- * Supports resolution-based pricing for Gemini 3 Pro Image Preview
+ * Supports resolution-based pricing for Gemini Pro and quality-tier pricing for OpenAI
  */
 export function calculateImageCost(
   provider: AIProvider,
   model: string,
   imageCount: number = 1,
-  resolution: '512px' | '1K' | '2K' | '4K' = '1K'
+  resolution: '512px' | '1K' | '2K' | '4K' = '1K',
+  imageQuality: 'low' | 'medium' | 'high' = 'high'
 ): number {
   const pricing = getModelPricing(provider, model)
   if (!pricing?.imageGeneration) {
     console.warn(`[AI Pricing] No image pricing for: ${provider}/${model}`)
     return 0.039 * imageCount // Default to Gemini Flash image pricing
+  }
+
+  // OpenAI GPT-image-1: quality-tier pricing
+  if (model === 'gpt-image-1' && pricing.imageGenerationByQuality) {
+    return pricing.imageGenerationByQuality[imageQuality] * imageCount
   }
 
   // Resolution-based pricing for Gemini 3 Pro Image Preview

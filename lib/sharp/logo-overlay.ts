@@ -291,15 +291,74 @@ function calculatePosition(
 }
 
 /**
- * Download an image from a URL and return it as a Buffer
+ * Is this a transient network error worth retrying? ECONNRESET, ETIMEDOUT,
+ * ECONNREFUSED, 5xx responses, and `fetch failed` wrappers all fit the bill.
+ * 4xx responses (404, 403 etc.) are terminal — retrying won't help.
+ */
+function isRetryableDownloadError(err: unknown): boolean {
+  if (!err) return false
+  // Node's undici surfaces socket errors as { code, cause } on the Error
+  const maybe = err as { code?: string; cause?: { code?: string }; message?: string }
+  const code = maybe.code ?? maybe.cause?.code
+  if (code && ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN', 'UND_ERR_SOCKET'].includes(code)) {
+    return true
+  }
+  // Terminal HTTP errors thrown below carry a status code in the message
+  const msg = (maybe.message || '').toLowerCase()
+  if (/ status: (5\d\d)/.test(msg)) return true
+  if (msg.includes('fetch failed')) return true
+  return false
+}
+
+/**
+ * Download an image from a URL and return it as a Buffer.
+ * Retries transient network errors (ECONNRESET, timeout, 5xx) with
+ * exponential backoff. 404/403 fail fast — retrying won't help.
  */
 async function downloadImage(url: string): Promise<Buffer> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Failed to download image: ${url}`)
+  const MAX_ATTEMPTS = 3
+  const TIMEOUT_MS = 15_000
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timer)
+      if (!response.ok) {
+        // Preserve status so the retry check can tell 5xx (retry) from 4xx (fail).
+        throw new Error(`Failed to download image — status: ${response.status} — ${url}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      if (attempt > 1) {
+        console.log(`[downloadImage] Recovered on attempt ${attempt}/${MAX_ATTEMPTS}: ${url.substring(0, 80)}`)
+      }
+      return Buffer.from(arrayBuffer)
+    } catch (err) {
+      clearTimeout(timer)
+      lastError = err
+      const retryable = isRetryableDownloadError(err) && attempt < MAX_ATTEMPTS
+      const code = (err as { code?: string; cause?: { code?: string } }).code
+        ?? (err as { cause?: { code?: string } }).cause?.code
+        ?? 'unknown'
+      if (!retryable) {
+        console.error(
+          `[downloadImage] Terminal failure (attempt ${attempt}/${MAX_ATTEMPTS}, code=${code}):`,
+          err
+        )
+        throw err
+      }
+      const backoffMs = 400 * Math.pow(2, attempt - 1) // 400ms, 800ms
+      console.warn(
+        `[downloadImage] Transient failure (attempt ${attempt}/${MAX_ATTEMPTS}, code=${code}) — retrying in ${backoffMs}ms: ${url.substring(0, 80)}`
+      )
+      await new Promise((r) => setTimeout(r, backoffMs))
+    }
   }
-  const arrayBuffer = await response.arrayBuffer()
-  return Buffer.from(arrayBuffer)
+
+  // Unreachable: loop either returns or throws. Kept for TS exhaustiveness.
+  throw lastError ?? new Error(`Failed to download image after ${MAX_ATTEMPTS} attempts: ${url}`)
 }
 
 /**

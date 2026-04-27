@@ -112,6 +112,19 @@ export interface CreativeFormat {
    * - 'institution': Lock enforcement disabled — institution's own logo can occupy any position
    */
   logoMode?: 'yi_standard' | 'institution'
+  /**
+   * Nearest GPT-image-1 native size for this format.
+   * Undefined = format is incompatible with GPT-image-1 (extreme aspect ratios like 4:1, 8:1).
+   * When set, generate at this size then Sharp-resize to exact format dimensions.
+   *
+   * NOTE: gpt-image-1 only supports 1024x1024 (1:1), 1024x1536 (2:3), and 1536x1024 (3:2).
+   * The mapping per format is already chosen to minimise aspect-ratio drift, but the three
+   * fixed sizes cannot hit arbitrary ratios — 9:16 formats will inevitably crop ~18% top/
+   * bottom and 16:9 formats will crop ~15% left/right when post-processed to exact
+   * dimensions via `cover` mode. This is a hard limit of gpt-image-1; use Gemini when
+   * exact-aspect output matters.
+   */
+  gptImageSize?: '1024x1024' | '1024x1536' | '1536x1024'
 }
 
 // ============================================================================
@@ -199,6 +212,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Square post for Instagram feed',
     popular: true,
     useCases: ['Feed posts', 'Carousel', 'Product showcase'],
+    gptImageSize: '1024x1024',
   },
   instagram_story: {
     id: 'instagram_story',
@@ -210,6 +224,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Full-screen vertical story',
     popular: true,
     useCases: ['Stories', 'Highlights', 'Behind the scenes'],
+    gptImageSize: '1024x1536',
   },
   instagram_reel: {
     id: 'instagram_reel',
@@ -220,6 +235,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1920,
     description: 'Cover image for Reels',
     useCases: ['Reel covers', 'Video thumbnails'],
+    gptImageSize: '1024x1536',
   },
   facebook_post: {
     id: 'facebook_post',
@@ -231,6 +247,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Optimal size for Facebook feed',
     popular: true,
     useCases: ['Feed posts', 'Shared content', 'Link previews'],
+    gptImageSize: '1536x1024',
   },
   facebook_cover: {
     id: 'facebook_cover',
@@ -241,6 +258,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 473,
     description: 'Cover photo for Facebook page',
     useCases: ['Page cover', 'Event cover', 'Group cover'],
+    gptImageSize: '1536x1024',
   },
   facebook_ad: {
     id: 'facebook_ad',
@@ -251,6 +269,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1080,
     description: 'Square ad format for Facebook',
     useCases: ['Sponsored posts', 'Carousel ads', 'Collection ads'],
+    gptImageSize: '1024x1024',
   },
   linkedin_post: {
     id: 'linkedin_post',
@@ -262,6 +281,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Professional post for LinkedIn',
     popular: true,
     useCases: ['Feed posts', 'Articles', 'Company updates'],
+    gptImageSize: '1536x1024',
   },
   linkedin_banner: {
     id: 'linkedin_banner',
@@ -272,6 +292,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 898,
     description: 'Profile or company page banner',
     useCases: ['Profile banner', 'Company page', 'Personal branding'],
+    gptImageSize: '1536x1024',
   },
   twitter_post: {
     id: 'twitter_post',
@@ -283,6 +304,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Image post for Twitter/X',
     popular: true,
     useCases: ['Tweet images', 'Thread headers', 'Announcements'],
+    gptImageSize: '1536x1024',
   },
   twitter_header: {
     id: 'twitter_header',
@@ -293,6 +315,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 851,
     description: 'Profile header for Twitter/X',
     useCases: ['Profile banner', 'Brand header'],
+    gptImageSize: '1536x1024',
   },
   pinterest_pin: {
     id: 'pinterest_pin',
@@ -304,6 +327,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Vertical pin for Pinterest',
     popular: true,
     useCases: ['Pins', 'Idea pins', 'Infographics'],
+    gptImageSize: '1024x1536',
   },
   tiktok_cover: {
     id: 'tiktok_cover',
@@ -314,6 +338,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1920,
     description: 'Video cover for TikTok',
     useCases: ['Video covers', 'Profile highlights'],
+    gptImageSize: '1024x1536',
   },
   whatsapp_status: {
     id: 'whatsapp_status',
@@ -325,6 +350,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Full-screen status image',
     popular: true,
     useCases: ['Status updates', 'Announcements', 'Promotions'],
+    gptImageSize: '1024x1536',
   },
 
   // ---------------------------------------------------------------------------
@@ -340,6 +366,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Eye-catching video thumbnail',
     popular: true,
     useCases: ['Video thumbnails', 'Custom previews'],
+    gptImageSize: '1536x1024',
   },
   youtube_banner: {
     id: 'youtube_banner',
@@ -350,6 +377,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1440,
     description: 'Channel banner for YouTube',
     useCases: ['Channel art', 'Brand banner'],
+    gptImageSize: '1536x1024',
   },
   video_cover: {
     id: 'video_cover',
@@ -360,6 +388,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1080,
     description: 'Generic video cover image',
     useCases: ['Video covers', 'Podcast covers', 'Webinar banners'],
+    gptImageSize: '1536x1024',
   },
 
   // ---------------------------------------------------------------------------
@@ -375,6 +404,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Professional event poster',
     popular: true,
     useCases: ['Events', 'Seminars', 'Workshops', 'Conferences'],
+    gptImageSize: '1024x1536',
   },
   portrait_poster: {
     id: 'portrait_poster',
@@ -386,6 +416,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Tall vertical poster',
     popular: true,
     useCases: ['Standees', 'Roll-ups', 'Display posters'],
+    gptImageSize: '1024x1536',
   },
   landscape_poster: {
     id: 'landscape_poster',
@@ -396,6 +427,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1080,
     description: 'Wide horizontal poster',
     useCases: ['Banners', 'Displays', 'Presentations'],
+    gptImageSize: '1536x1024',
   },
   flyer_a5: {
     id: 'flyer_a5',
@@ -406,6 +438,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 2204,
     description: 'A5 sized flyer (148 x 210 mm)',
     useCases: ['Handouts', 'Promotions', 'Menu cards'],
+    gptImageSize: '1024x1536',
   },
   flyer_a4: {
     id: 'flyer_a4',
@@ -417,6 +450,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'A4 sized flyer (210 x 297 mm)',
     popular: true,
     useCases: ['Posters', 'Notices', 'Information sheets'],
+    gptImageSize: '1024x1536',
   },
   business_card: {
     id: 'business_card',
@@ -427,6 +461,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 600,
     description: 'Standard business card size',
     useCases: ['Contact cards', 'Networking', 'Branding'],
+    gptImageSize: '1536x1024',
   },
   invitation: {
     id: 'invitation',
@@ -438,6 +473,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Elegant invitation card',
     popular: true,
     useCases: ['Events', 'Weddings', 'Parties', 'Corporate events'],
+    gptImageSize: '1024x1536',
   },
   certificate: {
     id: 'certificate',
@@ -449,6 +485,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Landscape certificate',
     popular: true,
     useCases: ['Awards', 'Appreciation', 'Completion', 'Recognition'],
+    gptImageSize: '1536x1024',
   },
   brochure: {
     id: 'brochure',
@@ -459,6 +496,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 3119,
     description: 'A4 brochure page',
     useCases: ['Product brochures', 'Company profiles', 'Catalogs'],
+    gptImageSize: '1024x1536',
   },
 
   // ---------------------------------------------------------------------------
@@ -474,6 +512,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Widescreen presentation slide',
     popular: true,
     useCases: ['Slides', 'Keynotes', 'Webinars', 'Pitches'],
+    gptImageSize: '1536x1024',
   },
   presentation_4_3: {
     id: 'presentation_4_3',
@@ -484,6 +523,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 768,
     description: 'Standard presentation slide',
     useCases: ['Traditional slides', 'Projector presentations'],
+    gptImageSize: '1536x1024',
   },
 
   // ---------------------------------------------------------------------------
@@ -498,6 +538,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 709,
     description: 'Website header banner',
     useCases: ['Website headers', 'Hero sections', 'Promotional banners'],
+    gptImageSize: '1536x1024',
   },
   email_header: {
     id: 'email_header',
@@ -508,6 +549,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 354,
     description: 'Email newsletter header',
     useCases: ['Email campaigns', 'Newsletters', 'Announcements'],
+    gptImageSize: '1536x1024',
   },
   billboard: {
     id: 'billboard',
@@ -518,6 +560,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 1418,
     description: 'Large outdoor billboard',
     useCases: ['Outdoor advertising', 'Display ads', 'Signage'],
+    gptImageSize: '1536x1024',
   },
   announcement: {
     id: 'announcement',
@@ -529,6 +572,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'General announcement graphic',
     popular: true,
     useCases: ['News', 'Updates', 'Important notices'],
+    gptImageSize: '1536x1024',
   },
   leaderboard_ad: {
     id: 'leaderboard_ad',
@@ -539,6 +583,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 425,
     description: 'Standard leaderboard display ad',
     useCases: ['Display ads', 'Banner ads', 'Web advertising'],
+    gptImageSize: '1536x1024',
   },
   square_ad: {
     id: 'square_ad',
@@ -549,6 +594,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 300,
     description: 'Square display advertisement',
     useCases: ['Sidebar ads', 'Display network', 'Social ads'],
+    gptImageSize: '1024x1024',
   },
 
   // ---------------------------------------------------------------------------
@@ -563,6 +609,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 3119,
     description: 'A4 letterhead design',
     useCases: ['Official letters', 'Company stationery', 'Correspondence'],
+    gptImageSize: '1024x1536',
   },
   resume: {
     id: 'resume',
@@ -573,6 +620,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 3119,
     description: 'Professional resume layout',
     useCases: ['CV', 'Job applications', 'Professional profile'],
+    gptImageSize: '1024x1536',
   },
   report_cover: {
     id: 'report_cover',
@@ -583,6 +631,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 3119,
     description: 'Cover page for reports',
     useCases: ['Annual reports', 'Project reports', 'Documentation'],
+    gptImageSize: '1024x1536',
   },
   book_cover: {
     id: 'book_cover',
@@ -593,6 +642,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     height: 2133,
     description: 'Book or ebook cover',
     useCases: ['Books', 'Ebooks', 'Guides', 'Manuals'],
+    gptImageSize: '1024x1536',
   },
 
   // ---------------------------------------------------------------------------
@@ -699,6 +749,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Bus advertising', 'Transit media', 'Outdoor reach'],
+    gptImageSize: '1536x1024',
   },
   admission_bus_side: {
     id: 'admission_bus_side',
@@ -711,6 +762,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Bus side advertising', 'Transit media', 'Portrait outdoor reach'],
+    gptImageSize: '1024x1536',
   },
   admission_standee: {
     id: 'admission_standee',
@@ -747,6 +799,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Large stall backdrops', 'Education fairs', 'Campus events'],
+    gptImageSize: '1536x1024',
   },
   admission_social_post: {
     id: 'admission_social_post',
@@ -760,6 +813,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Instagram', 'Facebook', 'WhatsApp', 'Admission announcements'],
+    gptImageSize: '1024x1536',
   },
   admission_office_flex: {
     id: 'admission_office_flex',
@@ -784,6 +838,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['100 years milestone', 'Achievers board', 'Legacy campaigns'],
+    gptImageSize: '1024x1536',
   },
   admission_photo_booth: {
     id: 'admission_photo_booth',
@@ -796,6 +851,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     new: true,
     logoMode: 'institution',
     useCases: ['Photo booths', 'Event backdrops', 'Campus stalls'],
+    gptImageSize: '1536x1024',
   },
 
   // ---------------------------------------------------------------------------
@@ -811,6 +867,7 @@ export const CREATIVE_FORMATS: Record<CreativeFormatId, CreativeFormat> = {
     description: 'Member showcase card with photo, name, and role',
     popular: false,
     useCases: ['Chapter leadership', 'Member introductions', 'Committee announcements'],
+    gptImageSize: '1024x1536',
   },
 
   // ---------------------------------------------------------------------------

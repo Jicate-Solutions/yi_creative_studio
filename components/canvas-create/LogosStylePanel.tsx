@@ -51,6 +51,8 @@ interface LogosStylePanelProps {
   onThinkingLevelChange?: (level: 'minimal' | 'High') => void
   useImageSearch?: boolean
   onImageSearchChange?: (val: boolean) => void
+  imageQuality?: 'low' | 'medium' | 'high'
+  onImageQualityChange?: (q: 'low' | 'medium' | 'high') => void
   // Mobile generate button — shown after event details are filled
   showGenerateButton?: boolean
   isGenerating?: boolean
@@ -71,6 +73,8 @@ export function LogosStylePanel({
   onThinkingLevelChange,
   useImageSearch = true,
   onImageSearchChange,
+  imageQuality = 'high',
+  onImageQualityChange,
   showGenerateButton = false,
   isGenerating = false,
   onGenerate,
@@ -293,31 +297,102 @@ export function LogosStylePanel({
           </div>
         </div>
 
-        {/* ── AI Engine — Resolution inline ── */}
+        {/* ── AI Engine — Model selector + Resolution + Model-specific controls ── */}
         {(models.length > 0 || isModelsLoading) && (
-          <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 shrink-0">
-                <Zap className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Resolution</span>
+          <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2 space-y-2">
+            {/* Model selector row */}
+            {models.length > 1 && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Model</span>
+                </div>
+                <Select value={selectedModel?.id || ''} onValueChange={onModelChange}>
+                  <SelectTrigger className="flex-1 h-7 text-[11px] rounded-lg border-border/40 bg-muted/50">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs">
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
-                {(['1K', '2K', '4K'] as const).map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => onResolutionChange?.(val)}
-                    className={cn(
-                      'flex-1 py-1 rounded-md text-[11px] font-semibold transition-all duration-150',
-                      resolution === val
-                        ? 'bg-card text-primary shadow-sm border border-border/40'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {val}
-                  </button>
-                ))}
+            )}
+
+            {/* Resolution — hidden for OpenAI (GPT-image-1 uses fixed sizes per format) */}
+            {selectedModel?.provider !== 'openai' && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Resolution</span>
+                </div>
+                <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
+                  {(['1K', '2K', '4K'] as const).map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => onResolutionChange?.(val)}
+                      className={cn(
+                        'flex-1 py-1 rounded-md text-[11px] font-semibold transition-all duration-150',
+                        resolution === val
+                          ? 'bg-card text-primary shadow-sm border border-border/40'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Flash 3.1 — Thinking level toggle */}
+            {selectedModel?.model_id === 'gemini-3.1-flash-image-preview' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 shrink-0">Speed</span>
+                <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
+                  {([['minimal', 'Fast'], ['High', 'Quality']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => onThinkingLevelChange?.(val)}
+                      className={cn(
+                        'flex-1 py-1 rounded-md text-[11px] font-semibold transition-all duration-150',
+                        thinkingLevel === val
+                          ? 'bg-card text-primary shadow-sm border border-border/40'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* OpenAI GPT-image-1 — Quality tier toggle */}
+            {selectedModel?.provider === 'openai' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 shrink-0">Quality</span>
+                <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
+                  {([['high', 'High'], ['medium', 'Standard'], ['low', 'Draft']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => onImageQualityChange?.(val)}
+                      className={cn(
+                        'flex-1 py-1 rounded-md text-[11px] font-semibold transition-all duration-150',
+                        imageQuality === val
+                          ? 'bg-card text-primary shadow-sm border border-border/40'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

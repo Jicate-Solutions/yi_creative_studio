@@ -10,7 +10,7 @@
         "--project-ref=zwebbikioupicwihyelt"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_02a8ed6194297bdebeb4874abce1bbf5f83819ed"
+        "SUPABASE_ACCESS_TOKEN": "sbp_f9d99f3765ff8838c9ef1a55d6f40771f7859d35"
       }
     },
     "filesystem": {

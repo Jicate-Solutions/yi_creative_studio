@@ -1556,6 +1556,30 @@ feel premium because they ARE premium — not because they are plain and conserv
       // Stage 3: Parse & Validate
       const designContext = parseDesignContext(llmResponse.text)
 
+      // v44.1: Upgrade generic fallback with Event Understanding's rich primaryVisuals.
+      // When Claude's response truncates before `visualElements`, parseDesignContext
+      // substitutes 5 generic phrases ("dynamic composition with depth", etc.).
+      // Those phrases have no subject specificity, so gpt-image-1 freelances on
+      // character details — we've seen female doctors grow mustaches as a result.
+      // Event Understanding (Stage 1) already produced event-specific imagery; use it.
+      const genericFallbackMarkers = new Set([
+        'dynamic composition with depth',
+        'modern professional setting',
+        'engaging visual hierarchy',
+        'bold graphic elements',
+        'contemporary design aesthetic',
+      ])
+      const isGenericFallback =
+        designContext.visualElements?.length === 5 &&
+        designContext.visualElements.every((el) => genericFallbackMarkers.has(el.trim()))
+      const eventPrimaryVisuals = eventProfile?.visualAssociations?.primary
+      if (isGenericFallback && eventPrimaryVisuals && eventPrimaryVisuals.length > 0) {
+        console.log(
+          `[Design Intelligence] ✨ Replacing generic fallback with Event Understanding visualAssociations.primary (${eventPrimaryVisuals.length} items)`
+        )
+        designContext.visualElements = [...eventPrimaryVisuals]
+      }
+
       // CRITICAL: Validate visualElements for text label risks
       const riskyKeywords = ['innovation', 'networking', 'tech', 'celebration', 'leadership', 'collaboration', 'conference', 'workshop', 'seminar', 'summit', 'insights', 'workshops', 'professional', 'creative', 'modern', 'digital'];
       const riskyElements = designContext?.visualElements?.filter(el => {

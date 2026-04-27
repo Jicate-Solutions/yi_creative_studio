@@ -217,6 +217,7 @@ export function createUsageTracker(params: {
         success?: boolean
         errorMessage?: string
         resolution?: '512px' | '1K' | '2K' | '4K'  // For resolution-based pricing (Gemini 3 Pro / NB2)
+        imageQuality?: 'low' | 'medium' | 'high'     // For OpenAI GPT-image-1 quality-tier pricing
       }
     ) => {
       // Calculate cost based on whether this is image or text generation
@@ -233,7 +234,7 @@ export function createUsageTracker(params: {
         const cachedCost = pricing?.cachedInputPerMillion
           ? (usage.cachedTokens || 0) / 1_000_000 * pricing.cachedInputPerMillion
           : 0
-        const imageCost = calculateImageCost(provider, model, usage.imageCount, usage.resolution)
+        const imageCost = calculateImageCost(provider, model, usage.imageCount, usage.resolution, usage.imageQuality)
 
         costUsd = inputCost + cachedCost + imageCost
       } else {

@@ -93,6 +93,8 @@ import {
   type AIEventContext,
   type EventFormData,
 } from '@/lib/ai/event-context-analyzer'
+import OpenAI from 'openai'
+import { buildOpenAIPrompt, getGptImageSize } from '@/lib/prompts/services/openai-prompt-builder'
 
 // ============================================================================
 // v24.6: FULL-CANVAS GENERATION PROTECTION
@@ -309,6 +311,7 @@ export async function POST(request: NextRequest) {
       promptStyle, // v31.0: Named creative mode (auto, creative, stunning, cinematic, bold, elegant, minimal)
       creativeMode, // 'spotlight' — triggers Spotlight Creative Brief instead of Creative Director
       backgroundStyle, // v47.1: Background visual treatment (scene, abstract, dark, illustrated, bokeh, geometric, texture, split)
+      imageQuality, // OpenAI GPT-image-1 only: 'low' | 'medium' | 'high'
     } = body as {
       prompt: string
       model: string
@@ -338,6 +341,7 @@ export async function POST(request: NextRequest) {
       promptStyle?: string // v31.0: Prompt style ID (auto, creative, stunning, cinematic, bold, elegant, minimal)
       creativeMode?: string // 'spotlight' | undefined
       backgroundStyle?: string // v47.1: background style id
+      imageQuality?: 'low' | 'medium' | 'high' // OpenAI GPT-image-1 quality tier
     }
 
     // SECURITY: Verify user has editor+ role for this specific organization
@@ -2181,6 +2185,21 @@ ${typographyProfile.hierarchy}
             promptData.negativePrompt,
             selectedFormat
           )
+        } else if (provider === 'openai') {
+          const openAIPromptText = buildOpenAIPrompt({
+            ultraProPrompt,
+            designContext,
+            compiledData,
+            format: selectedFormat!,
+            logoConfig: {
+              hasLogo: logoAwarenessContext.hasLogos,
+              positions: logoAwarenessContext.activeLogos.map((l: { position: string }) => l.position),
+            },
+            imageQuality: imageQuality || 'high',
+          })
+          ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithOpenAI(
+            openAIPromptText, selectedFormat, imageQuality || 'high', model
+          ))
         } else {
           return NextResponse.json(
             { error: 'Invalid AI provider' },
@@ -2270,6 +2289,10 @@ ${typographyProfile.hierarchy}
       ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model, 0, thinkingLevel, useImageSearch))
     } else if (provider === 'ideogram') {
       imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
+    } else if (provider === 'openai') {
+      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithOpenAI(
+        enhancedPrompt, selectedFormat, imageQuality || 'high', model
+      ))
     } else {
       return NextResponse.json(
         { error: 'Invalid AI provider' },
@@ -3459,7 +3482,7 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
     // - gemini-2.5-flash-image: $0.039/image (1290 tokens @ $30/1M)
     // - gemini-3-pro-image-preview: $0.1344/image (1K/2K), $0.24/image (4K)
     if (creationMode === 'scratch' || templateUrl) {
-      const imageProvider: AIProvider = provider === 'google' ? 'gemini' : 'gemini' // All image gen uses Gemini now
+      const imageProvider: AIProvider = provider === 'openai' ? 'openai' : 'gemini'
       // Use actual model that ran (may differ from request model after TIER 3 upgrade), default to Flash
       const imageModel = imageActualModel || model || 'gemini-2.5-flash-image'
       // Estimate input tokens from prompt length (~4 chars per token)
@@ -3478,6 +3501,7 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
           durationMs: 0, // We don't have duration here
           promptLength: prompt.length,
           resolution: requestedResolution, // Track resolution for cost calculation
+          imageQuality: provider === 'openai' ? (imageQuality || 'high') : undefined,
         }
       )
     }
@@ -4255,6 +4279,60 @@ ${prompt}`
   const mimeType = imagePart.inlineData.mimeType || 'image/png'
 
   return `data:${mimeType};base64,${imageData}`
+}
+
+// ============================================================================
+// OPENAI GPT-IMAGE-1 GENERATION
+// ============================================================================
+
+const OPENAI_MODEL_CAPABILITIES: Record<string, {
+  supportedSizes: string[]
+  supportsQualityTier: boolean
+  supportsImageInput: boolean
+  supportsThinking: boolean
+  supportsImageSearch: boolean
+}> = {
+  'gpt-image-1': {
+    supportedSizes: ['1024x1024', '1024x1536', '1536x1024'],
+    supportsQualityTier: true,
+    supportsImageInput: false,
+    supportsThinking: false,
+    supportsImageSearch: false,
+  },
+}
+
+async function generateWithOpenAI(
+  prompt: string,
+  format: import('@/lib/config/creative-formats').CreativeFormat | null | undefined,
+  quality: 'low' | 'medium' | 'high' = 'high',
+  modelId: string = 'gpt-image-1'
+): Promise<{ imageBase64: string; actualModel: string }> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('[OpenAI] OPENAI_API_KEY is not set')
+
+  const client = new OpenAI({ apiKey })
+
+  // Determine GPT-image-1 native size from format
+  const gptSize = format?.gptImageSize || '1024x1024'
+
+  console.log(`[OpenAI] Generating with model=${modelId} quality=${quality} size=${gptSize}`)
+  console.log(`[OpenAI] Prompt (first 200 chars): ${prompt.substring(0, 200)}...`)
+
+  const response = await client.images.generate({
+    model: modelId,
+    prompt,
+    size: gptSize as '1024x1024' | '1024x1536' | '1536x1024',
+    quality,
+    n: 1,
+  })
+
+  const b64 = (response.data[0] as any).b64_json as string | undefined
+  if (!b64) throw new Error('[OpenAI] No image data returned from GPT-image-1')
+
+  const imageBase64 = `data:image/png;base64,${b64}`
+  console.log(`[OpenAI] ✅ Generation complete — size=${gptSize} quality=${quality}`)
+
+  return { imageBase64, actualModel: modelId }
 }
 
 async function generateWithGemini(

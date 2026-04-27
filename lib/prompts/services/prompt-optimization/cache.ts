@@ -142,6 +142,7 @@ export function generateUltraProCacheKey(params: {
   hasSpeaker?: boolean
   hasVenue?: boolean
   variationSeed?: string // NEW: Forces unique cache key for creative variation
+  targetProvider?: 'gemini' | 'openai' // v44.0: Downstream image model — must not share cache across providers
 }): string {
   const parts = [
     CACHE_CONFIG.keyPrefix,
@@ -150,6 +151,8 @@ export function generateUltraProCacheKey(params: {
     params.eventType || 'general',
     params.hasSpeaker ? 'speaker' : 'no_speaker',
     params.hasVenue ? 'venue' : 'no_venue',
+    // v44.0: OpenAI and Gemini get different system-prompt branches — must not share cache
+    params.targetProvider || 'gemini',
   ]
 
   if (params.eventName) {

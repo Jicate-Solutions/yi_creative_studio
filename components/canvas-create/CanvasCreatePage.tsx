@@ -124,6 +124,8 @@ export function CanvasCreatePage({
   const [thinkingLevel, setThinkingLevel] = useState<'minimal' | 'High'>('High')
   // Flash 3.1 (Nano Banana 2) image search grounding — default ON
   const [useImageSearch, setUseImageSearch] = useState(true)
+  // OpenAI GPT-image-1 quality tier: 'high' | 'medium' | 'low'
+  const [imageQuality, setImageQuality] = useState<'low' | 'medium' | 'high'>('high')
   // Post-generation modals and actions
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [shuffleModalOpen, setShuffleModalOpen] = useState(false)
@@ -440,10 +442,14 @@ export function CanvasCreatePage({
           : formData.formData,
         // Flash 3.1 only: thinkingLevel controls quality vs speed, useImageSearch enables grounding
         ...(modelToUse.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
+        // OpenAI GPT-image-1 only: quality tier controls cost and output detail
+        ...(modelToUse.provider === 'openai' && { imageQuality }),
       }
 
-      // Call original /api/generate endpoint
-      const response = await fetch('/api/generate', {
+      // Dispatch: OpenAI uses its dedicated hardened pipeline; Gemini/Ideogram stay on /api/generate.
+      const generateEndpoint =
+        modelToUse.provider === 'openai' ? '/api/generate-openai' : '/api/generate'
+      const response = await fetch(generateEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -606,8 +612,10 @@ export function CanvasCreatePage({
           : formData.formData,
       }
 
-      // Call original /api/generate endpoint
-      const response = await fetch('/api/generate', {
+      // Dispatch: OpenAI uses its dedicated hardened pipeline; Gemini/Ideogram stay on /api/generate.
+      const regenerateEndpoint =
+        regenerateModel.provider === 'openai' ? '/api/generate-openai' : '/api/generate'
+      const response = await fetch(regenerateEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -689,15 +697,24 @@ export function CanvasCreatePage({
     // streaming removed - using synchronous fetch now
   ])
 
-  // Model change handler — auto-resets 512px resolution when switching away from NB2
+  // Model change handler — auto-resets 512px resolution when switching away from NB2,
+  // resets imageQuality when switching away from OpenAI, and auto-selects a compatible
+  // format when switching to OpenAI (GPT-image-1 only supports 3 native sizes)
   const handleModelChange = useCallback((modelId: string) => {
     const newModel = models.find(m => m.id === modelId)
     if (newModel?.model_id !== 'gemini-3.1-flash-image-preview' &&
         formData.designData?.resolution === '512px') {
       updateResolution('1K')
     }
+    if (newModel?.provider !== 'openai') {
+      setImageQuality('high')
+    }
+    // Auto-switch to a GPT-compatible format if the current one isn't supported
+    if (newModel?.provider === 'openai' && selectedFormat && !selectedFormat.gptImageSize) {
+      selectFormat('event_poster') // event_poster maps to 1024x1536 — a safe portrait fallback
+    }
     selectModel(modelId)
-  }, [models, selectModel, formData.designData?.resolution, updateResolution])
+  }, [models, selectModel, formData.designData?.resolution, updateResolution, selectedFormat, selectFormat])
 
   // Desktop layout - Canva-style tight panels
   if (!isMobile) {
@@ -744,6 +761,8 @@ export function CanvasCreatePage({
                       onThinkingLevelChange={setThinkingLevel}
                       useImageSearch={useImageSearch}
                       onImageSearchChange={setUseImageSearch}
+                      imageQuality={imageQuality}
+                      onImageQualityChange={setImageQuality}
                     />
                   </div>
 
