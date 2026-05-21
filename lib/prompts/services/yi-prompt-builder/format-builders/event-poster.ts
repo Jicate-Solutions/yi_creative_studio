@@ -109,6 +109,11 @@ const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
   mandala:
     'BACKGROUND STYLE: MANDALA & INDIAN MOTIFS — Intricate radial mandala pattern as the central background element, with detailed geometric petal layers, paisley motifs, and traditional Indian floral ornaments in the brand palette. Rich, ornate, symmetrical. Gold or accent color outlines on darker base. Suitable for cultural, festival, and spiritual events.',
   custom: '', // Dynamic — built at call time via buildCustomThemeGuidance()
+  // v48.0: New styles ─────────────────────────────────────────────────────
+  'photo-real':
+    'BACKGROUND STYLE: PHOTO REAL — A 35mm DSLR photograph of the actual event scene. Real Indian people in a real Indian venue, captured with natural shallow depth-of-field — sharp on the subject, softly defocused background. Warm/cool stage lighting, photojournalistic but premium magazine quality. Subtle film grain or cinema-style color grading. NO illustration, NO graphic-design aesthetics, NO abstract patterns. The image should look indistinguishable from a professional event photographer\'s portfolio.',
+  product:
+    'BACKGROUND STYLE: PRODUCT (OBJECT-AS-HERO) — ONE event-related symbolic object dominates 60%+ of the canvas as the visual hero. People secondary or absent. Object placed on a clean or dramatically-lit backdrop with studio-quality lighting and a sharp key light, with subtle rim/fill light. Examples: graduation → cap mid-air; music event → microphone with sound waves; medical drive → stethoscope; convocation → diploma close-up. The object IS the design — bold, scroll-stopping, editorial-magazine feel. NO crowd scenes, NO venue interiors. Premium catalog/editorial rendering.',
 }
 
 function buildCustomThemeGuidance(contentStart: number, contentEnd: number, canvasHeight: number): string {

@@ -53,6 +53,7 @@ import {
 } from '@/lib/prompts'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
 import { getPromptStyleConfig } from '@/lib/config/prompt-styles'
+import { getBackgroundStyleHint } from '@/lib/config/background-styles'
 import { getFormatZones, getFormatCategory, shouldEnforceZones } from '@/lib/config/format-zones'
 import { shouldApplyLogoBars } from '@/lib/config/format-logo-bar-config'
 import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
@@ -1217,23 +1218,13 @@ export async function POST(request: NextRequest) {
 
       // v47.1: Background style → inject visual direction into DI brief BEFORE DI runs
       // Only set when no user visual direction already exists (don't override Spotlight Brief)
+      // v48.0: Hint table moved to lib/config/background-styles.ts (shared with OpenAI route + UI)
       if (backgroundStyle && backgroundStyle !== 'scene' && !designBrief.additionalVisualBrief) {
-        const BG_STYLE_DI_HINTS: Record<string, string> = {
-          abstract:    'STYLE OVERRIDE — USER SELECTED ABSTRACT: Ignore the SCENE-BASED concept preference. DO NOT generate real scenes or Indian people. Generate flowing color gradients, soft geometric shapes, and fluid art in the brand palette. Abstract gradients ARE acceptable here. Use CONCEPT 3 (CONCEPTUAL).',
-          dark:        'STYLE OVERRIDE — USER SELECTED DARK CINEMATIC: Ignore the SCENE-BASED concept preference. Generate deep near-black atmosphere with dramatic light rays, glowing halos, and bokeh particles using the brand accent color. People are silhouettes or absent. Use CONCEPT 2 or CONCEPT 3.',
-          illustrated: 'STYLE OVERRIDE — USER SELECTED ILLUSTRATED: Ignore the SCENE-BASED concept preference. Generate flat vector-style illustrated elements — bold icons, clean graphic shapes related to the event theme. Solid fills, no photorealism. Use CONCEPT 2 or CONCEPT 3.',
-          bokeh:       'STYLE OVERRIDE — USER SELECTED BOKEH & LIGHT: Ignore the SCENE-BASED concept preference. Generate soft out-of-focus atmosphere with glowing light orbs and warm sparkle particles in the brand palette. All elements are blurred and dreamy, not sharp or photorealistic. Use CONCEPT 3.',
-          geometric:   'STYLE OVERRIDE — USER SELECTED GEOMETRIC PATTERN: Ignore the SCENE-BASED concept preference AND the ban on geometric patterns. Generate bold geometric shapes (hexagons, triangles, diagonal bands, tessellation) in the brand palette. Geometric patterns ARE required here. Use CONCEPT 3.',
-          texture:     'STYLE OVERRIDE — USER SELECTED TEXTURED MATERIAL: Ignore the SCENE-BASED concept preference. Generate a physical material surface (marble veining, woven fabric, paper grain, brushed metal) tinted in the brand palette. No scenes or people. Use CONCEPT 2.',
-          split:       'STYLE OVERRIDE — USER SELECTED SPLIT LAYOUT: Left half is an event-relevant atmospheric scene; right half is a clean solid brand-color panel where all text will be placed. Sharp or soft diagonal edge separates them.',
-          neon:        'STYLE OVERRIDE — USER SELECTED NEON GLOW: Ignore the SCENE-BASED concept preference. Generate deep near-black background with vivid electric neon light trails, glowing grid lines, bioluminescent halos, and pulsing light streaks in the brand accent color. No realistic scenes or Indian people. Use CONCEPT 3.',
-          duotone:     'STYLE OVERRIDE — USER SELECTED DUOTONE: Ignore the SCENE-BASED concept preference. Generate imagery mapped to exactly TWO brand colors — shadows in primary, highlights in secondary/accent. Bold, high-contrast two-tone treatment. Abstract or silhouette forms only. Use CONCEPT 2 or CONCEPT 3.',
-          glassmorphism: 'STYLE OVERRIDE — USER SELECTED GLASSMORPHISM: Ignore the SCENE-BASED concept preference. Generate translucent frosted-glass panels layered over soft gradient blobs or bokeh in brand colors. Clean modern depth, no realistic scenes. Use CONCEPT 3.',
-          watercolor:  'STYLE OVERRIDE — USER SELECTED WATERCOLOR: Ignore the SCENE-BASED concept preference. Generate soft organic paint washes and flowing pigment spreads in the brand palette. Wet watercolor bleeds, brush strokes, visible paper grain. Purely painterly, no photorealism. Use CONCEPT 3.',
-          mandala:     'STYLE OVERRIDE — USER SELECTED MANDALA: Ignore the SCENE-BASED concept preference. Generate intricate radial mandala pattern with Indian floral motifs, paisley elements, and traditional ornaments in the brand palette. Symmetrical, ornate, cultural. Gold accents on darker base. Use CONCEPT 3.',
-          custom:      `STYLE OVERRIDE — AI CUSTOM THEME: Ignore the SCENE-BASED concept preference. Based ONLY on the event details provided (event name, tagline, description, theme, venue), you must creatively decide: (1) a gradient color palette that perfectly matches the event mood and theme, (2) a single thematic visual focal element (object, symbol, or motif) that represents the event, (3) a text style that fits the event energy. Layout: logo bar safe zone top → vivid full-canvas gradient (your chosen colors) → your chosen focal visual centred in upper content zone → event details (headline, tagline, date, venue) BELOW the focal visual → logo bar safe zone bottom. NO photorealistic Indian scenes. Use CONCEPT 2 or CONCEPT 3.`,
+        const hint = getBackgroundStyleHint(backgroundStyle)
+        if (hint) {
+          designBrief.additionalVisualBrief = hint
+          console.log(`[Background Style] Hint applied: ${backgroundStyle}`)
         }
-        designBrief.additionalVisualBrief = BG_STYLE_DI_HINTS[backgroundStyle]
       }
 
       // Creative brief step — runs BEFORE Design Intelligence so brief is injected as HIGHEST PRIORITY

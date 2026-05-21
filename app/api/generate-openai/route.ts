@@ -5,6 +5,7 @@ import { convertToINR } from '@/lib/services/currency'
 import type { AIProvider } from '@/lib/config/ai-pricing'
 import { resolveColorConfig, isValidHex } from '@/lib/utils/resolve-color-config'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
+import { getBackgroundStyleHint } from '@/lib/config/background-styles'
 import type { DesignData, Enhanced4RowStripMode } from '@/lib/config/design-constants'
 import type { LogoPlacement } from '@/stores/creative-store'
 import type { LogoSizePreset, LogoBackgroundShape, LogoBackgroundStyle } from '@/lib/constants/logoConstants'
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
       language,
       userFormData,
       imageQuality,
+      backgroundStyle, // v48.0: User-selected background style id (photo-real, product, abstract, etc.)
     } = body as {
       prompt: string
       model: string
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
       language?: string
       userFormData?: Record<string, unknown>
       imageQuality?: 'low' | 'medium' | 'high'
+      backgroundStyle?: string // v48.0: id from BACKGROUND_STYLES
     }
 
     console.log(
@@ -410,6 +413,20 @@ export async function POST(request: NextRequest) {
       logoSafeZoneGuidance: logoAwarenessContext.layoutGuidance || undefined,
       targetAudience: compiledData.targetAudience || undefined,
       additionalVisualBrief: compiledData.visualDirection || undefined,
+    }
+
+    // v48.0: Background style → inject DI hint into the brief BEFORE Design Intelligence runs.
+    // Mirrors the Gemini pattern at app/api/generate/route.ts:1218-1228.
+    // The raw `backgroundStyle` id is already stripped from `userFormData` by
+    // sanitizeUserFormDataForOpenAI so gpt-image-1 doesn't paint it as visible text.
+    // The hint is interpreted by Claude in Design Intelligence — never reaches gpt-image-1
+    // directly — so the style guidance lands on composition without leaking as text.
+    if (backgroundStyle && backgroundStyle !== 'scene' && !designBrief.additionalVisualBrief) {
+      const hint = getBackgroundStyleHint(backgroundStyle)
+      if (hint) {
+        designBrief.additionalVisualBrief = hint
+        console.log(`[OpenAI Pipeline] Background style: ${backgroundStyle} → applying DI hint`)
+      }
     }
 
     const designContextResult = await generateDesignContextSafe(

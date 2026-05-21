@@ -294,6 +294,8 @@ export type BackgroundStyleId =
   | 'watercolor'     // Organic paint washes & soft brush strokes
   | 'mandala'        // Indian ornate radial patterns & traditional motifs
   | 'custom'         // User-defined: own gradient colors + visual description
+  | 'photo-real'     // 35mm DSLR-style photograph of the actual event scene
+  | 'product'        // Object-as-hero composition (one symbolic object dominates)
 
 export interface BackgroundStyleConfig {
   id: BackgroundStyleId

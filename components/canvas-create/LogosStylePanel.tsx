@@ -36,6 +36,7 @@ import { useLogos, useVerticals } from '@/hooks'
 import { detectLogoType } from '@/lib/config/logo-locks'
 import { ColorPickerCompact } from '@/components/create/color-picker'
 import type { AIModel } from '@/types/database.types'
+import { BACKGROUND_STYLES } from '@/lib/config/background-styles'
 
 // Yi Brand default colors
 const YI_BRAND = { primary: '#005B96', secondary: '#FF6B35' }
@@ -110,24 +111,10 @@ export function LogosStylePanel({
 
   const brandLogos = logos.filter(l => detectLogoType(l.name || '') === 'brand')
 
-  // Visual style data — promoted to component scope so the collapsed summary row can read them
+  // Visual style data — promoted to component scope so the collapsed summary row can read them.
+  // Source of truth: lib/config/background-styles.ts (shared with Gemini + OpenAI routes).
   const bgStyle = ((formData.formData as any)?.backgroundStyle || 'scene') as string
-  const bgStyles = [
-    { id: 'scene',         label: 'Realistic',   icon: '🏞' },
-    { id: 'abstract',      label: 'Abstract',    icon: '🎨' },
-    { id: 'dark',          label: 'Cinematic',   icon: '🎬' },
-    { id: 'illustrated',   label: 'Illustrated', icon: '✏️' },
-    { id: 'bokeh',         label: 'Bokeh',       icon: '✨' },
-    { id: 'geometric',     label: 'Geometric',   icon: '🔷' },
-    { id: 'texture',       label: 'Textured',    icon: '🪨' },
-    { id: 'split',         label: 'Split',       icon: '▧' },
-    { id: 'neon',          label: 'Neon',        icon: '⚡' },
-    { id: 'duotone',       label: 'Duotone',     icon: '🎭' },
-    { id: 'glassmorphism', label: 'Glass',       icon: '🪟' },
-    { id: 'watercolor',    label: 'Watercolor',  icon: '🖌️' },
-    { id: 'mandala',       label: 'Mandala',     icon: '🪷' },
-    { id: 'custom',        label: 'Custom',      icon: '🖊️' },
-  ]
+  const bgStyles = BACKGROUND_STYLES
   const bgStyleLabel = bgStyles.find(s => s.id === bgStyle)?.label ?? 'Realistic'
   const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
   const spotlightThemes = [
