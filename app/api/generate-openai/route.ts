@@ -502,7 +502,20 @@ export async function POST(request: NextRequest) {
         positions: logoAwarenessContext.activeLogos.map((l) => l.position),
       },
       imageQuality: effectiveQuality,
+      // v48.1: pass user's background style for the medium-first STYLE block.
+      backgroundStyle,
+      // v48.2: pass resolved brand colors so the COLORS section anchors hex
+      // values prominently (per OpenAI guide — concrete palette > abstract mood).
+      brandColors: {
+        primary: resolvedColors.primaryColor,
+        secondary: resolvedColors.secondaryColor,
+        accent: resolvedColors.accentColor,
+      },
     })
+
+    console.log(
+      `[OpenAI Pipeline] Compact prompt: ${openAIPromptText.length} chars (~${Math.round(openAIPromptText.length / 4)} tokens) — target: 700-1200 chars`
+    )
 
     if (typographyProfile) {
       console.log(

@@ -4317,7 +4317,7 @@ async function generateWithOpenAI(
     n: 1,
   })
 
-  const b64 = (response.data[0] as any).b64_json as string | undefined
+  const b64 = (response.data?.[0] as any)?.b64_json as string | undefined
   if (!b64) throw new Error('[OpenAI] No image data returned from GPT-image-1')
 
   const imageBase64 = `data:image/png;base64,${b64}`
