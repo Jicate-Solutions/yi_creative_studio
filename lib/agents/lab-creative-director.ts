@@ -87,6 +87,14 @@ export interface DirectorInput {
   region?: CulturalRegionHint
   /** User-selected style id from background-styles config (e.g. 'dark', 'festive', 'modern', 'scene'). */
   backgroundStyle?: string
+
+  /**
+   * v55.x: The style's hand-authored geminiStyleLock — a ~100-150 token verbatim description of the
+   * visual look (lighting, medium, texture, palette voice). Passed so styles WITHOUT a full
+   * styleContext concept menu still realize the curated aesthetic instead of guessing from the id
+   * alone. buildUserPrompt only emits it when styleContext is absent (enriched styles use the menu).
+   */
+  styleLock?: string
   /** Format identifier — 'event_poster', 'instagram_post', etc. */
   formatId: string
   canvasDimensions: { width: number; height: number }
@@ -359,6 +367,8 @@ Some briefs are not events to attend but OFFERS to act on: admissions / "admissi
    • URGENCY — if there is a deadline or scarcity ("apply before 30 June", "limited seats", "offer ends Sunday"), render it as a clear short dated line or a small banner.
    • CTA — ONE prominent call-to-action: a solid rounded button / pill in the accent colour holding the action verb ('APPLY NOW', 'REGISTER', 'ENROL TODAY', 'ORDER ONLINE') with the contact (website / phone) in small letters just beneath. The CTA is the second-loudest object after the hook — a designed graphic button, never a plain line of text.
    • IMAGERY SERVES THE SELL — the hero scene supports the offer (a real campus with aspirational students for admissions; the product hero for a product), it never competes with the message as mere decoration.
+   • RENDER THE FURNITURE IN THE ACTIVE STYLE'S MEDIUM — never a generic glossy UI button pasted onto a poster whose style is anything but modern-graphic. Translate every badge / CTA / banner into the chosen style's craft so the sell looks BUILT FROM the style, not stuck on top of it: in watercolor a hand-painted ribbon or wash banner; in papercut a layered cut-paper tag with a soft drop-shadow; in folk-art a Madhubani / Warli motif cartouche; in retro a rounded vintage badge; in art-deco a gold deco plaque; in neon a glowing tube-outline pill; in mandala a small ornamental medallion; in typographic the proof folded into the type lockup itself; in advertising / pop-modern / photo-pop / festive a bold modern pill or solid button is exactly right.
+   • SCALE DENSITY TO THE STYLE — restraint-led styles (abstract, geometric, illustrated, texture, glassmorphism, split) want the sell INTEGRATED and SPARSE: fold the proof into the headline lockup or use ONE quiet badge plus ONE CTA, never a cluttered row — honour their "avoid clutter" banlists. Loud styles (advertising, pop-modern, photo-pop, festive, collage) carry the full hook + 2-3 badges + CTA + urgency comfortably. The persuasion hierarchy stays the same; only the amount of furniture flexes.
 Compose so the eye flows HOOK → IMAGE → PROOF → CTA. ALL rendered-text rules from principle 14 still apply: write every badge / button / headline string in single quotes with SENSORY adjectives only (colour, shape, size, caps, rounded, solid) — never design-process words (weight, positioned, hierarchy, editorial, designed). Keep each badge / CTA to SHORT strings (1-3 words) — image models garble long text, so do NOT cram a paragraph of features. Right density: a hook, an offer line, 2-3 proof badges, a programs/details line, one CTA button, one urgency line. (Top 40% / bottom 18% stay empty per principle 7 regardless — the marketing furniture lives in the active middle band.)
 
 17. PROFESSIONAL TYPOGRAPHY — GIVE THE TYPE A DELIBERATE CHARACTER (v55.x).
@@ -632,6 +642,14 @@ function buildUserPrompt(input: DirectorInput): string {
     if (input.eventDetails.dateLine) lines.push(`  • Date: ${input.eventDetails.dateLine}`)
     if (input.eventDetails.timeLine) lines.push(`  • Time: ${input.eventDetails.timeLine}`)
     if (input.eventDetails.venueLine) lines.push(`  • Venue: ${input.eventDetails.venueLine}`)
+  }
+
+  // v55.x: STYLE LOOK — for styles without a full concept menu (styleContext), hand the Director
+  // the curated geminiStyleLock so it realizes the exact aesthetic instead of guessing from the id.
+  if (input.styleLock && !input.styleContext) {
+    lines.push('')
+    lines.push('STYLE LOOK (the user deliberately picked this style — your prose MUST realize this exact aesthetic; translate it into the scene you describe, do NOT copy these words as literal rendered text on the poster):')
+    lines.push(input.styleLock)
   }
 
   // v54.7: STYLE-SPECIFIC CONTEXT section (per principle 13)

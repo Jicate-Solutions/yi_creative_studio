@@ -167,6 +167,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED ABSTRACT: Ignore the SCENE-BASED concept preference. DO NOT generate real scenes or Indian people. Generate flowing color gradients, soft geometric shapes, and fluid art in the brand palette. Abstract gradients ARE acceptable here. Use CONCEPT 3 (CONCEPTUAL).',
     geminiStyleLock:
       'Pure form and color. No representation, no figures, no scenes. Flowing gradient fields blend the brand palette like wet ink spreading on paper. Soft geometric blobs drift; chromatic edges blur into one another with no hard boundary. Generous negative space breathes. Rothko color-field discipline meets contemporary digital art. Typography is the only literal element on an otherwise non-literal canvas. Mood: meditative, expressive, gallery-wall premium.',
+    compatibleConcepts: [
+      { name: 'FLUID-INK-FIELD', description: 'Flowing gradient fields blending like wet ink, no representation — pure expressive colour.' },
+      { name: 'ROTHKO-COLOUR-FIELD', description: 'Soft stacked colour fields, meditative and gallery-premium.' },
+      { name: 'DRIFTING-BLOB-COMPOSITION', description: 'Soft geometric blobs drifting with chromatic blur and generous breathing space.' },
+      { name: 'GRADIENT-MESH-ATMOSPHERE', description: 'A smooth gradient-mesh atmosphere as an expressive, non-literal ground.' },
+    ],
+    designerReferences: [
+      'Mark Rothko (colour-field)',
+      'Helen Frankenthaler (soak-stain abstraction)',
+      'contemporary digital gradient art (Justin Maller)',
+      'fluid-art / paint-pour abstraction',
+      'Apple / Stripe gradient brand fields',
+    ],
+    craftSignatures: [
+      'flowing gradient fields blending the brand palette like wet ink on paper',
+      'soft geometric blobs drifting, chromatic edges blurring with no hard boundary',
+      'generous negative space breathing',
+      'Rothko colour-field discipline meeting contemporary digital art',
+      'typography the only literal element on the canvas',
+      'meditative, expressive, gallery-wall premium',
+    ],
+    bannedCombinations: [
+      { when: 'this abstract style is selected', avoid: 'representational figures, scenes, or literal objects', because: 'Abstract is pure form and colour; literal elements break the non-representational premise.' },
+      { when: 'this abstract style is selected', avoid: 'hard sharp edges everywhere', because: 'Abstract here is soft, blended colour fields, not crisp geometry.' },
+      { when: 'an information-dense event', avoid: 'abstract obscuring needed clarity', because: 'It codes expressive / gallery, not informational.' },
+    ],
   },
   {
     id: 'dark',
@@ -254,6 +280,63 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED ILLUSTRATED: Ignore the SCENE-BASED concept preference. Generate flat vector-style illustrated elements — bold icons, clean graphic shapes related to the event theme. Solid fills, no photorealism. Use CONCEPT 2 or CONCEPT 3.',
     geminiStyleLock:
       'Flat vector graphic design. Bold solid color fills in the brand palette, no gradients, no photographic shadows. Crisp 3-5px contour lines on key shapes. Iconic representation — a microphone is a perfect microphone-shape, not a photo of one. Limited palette: brand colors plus one neutral. Sticker-art clarity, Adobe Illustrator pen-tool precision. Mood: clean, energetic, contemporary, scroll-stopping. The image reads instantly from across a room.',
+    compatibleConcepts: [
+      {
+        name: 'ICON-DRIVEN-HERO',
+        description:
+          'One bold iconic shape representing the event theme dominates the composition — a perfect-geometry microphone, gear, book, or trophy — on a clean flat field. The single icon IS the design.',
+      },
+      {
+        name: 'FLAT-VECTOR-SCENE',
+        description:
+          'A simplified flat-colour scene — figures and environment reduced to clean geometric shapes in a limited palette with generous negative space. Editorial and confident, never cluttered.',
+      },
+      {
+        name: 'EDITORIAL-SPOT-ILLUSTRATION',
+        description:
+          'A single witty conceptual spot illustration (New Yorker / Malika Favre sensibility) that carries the idea with elegant minimalism — one clever visual metaphor, beautifully reduced.',
+      },
+      {
+        name: 'GEOMETRIC-FLAT-LANDSCAPE',
+        description:
+          'Layered flat geometric depth — foreground, mid-ground, background in 3-4 solid tones — with an optional single long-shadow or subtle grain for dimension. Clean modern poster art.',
+      },
+    ],
+    designerReferences: [
+      'Malika Favre (bold minimal flat vector, négative space)',
+      'Tom Haugomat (flat cinematic gouache-vector scenes)',
+      'Owen Davey (retro flat editorial illustration)',
+      'Christoph Niemann (conceptual minimal idea-led illustration)',
+      'Brian Edward Miller / Leeroy (flat-vector landscapes)',
+    ],
+    craftSignatures: [
+      'clean flat colour fills — NO photographic shadows, NO complex gradient meshes',
+      'a tightly limited palette — brand colours plus one neutral',
+      'bold simplified shapes with crisp 3-5px contours where used',
+      'generous negative space and confident asymmetric balance',
+      'optional subtle paper-grain or a single long-shadow for depth',
+      'Adobe-Illustrator pen-tool precision — reads instantly from across a room',
+    ],
+    bannedCombinations: [
+      {
+        when: 'this illustrated style is selected',
+        avoid: 'photorealism, real skin texture, lens blur, or photographic depth-of-field',
+        because:
+          'Illustrated is flat vector graphic design. Any photoreal element shatters the look and reads as a confused mixed style.',
+      },
+      {
+        when: 'any event',
+        avoid: 'busy clutter with many competing elements and no breathing room',
+        because:
+          'Flat vector lives on restraint and negative space. Clutter makes it look amateur — the power is in confident reduction.',
+      },
+      {
+        when: 'this illustrated style is selected',
+        avoid: 'heavy gradient meshes, bevels, and stacked drop-shadows',
+        because:
+          'That is faux-3D, not clean flat vector. Keep fills solid and edges crisp.',
+      },
+    ],
   },
   {
     id: 'bokeh',
@@ -263,6 +346,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED BOKEH & LIGHT: Ignore the SCENE-BASED concept preference. Generate soft out-of-focus atmosphere with glowing light orbs and warm sparkle particles in the brand palette. All elements are blurred and dreamy, not sharp or photorealistic. Use CONCEPT 3.',
     geminiStyleLock:
       'Soft out-of-focus dreaming. The entire frame is shot wide open at f/1.4 — nothing is fully sharp. Glowing light orbs in the brand accent color drift across atmospheric blur. Warm sparkle particles catch invisible breath. Bright highlights bloom into hexagonal lens-bokeh shapes. Wong Kar-wai blur logic. Mood: festival night intimacy, magical, ethereal, romantic. The image feels like a memory, not a record.',
+    compatibleConcepts: [
+      { name: 'LIGHT-ORB-DREAM', description: 'Drifting glowing orbs and sparkle over atmospheric blur — an ethereal brand-accent light field.' },
+      { name: 'BACKLIT-SILHOUETTE-GLOW', description: 'A soft silhouette set against blooming bokeh light, dreamy and intimate.' },
+      { name: 'FESTIVAL-NIGHT-INTIMACY', description: 'Warm out-of-focus celebration lights — diyas, fairy lights — rendered as a glowing memory.' },
+      { name: 'MACRO-SPARKLE-FIELD', description: 'A tight shimmering particle field of brand-accent orbs, magical and soft.' },
+    ],
+    designerReferences: [
+      'Wong Kar-wai cinematography (blur intimacy)',
+      'Brenizer-method bokeh photography',
+      'Terrence Malick golden-light lyricism',
+      'holiday-lights macro photography',
+      'dreamy wedding-cinematography aesthetic',
+    ],
+    craftSignatures: [
+      'the entire frame shot wide-open at f/1.4 — nothing fully sharp',
+      'glowing light orbs in the brand accent drifting across atmospheric blur',
+      'hexagonal lens-bokeh shapes blooming from bright highlights',
+      'warm sparkle particles and gentle bloom',
+      'soft gradient depth and dreamy haze',
+      'feels like a memory, not a record',
+    ],
+    bannedCombinations: [
+      { when: 'text legibility matters', avoid: 'orbs and heavy blur across the whole text area', because: 'Blur over text destroys readability; keep one calmer zone for type to sit on.' },
+      { when: 'this bokeh style is selected', avoid: 'sharp, crisp, hard-edged elements everywhere', because: "Bokeh's identity is softness; pervasive sharpness breaks the dream." },
+      { when: 'a serious, formal or data-heavy event', avoid: 'the dreamy haze obscuring clarity', because: 'Bokeh codes romantic / celebratory, not authoritative — wrong register for serious briefs.' },
+    ],
   },
   {
     id: 'geometric',
@@ -272,6 +381,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED GEOMETRIC PATTERN: Ignore the SCENE-BASED concept preference AND the ban on geometric patterns. Generate bold geometric shapes (hexagons, triangles, diagonal bands, tessellation) in the brand palette. Geometric patterns ARE required here. Use CONCEPT 3.',
     geminiStyleLock:
       'Bauhaus structural composition. Bold geometric shapes in the brand palette — hexagons, triangles, diagonal bands, tessellation grids. Clean mathematical relationships, intentional asymmetry, generous negative space. No organic curves anywhere. Color blocks meet at sharp confident edges. Swiss typography precision. Mood: modernist, tech-forward, architectural, decided. The image reads as designed, not assembled.',
+    compatibleConcepts: [
+      { name: 'BAUHAUS-COMPOSITION', description: 'Bold geometric shapes in clean mathematical relationships with intentional asymmetry.' },
+      { name: 'TESSELLATION-FIELD', description: 'A repeating tessellation or grid pattern as a structured graphic ground.' },
+      { name: 'DIAGONAL-DYNAMIC-BANDS', description: 'Bold diagonal colour bands creating energy and direction.' },
+      { name: 'MEMPHIS-PLAYFUL-GEOMETRY', description: 'Playful Memphis-style shapes and squiggles for youthful, energetic events.' },
+    ],
+    designerReferences: [
+      'Bauhaus (Herbert Bayer, László Moholy-Nagy)',
+      'Swiss International Typographic Style (Josef Müller-Brockmann)',
+      'Memphis Group (Ettore Sottsass) for the playful variant',
+      'El Lissitzky constructivism',
+      'contemporary geometric brand systems',
+    ],
+    craftSignatures: [
+      'bold geometric shapes — hexagons, triangles, diagonal bands, tessellation grids',
+      'clean mathematical relationships with intentional asymmetry',
+      'generous negative space and no organic curves',
+      'colour blocks meeting at sharp, confident edges',
+      'Swiss typographic precision',
+      'modernist, tech-forward, architectural',
+    ],
+    bannedCombinations: [
+      { when: 'this geometric style is selected', avoid: 'organic curves, hand-drawn looseness, or photorealism', because: 'Geometric is precise hard-edged structure; soft or photoreal elements break it.' },
+      { when: 'this geometric style is selected', avoid: 'muddy gradients', because: 'It lives on flat colour blocks and sharp edges, not gradient mush.' },
+      { when: 'a warm, emotional or heritage event', avoid: 'cold geometric abstraction when warmth is needed', because: 'Geometric codes modernist / tech — it can feel clinical on warm briefs.' },
+    ],
   },
   {
     id: 'texture',
@@ -281,6 +416,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED TEXTURED MATERIAL: Ignore the SCENE-BASED concept preference. Generate a physical material surface (marble veining, woven fabric, paper grain, brushed metal) tinted in the brand palette. No scenes or people. Use CONCEPT 2.',
     geminiStyleLock:
       'Tactile material world. A physical substrate dominates the frame — Carrara marble veining, handwoven cotton, handmade paper grain, brushed brass, raw concrete — tinted in the brand palette. Subtle directional light reveals the surface\'s grain and depth. Mood: premium, analogue, weighty, real. Editorial print-magazine surface quality. The image makes the viewer want to run their hand across it.',
+    compatibleConcepts: [
+      { name: 'MATERIAL-FIELD-HERO', description: 'A single physical substrate — marble, fabric, paper, brass — fills the frame as the tactile ground.' },
+      { name: 'EMBOSSED-DETAIL-MACRO', description: 'A tight macro of material grain with subtle relief or emboss, premium and weighty.' },
+      { name: 'MIXED-MATERIAL-BLOCK', description: 'Two materials meeting at a clean edge (marble + brass) for confident contrast.' },
+      { name: 'TACTILE-BACKDROP-FOR-TYPE', description: 'A material ground with type debossed or foil-stamped into it — editorial stationery feel.' },
+    ],
+    designerReferences: [
+      'premium print-magazine paper-stock photography',
+      'Kinfolk / Cereal magazine material minimalism',
+      'luxury packaging surface design',
+      'architectural material photography',
+      'foil-emboss stationery craft',
+    ],
+    craftSignatures: [
+      'a physical substrate dominates — Carrara marble veining, handwoven cotton, handmade paper grain, brushed brass, raw concrete',
+      'the material tinted toward the brand palette',
+      'subtle directional light revealing the grain and depth',
+      'premium, analogue, weighty, real',
+      'editorial print-magazine surface quality',
+      'restraint — the material itself IS the design',
+    ],
+    bannedCombinations: [
+      { when: 'this texture style is selected', avoid: 'busy scenes or figures on top of the surface', because: 'Texture is about the surface itself, not a scene placed over it.' },
+      { when: 'this texture style is selected', avoid: 'flat digital colour with no grain', because: 'It must read as a real, tactile material — flatness defeats the point.' },
+      { when: 'a high-energy youth event', avoid: 'quiet material minimalism when the brief needs loud', because: 'Texture codes premium-calm, not kinetic.' },
+    ],
   },
   {
     id: 'split',
@@ -290,6 +451,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED SPLIT LAYOUT: Left half is an event-relevant atmospheric scene; right half is a clean solid brand-color panel where all text will be placed. Sharp or soft diagonal edge separates them.',
     geminiStyleLock:
       'Editorial magazine layout. The canvas divides cleanly in two — left half is an event-relevant photographic moment with shallow depth; right half is a solid flat brand-color panel that holds all typography. A sharp vertical line or soft diagonal edge separates them with confidence. The two halves answer each other — image speaks, panel responds. Mood: editorial, sophisticated, design-conscious, balanced. New York Times Magazine cover discipline.',
+    compatibleConcepts: [
+      { name: 'IMAGE-PANEL-DIALOGUE', description: 'A photographic half and a solid colour panel half answering each other across a clean divide.' },
+      { name: 'DIAGONAL-SPLIT-DYNAMIC', description: 'A bold diagonal divide between scene and panel for energy and movement.' },
+      { name: 'BEFORE-AFTER-DUALITY', description: 'Two halves contrasting a theme — then/now, problem/solution — carried by the split.' },
+      { name: 'TYPE-PANEL-MAGAZINE', description: 'Scene on one side, a generous type panel on the other — editorial-cover discipline.' },
+    ],
+    designerReferences: [
+      'New York Times Magazine cover design',
+      'Pentagram editorial layouts',
+      'Kinfolk split compositions',
+      'Swiss grid editorial discipline',
+      'modern conference-poster split layouts',
+    ],
+    craftSignatures: [
+      'the canvas divides cleanly in two — a photographic/scene half and a solid flat brand-colour panel holding all type',
+      'a sharp vertical line or confident soft diagonal edge separating them',
+      'the two halves answering each other — image speaks, panel responds',
+      'shallow depth on the image half',
+      'editorial, sophisticated, balanced',
+      'New York Times Magazine cover discipline',
+    ],
+    bannedCombinations: [
+      { when: 'this split style is selected', avoid: 'scattering text across the image half', because: "The split's logic is that text lives on the solid panel; text on the photo muddies the composition." },
+      { when: 'this split style is selected', avoid: 'a fussy or curved divide', because: 'The divide should be clean and confident — a clear vertical or diagonal.' },
+      { when: 'a single-hero brief', avoid: 'forcing a split when one strong full-bleed image is better', because: 'Split suits image-vs-message duality, not every poster.' },
+    ],
   },
   {
     id: 'neon',
@@ -299,6 +486,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED NEON GLOW: Ignore the SCENE-BASED concept preference. Generate deep near-black background with vivid electric neon light trails, glowing grid lines, bioluminescent halos, and pulsing light streaks in the brand accent color. No realistic scenes or Indian people. Use CONCEPT 3.',
     geminiStyleLock:
       'Blade Runner aesthetic. Deep near-black base. Electric neon light trails in the brand accent color burn across the frame as glowing tubes, pulsing grid lines, bioluminescent halos, luminous light streaks. Wet-asphalt reflections double the light below. Atmospheric mist softens distant glows. Subtle chromatic aberration at the edges. Mood: cyberpunk, after-hours, electric, anticipatory. The image hums.',
+    compatibleConcepts: [
+      { name: 'NEON-TUBE-SIGN', description: 'Glowing neon-tube lettering or a motif as the hero on a near-black field.' },
+      { name: 'CYBERPUNK-STREET-GLOW', description: 'Wet-asphalt reflections, atmospheric mist and electric signage receding into depth.' },
+      { name: 'LIGHT-TRAIL-MOTION', description: 'Long-exposure light streaks tracing energy and motion across the dark frame.' },
+      { name: 'GRID-HORIZON-SYNTHWAVE', description: 'A glowing perspective grid running to a neon horizon — synthwave / outrun energy.' },
+    ],
+    designerReferences: [
+      'Blade Runner 2049 (Roger Deakins neon)',
+      'synthwave / outrun aesthetic',
+      'Tokyo / Hong Kong neon-street photography',
+      'Tron light-grid design',
+      'cyberpunk concept art',
+    ],
+    craftSignatures: [
+      'a deep near-black base',
+      'electric neon light trails in the brand accent — glowing tubes, pulsing grid lines, bioluminescent halos',
+      'wet-asphalt reflections doubling the light below',
+      'atmospheric mist softening distant glows',
+      'subtle chromatic aberration at the edges',
+      'humming, after-hours, anticipatory energy',
+    ],
+    bannedCombinations: [
+      { when: 'this neon style is selected', avoid: 'bright daylight or pastel palettes', because: 'Neon needs darkness for the glow to read; light backgrounds kill it.' },
+      { when: 'this neon style is selected', avoid: 'realistic Indian crowd / documentary scenes', because: 'Neon is graphic light-on-black, not documentary photography.' },
+      { when: 'a traditional, cultural or solemn event', avoid: 'cyberpunk neon', because: 'It codes nightlife / tech — mismatched on heritage or solemn briefs.' },
+    ],
   },
   {
     id: 'duotone',
@@ -308,6 +521,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED DUOTONE: Ignore the SCENE-BASED concept preference. Generate imagery mapped to exactly TWO brand colors — shadows in primary, highlights in secondary/accent. Bold, high-contrast two-tone treatment. Abstract or silhouette forms only. Use CONCEPT 2 or CONCEPT 3.',
     geminiStyleLock:
       'Risograph print aesthetic. The entire image maps to exactly TWO brand colors — shadows become one color, highlights become the other, no in-between tones. High-contrast silhouettes, simplified forms, intentional screen-print misregistration. Subtle paper grain texture underneath. Mood: bold, graphic, retro-modern, screen-printed. Spotify Wrapped energy. The image feels printed, not rendered.',
+    compatibleConcepts: [
+      { name: 'DUOTONE-SILHOUETTE', description: 'A high-contrast subject silhouette mapped to two brand tones — shadows one colour, highlights the other.' },
+      { name: 'RISO-SCREENPRINT-SCENE', description: 'A simplified scene in two inks with deliberate misregistration — riso / screen-print energy.' },
+      { name: 'HALFTONE-GRADIENT-FIELD', description: 'A two-tone halftone gradient as a bold graphic ground.' },
+      { name: 'WRAPPED-PORTRAIT', description: 'A bold duotone portrait with editorial pop, Spotify-Wrapped sensibility.' },
+    ],
+    designerReferences: [
+      'Spotify Wrapped duotone campaigns',
+      'Risograph print art',
+      '1960s screen-printed poster art',
+      'David Carson duotone editorial',
+      'two-colour offset print tradition',
+    ],
+    craftSignatures: [
+      'the entire image maps to exactly TWO brand colours — shadows one, highlights the other, no in-between tones',
+      'high-contrast silhouettes and simplified forms',
+      'intentional screen-print misregistration',
+      'subtle paper-grain and halftone texture',
+      'bold, graphic, retro-modern',
+      'feels printed, not rendered',
+    ],
+    bannedCombinations: [
+      { when: 'this duotone style is selected', avoid: 'full colour or many tones', because: 'Duotone is strictly two colours; more tones break the concept entirely.' },
+      { when: 'this duotone style is selected', avoid: 'photoreal full-tone rendering', because: 'It must read as a two-ink print, not a photograph.' },
+      { when: 'a subtle or gentle mood is needed', avoid: "duotone's hard high contrast", because: 'Duotone is bold and graphic by nature — wrong register for soft, gentle briefs.' },
+    ],
   },
   {
     id: 'glassmorphism',
@@ -317,6 +556,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED GLASSMORPHISM: Ignore the SCENE-BASED concept preference. Generate translucent frosted-glass panels layered over soft gradient blobs or bokeh in brand colors. Clean modern depth, no realistic scenes. Use CONCEPT 3.',
     geminiStyleLock:
       'macOS Big Sur translucency. Multiple frosted-glass panels float in layered depth over soft gradient blobs in the brand palette. Each panel carries a subtle white border glow, a soft offset shadow, and 60-80% backdrop blur. Light catches the panel edges. Mood: clean, modern, premium tech, weightless. Apple design language. The image feels like polished software.',
+    compatibleConcepts: [
+      { name: 'FROSTED-PANEL-STACK', description: 'Layered translucent frosted-glass panels over soft gradient blobs — clean depth.' },
+      { name: 'DEPTH-CARD-FLOAT', description: 'Floating glass cards with offset shadows and edge light, weightless and premium.' },
+      { name: 'GRADIENT-BLOB-GLOW', description: 'Soft colourful gradient blobs blurred behind frosted glass.' },
+      { name: 'UI-HERO-MOCKUP', description: 'A clean app-UI-like glass composition presenting the event as polished software.' },
+    ],
+    designerReferences: [
+      'macOS Big Sur / iOS frosted-glass design',
+      'Apple keynote UI aesthetics',
+      'Microsoft Fluent acrylic material',
+      'modern SaaS landing-page design',
+      'Dribbble glassmorphism trend',
+    ],
+    craftSignatures: [
+      'multiple frosted-glass panels in layered depth over soft gradient blobs',
+      'a subtle white border glow, soft offset shadow, and 60-80% backdrop blur per panel',
+      'light catching the panel edges',
+      'clean, modern, premium-tech, weightless',
+      'Apple design language',
+      'a generous soft gradient ground',
+    ],
+    bannedCombinations: [
+      { when: 'this glass style is selected', avoid: 'heavy textures, grit, or photoreal scenes', because: 'Glassmorphism is clean translucent UI — grit shatters the polish.' },
+      { when: 'this glass style is selected', avoid: 'opaque flat fills with no blur or depth', because: 'The frosted blur and layered depth ARE the style; without them it is just flat panels.' },
+      { when: 'a cultural, heritage or warm event', avoid: 'cold tech-UI glass', because: 'It codes software / SaaS — mismatched on warm cultural briefs.' },
+    ],
   },
   {
     id: 'watercolor',
@@ -326,6 +591,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED WATERCOLOR: Ignore the SCENE-BASED concept preference. Generate soft organic paint washes and flowing pigment spreads in the brand palette. Wet watercolor bleeds, brush strokes, visible paper grain. Purely painterly, no photorealism. Use CONCEPT 3.',
     geminiStyleLock:
       'Botanical illustration meets J.M.W. Turner sky. Soft organic paint washes flow across handmade paper in the brand palette — wet-on-wet bleeds, delicate brush strokes, granulation texture, visible paper grain underneath. Colors blend organically at the edges, never crisp. Subtle pigment lifts and pools. Mood: gentle, artisanal, human, contemplative. The image looks painted by hand, not generated.',
+    compatibleConcepts: [
+      { name: 'WET-ON-WET-WASH', description: 'Flowing pigment washes blending on wet paper with soft, bleeding edges.' },
+      { name: 'BOTANICAL-WATERCOLOUR', description: 'Delicate botanical and floral watercolour motifs, gentle and artisanal.' },
+      { name: 'TURNER-SKY-ATMOSPHERE', description: 'A luminous atmospheric watercolour sky or wash as the ground.' },
+      { name: 'LOOSE-WASH-SUBJECT', description: 'A loose watercolour subject with bleeding edges and granulation.' },
+    ],
+    designerReferences: [
+      'J.M.W. Turner (luminous watercolour skies)',
+      'classic botanical illustration',
+      'contemporary watercolour wedding-stationery art',
+      'Agnes Cecile (expressive watercolour portraits)',
+      'Chinese and Indian wash-painting traditions',
+    ],
+    craftSignatures: [
+      'soft organic paint washes on handmade paper in the brand palette',
+      'wet-on-wet bleeds, delicate brush strokes, granulation texture',
+      'visible paper grain underneath',
+      'colours blending organically at the edges, never crisp',
+      'subtle pigment lifts and pools',
+      'gentle, artisanal, contemplative — painted by hand',
+    ],
+    bannedCombinations: [
+      { when: 'this watercolour style is selected', avoid: 'crisp vector edges or photoreal sharpness', because: 'Watercolour lives on soft, bleeding, organic edges.' },
+      { when: 'this watercolour style is selected', avoid: 'neon or high-saturation digital colour', because: 'Watercolour is gentle, pigment-based and translucent — neon breaks the medium.' },
+      { when: 'a bold, loud or high-energy event', avoid: 'soft watercolour gentleness', because: 'It codes calm / artisanal, not punchy — wrong register for high-energy briefs.' },
+    ],
   },
   {
     id: 'mandala',
@@ -335,6 +626,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED MANDALA: Ignore the SCENE-BASED concept preference. Generate intricate radial mandala pattern with Indian floral motifs, paisley elements, and traditional ornaments in the brand palette. Symmetrical, ornate, cultural. Gold accents on darker base. Use CONCEPT 3.',
     geminiStyleLock:
       'Mysore temple painting tradition. An intricate radial mandala forms the central background — concentric geometric petal layers, paisley motifs, traditional Indian floral ornaments, jaali screen patterns in the brand palette. Gold leaf accents trace the radial divisions. Bilateral symmetry, sacred geometry, devotional ornament. Mood: cultural, ancestral, ceremonial, contemplative. The image feels venerated.',
+    compatibleConcepts: [
+      { name: 'RADIAL-MANDALA-FIELD', description: 'Concentric petal and geometry layers form the central background; the subject or text sits in the calm focal centre.' },
+      { name: 'JAALI-SCREEN-LATTICE', description: 'A pierced Mughal jaali geometric lattice as an ornamental ground, gold on jewel base.' },
+      { name: 'LOTUS-BLOOM-CENTRE', description: 'A lotus or rangoli bloom radiating outward, gold tracery on a deep jewel base.' },
+      { name: 'SACRED-GEOMETRY-EMBLEM', description: 'A precise bilateral mandala emblem framing a focal motif — devotional, contemplative.' },
+    ],
+    designerReferences: [
+      'Mysore & Tanjore temple painting tradition',
+      'Mughal jaali screen geometry',
+      'Tibetan thangka mandala precision',
+      'Indian rangoli / kolam radial design',
+      'contemporary mandala-art revival',
+    ],
+    craftSignatures: [
+      'an intricate radial mandala — concentric petal layers, paisley, floral ornament',
+      'gold-leaf accents tracing the radial divisions',
+      'strict bilateral symmetry and sacred geometry',
+      'a jewel-tone base (deep maroon, indigo, emerald) with gold',
+      'ornament dense at the edges, a calm focal centre for subject and text',
+      'devotional, contemplative, ceremonial ornament',
+    ],
+    bannedCombinations: [
+      { when: 'a birthday or joyful living-person event', avoid: 'heavy devotional mandala with reverent gold-on-dark stillness', because: 'It codes ceremonial / memorial reverence; reserve mandala for cultural, spiritual and festival briefs, not joyful personal milestones.' },
+      { when: 'this mandala style is selected', avoid: 'photorealism or photographic depth', because: 'Mandala is flat ornamental pattern, not a photographic scene.' },
+      { when: 'any mandala composition', avoid: 'asymmetric or chaotic layout', because: "Mandala's entire power is precise bilateral symmetry; breaking it loses the form." },
+    ],
   },
   {
     id: 'custom',
@@ -432,6 +749,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED PRODUCT: ONE event-related symbolic object dominates 60%+ of the canvas as the visual hero. People are secondary or absent. Place the object on a clean or dramatically-lit backdrop with studio-quality lighting and a sharp key light, with subtle rim/fill light. Examples: graduation → cap mid-air against sky; music event → microphone with visualized sound waves; medical drive → stethoscope on clean surface; convocation → scroll/diploma close-up. The object IS the design — bold, scroll-stopping, editorial-magazine feel. Use CONCEPT 2 (OBJECT-AS-HERO). NO crowd scenes, NO venue interiors. Premium catalog/editorial rendering.',
     geminiStyleLock:
       'Apple keynote object photography. ONE event-symbolic object dominates 60%+ of the canvas as the visual hero — graduation cap mid-air, microphone with sound waves, stethoscope on clean surface, scroll, trophy. Studio-quality lighting: sharp key light, subtle rim, soft fill. Seamless backdrop in brand color or neutral. No people, no venue, no clutter. Mood: editorial catalog, museum specimen, decisive, premium. The object is the point.',
+    compatibleConcepts: [
+      { name: 'APPLE-KEYNOTE-OBJECT', description: 'One event-symbolic object on a seamless studio backdrop, hero-lit and decisive.' },
+      { name: 'HERO-PRODUCT-FLOAT', description: 'The object floating with a soft contact shadow, rim-lit and premium.' },
+      { name: 'MACRO-SPECIMEN', description: 'A tight macro of the object presented as a museum specimen.' },
+      { name: 'OBJECT-WITH-EFFECT', description: 'The object with a signature visual effect — sound waves from a mic, light from a book.' },
+    ],
+    designerReferences: [
+      'Apple keynote product photography',
+      'high-end advertising still-life / packshot studios',
+      'museum specimen photography',
+      'editorial catalogue object shots',
+      'premium e-commerce hero imagery',
+    ],
+    craftSignatures: [
+      'ONE event-symbolic object dominating 60%+ of the canvas',
+      'studio-quality lighting — sharp key, subtle rim, soft fill',
+      'a seamless backdrop in brand colour or neutral',
+      'no people, no venue, no clutter',
+      'editorial-catalogue / museum-specimen precision',
+      'the object is the point',
+    ],
+    bannedCombinations: [
+      { when: 'this product style is selected', avoid: 'crowd scenes or venue interiors', because: 'Product is object-as-hero, not a scene with people.' },
+      { when: 'this product style is selected', avoid: 'flat illustration', because: 'Product is premium studio rendering of a real object, not vector art.' },
+      { when: 'the event has no strong symbolic object', avoid: 'forcing the product treatment', because: 'A weak or generic object undermines the object-as-hero concept — pick a scene-based style instead.' },
+    ],
   },
 
   // ── v54.9: Pop Modern — the user's actual brand vibe ──────────────────────
@@ -624,6 +967,63 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       `Use CONCEPT 3 (CONCEPTUAL METAPHOR) with the visual device unifying the activity zones. The whole poster should feel like a vibrant Indian festival flyer — Diwali / Holi / cultural fest energy.`,
     geminiStyleLock:
       'Diwali greeting flyer energy. Saturated tropical palette — marigold orange, peacock teal, hot magenta, sunshine yellow — at maximum gamut, no muted tones, no corporate restraint. Multi-panel composition divides the canvas into 3-5 illustrated activity zones connected by a flowing visual device (ribbon, pulse wave, festoon string). Each zone holds a cartoon-style happy figure mid-motion — dancers leaping, students cheering, performers gesturing. Mandala and kolam borders frame the corners; confetti and sparkle showers fill the upper third. Flat illustrated sticker-art with vibrant outline weight. Mood: celebration is the point. Loud, warm, communal, alive.',
+    compatibleConcepts: [
+      {
+        name: 'PANORAMIC-ACTIVITY-WORLD',
+        description:
+          'ONE continuous open-air festive scene where every listed activity happens simultaneously in the same space — dancers leaping, a singer at a mic, a cheering crowd — never split panels. The whole canvas is one shared party under one sky.',
+      },
+      {
+        name: 'CONCEPT-AS-CONNECTOR',
+        description:
+          'A single flowing visual device — a pulse wave, ribbon, festoon string, or winding path — threads across the canvas linking the activity clusters into one composition. The connector is the spine that unifies the scene.',
+      },
+      {
+        name: 'FESTIVE-ICON-BLOOM',
+        description:
+          'One large central cultural motif (diya, kolam mandala, dhol, star-burst) radiates outward as the organising centre, with celebration spilling around it. Used when the fest has one strong symbol rather than many activities.',
+      },
+      {
+        name: 'STICKER-CARNIVAL',
+        description:
+          'A flat sticker-art cast of happy figures mid-motion with bold outlines, confetti everywhere — a Diwali / Holi / college-fest flyer brought to life. Maximum energy, maximum colour.',
+      },
+    ],
+    designerReferences: [
+      "Sanjay Patel (Pixar 'Sanjay's Super Team' Indian folk-modern)",
+      'Indian wedding-invitation & festival-flyer illustration tradition',
+      'Hatecopy / Maria Qamar (pop-desi bold colour)',
+      'Sajid Wajid Shaikh (contemporary Indian editorial illustration)',
+      'modern Indian sticker-art and Gen-Z desi graphics',
+    ],
+    craftSignatures: [
+      'thick confident black contour outlines on flat-colour figures',
+      'saturated tropical palette — marigold orange, peacock teal, hot magenta, sunshine yellow at full gamut, no muted tones',
+      'halftone fold-gradients inside the flat costume fills',
+      'kolam dot-grid and mandala quarter-circles tracing the corners only (never a full border box)',
+      'confetti, sparkles and festoon strings scattered through the upper region as atmosphere',
+      'screen-print misregistration offset between the colour layers',
+    ],
+    bannedCombinations: [
+      {
+        when: 'multiple activities are listed',
+        avoid: 'splitting the canvas into stacked panels or horizontal dividers, one box per activity',
+        because:
+          'That reads as separate mini-posters glued together. Festive must be ONE continuous shared scene with all activities co-existing in the same space, tied together by a single connector device.',
+      },
+      {
+        when: 'any region (especially tamil-nadu / south-india)',
+        avoid: 'solemn temple-devotional heaviness — brass-lamp reverence, garlanded stillness, muted ceremonial palette',
+        because:
+          'Festive is JOY. Devotional gravity kills the celebration energy. This is a modern festival flyer, not a prayer poster — keep it bright, kinetic, communal.',
+      },
+      {
+        when: 'this festive style is selected',
+        avoid: 'photoreal people, cinematic lighting, or realistic depth-of-field',
+        because:
+          'Festive is flat illustrated sticker-art. Any photoreal element shatters the medium and makes it read as a different, confused style.',
+      },
+    ],
   },
 
   // ── v55.0: Creative-style expansion (illustrated / cultural / typographic / retro) ─────
@@ -635,6 +1035,63 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED HAND-DRAWN: Ignore the SCENE-BASED concept preference. Generate a hand-drawn illustrated poster — inked contours with visible pencil under-sketch, marker/crayon fills, cross-hatching, paper grain. Warm and imperfect, NOT photorealistic, NOT flat-vector-clean. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Hand-drawn illustration. Every line looks made by a human hand — slightly wobbly ink contours, visible pencil under-sketch, cross-hatching and marker fills that don\'t quite stay inside the lines. Imperfect, warm, characterful, in the editorial-illustration spirit of Christoph Niemann or a beautifully kept travel sketchbook. Textured paper showing through. Mood: human, honest, charming, anti-AI-slop. The image feels drawn, not generated.',
+    compatibleConcepts: [
+      {
+        name: 'INKED-SKETCH-SCENE',
+        description:
+          'A loose, confident pen-and-ink scene with visible under-drawing — the event captured as if sketched on the spot in a travel journal, lively and immediate.',
+      },
+      {
+        name: 'PEN-AND-WASH-PORTRAIT',
+        description:
+          'An ink-line subject with loose watercolour or marker washes that deliberately do not stay inside the lines — warm, characterful, hand-coloured.',
+      },
+      {
+        name: 'DOODLE-COLLAGE',
+        description:
+          'A lively page of hand-drawn doodles, arrows, stars and hand-lettering arranged around the event idea — sketchbook / margin-notes energy, playful and personal.',
+      },
+      {
+        name: 'WOODCUT-LINEWORK',
+        description:
+          'Bold hand-carved-feeling linework and hatching for a graphic, hand-printed look — strong black line, limited ink colour, expressive texture.',
+      },
+    ],
+    designerReferences: [
+      'Christoph Niemann (ink line + wit)',
+      'Quentin Blake (loose expressive ink and wash)',
+      'Jean Jullien (bold simple confident hand lines)',
+      'Oliver Jeffers (hand-drawn warmth + handwritten type)',
+      'Saul Steinberg (line as thought)',
+    ],
+    craftSignatures: [
+      'wobbly confident ink contours with visible pencil under-sketch',
+      'cross-hatching and gestural shading for volume',
+      'marker / crayon / watercolour washes bleeding slightly outside the lines',
+      'textured paper showing through the artwork',
+      'a hand-lettered headline feel rather than a clean typeset font',
+      'charming imperfection — uneven weights, human wobble, anti-AI-slop honesty',
+    ],
+    bannedCombinations: [
+      {
+        when: 'this hand-drawn style is selected',
+        avoid: 'clean vector precision, perfect geometry, or mechanically even line weights',
+        because:
+          'Hand-drawn must look made by a human hand. Precision reads as fake and defeats the entire charm of the style.',
+      },
+      {
+        when: 'this hand-drawn style is selected',
+        avoid: 'photorealism and smooth digital gradients',
+        because:
+          'They break the sketchbook honesty — the image must feel drawn, not rendered.',
+      },
+      {
+        when: 'any event',
+        avoid: 'over-rendering with too many fussy details',
+        because:
+          'Ink illustration lives on a confident economy of line; over-working it muddies the charm.',
+      },
+    ],
   },
   {
     id: 'naive',
@@ -644,6 +1101,63 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED NAIVE / PLAYFUL: Generate a childlike, playful illustrated poster — chunky rounded shapes, smiley motifs, uneven hand-filled colour, scratchy outlines, simple grinning characters. Joyful and imperfect. NOT photorealistic, NOT corporate-clean. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Naive playful illustration. Childlike and joyful — smiley suns, chunky rounded shapes, uneven hand-filled colour, scratchy crayon outlines, characters with simple dot eyes and big grins. Zero polish, maximum charm — contemporary "naive design" / Gen-Z sticker art crossed with Keith Haring energy and a happy kid\'s drawing. Bright primary-leaning palette. Mood: happy, human, unselfconscious, instantly likeable. The image feels made with a shaky hand and zero regrets.',
+    compatibleConcepts: [
+      {
+        name: 'CRAYON-WORLD',
+        description:
+          'A joyful childlike crayon/marker scene — wonky proportions, a smiley sun, chunky shapes, everything grinning. The whole world drawn by a happy kid.',
+      },
+      {
+        name: 'STICKER-PLAYGROUND',
+        description:
+          'A bright cut-and-paste arrangement of simple grinning characters and motifs — Gen-Z sticker-pack energy, bold and unselfconscious.',
+      },
+      {
+        name: 'FOLK-NAIVE-TABLEAU',
+        description:
+          'A flat folk-naive composition — Keith-Haring-meets-kids-drawing — with bold outlines, primary joy, and figures mid-celebration.',
+      },
+      {
+        name: 'HAPPY-DOODLE-BURST',
+        description:
+          'A central smiley / star / heart motif radiating simple hand-drawn shapes outward — pure cheerful energy around one happy centre.',
+      },
+    ],
+    designerReferences: [
+      'Keith Haring (bold naive line + joy)',
+      'Jean Dubuffet (art brut, raw naive mark-making)',
+      "children's-book and school-chart naive illustration",
+      'Rob Pruitt (smiley pop-naive)',
+      'contemporary Gen-Z sticker-pack art',
+    ],
+    craftSignatures: [
+      'chunky rounded shapes with scratchy, uneven outlines',
+      'hand-filled colour that happily overshoots the lines',
+      'simple dot-eyes-and-big-grin characters with wonky proportions',
+      'a bright primary-leaning palette',
+      'smiley, star and squiggle motifs scattered with abandon',
+      'zero polish, maximum charm — looks made with a shaky hand and zero regrets',
+    ],
+    bannedCombinations: [
+      {
+        when: 'this naive style is selected',
+        avoid: 'sophistication, realism, or precise geometry',
+        because:
+          'Naive is deliberately unpolished; visible competence kills the childlike charm that is the whole point.',
+      },
+      {
+        when: 'any event',
+        avoid: 'muted, desaturated, or corporate palettes',
+        because:
+          'Naive needs bright, unselfconscious colour to feel joyful — muted tones drain its energy.',
+      },
+      {
+        when: 'a solemn, formal, memorial, or prestige event',
+        avoid: 'using this giddy childlike tone at all',
+        because:
+          'Playful naivety undercuts gravity and reads as inappropriate — reserve this style for fun, youth, kids, and community events.',
+      },
+    ],
   },
   {
     id: 'papercut',
@@ -653,6 +1167,63 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED PAPER-CUT: Build the poster from layered cut-paper shapes with crisp edges and soft real drop-shadows between layers, matte construction-paper texture, no within-shape gradients. Handcrafted paper-collage depth, generous negative space. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Layered paper-cut craft. The whole image is built from cut sheets of coloured paper stacked in shallow depth — each shape has a crisp edge and casts a soft real drop-shadow onto the layer beneath, creating tactile dimensionality. Matte construction-paper texture, no gradients within shapes — a handcrafted papercraft diorama or a modern paper-art editorial cover. Generous negative space. Mood: tactile, premium-handmade, warm, considered. The image looks physically cut and assembled.',
+    compatibleConcepts: [
+      {
+        name: 'LAYERED-PAPER-DIORAMA',
+        description:
+          'A shallow-depth diorama built from stacked cut sheets, each casting soft shadows on the layer beneath — the event scene assembled in paper, with real tactile depth.',
+      },
+      {
+        name: 'CUT-PAPER-ICON',
+        description:
+          'A single bold subject or symbol rendered as crisp cut-paper silhouette layers — clean, graphic, premium-handmade.',
+      },
+      {
+        name: 'PAPER-LANDSCAPE-DEPTH',
+        description:
+          'Receding layered paper hills, skyline or arches for depth, with warm directional light raking across the layers — calm, dimensional, considered.',
+      },
+      {
+        name: 'KIRIGAMI-SYMBOL',
+        description:
+          'An intricate symmetrical cut-paper motif (sanjhi / kirigami tradition) as the centrepiece — delicate, ornamental, handcrafted.',
+      },
+    ],
+    designerReferences: [
+      'Eiko Ojala (digital paper-cut depth + shadow)',
+      'Hari & Deepti (light-box paper dioramas)',
+      'Matthew Shlian (paper engineering)',
+      'Lotte Reiniger (silhouette paper craft)',
+      'Indian Sanjhi traditional paper-cut art',
+    ],
+    craftSignatures: [
+      'crisp, clean cut edges on every shape',
+      'soft realistic drop-shadows BETWEEN the stacked layers for depth',
+      'matte construction-paper texture, NO within-shape gradients',
+      '3-5 distinct depth layers, foreground sharp to background soft',
+      'warm directional light raking across the paper layers',
+      'generous negative space and a considered, calm composition',
+    ],
+    bannedCombinations: [
+      {
+        when: 'this paper-cut style is selected',
+        avoid: 'flat single-layer artwork with no inter-layer shadows',
+        because:
+          "Paper-cut's entire identity is layered depth and the soft shadows between layers. Without them it is just flat illustration.",
+      },
+      {
+        when: 'this paper-cut style is selected',
+        avoid: 'photorealism, glossy 3D renders, or within-shape gradients',
+        because:
+          'It must read as matte, physically-cut paper — not CGI or a photograph.',
+      },
+      {
+        when: 'any event',
+        avoid: 'cluttering the frame edge to edge',
+        because:
+          'Layered paper depth needs breathing room to read; clutter flattens the dimensional effect.',
+      },
+    ],
   },
   {
     id: 'patriotic',
@@ -662,6 +1233,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED PATRIOTIC / TRICOLOR: Generate a clean Indian patriotic vector poster — saffron/white/green tricolour swoosh, Ashoka-chakra navy accent, monument and map silhouettes, generous white space, flat vector. For Independence/Republic Day and national-pride events. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Indian patriotic vector poster. A confident tricolour visual language — saffron, white and India-green organised with vector cleanliness: a flowing tricolour swoosh or ribbon, the navy Ashoka chakra as a precise accent, silhouettes of national monuments (India Gate, Qutub Minar) and a green map of India along a lower band. Flat vector, crisp generous white breathing space, one bold headline. Mood: proud, dignified, civic, clean — national-day done with modern restraint, never gaudy.',
+    compatibleConcepts: [
+      { name: 'TRICOLOUR-SWOOSH-HERO', description: 'A confident saffron-white-green ribbon or swoosh sweeps the frame, with the navy Ashoka chakra as the focal accent. Clean, civic, modern.' },
+      { name: 'MONUMENT-SKYLINE-BAND', description: 'Flat-vector silhouettes of national monuments (India Gate, Qutub Minar) and a green map of India along a lower band, tricolour sky above.' },
+      { name: 'CHAKRA-RADIANT-EMBLEM', description: 'The Ashoka chakra as a precise radiant centrepiece, navy on white, with restrained tricolour framing.' },
+      { name: 'SALUTING-CITIZEN-VECTOR', description: 'Flat-vector citizens, students or flag-bearers in proud silhouette against a tricolour field — community pride.' },
+    ],
+    designerReferences: [
+      'MyGov / Government of India national-day campaign vector design',
+      'Amul-style topical poster simplicity',
+      'WPA patriotic poster discipline',
+      'modern Indian civic flat-vector design (Swachh-Bharat-era)',
+      'ISRO / national-campaign clean vector',
+    ],
+    craftSignatures: [
+      'saffron, white and India-green organised with vector cleanliness',
+      'a flowing tricolour swoosh or ribbon as the compositional spine',
+      'the navy Ashoka chakra rendered as a precise geometric accent',
+      'monument silhouettes and a green map of India in a lower band',
+      'crisp, generous white breathing space with one bold headline',
+      'flat vector — no photographic texture, no gaudy bevels',
+    ],
+    bannedCombinations: [
+      { when: 'any patriotic poster', avoid: 'gaudy clip-art, fluttering-flag photo clichés, and heavy gradient/bevel effects', because: 'National-day done with modern restraint reads premium; gaudy treatment reads cheap and dated.' },
+      { when: 'the tricolour or chakra is used', avoid: 'disrespectful flag treatment — flag as a faded background texture, a distorted or recoloured chakra', because: 'Flag-code dignity matters; the tricolour and Ashoka chakra must stay correct, upright and respectful.' },
+      { when: 'this patriotic style is selected', avoid: 'photoreal scenes or cinematic depth', because: 'Patriotic here is a flat civic vector language, not photography.' },
+    ],
   },
   {
     id: 'folk-art',
@@ -671,6 +1268,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED INDIAN FOLK-ART: Render in a traditional Indian folk style — Warli stick-figures, Madhubani dense pattern, or Pattachitra ornament — flat, symbolic, hand-painted, natural-pigment palette. Cultural and authentic. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Indian folk-art illustration. Rendered in the hand of a traditional regional craft — Warli\'s white stick-figures on earth-red, Madhubani\'s dense black-outlined motifs filled with fine pattern, or Pattachitra\'s ornate borders. Flat, symbolic, pattern-rich, devotional. Natural-pigment palette: terracotta, ochre, indigo, lamp-black, off-white. Hand-painted texture on a matte ground. Mood: rooted, cultural, handmade, timeless. The image honours a living folk tradition.',
+    compatibleConcepts: [
+      { name: 'WARLI-RITUAL-SCENE', description: 'White Warli stick-figures on an earth-red ground in rhythmic communal motifs — a dance circle, farming, a procession. Spare, rhythmic, symbolic.' },
+      { name: 'MADHUBANI-DENSE-PANEL', description: 'Black-outlined motifs filled with fine line-and-dot pattern, almost no empty space, natural pigments — Mithila richness.' },
+      { name: 'PATTACHITRA-ORNAMENT', description: 'An ornate bordered narrative panel with mythological richness and fine detail in the Odisha Pattachitra idiom.' },
+      { name: 'FOLK-MOTIF-EMBLEM', description: 'A single folk motif — tree of life, peacock, sun — rendered in the chosen folk idiom as the centrepiece.' },
+    ],
+    designerReferences: [
+      'Jivya Soma Mashe (Warli master)',
+      'Madhubani / Mithila painting (Sita Devi, Ganga Devi)',
+      'Pattachitra of Odisha',
+      'Gond art (Jangarh Singh Shyam)',
+      'contemporary Indian folk-revival design',
+    ],
+    craftSignatures: [
+      'flat, symbolic, pattern-rich, hand-painted texture on a matte ground',
+      'natural-pigment palette — terracotta, ochre, indigo, lamp-black, off-white',
+      'the ONE regional idiom chosen and held consistently throughout',
+      'dense fill patterns (Madhubani) or rhythmic white figures (Warli)',
+      'visible hand-painted brush and line imperfection',
+      'ornamental borders true to the chosen tradition',
+    ],
+    bannedCombinations: [
+      { when: 'this folk-art style is selected', avoid: 'photorealism, 3D, or glossy gradients', because: 'Folk-art is flat, hand-painted, symbolic craft — realism destroys the idiom.' },
+      { when: 'a tradition is implied', avoid: 'mixing incompatible folk styles (Warli + Madhubani + Pattachitra) in one image', because: 'Each tradition has its own grammar; mixing reads as inauthentic pastiche. Pick ONE and hold it.' },
+      { when: 'a contemporary corporate / tech brief', avoid: 'forcing dense folk-art when the event is modern', because: 'Folk-art suits cultural, heritage and festival briefs; on a tech event it mis-codes — use a lighter touch or another style.' },
+    ],
   },
   {
     id: 'typographic',
@@ -680,6 +1303,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED TYPOGRAPHIC: Make typography the hero — the event name set massive, letterforms as graphic shapes filling the frame, mixed weights/sizes, type bleeding off edges, minimal imagery, bold colour blocking behind the type. Use CONCEPT 3 (type-as-subject).',
     geminiStyleLock:
       'Typography IS the poster. The event name is the hero image — set massive, letterforms treated as graphic shapes that fill the frame, mixing weights and sizes, one word oversized or rotated, type that bleeds off the edges. Minimal or no pictorial imagery; the words carry all the energy. Swiss type-poster discipline meets a contemporary type-collage editorial cover, with confident colour blocking behind the type. Mood: bold, authored, expressive, instantly attention-grabbing. The composition is built from letters, not pictures.',
+    compatibleConcepts: [
+      { name: 'MASSIVE-WORDMARK', description: 'The event name set huge, letterforms filling the frame as the image itself.' },
+      { name: 'TYPE-COLLAGE-EDITORIAL', description: 'Mixed weights, sizes and rotations, type bleeding off the edges — expressive type-collage.' },
+      { name: 'SWISS-TYPE-POSTER', description: 'A disciplined grid with one oversized word and confident colour blocking.' },
+      { name: 'KINETIC-LETTER-SHAPES', description: 'Letters treated as graphic shapes with motion and energy.' },
+    ],
+    designerReferences: [
+      'Josef Müller-Brockmann (Swiss type posters)',
+      'David Carson (expressive type-collage)',
+      'Paula Scher / Pentagram (big type)',
+      'Neville Brody (experimental type)',
+      'contemporary type-driven editorial covers',
+    ],
+    craftSignatures: [
+      'the event name IS the hero — set massive, letterforms as graphic shapes filling the frame',
+      'mixed weights and sizes, one word oversized or rotated, type bleeding off edges',
+      'minimal or no pictorial imagery',
+      'confident colour blocking behind the type',
+      'Swiss discipline meeting contemporary type-collage',
+      'built from letters, not pictures',
+    ],
+    bannedCombinations: [
+      { when: 'this typographic style is selected', avoid: 'competing pictorial imagery that fights the type', because: 'Type must be the hero; strong imagery dilutes the type-as-image idea.' },
+      { when: 'this typographic style is selected', avoid: 'timid, small, centred type', because: 'Typographic demands scale and confidence to work.' },
+      { when: 'lots of body text is needed', avoid: 'cramming paragraphs — keep ONE hero word or phrase', because: 'Type-as-image works on a few words, not blocks of copy.' },
+    ],
   },
   {
     id: '3d-render',
@@ -689,6 +1338,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED 3D RENDER: Generate a glossy CGI 3D render — inflatable / claymation / polished-plastic forms, studio lighting, soft contact shadows, subsurface glow, seamless gradient backdrop. Cinema 4D / Octane look. Use CONCEPT 2 (object-as-hero) or 3.',
     geminiStyleLock:
       'Glossy 3D render. The scene is built in CGI — soft-body inflatable shapes, claymation-smooth objects, or polished plastic forms with realistic studio lighting, soft contact shadows and gentle subsurface glow. Rounded, tactile, slightly squishy — a Cinema 4D + Octane render in the current Pinterest 3D-trend aesthetic, Apple-keynote object energy. Clean seamless gradient backdrop. Mood: modern, premium, playful-tech, scroll-stopping. The image looks rendered in 3D software, crisp and dimensional.',
+    compatibleConcepts: [
+      { name: 'INFLATABLE-OBJECT-HERO', description: 'A soft-body inflatable / balloon form of the event symbol as the dimensional hero.' },
+      { name: 'CLAY-RENDER-SCENE', description: 'Claymation-smooth 3D objects in a soft studio set, rounded and tactile.' },
+      { name: 'GLOSSY-PLASTIC-PRODUCT', description: 'A polished plastic or chrome object, Apple-keynote render energy.' },
+      { name: '3D-TYPE-EXTRUSION', description: 'Extruded 3D letterforms as a bold dimensional hero.' },
+    ],
+    designerReferences: [
+      'Cinema 4D + Octane render aesthetic',
+      'current Behance/Pinterest 3D trend (Peter Tarka, Six N. Five)',
+      'Apple keynote object renders',
+      'claymation / soft-body 3D illustration',
+      'inflatable-type 3D design trend',
+    ],
+    craftSignatures: [
+      'soft-body inflatable shapes, claymation-smooth objects, or polished plastic forms',
+      'realistic studio lighting, soft contact shadows, gentle subsurface glow',
+      'rounded, tactile, slightly squishy surfaces',
+      'a clean seamless gradient backdrop',
+      'crisp dimensional render quality',
+      'modern, premium, playful-tech',
+    ],
+    bannedCombinations: [
+      { when: 'this 3d-render style is selected', avoid: 'flat 2D illustration or photoreal documentary', because: 'It must read as CGI dimensional forms, not flat art or a photograph.' },
+      { when: 'this 3d-render style is selected', avoid: 'harsh shadows or gritty texture', because: 'The trend look is soft studio light and smooth surfaces.' },
+      { when: 'a heritage or traditional event', avoid: 'glossy 3D', because: 'It codes modern-tech / playful — mismatched on cultural briefs.' },
+    ],
   },
   {
     id: 'retro',
@@ -698,6 +1373,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED RETRO / VINTAGE: Generate a 70s-style retro poster — sun-faded mustard/orange/avocado/cream palette, rounded retro display type, halftone grain, a big setting-sun arc with concentric rings, off-register print texture. Nostalgic and warm. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Retro print nostalgia. 1970s travel-poster and vintage-advertising warmth — a sun-faded palette of mustard, burnt orange, avocado and cream, thick rounded retro display type, halftone grain, a big setting-sun arc with concentric rings. Slightly off-register print texture, like a mid-century WPA poster meeting a 70s album sleeve. Mood: warm, nostalgic, optimistic, analogue. The image feels printed decades ago and lovingly kept.',
+    compatibleConcepts: [
+      { name: 'SUNSET-ARC-POSTER', description: 'A big setting-sun arc with concentric rings and faded warm bands — quintessential 70s warmth.' },
+      { name: 'VINTAGE-TRAVEL-POSTER', description: 'A WPA / mid-century travel-poster composition with rounded retro display type.' },
+      { name: 'ALBUM-SLEEVE-GROOVE', description: '70s record-sleeve warmth — halftone grain, off-register print, analogue character.' },
+      { name: 'RETRO-BADGE-LOCKUP', description: 'A circular retro badge or emblem with vintage display type as the focal lockup.' },
+    ],
+    designerReferences: [
+      '1970s travel & advertising poster design',
+      'WPA national-park posters',
+      '70s album-sleeve art (Hipgnosis era)',
+      'Saul Bass title-design warmth',
+      'mid-century print advertising',
+    ],
+    craftSignatures: [
+      'a sun-faded palette — mustard, burnt orange, avocado, cream',
+      'thick rounded retro display type',
+      'halftone grain with slightly off-register print texture',
+      'a big setting-sun arc with concentric rings',
+      'warm analogue nostalgia, optimistic mood',
+      'looks printed decades ago and lovingly kept',
+    ],
+    bannedCombinations: [
+      { when: 'this retro style is selected', avoid: 'crisp modern flat-vector cleanliness or neon glow', because: 'Retro needs faded warmth and print grain; modern polish or neon breaks the period feel.' },
+      { when: 'this retro style is selected', avoid: 'cool blue / tech palettes', because: '1970s retro lives in warm earth tones — cool palettes read as a different era.' },
+      { when: 'any retro poster', avoid: 'photorealism', because: 'Retro is a printed-poster aesthetic, not a photograph.' },
+    ],
   },
   {
     id: 'art-deco',
@@ -707,6 +1408,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED ART DECO: Generate a 1920s-30s Art Deco poster — symmetrical stepped / sunburst geometry, gold linework on deep jewel tones, streamlined glamour, elegant deco display type. Premium and ceremonial. Use CONCEPT 3.',
     geminiStyleLock:
       'Art Deco grandeur. Symmetrical geometric elegance — stepped ziggurat forms, sunburst fans, fluted vertical lines, fine gold linework on deep jewel tones (emerald, sapphire, oxblood). Streamlined 1920s-30s glamour, Gatsby-poster opulence, Chrysler-Building geometry. Precise, ornamental, luxurious, with elegant high-contrast deco display type. Mood: premium, ceremonial, glamorous, timeless. The image feels gilded and grand.',
+    compatibleConcepts: [
+      { name: 'ZIGGURAT-SYMMETRY', description: 'Stepped ziggurat / skyscraper geometry in symmetrical grandeur, gold linework on jewel tones.' },
+      { name: 'SUNBURST-FAN', description: 'A radiating sunburst fan motif behind the focal element — classic deco glamour.' },
+      { name: 'FLUTED-VERTICAL-ELEGANCE', description: 'Fine fluted vertical lines and gold framing, streamlined and elegant.' },
+      { name: 'DECO-EMBLEM-CREST', description: 'An ornamental deco crest or monogram as the centrepiece, precise and luxurious.' },
+    ],
+    designerReferences: [
+      'A.M. Cassandre (Art Deco poster master)',
+      'Tamara de Lempicka (deco painting)',
+      'Chrysler Building / Empire State deco architecture',
+      'Erté (deco fashion illustration)',
+      'The Great Gatsby / 1925 Paris Expo deco design',
+    ],
+    craftSignatures: [
+      'symmetrical stepped and sunburst geometry',
+      'fine gold linework on deep jewel tones — emerald, sapphire, oxblood',
+      'streamlined 1920s-30s glamour and high contrast',
+      'elegant geometric deco display type',
+      'precise ornamental framing and fluted lines',
+      'gilded, grand, luxurious finish',
+    ],
+    bannedCombinations: [
+      { when: 'this art-deco style is selected', avoid: 'organic or hand-drawn looseness', because: 'Deco is precise geometric elegance; looseness breaks the discipline.' },
+      { when: 'this art-deco style is selected', avoid: 'muddy or pastel palettes', because: 'Deco needs deep jewel tones with gold contrast to feel grand; pastels drain the opulence.' },
+      { when: 'a casual, playful or kids event', avoid: 'forcing deco formality', because: 'Deco codes ceremonial luxury — mismatched on casual or youthful briefs.' },
+    ],
   },
   {
     id: 'collage',
@@ -716,6 +1443,32 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       'STYLE OVERRIDE — USER SELECTED MAXIMALIST COLLAGE: Generate a mixed-media collage — torn paper, cut-out photo fragments, halftone newsprint, washi-tape, marker scribbles, stamped type, layered busy-but-balanced. Zine / scrapbook energy. Use CONCEPT 2 or 3.',
     geminiStyleLock:
       'Maximalist mixed-media collage. A rich, intentional pile-up — torn-paper scraps, cut-out photo fragments, halftone newsprint, washi-tape, marker scribbles, stickers and stamped type layered into a busy-but-balanced composition. Visible tape, torn edges, photocopied texture — a zine cover or scrapbook art-board, chaotic-yet-curated. Mood: energetic, youthful, handmade, expressive. The image feels physically assembled from many materials, not generated.',
+    compatibleConcepts: [
+      { name: 'ZINE-SCRAPBOARD', description: 'Torn paper, photo fragments, tape and scribbles layered zine-style into a curated-chaotic board.' },
+      { name: 'NEWSPRINT-CUTOUT-MIX', description: 'Halftone newsprint cut-outs and stamped type, punk/dada ransom-note energy.' },
+      { name: 'PHOTO-FRAGMENT-MONTAGE', description: 'Cut photo fragments montaged with graphic shapes and marks.' },
+      { name: 'HANDMADE-MOODBOARD', description: 'A curated-chaotic art-board of mixed materials around the event idea.' },
+    ],
+    designerReferences: [
+      'Hannah Höch / dada photomontage',
+      'Jamie Reid (Sex Pistols punk-zine collage)',
+      'contemporary scrapbook / moodboard aesthetic',
+      "Beck 'Odelay' / 90s collage album art",
+      'riso-zine cut-and-paste culture',
+    ],
+    craftSignatures: [
+      'torn-paper scraps, cut-out photo fragments, halftone newsprint, washi-tape, marker scribbles, stamped type',
+      'a layered, busy-but-balanced composition',
+      'visible tape, torn edges and photocopied texture',
+      'chaotic-yet-curated arrangement',
+      'energetic, youthful, handmade',
+      'feels physically assembled from many materials',
+    ],
+    bannedCombinations: [
+      { when: 'this collage style is selected', avoid: 'clean minimal flat-vector', because: 'Collage is deliberately dense and layered; minimalism is the opposite intent.' },
+      { when: 'this collage style is selected', avoid: 'photoreal single-scene rendering', because: 'It must read as assembled fragments, not one seamless photograph.' },
+      { when: 'a formal, premium or solemn event', avoid: 'chaotic zine energy', because: 'Collage codes youthful / punk — mismatched on formal briefs.' },
+    ],
   },
 
   // ── Spotlight Event — the classic Yi chapter event-poster look. ───────────────

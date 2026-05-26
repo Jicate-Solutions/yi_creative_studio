@@ -2314,6 +2314,7 @@ export async function POST(request: NextRequest) {
                 ?? ((effectiveDesignData as Record<string, unknown> | null)?.footerContext as { address?: string } | undefined)?.address
               ),
               backgroundStyle: _bgStyleId,
+              styleLock: _bgStyleConfig?.geminiStyleLock ?? undefined, // v55.x: curated look for styles without a full concept menu
               formatId: formatId || 'event_poster',
               canvasDimensions: {
                 width: selectedFormat?.width ?? 1080,
