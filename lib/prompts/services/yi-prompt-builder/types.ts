@@ -296,6 +296,22 @@ export type BackgroundStyleId =
   | 'custom'         // User-defined: own gradient colors + visual description
   | 'photo-real'     // 35mm DSLR-style photograph of the actual event scene
   | 'product'        // Object-as-hero composition (one symbolic object dominates)
+  | 'festive'        // v50.3: Vibrant celebration — multi-zone illustrated layout, concept-as-visual-device, Indian cultural motifs, festive non-brand colors allowed
+  | 'pop-modern'     // v54.9: Modern Indian pop-art poster — Hatecopy + Hassan Hajjaj + vintage Tamil cinema poster + halftone screen-print craft. The user's actual brand vibe. New default for /lab.
+  | 'photo-pop'      // v54.10: FUSION — real photograph of subject (reference photo or AI-generated photoreal) + pop-art design language for everything else (halftone background, bold pop typography, graphic overlays). Vogue India cover / Spotify Wrapped / Apple campaign energy.
+  // ── v55.0: Creative-style expansion (illustrated / cultural / typographic / retro) ──
+  | 'hand-drawn'     // Hand-drawn / sketch illustration — inked wobbly lines, visible under-sketch, human imperfection
+  | 'naive'          // Naive / playful childlike illustration — chunky shapes, smiley motifs, scratchy fills
+  | 'papercut'       // Layered cut-paper craft — crisp edges, soft drop-shadows between paper layers
+  | 'patriotic'      // Indian tricolour patriotic vector — saffron/white/green swoosh, chakra, monuments, map
+  | 'folk-art'       // Indian folk-art — Warli / Madhubani / Pattachitra hand-painted traditional craft
+  | 'typographic'    // Typography-as-hero — letterforms as the composition, minimal imagery
+  | '3d-render'      // Glossy CGI 3D render — inflatable/claymation/plastic forms, studio lighting
+  | 'retro'          // 70s retro / vintage print — faded warm palette, halftone grain, sun-arc
+  | 'art-deco'       // 1920s-30s Art Deco — symmetrical gold geometry on jewel tones, deco type
+  | 'collage'        // Maximalist mixed-media collage — torn paper, photo fragments, tape, stamped type
+  | 'spotlight-event' // Yi event-poster look — bright gradient field, photo-hero people, bold headline + colored sub-line band, date chip, detail strip, flat skyline footer, clean logo zone. Attaches a style-only reference image. (distinct from creativeMode 'spotlight' and format id 'event_poster')
+  | 'advertising'    // Premium advertising / campaign key art — cinematic hero, shallow DOF, dramatic commercial lighting, frozen action, big typography
 
 export interface BackgroundStyleConfig {
   id: BackgroundStyleId
@@ -404,6 +420,29 @@ export interface EnhancedBuildOptions {
   // This prevents text/content from overlapping with logo overlay areas
   logoStripZoneCoordinates?: LogoStripZoneCoordinates
 
+  // NEW v53.0: Composition strategy from Subject Classifier (Stage 0).
+  // Format builders branch composition guidance on this — e.g. portrait-hero
+  // injects a "no people drawn anywhere" block regardless of whether a speaker
+  // photo is attached. Values: 'portrait-hero' | 'concept-iconic' | 'activity-collage'
+  // | 'object-hero' | 'environment-scene'.
+  compositionStrategy?: string
+
+  // v53.1: Pre-built creative archetype hint from lib/prompts/creative-dna.
+  // Hand-curated reference language ("TIME 100 portrait", "Bollywood tribute",
+  // "Apple keynote slide", etc.) that pushes Gemini away from generic
+  // "luxury hall" defaults. Computed in route.ts via selectArchetype() and
+  // formatted via archetypeToPromptHint(). Injected verbatim into the final
+  // Gemini prompt as a high-attention reference block.
+  archetypeHint?: string
+
+  // v53.5: Speaker render mode. When 'gemini', Gemini draws the subject from
+  // the attached reference photo (no Sharp circle overlay afterward). When
+  // 'sharp', the legacy behavior — Gemini leaves a reserved bbox and Sharp
+  // composites the circle. Flips the prompt language from "DO NOT draw the
+  // subject" to "DRAW the subject from the reference photo using archetype
+  // framing". Default in route.ts is 'gemini' (avoids duplicate-portrait
+  // conflict shown in v53.4 testing).
+  speakerRenderMode?: 'gemini' | 'sharp' | 'hybrid'
 }
 
 // ============================================================
@@ -738,6 +777,10 @@ export interface DesignBrief {
   initiativeText?: string
   targetAudience?: string
   additionalVisualBrief?: string // Free-text user visual direction injected into visualScene
+  // v53.0: Composition strategy from Subject Classifier (Stage 0). Used by Design
+  // Intelligence prompt builder to inject composition-aware guidance into visualElements
+  // and backgroundSetting (e.g. portrait-hero → stage-only backdrop, no crowds).
+  compositionStrategy?: string
 }
 
 export interface DesignIntelligenceResult {

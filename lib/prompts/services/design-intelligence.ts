@@ -68,6 +68,45 @@ import {
 // PROMPT BUILDERS (Locally Defined)
 // ============================================================
 
+// v53.0: Composition-strategy-aware guidance for Design Intelligence prompt.
+// Branches visualElements / backgroundSetting / iconicImagery generation so the
+// AI doesn't propose "blurred attendees" for portrait-hero or single-icon scenes
+// for activity-collage.
+function getCompositionStrategyDesignGuidance(strategy?: string): string {
+  if (!strategy) return ''
+  const map: Record<string, string> = {
+    'portrait-hero':
+      `This poster is a PORTRAIT-HERO composition. The honored person IS the subject — they will be composited as a real portrait at the center. Your job is to design the STAGE AROUND THEM, not the people in the scene.
+
+MANDATORY for portrait-hero:
+- visualElements MUST describe STAGE-ONLY backdrop elements: architectural detail (pillars, drapes, ornate dais, decorative panels), ceremonial lighting (warm spotlights, soft glow, depth-of-field haze, ambient backlight), decorative objects (flowers, garlands, cake, candles, brand-color textures, ceremonial banners).
+- backgroundSetting MUST be an ARCHITECTURAL + ATMOSPHERIC venue (ballroom interior, sabha hall, stage with proscenium, ornate auditorium) — empty, dignified, theatrical. NO crowds. NO audience. NO team members. NO attendees. NO blurred figures. NO silhouettes of people.
+- iconicImagery MUST be DECORATIVE OBJECTS only (marigold garland, ceremonial flowers, layered cake on stand, candles, lit lamp, podium with mic, decorative drapes) — NOT people, NOT silhouettes, NOT crowds.
+- ANY reference to "attendees", "audience", "blurred figures", "team members around her", "crowd", "people celebrating", "group of well-wishers", "loved ones", or similar language is FORBIDDEN. Replace with empty-stage equivalents.
+- The decorativeElementsContext.thematicElements MUST be physical decorative objects, not human figures.`,
+    'activity-collage':
+      `This poster is an ACTIVITY-COLLAGE composition (cultural fest / multi-track event). Design a MULTI-ZONE festive layout — visualElements should describe distinct activity zones (one per listed activity), Indian festive motifs (mandala / paisley / kolam borders, confetti, fireworks), and energetic illustrated figures performing each activity. Vibrant, celebratory, multi-zone — NOT a single hero scene.`,
+    'object-hero':
+      `This poster is an OBJECT-HERO composition (product / book / device / app launch). visualElements should focus on ONE symbolic object dominating ~60% of the canvas, dramatic product lighting, clean backdrop. iconicImagery should be the product itself + complementary tool/accessory objects. People SECONDARY or absent.`,
+    'environment-scene':
+      `This poster is an ENVIRONMENT-SCENE composition (heritage walk / lab inauguration / building opening / campus tour). visualElements + backgroundSetting should depict the PLACE itself in architectural detail. People are incidental scale figures, not the focus. iconicImagery should be place-specific objects (signage, banners, ribbon for cutting, foundation stone, etc.).`,
+    // 'concept-iconic' → no override (current default behavior)
+  }
+  const guidance = map[strategy]
+  if (!guidance) return ''
+  return `
+
+========================================
+🎬 COMPOSITION STRATEGY (v53.0 — MANDATORY OVERRIDE)
+========================================
+Subject Classifier (Stage 0) determined: compositionStrategy="${strategy}"
+
+${guidance}
+
+This composition strategy OVERRIDES any conflicting guidance elsewhere in this prompt. The Subject Classifier ran upstream specifically to choose this composition — honor it.
+`
+}
+
 function buildDesignContextPrompt(template: string, input: DesignBrief): string {
   const brandColors = input.brandContext ? `
 BRAND IDENTITY:
@@ -76,6 +115,7 @@ BRAND IDENTITY:
 - Accent Color: ${input.brandContext.accentColor || 'Not specified'}
 - Font Preference: ${input.brandContext.fontPreference || 'Not specified'}
 ` : ''
+  const compositionGuidance = getCompositionStrategyDesignGuidance(input.compositionStrategy)
 
   const finalTitle = input.eventName && input.eventName.trim().length > 0
     ? input.eventName
@@ -98,6 +138,7 @@ STYLE: ${input.style || ''}
 HOST ORGANIZATION: ${input.organizationName || ''} (For branding only - NOT the event theme)
 ${brandColors}
 ${getFormatSpecificGuidance(input.formatId, input.formatName)}
+${compositionGuidance}
 `
   return template.replace('{brief}', brief)
 }
@@ -1542,16 +1583,19 @@ feel premium because they ARE premium — not because they are plain and conserv
         console.log(`[Design Intelligence] 🔄 RETRY ATTEMPT ${attempt}/${MAX_ATTEMPTS} for "${input.eventName}"`)
       }
 
-      // Stage 2: Call LLM — Claude primary (v43.1)
-      // v43.1: Switched to Claude Haiku as primary. Reason: gemini-2.5-flash-image
-      // has only 10 RPD on free tier. Each Gemini text call consumed shared quota,
-      // causing 429s after ~10 generations/day. Design Intelligence is pure text
-      // reasoning — Claude Haiku produces identical results with a much higher quota.
-      // Circuit breaker + callGemini() retained for optional future re-enablement.
+      // Stage 2: Call LLM — Gemini primary (v50.1 — Anthropic credits exhausted)
+      // Previously (v43.1) switched to Claude Haiku because gemini-2.5-flash-image had
+      // 10 RPD on free tier and shared quota with text calls. With paid Gemini tier the
+      // RPD constraint is gone; flipping back to gemini-2.5-flash for design-intelligence
+      // eliminates ~30% of Claude token spend per generation.
+      // Override: DESIGN_INTEL_PROVIDER=claude in .env.local to revert (e.g. after credits restored).
       const currentFormality = eventProfile?.formality
       let llmResponse: LLMResponse
-      console.log('[Design Intelligence] Source: claude-haiku-4-5 (primary — Gemini quota reserved for image gen)')
-      llmResponse = await callClaude(prompt)
+      const designIntelProvider = process.env.DESIGN_INTEL_PROVIDER === 'claude' ? 'claude' : 'gemini'
+      console.log(`[Design Intelligence] Source: ${designIntelProvider} (v50.1 default — env DESIGN_INTEL_PROVIDER=${process.env.DESIGN_INTEL_PROVIDER || 'unset'})`)
+      llmResponse = designIntelProvider === 'gemini'
+        ? await callGemini(prompt, input.formatId, currentFormality)
+        : await callClaude(prompt)
 
       // Stage 3: Parse & Validate
       const designContext = parseDesignContext(llmResponse.text)
@@ -1578,6 +1622,44 @@ feel premium because they ARE premium — not because they are plain and conserv
           `[Design Intelligence] ✨ Replacing generic fallback with Event Understanding visualAssociations.primary (${eventPrimaryVisuals.length} items)`
         )
         designContext.visualElements = [...eventPrimaryVisuals]
+      }
+
+      // v53.4: Portrait-hero people-leak filter. Even when the system prompt
+      // forbids drawn people, the LLM sometimes slips "blurred attendees /
+      // audience / team members / crowd" into visualElements. The downstream
+      // format builder injects visualElements verbatim into the final Gemini
+      // prompt, where these phrases cause Gemini to draw additional people that
+      // compete with the Sharp speaker-photo overlay. Strip them defensively.
+      if (input.compositionStrategy === 'portrait-hero' && designContext.visualElements) {
+        const peoplePattern = /\b(attendee|attendees|audience|audiences|crowd|crowds|team\s+members?|family\s+members?|onlookers?|spectators?|guests?|figures?|silhouettes?|onlooking|applauding|applause|gathered\s+(?:people|guests)|blurred\s+(?:figures?|people|attendees|audience)|elegant(?:ly)?\s+dressed\s+(?:indian|south\s+asian)?\s*(?:attendees|people|audience))\b/i
+        const before = designContext.visualElements.length
+        const beforeItems = [...designContext.visualElements]
+        designContext.visualElements = designContext.visualElements.filter(el => !peoplePattern.test(el))
+        const removed = before - designContext.visualElements.length
+        if (removed > 0) {
+          const removedItems = beforeItems.filter(el => peoplePattern.test(el))
+          console.log(`[Design Intelligence v53.4] 🚫 Portrait-hero: stripped ${removed} people-mentions from visualElements:`)
+          removedItems.forEach(item => console.log(`   - "${item.substring(0, 100)}${item.length > 100 ? '...' : ''}"`))
+        }
+        // Also clean backgroundSetting prose (replace people-phrases with empty-stage prose)
+        if (designContext.backgroundSetting && peoplePattern.test(designContext.backgroundSetting)) {
+          const original = designContext.backgroundSetting
+          designContext.backgroundSetting = designContext.backgroundSetting
+            .replace(/\bThe\s+audience\s+(?:foreground\s+)?(?:is\s+|are\s+)?(?:softly\s+)?blurred[^.]*\./gi, 'The composition centers on the dignified stage setting alone.')
+            .replace(/\b(?:blurred|softly\s+blurred)\s+(?:elegant\s+)?(?:indian\s+)?(?:south\s+asian\s+)?(?:audience|attendees|figures|people)[^,.]*[,.]/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+          if (original !== designContext.backgroundSetting) {
+            console.log(`[Design Intelligence v53.4] 🚫 Portrait-hero: cleaned people-mentions from backgroundSetting`)
+          }
+        }
+        // Same for iconicImagery
+        if (Array.isArray(designContext.iconicImagery)) {
+          const iconBefore = designContext.iconicImagery.length
+          designContext.iconicImagery = designContext.iconicImagery.filter((el: string) => !peoplePattern.test(el))
+          const iconRemoved = iconBefore - designContext.iconicImagery.length
+          if (iconRemoved > 0) console.log(`[Design Intelligence v53.4] 🚫 Portrait-hero: stripped ${iconRemoved} people-mentions from iconicImagery`)
+        }
       }
 
       // CRITICAL: Validate visualElements for text label risks

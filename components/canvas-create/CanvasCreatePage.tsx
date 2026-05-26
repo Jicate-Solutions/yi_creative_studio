@@ -432,7 +432,10 @@ export function CanvasCreatePage({
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
+        // v54.2: default to 'scene' (the "Realistic" style) so the picker's pre-selected
+        // default is actually SENT — previously an uncommitted default was dropped to undefined,
+        // which skipped the documentary-photography style lock and produced a freelance graphic poster.
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || 'scene',
         designData: formData.designData,
         formatId: selectedFormat.id,
         customDimensions: formData.customDimensions || null,
@@ -602,7 +605,10 @@ export function CanvasCreatePage({
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
+        // v54.2: default to 'scene' (the "Realistic" style) so the picker's pre-selected
+        // default is actually SENT — previously an uncommitted default was dropped to undefined,
+        // which skipped the documentary-photography style lock and produced a freelance graphic poster.
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || 'scene',
         designData: formData.designData,
         formatId: selectedFormat?.id,
         customDimensions: formData.customDimensions || null,

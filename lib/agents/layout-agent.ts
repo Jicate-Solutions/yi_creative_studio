@@ -34,7 +34,7 @@ import type {
 // Constants
 // ============================================================================
 
-const CLAUDE_MODEL = 'claude-3-haiku-20240307'
+const CLAUDE_MODEL = 'claude-haiku-4-5'
 const MAX_ACTOR_CRITIC_ROUNDS = 3
 
 // ============================================================================

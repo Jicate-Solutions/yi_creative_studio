@@ -146,6 +146,7 @@ export const ROUTES = {
   dashboard: '/dashboard',
   events: '/events',
   create: '/create',
+  lab: '/lab',
   gallery: '/gallery',
   templates: '/templates',
   bulk: '/bulk',

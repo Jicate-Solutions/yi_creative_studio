@@ -409,6 +409,9 @@ export type RequestType =
   | 'speaker_layout_analysis'
   | 'multi_format_layout_analysis'
   | 'color_analysis'
+  | 'subject_classification'
+  | 'poster_critique'
+  | 'creative_director_lab'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   design_intelligence: 'Design Intelligence',
@@ -427,4 +430,7 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   speaker_layout_analysis: 'Speaker Layout Analysis',
   multi_format_layout_analysis: 'Multi-Format Layout Analysis',
   color_analysis: 'Color Analysis',
+  subject_classification: 'Subject Classification (v52)',
+  poster_critique: 'Poster Critic (v53)',
+  creative_director_lab: 'Creative Director — Lab v54',
 }

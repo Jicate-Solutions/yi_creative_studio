@@ -1,0 +1,332 @@
+========== SYSTEM INSTRUCTION (4903 chars) ==========
+You are Yi CreativeStudio's image generation engine. You produce premium, Behance-quality marketing posters for Young Indians (Yi) chapters — a youth wing of CII focused on India's leadership across health, climate, innovation, road safety, and community initiatives. Every output is a single, edge-to-edge magazine-cover artwork — never a template, never a card on a background.
+
+CULTURAL AUTHENTICITY (when people or venues appear):
+Indian / South Asian faces, skin tones, and clothing. Indian architecture and venues (school chalkboards, banquet halls with marigold garlands, IT parks, community shamianas, college campuses with banyan trees). Never generic Western settings, never global stock-photo aesthetics. When the event story benefits from people, include them actively DOING the event activity — teaching, demonstrating, collaborating, performing. People are optional when the scene tells the story another way (object-as-hero, conceptual metaphor).
+
+CREATIVE AMBITION:
+Approach each poster as a lead art director at a world-class agency would: bold, distinctive, immediately shareable. Backgrounds tell the event's story through real environments and concrete objects — never flat colors, plain gradients, or abstract waves/dots/mesh. Use depth: foreground crisp, background slightly defocused for professional photographic feel. Information cards (date / venue / CTA) sit in visually distinct containers — frosted glass, badge pills, contrast panels — never as floating text on a gradient. The composition reads in a clear hierarchy: hero headline → support tagline → data card → action → context.
+
+TEXT RENDERING — STRICT FIDELITY:
+The user prompt contains <text_content> entries with role markers like:
+  <text role="headline" color="#FFFFFF" ...>Event Name Here</text>
+Render ONLY the inner content, character-for-character. Do NOT paraphrase, translate, enhance, summarize, or add words. The role / color / size attributes are styling metadata — never render them as visible text.
+
+Validation checkpoint before rendering ANY text: "Is this text explicitly the content of a <text> tag?"
+  → If YES: render it exactly as provided, using the color/size hints from the attributes.
+  → If NO: do not render it. It is visual guidance, decorative context, or instruction — never text content.
+
+NEVER render as visible text:
+- Instruction verbs ("Generate", "Create", "Include", "Apply", "Use", "Render", "Design")
+- Domain keywords ("AI", "Tech", "Innovation", "Leadership", "Networking", "Professional", "Creative", "Modern")
+- Event-type labels ("Conference", "Workshop", "Seminar", "Summit", "Meetup", "Session")
+- Action verbs ("Connect", "Innovate", "Celebrate", "Inspire", "Empower", "Transform")
+- XML tags, role markers, hex codes, or technical layout terms
+
+SCENE DESCRIPTIONS ARE BLUEPRINTS, NOT CAPTIONS:
+When the prompt describes a scene ("Indian dancers mid-performance on a stage", "holographic neural network in a futuristic arena", "young delegates debating in parliament"), you VISUALIZE the scene silently. Never convert these descriptive phrases into readable text on faces, walls, banners, or surfaces in the image. The final image must look like a clean photograph or designed poster — no captions, no labels, no annotated objects, no descriptive text overlays.
+
+POST-PROCESSING RESERVATIONS (CRITICAL):
+After your image is generated, separate post-processing systems composite logos, footer bars, and (when enabled) speaker photos on top of your output. Therefore:
+- NEVER draw logo placeholders, "[LOGO]" labels, brand-mark emojis (🏷️ 🍀 etc), or any logo-like shapes
+- NEVER draw speaker photos when a <speaker_photo_zone> is marked "USER PHOTO WILL BE OVERLAID" — keep that zone clean
+- NEVER draw text in zones marked as <forbidden_zone> (logo bar zones, footer zones) — the background scene continues through these zones as atmospheric environment, but TEXT and FOCAL HUMAN SUBJECTS must respect the boundaries
+
+AI'S CREATIVE CONTROL VS. USER'S FIXED INPUT:
+You control: backgrounds, scene composition, lighting, visual atmosphere, typography styling (size / weight / effects / color — not font family if specified), event-specific environments and objects, decorative motifs that fit the scene.
+You don't control: exact text content (use only quoted values from <text> tags), font family (if brand specifies one), Indian-vs-other ethnicity of people (always Indian), logo placement (post-processing handles it), speaker photo placement (overlay handles it).
+
+OUTPUT QUALITY TARGETS:
+Premium gallery-worthy composition rivaling top agencies. Rich atmospheric backgrounds with depth. Information delivered in clear visual blocks, never as scattered floating text. Text legible at intended viewing size (max ~25 characters per visible element). Bold, memorable, share-worthy. Authentic Indian context when relevant. Zero instruction text rendered as visible content.
+
+========== USER PROMPT (20814 chars) ==========
+<event_intent>
+(DO NOT RENDER) SMILEATHON 2026 · Sun, 29 Mar, 2026 | 6:00 AM – 10:00 AM · at Nattraja Vidhyalya (CBSE) School Campus — themed "A 3 km run event for children aged 4 to 12 years promoting dental health awareness" for Children aged 4 to 12 years and their parents.
+</event_intent>
+
+<style_direction>(DO NOT RENDER — visual style direction, HIGHEST PRIORITY. This describes the visual treatment of the entire composition. Every other instruction below operates WITHIN this style direction.)
+Premium documentary photography. Real Indian people in real Indian venues captured with photojournalistic honesty. Natural ambient light — golden hour warmth or cool indoor stage glow as the venue dictates. 35mm full-frame depth: sharp subject, gently defocused environment. Authentic gestures, candid expressions, no posing. Magazine-quality grain. The image reads as truth, not staging — this happened, this matters, we documented it.
+</style_direction>
+
+<instruction>
+(DO NOT RENDER — creative brief for SMILEATHON 2026, for visual composition only. Absorb this fully before reading the constraints below. Let it drive every composition decision.)
+COLOR STORY: #107023 = dominant background and gradients | #fcff33 = highlights and accents
+VIEWER EMOTION: Viewers should feel invigorated, joyous, inspired, and a sense of belonging.
+</instruction>
+
+<!-- ============================================= -->
+<!-- MANDATORY COLOR PALETTE (v27.0 - LAYER 2)  -->
+<!-- ============================================= -->
+
+<instruction>
+MANDATORY COLOR PALETTE — NON-NEGOTIABLE:
+PRIMARY: #107023 — headline text, key accent details, and dark gradient anchor only. NEVER use as the solid background fill — the background MUST include BRIGHT, VIVID, well-lit areas with energy and warmth
+SECONDARY: #fcff33 — MUST appear on ALL headline text and key visual accents
+ACCENT: #faf9f4 — body text, atmospheric elements, and small highlights
+
+BRIGHTNESS REQUIREMENT: The background MUST be visually bright and vibrant. Use #fcff33 and lighter tones for large background areas. Dark #107023 only appears in text, borders, and accent highlights — NOT as the background fill.
+The secondary color #fcff33 MUST be visibly present in the design. A poster missing this color is REJECTED.
+Do NOT substitute these colors with AI default palettes, navy/gold, or earth tones.
+
+ULTRA-PRO COLOR DIRECTION: Primary forest green (#107023) dominant, electric yellow (#fcff33) as motion streaks and confetti, off-white (#faf9f4) as metallic accents.
+</instruction>
+
+<!-- ============================================= -->
+<!-- TYPOGRAPHY (WITHIN PIXEL ZONES)             -->
+<!-- ============================================= -->
+
+USER OVERRIDE ACTIVE:
+
+- User has specified CUSTOM THEME/STYLE - Follow user preferences over AI design recommendations
+All Design Intelligence suggestions below are SUPPLEMENTAL - prioritize user's explicit choices.
+
+TYPOGRAPHY GUIDELINES:
+<typography_and_color_specifications>
+TYPOGRAPHY: center-aligned layout.
+
+Render all text as part of the poster design — typography IS the design.
+Background flows top-to-bottom as ONE seamless photograph/painting — NO horizontal bands, divider lines, stripes, or visible zone boundaries. Hierarchy comes from whitespace, color contrast, and font size — not lines. Info cards / detail bars / CTA buttons are foreground elements that sit on top of the seamless background.
+
+YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram style):
+Official Yi chapter communication. Typography is the hero; background calm and uncluttered.
+Pick one: (A) deep Yi blue gradient #005B96→#003A6E with soft radial glow [most on-brand];
+(B) brand-primary clean solid/gradient with generous negative space;
+(C) clean off-white #F8FAFF with one bold Yi-blue accent (corner block / thick side border / 8% top-band).
+Optional: ONE symbolic watermark at 8–12% opacity behind text (tooth outline, runner silhouette, circuit node).
+70%+ of canvas stays pure uncluttered background. No photographic scenes, no crowds, no medals/confetti,
+no cinematic depth-of-field, no complex lighting.
+
+Text color hierarchy: headline in Brand Primary Color (Mandatory); tagline in Brand Secondary Color; body details in High contrast white for readability.
+CTA "Registration Fee: ₹250. Open to children aged 4 to 12 years." is a prominent button in Brand Accent Color.
+</typography_and_color_specifications>
+
+
+<instruction>(DO NOT RENDER — poster context for visual composition only, NOT text to display)
+This is a visually rich, immersive event poster for a professional event, themed around "A 3 km run event for children aged 4 to 12 years promoting dental health awareness". The intended audience is Children aged 4 to 12 years and their parents. The visual design, imagery, and atmosphere should reflect the topic "A 3 km run event for children aged 4 to 12 years promoting dental health awareness" — this is the primary thematic direction.
+</instruction>
+
+<instruction>(DO NOT RENDER — visual scene blueprint for composition only. NEVER convert any phrase here into visible text, label, caption, banner, or annotation on the image. Visualize silently.)
+VISUAL SCENE (ULTRA-PRO DIRECTION — DRAW THIS, DO NOT WRITE THIS):
+Low-angle dynamic shot capturing Indian children and parents mid-stride crossing a shimmering finish line at dawn, faces radiant with joy. Bright morning sunlight, motion-blur streaks of brand yellow and green, confetti overhead, out-of-focus cheering silhouettes.
+
+DESIGN GUIDANCE:
+Bold, energetic, uplifting—designed for children and families. Warm natural light and vibrant brand colors creating infectious joy without feeling corporate.
+⚠️ OVERRIDE: ALL text placement percentages above are CLAMPED to the 40-70% content zone. Ignore any guidance suggesting text below 70%.
+</instruction>
+
+
+
+
+
+
+
+
+
+
+<instruction>(DO NOT RENDER — overlay awareness for spatial composition only)
+
+OVERLAY COMPOSITION AWARENESS:
+Small branded elements will be composited onto the final image at these positions after generation.
+Design the background to be CLEAN and UNCLUTTERED at these positions — no text, no faces, no detailed focal objects.
+The overlay elements are semi-transparent, so the background artwork WILL be visible through them.
+
+TOP STRIP (0-10% height): Small overlay elements at: far-left of the top edge, left-center of the top edge, far-right of the top edge.
+Keep these spots as smooth atmospheric background (sky, ambient light, soft gradient).
+
+CONTENT PLACEMENT: Place ALL text, headlines, dates, and visual focal points in the CENTER BAND (40%-65% height).
+This center band is the ONLY safe area for text and important visual details.
+</instruction>
+
+<!-- ============================================= -->
+<!-- SPATIAL LAYOUT CONSTRAINTS (v50.0 — MOVED AFTER CREATIVE CONTENT) -->
+<!-- Reordered from prompt-top to here: Gemini now reads creative vision, -->
+<!-- color palette, typography, visual scene FIRST, then technical zones. -->
+<!-- This shifts Gemini from compliance mode to creative mode. -->
+<!-- ============================================= -->
+
+<instruction>
+
+(DO NOT RENDER ANY OF THESE INSTRUCTIONS AS VISIBLE TEXT)
+
+CANVAS GUIDE (v41.8 — TRANSPARENT BOUNDARY MARKERS):
+The attached image shows FAINT BOUNDARY MARKERS only — dashed lines at y=576px and y=1008px.
+These are NOT bars to preserve. They are guides showing where logo/footer overlays will be composited on top AFTER generation.
+DO NOT add any blue bands, colored zones, or solid fills in these areas. Generate PURE BACKGROUND ART throughout.
+
+YOUR TASK: Generate a FULL-CANVAS continuous background scene — one seamless image edge to edge, top to bottom.
+- No blue bars. No colored header/footer. No bands. No borders. No overlays.
+- Pure background artwork flows through the ENTIRE canvas (0px to 1440px).
+- Logo overlays and footer will be composited on top by the system AFTER you generate.
+
+ONE UNIFIED SCENE (canvas: 1080x1440px):
+Think of this as a SINGLE TALL PHOTOGRAPH — one camera, one moment, one composition.
+The scene fills the ENTIRE canvas (y=0 to y=1440px) as a single continuous image.
+The 40%–70% band (y=576–1008px) is where event text will be composited — keep this area visually calm so overlaid text is readable.
+
+RULES:
+DO NOT render ANY text, headline, event name, date, venue, label, or caption anywhere.
+DO NOT draw any logo, watermark, "LOGO" text, icon, or brand mark anywhere.
+DO NOT add any horizontal bands, color bars, gradient breaks, or zone dividers.
+DO NOT generate different scenes or perspectives for different vertical sections of the canvas.
+All text and logos are composited as separate Sharp layers after generation — leave the canvas clean.
+
+SINGLE CAMERA RULE (strictly enforced):
+- ONE camera position. ONE viewpoint. ONE lighting setup. The entire canvas is captured from this single position.
+- If you imagine the canvas as a tall photograph: the top, middle, and bottom all show different parts of the SAME scene from the SAME angle.
+- FORBIDDEN: showing a scene from above in one half and from below in another half.
+- FORBIDDEN: showing exterior of a building in one section and interior in another section.
+- FORBIDDEN: tiling, repeating, or mirroring any element across the vertical axis.
+
+</instruction>
+
+<!-- TEXT CONTENT — render as visually appropriate -->
+
+<text_content>
+  Headline: SMILEATHON 2026
+  Tagline: A 3 km run event for children aged 4 to 12 years promoting dental health awareness
+  Date/Venue card (📅 🕐 📍 icons only): Sun, 29 Mar, 2026 | 6:00 AM – 10:00 AM · Nattraja Vidhyalya (CBSE) School Campus
+  Additional details (chip row or icon bullets): Special offer of ₹30k for dental implants exclusively for parents of participating children
+</text_content>
+
+<instruction>(DO NOT RENDER) LAYOUT AND COMPOSITION RULES:</instruction>
+
+  <layout_composition_rules>
+
+VERTICAL BANDS (single scene flows edge-to-edge; only TEXT and FACES respect boundaries):
+This poster is ONE continuous magazine-cover-quality scene from a single camera angle. The scene's background (sky, ceiling, walls, floor, atmosphere) flows naturally through every band. Logo bars composite over top/bottom with transparency — the scene shows through behind them. There is exactly ONE scene on this canvas — never two scenes stacked vertically, never a mini-scene above plus a mini-scene below.
+
+• UPPER CONTINUATION 0–40% (0–576px): this band is the atmospheric upward extension of the same central scene — same lighting, same depth, same environment, same camera angle. Sky, ceiling, soft haze, depth-of-field blur, or upper background of the same room. It is NOT a separate scene. NO text, NO human faces, NO new focal subjects, NO duplicated motifs, NO logo placeholders, NO invented decorations here.
+
+• CONTENT BAND 40%–70% (576–1008px): the ONLY band where text AND focal subjects (faces, performers) belong. Subjects in lower portion (~55–70%); text overlaid upper portion (~40–55%). Position camera so human heads land here.
+
+• LOWER CONTINUATION 70%–100% (1008–1440px): this band is the atmospheric downward extension of the same central scene — same floor, same ground, same lighting falloff. It is NOT a separate scene. NO text, NO faces, NO new subjects, NO duplicated focal group here.
+
+Anything below 1008px is invisible. When tight: compress fonts, use 2-col layout, drop least-important details. Priority: Headline > Date/Time > Venue > Speaker > Additional. Background bleeds edge-to-edge with NO frame, NO rounded corners, NO card border. ONE focal group only — don't duplicate above AND below.
+
+TEXT RENDERING — render each text in <text_content> as a DESIGNED element, not raw type:
+• HEADLINE → Ultra-bold (800–900), fills ~70% width, ALL-CAPS or split-case drama (hero word at 130–150%). Apply 2+ effects (gradient fill / 3D extrusion / per-word color / contrast stroke). Flat monochrome not acceptable.
+• TAGLINE → Semi-bold (600), 35–45% of headline scale, sentence case, one accent-color word.
+• DATE/VENUE → designed card (frosted glass / dark badge / gradient pill — never bare floating text). Lines: "📅 [date]  🕐 [time]" then "📍 [venue]". Card bottom stays above 978px.
+• ADDITIONAL DETAILS → scannable chip row or icon-led bullets — not a paragraph.
+
+COLOR FIDELITY:
+Brand secondary is YELLOW (#fcff33). Use warm-white / neutral-white lighting — no cool/blue/cyan tint that drifts yellow toward cyan/teal.
+
+BACKGROUND CONTRAST REQUIREMENT (v42.1 — CRITICAL):
+    Sharp will composite LIGHT text (#faf9f4) in the 40%–70% zone.
+    ✅ MANDATORY: Background in 40%–70% must be NOTICEABLY DARKER — deep shadows, rich dark environment, moody tones.
+    ❌ FORBIDDEN: Bright sky, pale walls, high-luminance gradients, or white/cream tones in the content zone.
+
+TEXT READABILITY SHADOW (v44.0 — MANDATORY BAKED-IN OVERLAY):
+    Paint a subtle dark atmospheric shadow DIRECTLY INTO the 40%–70% zone of the scene itself — as if a soft cloud shadow, depth-of-field darkening, or moody stage lighting naturally darkens this band of the image.
+
+    ✅ Execute as: ~35–45% opacity dark wash integrated into the scene art
+    ✅ Must read as atmospheric / natural lighting — NOT a flat rectangle, NOT a visible text box
+    ✅ Examples: dramatic overhead cloud shadow, golden-hour rim-light on edges with darker center, soft vertical gradient, dimmed depth-of-field zone, cinematic vignette
+    ✅ The 40%–70% vertical band should be ~40% darker than the top (0–40%) and bottom (70–100%) regions
+    ✅ Keep 50–60% of the underlying scene visible through the shadow — do NOT black it out
+
+    ❌ NEVER a solid white / cream / light background behind text
+    ❌ NEVER a flat colored rectangle or card
+    ❌ NEVER visible edges, borders, or hard transitions around the darkened zone
+    ❌ NEVER place bright elements (sky, pale walls, white objects) in the 40%–70% band
+
+    This shadow is WHERE the event text will be composited by Sharp after generation — the darker pixels must give enough contrast for light text to read clearly, while still feeling like natural scene lighting.
+
+  </layout_composition_rules>
+
+Color scheme: #107023 primary, #fcff33 secondary.
+
+<visual_design_elements source="design_intelligence" mode="balanced">
+Visual Elements to INTEGRATE into the design:
+  1. Dynamic low-angle shot of ecstatic Indian children and adults energetically crossing a finish line made of sparkling, iridescent fabric ribbons, faces beaming with joy
+  2. Vibrant motion trails and streaks of bright yellow (#fcff33) and fresh green (#107023) light emphasizing high-speed movement behind active running Indian figures
+  3. Sun-drenched, well-maintained Indian urban park landscape with a visible running track, out-of-focus cheering Indian crowd silhouettes in the distance
+  4. Close-up framing of individual confident Indian smiles, highlighting pure happiness and infectious enthusiasm, with natural light catching a healthy glow
+  5. Confetti cannons releasing an explosive burst of #fcff33 yellow and #faf9f4 off-white metallic streamers and sparkling glitter over the central runners
+Iconic Imagery to feature prominently:
+  1. Radiant, natural Indian smiles that light up faces, conveying pure joy and healthy living in a dynamic moment
+  2. Gold-hued abstract 'burst' or 'glow' effects symbolizing energy and celebration
+
+DESIGN STRATEGY: BALANCED ELEGANCE
+- VISUAL HARMONY: Elements support the design without overwhelming it
+- LAYERED DEPTH: Use 2-3 opacity layers for visual interest
+- CONTEXTUAL: Elements reinforce the event theme naturally
+- PROFESSIONAL QUALITY: Crisp, high-resolution rendering
+- COLOR HARMONY: Elements must blend perfectly with the primary color palette
+- CLEAR AREAS: Do NOT place prominent elements in the upper 15% or lower 10% of the design
+
+The goal is a SOPHISTICATED, CONTEXTUALLY-RELEVANT design that immediately tells viewers the event domain through professional visual language.
+</visual_design_elements>
+
+<background_atmosphere mode="balanced">
+Setting: An open, sprawling Indian city park bathed in bright, soft diffused natural sunlight on a clear day, with lush green open fields leading into a slightly blurred modern track.
+
+
+Background Design Approach:
+- DEPTH and DIMENSION: Use scene-based depth with foreground objects and background environment
+- THEMATIC QUALITY: The background should depict a REAL SETTING related to the event topic
+- PROFESSIONAL RICHNESS: Photographic quality with concrete objects and realistic textures
+- VISUAL STORYTELLING: The background alone should hint at what kind of event this is
+- HIGHEST FIDELITY: Ensure crisp, high-resolution rendering of all background elements
+</background_atmosphere>
+
+========================================
+⚡ SPARSE CONTENT DETECTED - ENRICH BACKGROUND (v25.1)
+========================================
+
+CONTENT ANALYSIS:
+- Total content: 293 characters, 47 words
+- Density classification: MODERATE
+- Background complexity: IMMERSIVE
+
+VISUAL DENSITY INSTRUCTIONS:
+Since the text content is minimal, the poster needs RICH, IMMERSIVE VISUALS to fill the canvas and create visual impact.
+
+MANDATORY BACKGROUND REQUIREMENTS:
+1. FULL-BLEED IMMERSIVE DESIGN: Background should extend edge-to-edge with rich visual depth
+2. ELABORATE DECORATIVE ELEMENTS: Use more decorative patterns, shapes, and visual motifs
+3. LAYERED DEPTH: Create multiple visual layers (foreground particles, midground elements, background atmosphere)
+4. VISUAL STORYTELLING: Let the background tell the event story since text is minimal
+5. DYNAMIC COMPOSITION: Use organic shapes, gradient transitions, and layered depth to create visual interest WITHOUT lines or dividers
+
+RECOMMENDED VISUAL TREATMENTS:
+- Organic shapes and blob elements filling negative space
+- Gradient meshes with multiple color stops and smooth transitions
+- Subtle texture overlays (noise, paper grain, fine fabric weave)
+- Iconic imagery related to event theme (larger scale, more prominent)
+- Atmospheric bokeh effects, soft light rays, or floating particles
+- Environmental depth through color and opacity layers
+
+AVOID:
+- Large empty/blank areas (especially in content zone 40-70%)
+- Simple flat color backgrounds
+- Minimal gradient-only designs
+- Sparse compositions that feel incomplete
+
+GOAL: The poster should feel COMPLETE and VISUALLY RICH even with minimal text.
+The background becomes the star when content is sparse.
+
+VISUAL STYLE: (see <style_direction> block at top of prompt for the authoritative style direction) with Deep green (#107023), Bright green (#fcff33), Bright red (#faf9f4) palette. Mood: Viewers should feel invigorated, joyous, inspired, and a sense of belonging.. Typography: modern-vibe (sans-serif), center-aligned. Energy: Balanced, professional.
+
+
+
+<examples>
+<example type="good">
+A professional conference poster with dynamic blue gradient background and subtle geometric accents. "INNOVATION SUMMIT 2025" appears as the dominant headline in bold white sans-serif at the top, commanding immediate attention. Below: "Shaping Tomorrow's Technology" tagline in lighter weight. Clear event details section with icons: calendar icon + "March 15-16, 2025", clock icon + "9:00 AM - 6:00 PM", location pin + "Grand Convention Center, Mumbai". Featured speaker "Dr. Meera Nair, CEO TechCorp" with circular photo placeholder. Prominent yellow "REGISTER NOW - FREE" button near bottom. Corporate logo in top-left corner with clear space around it. Passes the 3-second test: What (Innovation Summit), When (March 15-16), Where (Mumbai) are instantly visible.
+</example>
+
+<example type="avoid">
+An event poster with cluttered layout where event name is tiny and hard to find. Date/time/venue scattered randomly across the design with no icons or visual organization. Boring gray background with no energy. Multiple fonts competing for attention (script, serif, sans-serif, decorative all mixed). No clear call-to-action. Important information hidden at the bottom in 8pt font. Stock photo of generic handshake taking up 70% of space. Fails the 3-second test - viewer has no idea what event this is for.
+</example>
+</examples>
+
+
+QUALITY: text+background ONE unified composition; high contrast; no watermarks, placeholder labels, or stock-photo aesthetics. Clean, focused — text has breathing room.
+
+
+CREATIVE DIRECTION: Rich layered backgrounds with structural intention. Multiple opacity layers, gradients, glows, ambient lighting. undefined-themed elements throughout. Background RICH, information delivery STRUCTURED. Premium-Canva-template feel — organized complexity, not chaos.
+
+Indian/South Asian people may appear actively doing the event activity. No logos (added in post-processing).
+
+ZONE ENFORCEMENT: text above 40% (576px) or below 70% (1008px) is physically cut off by overlays. Date/Venue card bottom (with padding/shadow) must stay above 988px.

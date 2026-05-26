@@ -91,7 +91,7 @@ export interface SpeakerLayoutResult {
 // Constants
 // ============================================================================
 
-const CLAUDE_MODEL = 'claude-3-haiku-20240307'
+const CLAUDE_MODEL = 'claude-haiku-4-5'
 
 const SYSTEM_PROMPT = `You are a layout analysis agent for event poster generation.
 Your job is to analyze speaker configurations and determine optimal layout decisions.

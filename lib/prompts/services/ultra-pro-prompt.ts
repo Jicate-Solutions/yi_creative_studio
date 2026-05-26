@@ -80,225 +80,38 @@ export interface UltraProPromptResult {
 // PROMPT TEMPLATE
 // ============================================================
 
-const ULTRA_PRO_PROMPT_SYSTEM = `You are an expert at creating image generation prompts for professional creative designs.
-Your job is to transform user-provided event/creative details into a powerful, precise prompt that will generate stunning visuals.
+// v51.0 — Output-token reduction pass.
+// Goal: drop enhancedPrompt from ~1,500 → ~500-700 tokens. Drop exact-text-fidelity
+// (user-approved trade-off) — Gemini gets typography freedom. Removed verbose
+// "copy character-for-character" / "verbatim" / "ground truth" language. Tightened
+// JSON field descriptions to demand brevity. The other JSON fields are now
+// summary-only — the enhancedPrompt is the single output Gemini actually consumes.
+const ULTRA_PRO_PROMPT_SYSTEM = `You are an image-prompt director. Transform event details into a tight, cinematic scene description for an AI image generator.
 
-v5.0 ENHANCEMENT: DESIGN INTELLIGENCE INTEGRATION
-When Design Intelligence context is provided, you MUST:
-1. PRESERVE all story-driven insights (narrative, emotional arc, visual elements, decorative elements)
-2. ENRICH with Gemini 2.5 best practices (narrative prose, not keyword lists)
-3. CONVERT design context into vivid scene descriptions
-4. USE event-specific visual metaphors from Design Intelligence
-5. MAINTAIN multi-color typography strategy and decorative element placements
-6. ENFORCE sophistication level with specific visual cues
+INTENT OVER LITERALISM:
+Interpret the user's creative intent — you have full creative freedom over typography, exact text placement, font choices, and visual hierarchy. Describe the SCENE; let the image model render text as part of the composition. Do not over-specify exact positions, exact fonts, or exact character treatments.
 
-DESIGN SOPHISTICATION RULES (CRITICAL):
-The user can specify a "sophistication" level which MUST dictate your visual strategy:
+INDIAN CONTEXT:
+When people or a venue appear, render an authentic Indian setting (faces, clothing, architecture, signage). Match the venue type to the event — school, college, hotel banquet, community hall, IT office, or outdoor shamiana.
 
-1. MINIMALIST MODE (Default for Professional/Tech/Climate):
-   - Focus on HIGH-IMPACT MINIMALISM and VAST NEGATIVE SPACE (at least 40% of canvas).
-   - Use clean, solid backgrounds (matte white, light gray, or deep slate).
-   - Use ONE primary high-quality visual symbol instead of busy patterns.
-   - ENTIRE CANVAS: Clean, high-contrast background throughout — one unified solid color or simple gradient from edge to edge, no zone differentiation, no visual split between areas.
-   - MOOD TYPOGRAPHY: Suggest ultra-clean Serif for elegance or Bold Sans for modern tech.
-   - Avoid "atmospheric clutter," "particle effects," or "busy textures."
-   - Prioritize ultra-clean typography hierarchy and strategic alignment (Center/Left).
+CUSTOM COLOR ENFORCEMENT:
+If user-provided hex colors appear in the brief, use ONLY those exact values in colorPaletteHints. Do not substitute presets or invent complementary palettes.
 
-2. BALANCED MODE:
-   - Standard professional design with modern aesthetic.
-   - Balanced use of background elements and white space.
-   - Professional lighting and depth without over-generation.
+LENGTH BUDGET (CRITICAL):
+- enhancedPrompt: dense cinematic scene description, 400-600 tokens of flowing prose. No section headers, no bullet lists, no "Step 1 / Step 2" framing. One continuous paragraph (or two short ones) that paints the image.
+- All other fields: short summary lines, not long descriptions. Each capped at one-to-three sentences.
 
-3. RICH MODE:
-   - Immersive scene-based designs with real environments and objects.
-   - Deep dimension through foreground/background depth of field, NOT abstract effects.
-   - High energy with vivid, event-specific visual storytelling.
-
-PHOTOGRAPHIC DEPTH-OF-FIELD FRAMEWORK (v42.0 — ONE SCENE, NATURAL DEPTH):
-Think of the background as a SINGLE PHOTOGRAPH taken from ONE fixed camera position.
-
-DEPTH ≠ VERTICAL SECTIONS. Depth means near-to-far distance in 3D space:
-- NEAR (sharp foreground elements slightly out of focus) — can appear at ANY vertical position
-- MID (crisp, in-focus main subjects and environment details) — can appear at ANY vertical position
-- FAR (soft atmospheric background like sky, walls, landscape) — can appear at ANY vertical position
-
-CRITICAL RULES:
-- Do NOT assign different scene content to "top section" vs "bottom section" of the canvas
-- Do NOT describe what appears at specific vertical percentages (e.g. "top 10% shows ceiling" is FORBIDDEN)
-- The entire canvas is ONE continuous environment seen from ONE camera angle and ONE lighting setup
-- Depth variation should feel like natural parallax in a real photograph, NOT stacked zones
-
-CORRECT: "A conference hall viewed from slightly above — blurred chairs in near foreground, stage with podium in sharp focus mid-distance, warm atmospheric lighting receding into the far background"
-WRONG: "Top 30%: ceiling and chandeliers. Middle 40%: stage area. Bottom 30%: audience seating"
-
-TEXT-SAFE ZONE DESIGN RULE (v43.0 — MANDATORY for event posters):
-The background art MUST be composed so the MID-SECTION (40%–83%) is a CALM, TEXT-READABLE surface.
-This is where headline, tagline, date and venue will be composited on top by the system.
-
-DESIGN THE SCENE WITH A "ZONE SANDWICH" IN MIND:
-• Top band (0%–40%): Rich visual — ceiling, sky, stage lighting, architectural drama, upper environment
-• Mid band (40%–65%): TEXT SAFE ZONE — deliberately soft, calm, or open — gradient sky, defocused wall, empty space
-• Bottom band (65%–100%): Rich visual — subjects (people), ground, lower environment context
-
-HOW TO CREATE A TEXT-SAFE MID-SECTION:
-✅ Use depth-of-field: place subjects in sharp focus in the lower half, leaving the mid-section as defocused background
-✅ Use open negative space: empty interior wall, clear sky, smooth stage backdrop in mid-section
-✅ Use atmospheric gradient: sky or wall color naturally transitions to a softer, calmer tone in the center
-✅ Position people/subjects in the LOWER 65%–90% of the image — NOT the center text zone
-
-FORBIDDEN IN MID-SECTION (40%–65%):
-❌ NO faces or eyes looking directly at camera in the text zone
-❌ NO intricate architectural detail or windows directly behind where headline will appear
-❌ NO crowd of people at the same vertical level as the headline text
-
-Think: a well-composed magazine cover — subject fills lower frame, clean sky or backdrop in upper-mid for the title.
-
-Scene sophistication by mode:
-- Minimalist: simple gradients with ONE primary subject at mid-distance
-- Balanced: moderate environmental depth with clear near/far relationship
-- Rich: immersive full-depth scene with strong atmospheric perspective
-
-CINEMATIC COMPOSITION (v30.1 — Think Like a Director):
-- Don't ask "what type of event is this?" — ask "what does THIS SPECIFIC event LOOK like?"
-- A "Blood Donation Drive" should look like a blood donation drive:
-  warm clinical setting, red cross imagery, donor chairs, IV bags, heroic atmosphere
-- A "Menstrual Health Workshop" should look like a menstrual health workshop:
-  intimate educational space, anatomical charts, empowering feminine energy
-- NEVER default to "professional setting" — find the REAL setting for THIS event
-
-Ask yourself:
-- Is there visual depth? (Blurred background + crisp midground + subtle foreground = cinema-quality)
-- Do the layers work together or fight each other?
-- Would this design make someone STOP and look, or is it generic?
-- Could this background be REUSED for a completely different event? If YES → it's too generic. REDESIGN.
-
-CREATIVE AMBITION TARGET (v34.0):
-Aim for BEHANCE-FEATURED, PINTEREST-WORTHY creative poster quality:
-- Bold visual metaphors are PREFERRED over generic literal scenes when they create stronger impact
-  (e.g., Graduation: graduates bursting through open books into golden sky >>> empty auditorium with chairs)
-- Unexpected, striking compositions that make someone STOP scrolling
-- Conceptual imagery (symbols, metaphors, surreal juxtapositions) is ENCOURAGED alongside realistic scenes
-- Dramatic color stories and editorial lighting over safe, muted palettes
-- Ask: "Would a design director at a top agency be proud to feature this in their portfolio?" If NO → push harder
-
-CONCEPT-AS-VISUAL-DEVICE (v34.1 — The Most Powerful Technique):
-The most memorable posters don't just SHOW the event — the event's core symbol BECOMES the design device itself:
-- "Pipes as battery cells" → the product IS the concept (longevity)
-- "Pipes as skyscraper foundations" → the product IS the architecture (strength)
-APPLY THIS TO EVENTS:
-- Leadership summit → audience silhouettes FORM the shape of a rising arrow / mountain peak
-- Graduation → open books UNFOLD into wings of a bird taking flight
-- Technology → circuit board patterns BECOME a human brain or city skyline
-- Environmental → a tree's root structure IS a map / human figure
-- Health/Fitness → heartbeat line FORMS the shape of a running human silhouette
-Ask: "What IS this event's core symbol? Can that symbol BECOME the background composition itself?"
-
-THINKING APPROACH (v35.2 — reason before generating):
-Before outputting the JSON, mentally work through:
-1. EVENT TYPE: What is this event's core category? (graduation, tech, leadership, health, cultural, community?)
-2. HUMAN STORY: Who are the participants? What milestone or achievement are they experiencing? What EMOTION should this poster evoke in the viewer?
-3. CONCEPT BRAINSTORM (v38.0 — Think Like a Design Team):
-   Before choosing a visual, brainstorm AT LEAST 3 different concepts using these CREATIVE LENSES:
-
-   LENS A — LITERAL SCENE (people in action):
-   Real people in a specific, emotionally charged moment of the event.
-   Example (Graduation): A single graduate hugging family with diploma, tears of joy, in an Indian college courtyard.
-
-   LENS B — OBJECT-AS-HERO (symbolic object dominates):
-   One event-specific object fills 60%+ of the canvas as the visual hero. People may be secondary or absent.
-   Example (Graduation): A graduation cap mid-air against a vivid golden sky, tassel catching wind, with campus rooftops below.
-
-   LENS C — CONCEPTUAL METAPHOR (the idea becomes the image):
-   The event's meaning is expressed through a visual metaphor or transformation.
-   Example (Graduation): Open books unfold into wings of a bird taking flight over an Indian cityscape.
-
-   LENS D — EMOTIONAL CLOSE-UP (intimate human detail):
-   A tight crop on hands, eyes, or a single gesture that captures the event's emotional core.
-   Example (Graduation): Close-up of brown hands receiving a rolled diploma tied with a gold ribbon, lens flare from stage light.
-
-   LENS E — ENVIRONMENTAL STORYTELLING (the setting tells the story):
-   The venue/space itself is the visual subject, with minimal human presence, telling the story through arrangement and atmosphere.
-   Example (Graduation): An Indian college auditorium stage set for convocation — empty podium with microphone, rows of chairs with one graduation cap left on a seat, golden evening light through tall windows.
-
-   RULES:
-   - Mentally generate concepts for AT LEAST 3 of the 5 lenses above.
-   - Then SELECT the most unexpected and visually striking one. Do NOT default to Lens A (literal scene) unless it genuinely produces the most creative result.
-   - If the user provides a "visualDirection" field, honor it — but still apply whichever lens best fits their description.
-   - The SELECTED lens determines your visualScene composition.
-4. SOUTH INDIAN CONTEXT: Are the human faces, clothing, and environment authentically South Indian? (Not generic Western settings or generic global stock-photo style)
-5. FULL CANVAS CHECK (v42.0 — ONE SCENE, NO ZONES): Will the scene PAINT the entire canvas (0–100%) as a SINGLE SEAMLESS photograph — NOT as a "photo card" or "rounded rectangle" on a solid-color background? ❌ FAILURE = plain solid color in any section + scene inside a rounded card + ceiling-only at top with floor-only at bottom (split-scene). ✅ SUCCESS = ONE continuous scene from a SINGLE camera angle, spanning all 4 edges — the same environment flows naturally from top to bottom without any section change. Think of it as ONE wide-angle photograph of a real space, not three separate zone descriptions. Do NOT describe what content appears at specific vertical percentages.
-6. VARIETY MANDATE (v38.0): Check which Creative Lens you are using. Is it the SAME lens as the most obvious default for this event type? (For graduation, Lens A/literal crowd scene is the default. For a workshop, Lens A/people-in-classroom is the default.) If you are using the obvious default lens, SWITCH to a different one. The CONCEPT LENS SELECTOR seed above suggests which lens to favor — follow it unless there is a strong reason not to.
-7. AUDIENCE LENS (v36.0): WHO will see this poster? The target audience MUST shape the visual language:
-   - School students (ages 8-16) → bright colors, illustration/cartoon style, relatable school environment (classroom, playground, school bus), simple bold visuals they instantly understand, NO corporate formality
-   - College students → trendy, modern, social-media-native aesthetics, campus life, aspirational energy
-   - Young professionals → polished, editorial, LinkedIn-worthy, urban settings, contemporary design
-   - Parents/families → warm, emotional, protective imagery, domestic settings, trust-building tone
-   - Corporate/business → formal, prestigious, conference-hall aesthetics, infographic clarity
-   - Community/general public → inclusive, vibrant, culturally grounded, accessible visual language
-   If "targetAudience" is provided in the brief, MATCH the visual style, complexity level, and environment to that audience's world. A child safety poster for school students looks COMPLETELY different from one for corporate HR.
-8. PHYSICAL ENVIRONMENT (v37.0 — Indian Context Engineering):
-   The full-canvas background MUST depict a recognizable INDIAN setting. Reason about WHERE this event happens:
-   IF VENUE IS PROVIDED → match it:
-   - School/Vidyalaya → green chalkboards, wooden benches, ceiling fans, school corridor, assembly ground with flagpole, students in white-shirt uniform
-   - College/University/Institute → wide corridors with notice boards, seminar halls, canteen with steel tables, banyan tree courtyard, students in casual Indian wear
-   - Hotel/Resort/Convention → chandeliered banquet hall, fabric backdrop stage, marigold garlands, registration desk with flowers
-   - Community Hall/Auditorium → plastic chairs facing decorated stage, banner behind podium, tube lights, terrazzo floor
-   - Office/IT Park → glass-front building, open-plan workspace, whiteboards with sticky notes, ID lanyards
-   - Outdoor/Ground → shamiana tent on maidan, banner-covered stage, string lights, chai stall nearby
-   IF NO VENUE → infer from AUDIENCE:
-   - School Students → Indian school environment (NOT corporate)
-   - College Students → Indian campus (NOT hotel ballroom)
-   - Young Professionals → Indian coworking space or IT park (NOT Western office)
-   - Parents/Families → Community hall or school auditorium (NOT boardroom)
-   - General Community → Open community hall or shamiana setup
-   NEVER: Western university campuses, American offices, European halls, generic glass-elevator lobbies.
-   ALWAYS: Indian architecture, Indian vegetation (neem, banyan, jasmine), Indian signage, Indian dress codes.
-Only after this reasoning, generate the JSON with superior contextual insight.
-
-CRITICAL CUSTOM COLOR ENFORCEMENT (v5.3):
-When custom colors are explicitly provided by the user, you MUST use them exclusively:
-- Do NOT suggest alternative color palettes based on event theme
-- Do NOT recommend navy/gold, purple/pink, or other preset combinations
-- Do NOT invent complementary colors or make color assumptions
-- Custom colors represent the user's brand identity and are NON-NEGOTIABLE
-- Use ONLY the provided hex values in colorPaletteHints
-- If custom colors are specified, your colorPaletteHints field must describe those exact colors
-- Example: If user provides #1c9924 green, #f8ff36 yellow, do NOT suggest navy/gold - use their exact colors
-
-CRITICAL RULES:
-1. The user's EXACT text values (event name, speaker name, date, venue) MUST be preserved exactly as provided
-2. Prioritize TEXT ACCURACY - every word the user typed should be rendered correctly in the final image
-3. Create a visual hierarchy: most important text (event name) should be largest/most prominent
-4. NEVER invent or change the user's content - only use what they provided
-5. Add creative visual guidance that ENHANCES (not replaces) the user's content
-6. Consider the format type when suggesting layout (poster, certificate, thumbnail, etc.)
-
-OUTPUT FORMAT:
-Return a valid JSON object with these exact fields:
+OUTPUT FORMAT — return a single valid JSON object, no markdown, no commentary:
 {
-  "primaryText": "The main headline text that MUST appear prominently (user's event name exactly as provided)",
-  "secondaryText": ["Array of ONLY essential text - LIMIT to: date, time, venue, speaker name/designation. DO NOT include: taglines, descriptions, registration details, topics, or long notes"],
-  "visualScene": "A VIVID, SPECIFIC visual composition using whichever Creative Lens (A-E) produces the most striking result for this event. The scene MUST be grounded in INDIAN CONTEXT (Indian faces when people appear, South Asian appearance, Indian settings and architecture). COMPOSITION OPTIONS: (1) People-centered scenes with Indian faces in emotionally specific moments, (2) Object-as-hero where one symbolic item dominates the canvas with people secondary, (3) Conceptual metaphors where the event meaning becomes a visual transformation, (4) Emotional close-ups of hands/gestures/details, (5) Environmental storytelling where the Indian setting itself tells the story. CRITICAL (v36.0): Visual style MUST match TARGET AUDIENCE. PREFERENCE: Human presence is PREFERRED but NOT mandatory when another lens creates a MORE POWERFUL composition. MANDATORY (v42.0): Describe the scene as a SINGLE PHOTOGRAPH from ONE camera angle — do NOT describe what content appears at specific vertical percentages or split the scene into top/bottom sections. TEXT-SAFE ZONE (v43.0 — MANDATORY): Compose the scene so the MID-SECTION is deliberately calm/atmospheric — use depth-of-field defocus, open negative space, or a smooth gradient backdrop in the center of the frame. Place people/subjects in the LOWER portion of the frame (bottom 40%), not in the center. The upper/center area should have clean sky, soft backdrop, or defocused environment — this is where text will be composited. Example: 'South Indian delegates fill the lower frame in a sunlit conference hall, leaving the upper-center framed by soft defocused stage curtains and warm stage lighting' — NOT 'parliament hall with delegates filling the entire frame'.",
-  "designGuidance": "Creative direction for layout, typography, and visual treatment",
-  "textPlacementHints": "MUST reference the 40–83% content zone only. Example: 'Primary event name at ~42%, CENTERED on the background scene. Secondary info at ~55%.' NEVER reference zones above 40% from the top or below 83%. Logo bars physically cover the top ~25% and bottom ~17% — any scene in those zones shows through the transparent bars. ALL event text is Sharp-rendered in the 40–83% band — do NOT place text instructions here.",
-  "colorPaletteHints": "Color suggestions based on event type and mood",
-  "mustIncludeElements": ["Array of 3-5 CONCRETE, SPECIFIC visual elements that ground this design in reality. Elements must be EVENT-SPECIFIC objects, textures, or environmental details — NOT generic category symbols. When people appear, they MUST be Indian. Abstract patterns (waves, hexagons, mesh) remain BANNED — but symbolic objects (a graduation cap, a blood bag, a microphone) used as visual heroes are ENCOURAGED. Match elements to your chosen Creative Lens."],
-  "enhancedPrompt": "A complete, detailed prompt combining all the above for image generation"
-}
-
-CRITICAL SECONDARY TEXT RULES:
-- ONLY include: Date, Time, Venue, Speaker Name + Designation (if speaker exists)
-- NEVER include: Event taglines, descriptions, topics lists, registration fees, notes, or any long-form content
-- Keep secondaryText array to maximum 4-5 SHORT elements (each under 50 characters)
-- Long content should be referenced in visualScene or designGuidance, NOT in secondaryText
-
-IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
-- The exact event name and all text that must appear
-- The visual scene description
-- Color guidance
-- Layout hints
-- Must-include visual elements
-- Any format-specific requirements`
+  "primaryText": "Event name as the headline (interpret if user phrasing is awkward)",
+  "secondaryText": ["Date, time, venue, speaker name+designation — short strings (<50 chars), MAX 4-5 entries. No taglines or long notes."],
+  "visualScene": "One-to-two sentence summary of the scene (camera angle, subject, environment, mood). Brief.",
+  "designGuidance": "One sentence on layout/typography mood — adjectives, not coordinates.",
+  "textPlacementHints": "One short phrase about general placement (e.g. 'headline upper-center, supporting details below'). No exact percentages.",
+  "colorPaletteHints": "Color palette in one sentence (hex values if user-provided).",
+  "mustIncludeElements": ["3-5 concrete event-specific elements (e.g. graduation cap, blood bag, microphone, mandala). Avoid generic patterns (waves, hexagons, mesh)."],
+  "enhancedPrompt": "400-600 tokens of dense cinematic prose: scene, subject, environment, mood, light, color, composition. Mention the headline naturally as part of the composition. Trust the image model to render text creatively."
+}`
 
 // ============================================================
 // MAIN FUNCTION
@@ -318,7 +131,7 @@ IMPORTANT: The enhancedPrompt should be a comprehensive paragraph that includes:
  */
 export async function generateUltraProPrompt(
   compiledData: CompiledFormData,
-  provider: 'claude' | 'gemini' = 'claude',
+  provider: 'claude' | 'gemini' = 'claude', // v50.2: Reverted to claude — gemini-2.5-flash flattened rich context into generic boilerplate
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
   resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
@@ -333,7 +146,11 @@ export async function generateUltraProPrompt(
   // and top/bottom logo-bar assumptions are ONLY valid for Gemini (where Sharp overlays
   // logo bars post-generation). When 'openai', we append an override block that
   // neutralizes those assumptions so gpt-image-1 doesn't place text in the cropped zones.
-  targetProvider: 'gemini' | 'openai' = 'gemini'
+  targetProvider: 'gemini' | 'openai' = 'gemini',
+  // v53.0: Composition strategy from Subject Classifier (Stage 0). When provided,
+  // conditional system-prompt guidance is appended so Claude writes an enhancedPrompt
+  // consistent with the chosen composition (e.g. portrait-hero → zero drawn humans).
+  compositionStrategy?: string
 ): Promise<UltraProPromptResult> {
   console.log('[Ultra-Pro Prompt] === GENERATING OPTIMIZED PROMPT ===')
   console.log('[Ultra-Pro Prompt] Event Name:', compiledData.eventName || '(not provided)')
@@ -542,6 +359,43 @@ The visual scene, style, environment, and complexity MUST be designed for THIS s
     console.log(`[Ultra-Pro Prompt] v37.0 Indian Environment Context injected (${sceneNarrative.length} chars)`)
   }
 
+  // v53.0: Composition-strategy guidance — appended BEFORE the user brief so
+  // Claude treats it as part of the system contract for this generation.
+  // portrait-hero is the load-bearing case: Claude must NOT write any drawn humans
+  // into enhancedPrompt because the real portrait will be composited separately.
+  const compositionStrategySection = compositionStrategy
+    ? (() => {
+        const map: Record<string, string> = {
+          'portrait-hero': `
+COMPOSITION STRATEGY OVERRIDE — PORTRAIT-HERO (v53.0, MANDATORY):
+The upstream Subject Classifier determined this poster centers on ONE specific person being honored. A real portrait of that person will be composited separately AFTER you write the enhancedPrompt.
+
+Therefore, when writing enhancedPrompt and visualScene:
+- Write a scene with ZERO drawn humans. No people anywhere. Not in the foreground, not in the background, not as silhouettes, not as blurred figures, not as a crowd, not as attendees, not as audience, not as team members, not as loved ones surrounding the honoree.
+- The scene MUST be an EMPTY DIGNIFIED BACKDROP: stage architecture (proscenium, ornate pillars, decorative drapes), ceremonial atmosphere (warm spotlights, soft glow, ambient backlight, theatrical depth), decorative objects (flowers, garlands, cake on stand, candles, ceremonial banners, brand-color textures).
+- Do NOT use any of these phrases in enhancedPrompt or visualScene: "attendees", "audience gestures", "crowd", "team members around her/him", "blurred figures", "loved ones", "well-wishers", "people celebrating", "group of attendees", "silhouettes of people", "well-dressed crowd".
+- If the user's brief mentions birthday / celebration / felicitation language, interpret it as the SETTING for an empty ceremonial stage — not as instruction to draw guests.
+- mustIncludeElements MUST be ceremonial objects (decorative flowers, layered cake, garlands, podium, lit lamp, ornate drapes) — never people.
+- The reserved center zone will hold the real portrait; design the rest of the canvas to FRAME that portrait without competing with it.
+`,
+          'activity-collage': `
+COMPOSITION STRATEGY — ACTIVITY-COLLAGE (v53.0):
+This is a multi-track / cultural-fest poster. Write enhancedPrompt as a multi-zone festive layout with distinct illustrated activity zones (one per listed activity), Indian festive motifs (mandala, paisley, kolam borders, confetti, fireworks), and energetic figures performing each activity. NOT a single hero scene.
+`,
+          'object-hero': `
+COMPOSITION STRATEGY — OBJECT-HERO (v53.0):
+This is a product / book / device / app launch. enhancedPrompt should describe ONE symbolic object dominating ~60% of the canvas with dramatic product lighting. People should be secondary or absent — the object is the hero.
+`,
+          'environment-scene': `
+COMPOSITION STRATEGY — ENVIRONMENT-SCENE (v53.0):
+The PLACE itself is the subject (heritage walk / lab inauguration / building opening). enhancedPrompt should depict the venue/building/landscape in architectural detail with cinematic depth. People are incidental scale figures only.
+`,
+          // 'concept-iconic' → no override
+        }
+        return map[compositionStrategy] || ''
+      })()
+    : ''
+
   // v44.0: Target-provider override block.
   // The ULTRA_PRO_PROMPT_SYSTEM hardcodes Gemini-specific zone rules
   // (40–83% content zone, 25% top logo bar, 17% bottom logo bar, "text at 42%" etc.)
@@ -590,8 +444,11 @@ band" — that band is for Gemini only.
     : ''
 
   // Build the full prompt for the AI
+  // v53.0: compositionStrategySection is part of the system contract — placed
+  // BEFORE the user brief so prompt-caching split (at "USER'S CREATIVE BRIEF") keeps
+  // it on the cacheable system side.
   const prompt = `${ULTRA_PRO_PROMPT_SYSTEM}
-${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}${generationMemorySection}
+${creativityEnforcement}${creativeStyleSection}${modelGuidanceSection}${generationMemorySection}${compositionStrategySection}
 ${colorBriefSection}USER'S CREATIVE BRIEF:
 ${userBrief}
 ${designContextSection}${visualDirectionSection}${audienceContextSection}${sceneNarrativeSection}
@@ -600,7 +457,7 @@ TYPOGRAPHY PREFERENCE: ${compiledData.fontStyle || 'AI-suggested'}
 ALIGNMENT PREFERENCE: ${compiledData.alignment || 'AI-suggested'}
 ${logoStripInstructions}${openaiOverrideSection}
 
-Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact text values!`
+Generate the ultra-pro prompt JSON now. Keep enhancedPrompt to 400-600 tokens of cinematic prose — let the image model handle typography creatively.`
 
   // v31.0: Use style temperature override or format-based dynamic temperature
   const effectiveTemperature = promptStyleOptions?.temperatureOverride ?? tempConfig.ultraProPrompt
@@ -670,7 +527,7 @@ Generate the ultra-pro prompt JSON now. Remember to preserve the user's exact te
  */
 export async function generateUltraProPromptSafe(
   compiledData: CompiledFormData,
-  provider: 'claude' | 'gemini' = 'claude',
+  provider: 'claude' | 'gemini' = 'claude', // v50.2: Reverted to claude — gemini-2.5-flash flattened rich context into generic boilerplate
   designContext?: any, // DesignContext from Design Intelligence (optional)
   logoStripEnabled?: boolean, // Whether user has enabled logo strip feature (v5.1)
   resolvedColors?: { source: string; primaryColor: string; secondaryColor: string; accentColor: string }, // Custom colors to enforce (v5.3)
@@ -681,10 +538,11 @@ export async function generateUltraProPromptSafe(
     modelGuidance?: string
   },
   recentOrgPrompts?: string[], // v36.0: Recent org prompts for generation memory
-  targetProvider: 'gemini' | 'openai' = 'gemini' // v44.0: Downstream image model — activates provider override block
+  targetProvider: 'gemini' | 'openai' = 'gemini', // v44.0: Downstream image model — activates provider override block
+  compositionStrategy?: string // v53.0: Composition strategy from Subject Classifier (Stage 0)
 ): Promise<UltraProPromptResult> {
   try {
-    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions, recentOrgPrompts, targetProvider)
+    return await generateUltraProPrompt(compiledData, provider, designContext, logoStripEnabled, resolvedColors, dualStripeMode, promptStyleOptions, recentOrgPrompts, targetProvider, compositionStrategy)
   } catch (error) {
     console.error('[Ultra-Pro Prompt] Error:', error)
     return {
@@ -733,7 +591,7 @@ async function callClaude(
 
   const response = await client.messages.create({
     model: modelName,
-    max_tokens: 1500,
+    max_tokens: 900,
     ...(usePromptCaching ? {
       system: [
         {
@@ -755,14 +613,25 @@ async function callClaude(
     throw new Error('No text response from Claude')
   }
 
+  // v51.0 — read Anthropic's cache-aware usage fields. Per SDK:
+  //   input_tokens                 = uncached input only (excludes cached + created)
+  //   cache_read_input_tokens      = tokens served from cache (the cache HIT count)
+  //   cache_creation_input_tokens  = tokens written to cache on a MISS (first call)
+  // Previously hardcoded cachedTokens=0 which masked whether caching was working.
+  const cacheReadTokens = (response.usage as any).cache_read_input_tokens ?? 0
+  const cacheCreationTokens = (response.usage as any).cache_creation_input_tokens ?? 0
+
   const tokenUsage: TokenUsage = {
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
-    cachedTokens: 0,
-    totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+    cachedTokens: cacheReadTokens,
+    totalTokens: response.usage.input_tokens + response.usage.output_tokens + cacheReadTokens + cacheCreationTokens,
   }
 
-  console.log('[Ultra-Pro Prompt] Token usage:', JSON.stringify(tokenUsage))
+  console.log('[Ultra-Pro Prompt] Token usage:', JSON.stringify({
+    ...tokenUsage,
+    cacheCreationTokens, // surface separately for debugging
+  }))
 
   return { text: textBlock.text, tokenUsage, model: modelName, durationMs }
 }
@@ -773,8 +642,14 @@ async function callGemini(
   topP: number = 0.9
 ): Promise<LLMResponse> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
-  // v25.0: Updated from deprecated gemini-2.0-flash-exp
-  const modelName = 'gemini-2.5-flash'
+  // v50.1 (Fix #9 — CHEAPEST DEFAULT): gemini-2.5-flash is the most affordable stable
+  // model — $0.30/1M input, $2.50/1M output (70% cheaper than Claude Haiku 4.5).
+  // Switched from gemini-3-flash-preview as default because Anthropic credits ran out
+  // and we need maximum cost relief on every generation.
+  // Override via env to upgrade quality (slightly more expensive):
+  //   GEMINI_PROMPT_MODEL=gemini-3-flash-preview  → frontier-class at $0.50/1M
+  //   GEMINI_PROMPT_MODEL=gemini-3.5-flash        → most intelligent at $1.50/1M
+  const modelName = process.env.GEMINI_PROMPT_MODEL || 'gemini-2.5-flash'
 
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured')
@@ -791,7 +666,7 @@ async function callGemini(
     }
   })
 
-  console.log('[Ultra-Pro Prompt] Calling Gemini 2.0 Flash...')
+  console.log(`[Ultra-Pro Prompt] Calling Gemini (${modelName}, temp: ${temperature})...`)
   const startTime = Date.now()
 
   const result = await model.generateContent(prompt)

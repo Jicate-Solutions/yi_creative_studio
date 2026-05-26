@@ -1,0 +1,35 @@
+========== LEAN SYSTEM INSTRUCTION (1180 chars) ==========
+You are Yi CreativeStudio's poster engine. Produce ONE premium, edge-to-edge poster image — magazine-cover quality, never a template or a card floating on a flat background. Compose with real depth, intentional lighting, and a clear visual hierarchy.
+
+Non-negotiable rules:
+- Render ONLY the exact text strings the prompt lists under "TEXT", spelled character-for-character. Never render instructions, role labels, colour codes, or scene descriptions as visible text.
+- TYPOGRAPHY IS FIRST-CLASS CRAFT, equal to the artwork: every character crisp and vector-clean, correctly spelled, professionally kerned and aligned — finished design quality, never soft, warped, or draft-like lettering. If text and art ever compete for the same pixels, keep the text legible.
+- When people or venues appear, they are Indian / South Asian in real Indian settings — never generic Western stock aesthetics.
+- Logos and footer are composited by a separate system AFTER you generate. Never draw any logo, watermark, icon, brand mark, or "[LOGO]" placeholder. Keep the reserved spots clean.
+- The <style_direction> block at the top is the highest visual priority; everything else operates within it.
+
+========== LEAN USER PROMPT (3252 chars) ==========
+<style_direction>(visual style — HIGHEST priority; everything below works within this)
+Premium documentary photography. Real Indian people in real Indian venues captured with photojournalistic honesty. Natural ambient light — golden hour warmth or cool indoor stage glow as the venue dictates. 35mm full-frame depth: sharp subject, gently defocused environment. Authentic gestures, candid expressions, no posing. Magazine-quality grain. The image reads as truth, not staging — this happened, this matters, we documented it.
+</style_direction>
+
+EVENT POSTER — 1080×1440px (3:4). One seamless full-canvas composition with depth and intentional design. No borders, no separate header/footer panels, no split-screen or stacked bands.
+
+WHAT: SMILEATHON 2026 — A 3 km run event for children aged 4 to 12 years promoting dental health awareness. Audience: Children aged 4 to 12 years and their parents. Mood: Viewers should feel invigorated, joyous, inspired, and a sense of belonging.
+
+SCENE (depict this visually; NEVER write these words on the image): Low-angle dynamic shot capturing Indian children and parents mid-stride crossing a shimmering finish line at dawn, faces radiant with joy. Bright morning sunlight, motion-blur streaks of brand yellow and green, confetti overhead, out-of-focus cheering silhouettes. Feature: Racing bibs with visible numbers on Indian child and adult runners; Shimmering iridescent finish-line ribbon in yellow and white; Confetti cannons exploding with #fcff33 yellow and metallic streamers; Natural morning sunlight catching healthy glows on smiling Indian faces.
+
+COLORS: #107023 as the dominant colour; #fcff33 for highlights and key accents (it MUST be clearly visible); #faf9f4 for light/atmospheric details. Do not substitute with default AI palettes.
+
+TEXT — spell each string EXACTLY, and render ONLY these as visible text:
+• Headline: SMILEATHON 2026
+• Sun, 29 Mar 2026 | 6:00 AM – 10:00 AM
+• Nattraja Vidhyalya (CBSE) School Campus
+• Children aged 4–12 years | ₹250 registration
+• JKKN Dental College & Hospital
+The HEADLINE is a designed graphic centrepiece, not plain type: oversize the hero word, confident weight contrast, and 1–2 expressive treatments drawn from the palette (per-word colour, gradient/metallic fill, bold outline or drop-shadow). Where it reads as clever (not cluttered), fuse ONE letter with a motif from the concept — a single letterform that becomes or hosts a thematic shape. Supporting lines stay clean, smaller, and highly legible — grouped into ONE tidy aligned block (e.g. a slim info card or icon row), never a scattered text dump. Every character crisp, correctly spelled, and professionally kerned; typography craft must equal the artwork. Prioritise if space is tight: headline → date/venue → one CTA; drop the least-important detail rather than crowding.
+
+RULES:
+• Keep the top-left corner, the top-centre edge, the top-right corner clean and uncluttered — brand logos are composited afterward; do NOT draw any logo, watermark, icon, or brand mark.
+• Keep all text within the central area with calm top and bottom margins so nothing is clipped by overlays.
+• Render ONLY the text strings listed above — never these instructions, labels, colour codes, or the scene description.

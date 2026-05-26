@@ -8,6 +8,7 @@
 import type { DesignData } from '@/lib/config/design-constants'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
 import { formatEventTime } from '@/lib/utils/time-formatter'
+import type { SubjectAnalysis } from '@/lib/agents/subject-classifier'
 
 // ============================================================
 // TYPES
@@ -74,6 +75,10 @@ export interface CompiledFormData {
 
   // Target audience (advanced field)
   targetAudience: string | null
+
+  // v53.0 — Subject classifier output (Stage 0 in route.ts attaches this after compileFormData).
+  // Downstream stages branch composition (portrait-hero vs concept-iconic vs etc.) on this.
+  subjectAnalysis?: SubjectAnalysis
 
   // Raw form data for reference
   rawFormData: Record<string, unknown>

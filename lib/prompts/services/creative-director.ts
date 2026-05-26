@@ -10,6 +10,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import { safeJsonParse } from '@/lib/utils/json-repair'
 
 // ============================================================
 // TYPES
@@ -22,6 +23,9 @@ export interface CreativeDirectorInput {
   targetAudience?: string
   tagline?: string
   eventType?: string
+  // v55.2: the user's chosen render style, so the concept is conceived WITHIN it (not blind to it).
+  styleLabel?: string       // e.g. 'scene', 'illustrated', 'papercut'
+  styleDirective?: string   // the verbatim geminiStyleLock prose describing how the image must look
 }
 
 export interface CreativeDirectorResult {
@@ -30,6 +34,7 @@ export interface CreativeDirectorResult {
   compositionNote: string
   depthLayers?: string
   typographyMood?: string
+  headlineTreatment?: string  // v55.4: a specific creative typographic idea for the event name
   fullBrief: string
   usage: {
     inputTokens: number
@@ -79,6 +84,11 @@ TYPOGRAPHY AS VISUAL ANCHOR:
 - Contrast: one bold display typeface (impact) + one clean secondary (readability)
 - Letter-spacing on ALL-CAPS headlines adds power and visual width
 - Optional: one calligraphic/script accent word for emotional texture
+- THE STRONGEST MOVE — fuse the concept INTO the lettering: replace or transform ONE letter of the
+  event name into a concept motif (e.g. the "O" in SMILE-O-THON becomes a smiling mouth or a tooth;
+  the "A" becomes a running figure; the dot on an "i" becomes a diya). One letter only — clever, not
+  cluttered. Or render the whole headline in a material that embodies the theme (marigold petals,
+  neon tubing, chalk). The headline should feel designed, not typed.
 
 DEPTH THROUGH LAYERING (the Freepik premium technique):
 Layer 1 — Background: deep gradient (dark rich tone at top, slightly lighter at bottom)
@@ -134,6 +144,12 @@ function buildCreativeDirectorPrompt(input: CreativeDirectorInput): string {
     lines.push(`EVENT TYPE: ${input.eventType}`)
   }
 
+  if (input.styleDirective) {
+    lines.push('')
+    lines.push(`MANDATORY RENDER STYLE${input.styleLabel ? ` (${input.styleLabel})` : ''}: ${input.styleDirective}`)
+    lines.push(`Your visual concept MUST be conceived so it can be executed IN THIS STYLE. Do NOT propose a concept that fights it — e.g. no flat-illustration or 3D-render concept when the style is documentary photography; no photoreal concept when the style is paper-cut or folk-art. The concept and the render style must resolve into ONE coherent image. Describe the concept already wearing this style.`)
+  }
+
   return `${lines.join('\n')}
 
 Think through your design process step by step (internally), then output ONE creative brief for this poster.
@@ -145,6 +161,7 @@ Ask yourself:
 - What composition structure (diagonal, asymmetric, radial) creates the right energy?
 - How do I layer depth to make this feel premium and dimensional?
 - What makes this authentically Indian in faces, setting, and cultural feel?
+- How can the EVENT NAME itself become a creative element — one letter fused with a concept motif, or the whole word rendered in a thematic material?
 
 Output your creative brief as JSON. Be SPECIFIC — name the exact visual, the exact colors (with hex if possible), the exact composition. Vague output = generic poster. Specific output = Freepik-featured poster:
 {
@@ -152,8 +169,11 @@ Output your creative brief as JSON. Be SPECIFIC — name the exact visual, the e
   "colorStory": "The 2-3 exact colors chosen + the emotional reason each was picked. Include hex codes. Example: Deep royal cobalt (#1A237E) for authority and trust, warm gold (#FFD700) as an accent that signals celebration, pure white for clarity.",
   "compositionNote": "The specific compositional structure: where is the focal point, what is the layout strategy (diagonal/asymmetric/etc), how do the layers stack for depth, where does the eye enter and exit.",
   "depthLayers": "Describe the layering: what is in the background (gradient type), what texture sits over it, where the atmospheric glow is, where the focal subject sits, any foreground framing element.",
-  "typographyMood": "The typography feel: bold/display or elegant/serif, letter-spacing, weight contrast between event name and supporting text, any calligraphic or script accent."
-}`
+  "typographyMood": "The typography feel: bold/display or elegant/serif, letter-spacing, weight contrast between event name and supporting text, any calligraphic or script accent.",
+  "headlineTreatment": "A SPECIFIC creative rendering for the EVENT NAME — ideally fuse one letter with a concept motif (name the exact letter and what it becomes), or render the word in a thematic material/effect. Be concrete and executable. Example: 'Set SMILEATHON in chunky rounded sans; the O becomes a wide cartoon smile with two white teeth; 2026 small in a contrasting thin weight beneath.'"
+}
+
+Respond with ONLY that JSON object, fully populated — no markdown, no code fences, no preamble or trailing commentary, no ❌/✅ examples, no "I'm envisioning". Each value is clean prose an image generator can read literally.`
 }
 
 // ============================================================
@@ -180,7 +200,7 @@ export async function generateCreativeDirectorBrief(
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 900,
+      max_tokens: 1500, // v54.5: was 900 — too small, truncated the JSON mid-value (parse failed)
       temperature: 1.0, // High creativity — designer-level thinking
       system: CREATIVE_DIRECTOR_SYSTEM,
       messages: [
@@ -188,13 +208,18 @@ export async function generateCreativeDirectorBrief(
           role: 'user',
           content: buildCreativeDirectorPrompt(input),
         },
+        // Prefill the reply with "{" so the model emits pure JSON — no markdown preamble/ramble.
+        {
+          role: 'assistant',
+          content: '{',
+        },
       ],
     })
 
     const durationMs = Date.now() - startTime
     const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
-
-    const parsed = parseCreativeDirectorResponse(rawText)
+    // Re-attach the prefilled opening brace before parsing.
+    const parsed = parseCreativeDirectorResponse('{' + rawText)
 
     // Assemble a rich, prioritised brief — visual concept first as it carries most weight
     const fullBrief = [
@@ -215,6 +240,7 @@ export async function generateCreativeDirectorBrief(
       compositionNote: parsed.compositionNote,
       depthLayers: parsed.depthLayers,
       typographyMood: parsed.typographyMood,
+      headlineTreatment: parsed.headlineTreatment,
       fullBrief,
       usage: {
         inputTokens: response.usage.input_tokens,
@@ -232,22 +258,32 @@ export async function generateCreativeDirectorBrief(
 // RESPONSE PARSER
 // ============================================================
 
+// v54.5: strip markdown/meta artifacts so a polluted value never leaks into the image prompt.
+function cleanField(s: string | undefined): string {
+  if (!s) return ''
+  return s
+    .replace(/\*\*/g, '')                              // bold markers
+    .replace(/[❌✅]/g, '')                              // example checkmarks
+    .replace(/\((?:rejecting|avoiding)[^)]*\)\s*:?/gi, '') // "(rejecting the obvious):"
+    .replace(/\b(WRONG|RIGHT)\s*:/gi, '')              // WRONG:/RIGHT: example labels
+    .replace(/\bI['’]?m envisioning\b\s*:?/gi, '')     // meta narration
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function parseCreativeDirectorResponse(raw: string): Omit<CreativeDirectorResult, 'fullBrief' | 'usage'> {
-  // Try JSON parse first
-  try {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      return {
-        visualConcept: parsed.visualConcept || '',
-        colorStory: parsed.colorStory || '',
-        compositionNote: parsed.compositionNote || '',
-        depthLayers: parsed.depthLayers || undefined,
-        typographyMood: parsed.typographyMood || undefined,
-      }
+  // v54.5: safeJsonParse uses jsonrepair — handles truncated/malformed JSON (e.g. a value cut off
+  // by max_tokens, missing closing brace) that plain JSON.parse rejects.
+  const parsed = safeJsonParse<Record<string, string>>(raw, {} as Record<string, string>)
+  if (parsed && (parsed.visualConcept || parsed.colorStory || parsed.compositionNote)) {
+    return {
+      visualConcept: cleanField(parsed.visualConcept),
+      colorStory: cleanField(parsed.colorStory),
+      compositionNote: cleanField(parsed.compositionNote),
+      depthLayers: cleanField(parsed.depthLayers) || undefined,
+      typographyMood: cleanField(parsed.typographyMood) || undefined,
+      headlineTreatment: cleanField(parsed.headlineTreatment) || undefined,
     }
-  } catch {
-    // fall through to text extraction
   }
 
   // Fallback: extract by section headers
@@ -255,14 +291,16 @@ function parseCreativeDirectorResponse(raw: string): Omit<CreativeDirectorResult
   const colorMatch = raw.match(/color[_ ]?story["\s:]+([^"]+?)(?=composition|depth|\}|$)/i)
   const compMatch = raw.match(/composition[_ ]?note["\s:]+([^"]+?)(?=depth|typography|\}|$)/i)
   const depthMatch = raw.match(/depth[_ ]?layers["\s:]+([^"]+?)(?=typography|\}|$)/i)
-  const typoMatch = raw.match(/typography[_ ]?mood["\s:]+([^"]+?)(?=\}|$)/i)
+  const typoMatch = raw.match(/typography[_ ]?mood["\s:]+([^"]+?)(?=headline|\}|$)/i)
+  const headlineMatch = raw.match(/headline[_ ]?treatment["\s:]+([^"]+?)(?=\}|$)/i)
 
   return {
-    visualConcept: visualMatch?.[1]?.trim() || raw.substring(0, 300),
-    colorStory: colorMatch?.[1]?.trim() || '',
-    compositionNote: compMatch?.[1]?.trim() || '',
-    depthLayers: depthMatch?.[1]?.trim() || undefined,
-    typographyMood: typoMatch?.[1]?.trim() || undefined,
+    visualConcept: cleanField(visualMatch?.[1]) || cleanField(raw).substring(0, 300),
+    colorStory: cleanField(colorMatch?.[1]),
+    compositionNote: cleanField(compMatch?.[1]),
+    depthLayers: cleanField(depthMatch?.[1]) || undefined,
+    typographyMood: cleanField(typoMatch?.[1]) || undefined,
+    headlineTreatment: cleanField(headlineMatch?.[1]) || undefined,
   }
 }
 

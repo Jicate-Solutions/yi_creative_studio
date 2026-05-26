@@ -15,6 +15,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { trackApiUsage } from '@/lib/services/api-usage'
+import type { CompositionStrategy } from '@/lib/agents/subject-classifier'
 
 // ============================================================================
 // Types
@@ -34,6 +35,14 @@ export interface EventUnderstandingInput {
     industry?: string
     brandPersonality?: string
   }
+  // v50.9: Style awareness — the user's chosen backgroundStyle. When set, the agent
+  // generates visual concepts compatible with this style instead of defaulting to
+  // photorealistic scenes for every event.
+  backgroundStyle?: string
+  // v53.0: Composition strategy from Subject Classifier (Stage 0). When provided,
+  // EU adapts its visual concepts to fit the composition type (e.g. portrait-hero
+  // → empty dignified stage backdrop, no crowds; activity-collage → multi-zone festive).
+  compositionStrategy?: CompositionStrategy
 }
 
 export interface VisualConcept {
@@ -75,6 +84,82 @@ export interface EventProfile {
 // Event Understanding Prompt
 // ============================================================================
 
+// v50.9: Style-aware guidance — directs Event Understanding to generate concepts
+// compatible with the user's chosen visual style. Without this, EU committed to
+// "Live Stage Energy" concepts even when user wanted festive cartoon illustration.
+function getStyleGuidanceForEventUnderstanding(style?: string): string {
+  if (!style || style === 'scene') {
+    return '' // default — let EU freelance with photorealistic scene concepts
+  }
+  const guidance: Record<string, string> = {
+    festive:
+      'Generate VIBRANT MULTI-ACTIVITY ILLUSTRATED concepts — split into illustrated activity zones (one per listed activity like dance / music / stage events), cartoon-style figures, Indian festival celebration motifs (mandala, paisley, kolam borders, confetti, fireworks). NOT cinematic concert scenes. NOT photorealistic. Think Diwali / Holi / college cultural-fest flyer aesthetics.',
+    dark:
+      'Generate cinematic concepts where people appear in DRAMATIC DARK LIGHTING — side-lit silhouettes, theatrical spotlights cutting through atmospheric haze, deep shadows pooled around bright subjects. Keep people in the scene; do not strip the people out.',
+    abstract:
+      'Generate ABSTRACT CONCEPTUAL visualizations — flowing color gradients, geometric metaphors, soft fluid shapes representing the event theme. NO realistic people. NO photographic scenes.',
+    illustrated:
+      'Generate FLAT VECTOR-ILLUSTRATED concepts — bold graphic shapes, clean iconic figures, simple compositions, solid fills. NOT photorealistic.',
+    bokeh:
+      'Generate SOFT ATMOSPHERIC concepts — dreamy out-of-focus settings, glowing light orbs, warm sparkle particles. Subtle, premium, dreamy. People appear as soft blurred presences.',
+    geometric:
+      'Generate BOLD GEOMETRIC pattern concepts — hexagons, triangles, tessellations, structural compositions in brand palette. Modern, tech-forward, structural.',
+    'photo-real':
+      'Generate PHOTOJOURNALISTIC scene concepts — 35mm DSLR-style photographs of real Indian people in authentic emotional moments at real Indian venues. Premium magazine quality, NOT illustration.',
+    product:
+      'Generate OBJECT-AS-HERO concepts — ONE symbolic object that represents the event dominates 60%+ of the composition. People are secondary or absent. Examples: graduation cap mid-air, microphone with sound waves, blood drop on clean surface.',
+    mandala:
+      'Generate INDIAN CULTURAL MOTIF concepts — radial mandala patterns, paisley elements, traditional ornamental borders, festival aesthetics. Symmetrical, ornate, cultural.',
+    custom:
+      'Generate vibrant gradient + focal symbol concepts — AI chooses 2 energetic palette colors for the gradient, plus ONE clean iconic symbol representing the event (no realistic people).',
+    neon:
+      'Generate FUTURISTIC NEON concepts — electric neon trails, glowing grids, bioluminescent halos in brand accent color on deep near-black base. NO realistic people, NO photographic scenes.',
+    duotone:
+      'Generate TWO-COLOR treatment concepts — entire composition mapped to exactly 2 brand colors (shadows + highlights). Bold high-contrast monochromatic, silhouettes / abstract forms only.',
+    glassmorphism:
+      'Generate FROSTED-GLASS layered concepts — translucent rounded panels over soft gradient blobs or bokeh in brand colors. Clean modern depth, NOT realistic.',
+    watercolor:
+      'Generate PAINTERLY concepts — soft organic paint washes, flowing pigment, wet brush strokes, visible paper grain. NO photorealism.',
+    texture:
+      'Generate MATERIAL-SURFACE concepts — marble veining, woven fabric, paper grain, brushed metal in brand palette. NOT scenes, NOT people.',
+    split:
+      'Generate SPLIT-LAYOUT concepts — left 50% is an event-relevant atmospheric scene; right 50% is a clean solid brand-color panel.',
+  }
+  const styleHint = guidance[style]
+  if (!styleHint) return ''
+  return `
+
+DESIGN STYLE COMPATIBILITY (v50.9 — MANDATORY):
+The user has explicitly selected "${style}" as the background style. Your visualAssociations and selectedConcept MUST be compatible with this style. ${styleHint}
+
+This means: when you generate the "concepts" array and select the best concept, choose one that fits the "${style}" style aesthetic — not the generic default scene-based concept.`
+}
+
+// v53.0: Composition-strategy-aware guidance — keeps EU from generating crowds for
+// portrait-hero posters, multi-activity scenes for object-hero, etc.
+function getCompositionStrategyGuidance(strategy?: CompositionStrategy): string {
+  if (!strategy) return ''
+  const map: Partial<Record<CompositionStrategy, string>> = {
+    'portrait-hero':
+      'This is a PORTRAIT-HERO composition. The honored person IS the subject; the scene is the EMPTY DIGNIFIED STAGE BACKDROP that frames them. visualAssociations.primary MUST describe stage architecture (pillars, drapes, ceremonial lighting), ceremonial atmosphere (warm spotlights, soft glow, depth), and decorative objects (flowers, cake, brand-color textures, garlands, podiums) suitable for placing a real portrait at the center. Do NOT describe crowds, audiences, attendees, team members, blurred figures, silhouettes, or any other people anywhere — the only person in the final artwork will be the honored individual composited as a real portrait. Architectural elements, ceremonial lighting, decorative objects, atmosphere only.',
+    'activity-collage':
+      'This is an ACTIVITY-COLLAGE composition (cultural fest / multi-track event). visualAssociations.primary should describe MULTIPLE distinct activity zones (one per listed activity), festive Indian motifs (mandala / paisley / kolam borders, confetti, fireworks), and energetic illustrated figures performing each activity. Multi-zone, vibrant, celebratory.',
+    'object-hero':
+      'This is an OBJECT-HERO composition (product / book / device / app launch). visualAssociations.primary should describe ONE symbolic object dominating ~60% of the canvas, dramatic product lighting, clean backdrop, and brand-aligned atmospheric accents. People should be SECONDARY or absent — the object is the hero.',
+    'environment-scene':
+      'This is an ENVIRONMENT-SCENE composition (heritage walk / lab inauguration / building opening / campus tour). visualAssociations.primary should describe the PLACE itself in architectural detail — the building, the venue, the landscape, the spatial atmosphere. The place is the subject; any people are incidental scale figures, not the focus.',
+    // 'concept-iconic' → no override (current default behavior)
+  }
+  const guidance = map[strategy]
+  if (!guidance) return ''
+  return `
+
+COMPOSITION STRATEGY (v53.0 — MANDATORY):
+The upstream Subject Classifier determined this poster's composition strategy is "${strategy}". ${guidance}
+
+Apply this composition strategy to your "visualAssociations.primary" and "selectedConcept" — they must be consistent with this strategy.`
+}
+
 function buildEventUnderstandingPrompt(input: EventUnderstandingInput): string {
   return `You are an expert visual designer and semiotics analyst. Your task is to deeply understand an event concept and generate appropriate visual associations.
 
@@ -85,6 +170,8 @@ ${input.venue ? `- Venue: "${input.venue}"` : ''}
 ${input.eventType ? `- Event Type: "${input.eventType}"` : ''}
 ${input.speakers && input.speakers.length > 0 ? `- Speakers: ${input.speakers.map(s => s.name).join(', ')}` : ''}
 ${input.organizationContext ? `- Organization: ${input.organizationContext.name} (${input.organizationContext.industry || 'Business'})` : ''}
+${getStyleGuidanceForEventUnderstanding(input.backgroundStyle)}
+${getCompositionStrategyGuidance(input.compositionStrategy)}
 
 YOUR TASK:
 

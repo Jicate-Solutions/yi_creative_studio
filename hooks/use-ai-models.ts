@@ -72,14 +72,15 @@ export function useAIModels() {
   }, [fetchModels, models.length])
 
   // Auto-select default model when models load (only if no model currently selected)
+  // Prefer Nano Banana Pro (gemini-3-pro-image-preview) for studio-quality 4K + precise text
+  // rendering. Falls back to display_order=1 if Pro isn't available in this org's catalog.
   useEffect(() => {
     if (models.length > 0 && !selectedModel) {
-      // Models are already sorted by display_order ascending
-      // First model is the recommended default
-      const defaultModel = models[0]
+      const proModel = models.find(m => m.model_id === 'gemini-3-pro-image-preview')
+      const defaultModel = proModel || models[0]
 
       if (defaultModel) {
-        console.log('[AI Models] Auto-selecting default model:', defaultModel.name)
+        console.log('[AI Models] Auto-selecting default model:', defaultModel.name, proModel ? '(Pro preferred)' : '(fallback to display_order=1)')
         selectModel(defaultModel.id)
       }
     }

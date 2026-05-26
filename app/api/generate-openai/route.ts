@@ -453,12 +453,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Stage 2: Ultra-Pro Prompt (Claude)
+    // Stage 2: Ultra-Pro Prompt (v50.2: Reverted to Claude after quality test —
+    // gemini-2.5-flash produced generic prompts; Claude Haiku synthesizes rich context)
     console.log('[OpenAI Pipeline] === STAGE 2: ULTRA-PRO PROMPT ===')
     const dualStripeMode = (logoStripMode?.enabled || false) && !!verticalSlug
+    const promptProvider: 'claude' | 'gemini' =
+      (process.env.PROMPT_PROVIDER === 'gemini') ? 'gemini' : 'claude'
     const ultraProResult = await generateUltraProPromptSafe(
       compiledData,
-      'claude',
+      promptProvider,
       designContext,
       logoStripMode?.enabled || false,
       resolvedColors,

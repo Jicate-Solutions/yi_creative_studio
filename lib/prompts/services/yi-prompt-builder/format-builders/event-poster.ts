@@ -52,6 +52,7 @@ import { getSophistication, getIntegratedZoneContext } from '../helpers/sophisti
 
 // Import multi-color typography types (v5.0)
 import type { TextRoleColor, MultiColorTypographyConfig } from '@/lib/config/design-constants'
+import { getGeminiStyleLock } from '@/lib/config/background-styles'
 
 // Import dynamic color description builder (v5.4)
 import { buildColorDescriptionFromResolved } from '../../../helpers/color-narrative'
@@ -87,7 +88,7 @@ const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
   abstract:
     'BACKGROUND STYLE: ABSTRACT & GRADIENT — Generate a pure abstract background using flowing color gradients, soft geometric shapes, and fluid art in the brand palette. NO realistic scenes, people, or environments. Let typography be the hero against a clean expressive backdrop.',
   dark:
-    'BACKGROUND STYLE: DARK CINEMATIC — Deep near-black base with dramatic light rays, glowing halos, bokeh particles, or atmospheric haze using the brand accent color as the light source. High-contrast, moody, cinematic. Text pops powerfully against darkness.',
+    'BACKGROUND STYLE: DARK CINEMATIC (v50.3) — Render the event SCENE with cinematic dark-mood lighting. People, performers, and event details ARE present in the frame as the focal subjects, but rendered in deep cinematic atmosphere: dramatic side-lighting carving faces from shadow, rim-light glowing on shoulders and edges of figures, hard spotlight beams cutting through atmospheric haze, lens flares and bokeh in the brand accent color, intentional darkness pooled around the bright subjects. Think Roger Deakins / Bradford Young / IMAX-poster lighting — composed, sculpted, photographic. Text composites cleanly into the calmer mid-zone shadow. NOT empty bokeh atmosphere — a real scene with people, bathed in dramatic darkness.',
   illustrated:
     'BACKGROUND STYLE: ILLUSTRATED / FLAT — Flat vector-style illustrated elements related to the event theme: simple icons, bold shapes, clean art. Solid fills, minimal shadows, no photorealism. Modern graphic-design aesthetic.',
   bokeh:
@@ -114,6 +115,38 @@ const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
     'BACKGROUND STYLE: PHOTO REAL — A 35mm DSLR photograph of the actual event scene. Real Indian people in a real Indian venue, captured with natural shallow depth-of-field — sharp on the subject, softly defocused background. Warm/cool stage lighting, photojournalistic but premium magazine quality. Subtle film grain or cinema-style color grading. NO illustration, NO graphic-design aesthetics, NO abstract patterns. The image should look indistinguishable from a professional event photographer\'s portfolio.',
   product:
     'BACKGROUND STYLE: PRODUCT (OBJECT-AS-HERO) — ONE event-related symbolic object dominates 60%+ of the canvas as the visual hero. People secondary or absent. Object placed on a clean or dramatically-lit backdrop with studio-quality lighting and a sharp key light, with subtle rim/fill light. Examples: graduation → cap mid-air; music event → microphone with sound waves; medical drive → stethoscope; convocation → diploma close-up. The object IS the design — bold, scroll-stopping, editorial-magazine feel. NO crowd scenes, NO venue interiors. Premium catalog/editorial rendering.',
+  festive:
+    'BACKGROUND STYLE: FESTIVE CELEBRATION (v50.3) — A VIBRANT ILLUSTRATED MULTI-ZONE festival poster. Brand colors are SUGGESTIONS not mandates; the dominant palette is the energetic mix needed for the event (hot pink, electric purple, warm orange, golden yellow, turquoise, magenta). DIVIDE the canvas into 3-5 illustrated activity panels — one per listed event activity (e.g. dance / singing / stage / fun activities). Each panel contains a cartoon-style illustration of THAT activity: dancers mid-motion, microphone with sound waves, spotlight on stage, students celebrating. Connect panels with a CONCEPT-AS-VISUAL-DEVICE running through the composition: a flowing pulse wave, a ribbon, a string of festoons, a winding path, or musical staff lines that weave between zones. INDIAN CULTURAL MOTIFS: decorative borders in mandala / paisley / kolam style framing edges and corners. Confetti, fireworks, sparkles in the upper area. STYLE: flat illustrated / sticker-art / festival-graphic — NOT photorealistic, NOT cinematic-dark. Cartoon happy figures in motion. Mixed text hierarchy: hero event name in gradient or rainbow type, subtitle in second color, activity labels per panel, date/venue card. Think Diwali / Holi / college cultural-fest flyer energy.',
+  // These fall back to the verbatim geminiStyleLock at runtime (see styleBackground()); the
+  // entries below exist to satisfy the exhaustive Record<BackgroundStyleId, string> type.
+  'pop-modern':
+    'BACKGROUND STYLE: POP-MODERN — Modern Indian pop-art: bold halftone screen-print textures, vintage Tamil-cinema poster energy, saturated colour blocks, graphic outlines (Hatecopy / Hassan Hajjaj vibe). Loud, contemporary, brand-confident.',
+  'photo-pop':
+    'BACKGROUND STYLE: PHOTO-POP — Real photograph of the subject fused with pop-art design language: halftone background, bold pop typography, graphic overlays around a photoreal subject. Vogue India cover / Spotify Wrapped energy.',
+  'hand-drawn':
+    'BACKGROUND STYLE: HAND-DRAWN — Hand-drawn illustration: inked wobbly contours, visible pencil under-sketch, marker/crayon fills, cross-hatching, paper grain. Warm, imperfect, human. Not photorealistic, not flat-vector-clean.',
+  naive:
+    'BACKGROUND STYLE: NAIVE / PLAYFUL — Childlike playful illustration: chunky rounded shapes, smiley motifs, uneven hand-filled colour, scratchy outlines, simple grinning characters. Joyful and imperfect.',
+  papercut:
+    'BACKGROUND STYLE: PAPER-CUT — Layered cut-paper shapes with crisp edges and soft drop-shadows between layers, matte paper texture, no within-shape gradients. Handcrafted papercraft depth, generous negative space.',
+  patriotic:
+    'BACKGROUND STYLE: PATRIOTIC / TRICOLOR — Clean Indian tricolour vector: saffron/white/green swoosh, Ashoka-chakra navy accent, monument/map silhouettes, crisp white space, flat vector. Proud and dignified.',
+  'folk-art':
+    'BACKGROUND STYLE: INDIAN FOLK-ART — Traditional folk style (Warli stick-figures, Madhubani dense pattern, or Pattachitra ornament): flat, symbolic, hand-painted, natural-pigment palette. Rooted and authentic.',
+  typographic:
+    'BACKGROUND STYLE: TYPOGRAPHIC — Typography is the hero: event name set massive, letterforms as graphic shapes filling the frame, mixed weights/sizes, type bleeding off edges, minimal imagery, bold colour blocking.',
+  '3d-render':
+    'BACKGROUND STYLE: 3D RENDER — Glossy CGI: inflatable/claymation/plastic forms with studio lighting, soft contact shadows, subsurface glow, seamless gradient backdrop. Modern, premium, dimensional.',
+  retro:
+    'BACKGROUND STYLE: RETRO / VINTAGE — 70s retro poster: sun-faded mustard/orange/avocado/cream palette, rounded retro display type, halftone grain, setting-sun arc, off-register print texture. Warm and nostalgic.',
+  'art-deco':
+    'BACKGROUND STYLE: ART DECO — 1920s-30s Deco: symmetrical stepped/sunburst geometry, gold linework on deep jewel tones, streamlined glamour, elegant deco display type. Premium and ceremonial.',
+  collage:
+    'BACKGROUND STYLE: MAXIMALIST COLLAGE — Mixed-media: torn paper, cut-out photo fragments, halftone newsprint, tape, scribbles, stamped type, layered busy-but-balanced. Zine/scrapbook energy.',
+  'spotlight-event':
+    'BACKGROUND STYLE: SPOTLIGHT EVENT — Bright daylit gradient field with photo-hero people, a bold headline plus a contrasting coloured sub-line band, a rounded date chip, a thin time/venue detail strip, and a flat city-skyline silhouette anchoring the footer. The top strip stays clean for the separately-composited logo row. Structured, modern, optimistic — never dark or cinematic.',
+  advertising:
+    'BACKGROUND STYLE: ADVERTISING — Premium advertising key art: one hero subject from a bold cinematic angle, ultra-sharp with shallow depth of field, dramatic high-contrast commercial lighting with a brand-accent rim-light, frozen mid-action energy and motion particles, saturated campaign colour grade, and oversized typography in clean negative space. No real celebrities or named athletes.',
 }
 
 function buildCustomThemeGuidance(contentStart: number, contentEnd: number, canvasHeight: number): string {
@@ -121,12 +154,14 @@ function buildCustomThemeGuidance(contentStart: number, contentEnd: number, canv
   const focalStartPx = Math.floor(canvasHeight * contentStart / 100)
   const focalEndPx = Math.floor(canvasHeight * focalEnd / 100)
   const textEndPx = Math.floor(canvasHeight * contentEnd / 100)
-  return `BACKGROUND STYLE: AI CUSTOM THEME — ` +
-    `Full-canvas vivid gradient background (your chosen colors matching the event mood). ` +
-    `FOCAL VISUAL: ONE clean iconic symbol/object at ${contentStart}%–${focalEnd}% (${focalStartPx}px–${focalEndPx}px vertical) — centred, bold, flat or semi-realistic icon/motif that best represents THIS event theme. ` +
-    `NOT a realistic scene. NOT a person. NOT generic imagery. A symbol, object, or motif (e.g. wheat sheaf, blood drop, gear, circuit board, book, trophy, etc.). ` +
-    `TEXT ZONE: Event headline, tagline, date/venue card at ${focalEnd}%–${contentEnd}% (${focalEndPx}px–${textEndPx}px) — BELOW the focal visual. ` +
-    `Gradient fills the ENTIRE canvas. Nothing photorealistic in the background.`
+  // v51.1: Removed labeled blocks ("FOCAL VISUAL:", "TEXT ZONE:") — Gemini was rendering
+  // these as decorative section labels on the poster. Now uses prose without leaky labels.
+  // v52.0: Reframed "gradient only" bands as continuation of central artwork to stop
+  // Gemini inventing two separate mini-scenes in the upper and lower bands.
+  return `Compose this as ONE seamless full-canvas gradient artwork — the same gradient, same color story, same atmospheric feel flows continuously from the very top edge to the very bottom edge with no horizontal seams, no band dividers, and no separate scenes stacked vertically. ` +
+    `Between ${focalStartPx}px and ${focalEndPx}px from the top, place a single centred iconic symbol or motif (flat or semi-realistic) representing the event theme — examples: wheat sheaf, blood drop, gear, circuit board, book, trophy. Not a realistic scene, not a person, not generic imagery. ` +
+    `Between ${focalEndPx}px and ${textEndPx}px from the top (below the symbol), render the event headline, tagline, and date/venue. ` +
+    `Above and below the symbol/text the same gradient simply continues — softer, calmer, breathing room. Treat the upper and lower regions as the same artwork extending naturally; never invent a second scene, second symbol, or duplicate motif in those regions.`
 }
 
 function buildBackgroundStyleOverride(
@@ -136,6 +171,11 @@ function buildBackgroundStyleOverride(
 ): string {
   if (!style || style === 'scene') return sceneBackground
   if (style === 'custom') return '' // custom guidance injected separately via buildCustomThemeGuidance()
+  // v53.6: When a hand-authored geminiStyleLock exists for this style, return
+  // empty here — the lock is injected verbatim at the TOP of the prompt
+  // (creativeVisionHeader area). Returning the buried duplicate would give
+  // Gemini two competing style descriptions in different vocabularies.
+  if (getGeminiStyleLock(style)) return ''
   return BACKGROUND_STYLE_GUIDANCE[style] || sceneBackground
 }
 
@@ -182,7 +222,7 @@ function buildCreativeVisionHeader(
   if (mood) {
     const firstSentence = mood.split(/[.!]/)[0]?.trim()
     if (firstSentence && firstSentence.length > 10) {
-      lines.push(`VISUAL CONCEPT: ${stripHexCodes(firstSentence)}.`)
+      lines.push(`The visual concept is ${stripHexCodes(firstSentence)}.`)
     }
   }
 
@@ -227,13 +267,11 @@ function buildCreativeVisionHeader(
 
   if (lines.length === 0) return ''
 
-  const eventLabel = eventName ? ` — ${eventName}` : ''
+  // v51.1: Removed ╔══ box decorations — Gemini was rendering them as poster frames.
+  const eventLabel = eventName ? ` for ${eventName}` : ''
   return `<instruction>
-(DO NOT RENDER — creative brief for visual composition only)
-╔══ CREATIVE BRIEF${eventLabel} ══╗
+(DO NOT RENDER — creative brief${eventLabel}, for visual composition only. Absorb this fully before reading the constraints below. Let it drive every composition decision.)
 ${lines.join('\n')}
-╚══ BRIEF END — Technical constraints follow ══╝
-Absorb this brief fully before reading the constraints below. Let it drive every composition decision.
 </instruction>
 
 `
@@ -640,120 +678,24 @@ function formatEventDate(dateString: string | undefined): string {
   }
 }
 
-/**
- * Build speaker text section with MANDATORY XML role tags
- * Ensures speaker names ALWAYS render when provided, regardless of photo presence
- *
- * CRITICAL FIX: Speaker text was previously included in narrative descriptions,
- * which Gemini treated as instructions rather than renderable content.
- * This function wraps ALL speaker data in explicit <text role="..."> tags.
- */
 function buildSpeakerTextSection(
   speakers: Array<{ name: string; designation?: string }>,
-  colorSource: any
+  _colorSource: any
 ): string {
-  if (!speakers || speakers.length === 0) {
-    return '';
-  }
-
-  const speakerTextElements = speakers.map((speaker, index) => {
-    const num = index + 1;
-    const nameColor = (colorSource as any).speaker_name?.color || 'white';
-    const desigColor = (colorSource as any).speaker_designation?.color || '#D0D0D0';
-
-    const nameTag = `<text role="speaker_name_${num}" color="${nameColor}" prominence="prominent">${speaker.name}</text>`;
-    const desigTag = speaker.designation
-      ? `<text role="speaker_designation_${num}" color="${desigColor}" prominence="medium">${speaker.designation}</text>`
-      : '';
-
-    return `${nameTag}${desigTag ? '\n' + desigTag : ''}`;
-  }).join('\n\n');
-
-  return `
-<!-- ============================================================ -->
-<!-- SPEAKER TEXT (MANDATORY RENDERING) -->
-<!-- ============================================================ -->
-<!-- The following speaker text MUST appear in the final image -->
-<!-- This is USER-PROVIDED CONTENT, not optional decorative text -->
-<!-- Even if no speaker photos are overlaid, this text MUST render -->
-${speakerTextElements}
-
-<instruction>
-CRITICAL SPEAKER TEXT RENDERING RULES (v24.12):
-1. The speaker names and designations above are USER-PROVIDED CONTENT (not instructions)
-2. They MUST be rendered visibly in the image regardless of whether speaker photos are present
-3. VERTICAL POSITION CONSTRAINT: Place speaker text in the 54%-58% vertical zone
-   - This is ABOVE the photo overlay zone (62%-68%)
-   - Text placed at 60%+ will be HIDDEN by circular photo overlays
-4. DO NOT omit speaker text even if you think it's redundant with photo overlays
-5. Speaker text rendering is MANDATORY - its absence is a generation failure
-6. Use the specified colors for each role to create proper visual hierarchy
-7. Follow this vertical layout for multi-speaker posters:
-   [Headline: 40%-46%] [Tagline: 46%-50%] [Date: 50%-54%] [Speakers: 54%-58%] [PHOTOS: 62%-68%]
-</instruction>
-`;
+  if (!speakers || speakers.length === 0) return ''
+  return speakers
+    .map(s => s.designation ? `${s.name} — ${s.designation}` : s.name)
+    .join('\n')
 }
 
-/**
- * Build headline text section with XML role tags (v13.0)
- *
- * CRITICAL: Wraps headline in explicit <text role> tags to force Gemini rendering.
- * Pattern copied from buildSpeakerTextSection() which successfully renders speaker names.
- *
- * Previously, headline was defined as plain bullet: "- Main headline: ${eventName}"
- * Gemini treated "Main headline:" as instruction label, not renderable content.
- *
- * Root Cause Fix: Headlines were missing/invisible in generated posters because they lacked
- * the XML role tags that make speaker text render successfully. This function applies the
- * EXACT same pattern that works for speaker photos to the headline text.
- *
- * @param eventName - The event title to render
- * @param colorSource - Color palette with hero color for headline
- * @returns XML-tagged headline text that Gemini will render
- */
-function buildHeadlineTextSection(
-  eventName: string,
-  colorSource: any
-): string {
-  const headlineColor = colorSource.hero?.color || '#FFFFFF'
-
-  return `<text role="event_headline" color="${headlineColor}" prominence="dominant" size="largest">${eventName}</text>`
-}
-
-/**
- * v26.0: Build storytelling narrative section for cohesive visual storytelling
- * Converts StorytellingOutput into XML-structured prompt guidance for Gemini
- *
- * @param storytelling - The unified visual narrative from storytelling fusion
- * @returns XML-structured storytelling brief with narrative, story arc, and element connections
- */
 function buildStorytellingNarrativeSection(storytelling: StorytellingOutput): string {
-  return `
-<visual_storytelling confidence="${(storytelling.narrativeConfidence * 100).toFixed(0)}%">
-UNIFIED VISUAL NARRATIVE:
-${storytelling.visualNarrative}
-
-STORY STRUCTURE:
-1. OPENING: ${storytelling.storyArc.opening}
-2. CLIMAX (HERO VISUAL): ${storytelling.storyArc.climax}
-3. RESOLUTION: ${storytelling.storyArc.resolution}
-
-VISUAL ELEMENTS & THEIR CONNECTIONS:
-${storytelling.elementCohesion.map(ec => `
-${ec.element}
-  → Story Role: ${ec.storyRole.toUpperCase()}
-  → Purpose: ${ec.reasoning}
-  → Visual Link: ${ec.visualConnection}
-`).join('\n')}
-
-CRITICAL STORYTELLING REQUIREMENTS:
-✓ Create ONE unified visual story (not disconnected elements)
-✓ The HERO VISUAL must be the dominant focal point
-✓ Supporting elements enhance the hero without competing
-✓ All visuals serve the narrative cohesively
-✓ Background atmosphere reinforces the story mood
-</visual_storytelling>
-`.trim()
+  return `<visual_storytelling confidence="${(storytelling.narrativeConfidence * 100).toFixed(0)}%">
+NARRATIVE: ${storytelling.visualNarrative}
+ARC: opening — ${storytelling.storyArc.opening}; climax — ${storytelling.storyArc.climax}; resolution — ${storytelling.storyArc.resolution}.
+ELEMENTS:
+${storytelling.elementCohesion.map(ec => `• ${ec.element} (${ec.storyRole}): ${ec.visualConnection}`).join('\n')}
+ONE unified visual story; hero visual is dominant; supporting elements enhance without competing.
+</visual_storytelling>`
 }
 
 // ============================================================
@@ -782,10 +724,6 @@ export function buildEventPosterPrompt(
       designation: data.speakerDesignation || (rawData.designation as string) || (rawData.guestDesignation as string)
     })
   }
-
-  // Legacy fields for backward compatibility
-  const speakerName = speakers[0]?.name || ''
-  const speakerDesignation = speakers[0]?.designation || ''
 
   // v3.6: Normalize tagline and additionalDetails field names
   const rawEventDescription = data.eventDescription || (rawData.eventTagline as string) || (rawData.tagline as string) || ''
@@ -906,9 +844,20 @@ export function buildEventPosterPrompt(
     Math.ceil(((headerHeight + 10) / CANVAS_HEIGHT) * 100),
     40  // v47.1: 40% hard floor — logo bars + float cards occupy ~40% of canvas top
   )
-  const CONTENT_END = footerBarHeight > 0
+  const _baseContentEnd = footerBarHeight > 0
     ? Math.floor(((CANVAS_HEIGHT - footerBarHeight - FOOTER_BUFFER_PX) / CANVAS_HEIGHT) * 100)
     : (hasSpeakerPhotoEarly ? 65 : 70)   // fallback if no footer bar info
+  // v52.0: When a speaker photo will be composited, clamp CONTENT_END to the photo's top edge
+  // minus a small buffer so text never sits BEHIND the photo. Sharp places the photo bbox in
+  // ~57-83% Y for the default 'bottom' position with a 380px photo on a 1440h canvas; reading
+  // the explicit topEdge from speakerPhotoZoneCoordinates when available keeps the prompt and
+  // the post-composite step on the same page.
+  const _speakerPhotoTopPercent = hasSpeakerPhotoEarly && options.speakerPhotoZoneCoordinates?.topEdge
+    ? Math.floor((options.speakerPhotoZoneCoordinates.topEdge / CANVAS_HEIGHT) * 100)
+    : (hasSpeakerPhotoEarly ? 57 : 100)  // single-speaker 'bottom' default → ~57% top edge
+  const CONTENT_END = hasSpeakerPhotoEarly
+    ? Math.min(_baseContentEnd, Math.max(CONTENT_START + 8, _speakerPhotoTopPercent - 2))
+    : _baseContentEnd
   const CENTER_ZONE_HEIGHT = CONTENT_END - CONTENT_START  // 25% available for text (or 20% with speaker photo)
 
   // Override calculated header start with center zone start
@@ -1037,8 +986,105 @@ export function buildEventPosterPrompt(
   // v24.29: Use early detection value for consistency (already calculated above for content zones)
   const hasSpeakerPhoto = hasSpeakerPhotoEarly
 
+  // v52.0: SPEAKER PHOTO BBOX RESERVATION — explicit pixel rectangle that the Sharp overlay
+  // will occupy. Telling Gemini exactly where the circular portrait lands prevents the model
+  // from rendering an AI face, text, or important focal subject inside the same rectangle and
+  // colliding with the post-composite overlay. Uses precomputed coordinates when available,
+  // otherwise falls back to single-speaker 'bottom' defaults (380px circle centred at 70%Y).
+  const speakerPhotoBboxReservation = (() => {
+    if (!hasSpeakerPhotoEarly) return ''
+    const coords = options.speakerPhotoZoneCoordinates
+    const photoLeft = coords?.leftEdge ?? Math.floor((CANVAS_WIDTH - 380) / 2)
+    const photoTop = coords?.topEdge ?? Math.floor(CANVAS_HEIGHT * 0.70) - Math.floor(380 / 2)
+    const photoRight = coords?.rightEdge ?? photoLeft + 380
+    const photoBottom = coords?.bottomEdge ?? photoTop + 380
+    const photoLeftPercent = Math.round((photoLeft / CANVAS_WIDTH) * 100)
+    const photoRightPercent = Math.round((photoRight / CANVAS_WIDTH) * 100)
+    const photoTopPercent = Math.round((photoTop / CANVAS_HEIGHT) * 100)
+    const photoBottomPercent = Math.round((photoBottom / CANVAS_HEIGHT) * 100)
+
+    // v53.5: Branch by speakerRenderMode. 'gemini' (default) tells Gemini to
+    // DRAW the subject directly from the attached reference photo using the
+    // archetype framing — no Sharp overlay will run afterward. 'sharp' (legacy)
+    // tells Gemini to LEAVE a reserved bbox and NOT draw the subject because
+    // Sharp will composite the circle in post-processing.
+    const mode = options.speakerRenderMode ?? 'gemini'
+
+    if (mode === 'gemini') {
+      return `<instruction>(DO NOT RENDER — subject rendering guidance, NOT text for the image)
+v53.5 SUBJECT RENDERING: A reference portrait is attached as the SECOND image input. This is the actual person being honored. Render the central portrait DIRECTLY from this reference image, in your own composition, using the archetype framing/motifs/lighting described elsewhere in this prompt.
+- The subject is THE central visual hero of this poster. Compose around them with confidence — they should occupy roughly the central 40-55% of the canvas height and be the eye's first focal point.
+- Match the reference image's face, age, attire (e.g. silk sari color, jewelry, expression). The likeness should be recognizable — this is a tribute to a SPECIFIC person, not a generic figure.
+- Apply the archetype framing exactly: if the archetype calls for a mehrab arch behind the head, draw it. If it calls for a garland frame, draw it. If it calls for a halo of light, render it. The portrait LIVES INSIDE the archetype framing.
+- Lighting integration: light the portrait the same way you light the backdrop — same key direction, same warmth, same softness. The face must feel BELONGS in the scene, not pasted on.
+- Render ONLY ONE depiction of this person anywhere on the canvas. Do not draw multiple portraits, do not duplicate the subject, do not place a smaller version elsewhere.
+- No additional people, crowds, attendees, audience, team members, or silhouettes anywhere in the scene. The honored person is the sole human present.
+- A text caption with the person's name MAY appear below the portrait in the lower-center band — do NOT render captions on top of the face.
+</instruction>
+`
+    }
+
+    // mode === 'sharp' (legacy) — reserve bbox, don't draw subject
+    return `<instruction>(DO NOT RENDER — composition reservation for the Sharp post-processing speaker overlay)
+v53.5 SHARP MODE: A circular portrait will be composited by post-processing AFTER you generate, inside this rectangle: x=${photoLeft}px-${photoRight}px (${photoLeftPercent}%-${photoRightPercent}% width), y=${photoTop}px-${photoBottom}px (${photoTopPercent}%-${photoBottomPercent}% height). Treat this rectangle as a reserved subject zone:
+- Do NOT render any human face, head, or person inside or behind this rectangle.
+- Do NOT render text, captions, names, designations, or labels inside this rectangle — captions about the speaker will be composited BELOW the rectangle (y > ${photoBottom}px).
+- Do NOT place important focal subjects (props, signs, icons) here — they would be hidden by the portrait.
+- Keep the area surrounding the rectangle visually calm and uncluttered so the portrait reads as the clear focal element.
+- The scene's background (gradient, atmosphere, soft texture) continues unbroken through this rectangle — the portrait composites ON TOP.
+- DO NOT draw ANY people, faces, human figures, attendees, crowds, audiences, or silhouettes ANYWHERE in the scene. Zero humans drawn by you.
+- Compose a STAGE-ONLY backdrop: architecture, atmospheric lighting, decorative objects, brand-color gradients and textures.
+- The reference photo attached as the second image is provided only to inform palette harmony / lighting direction / decorative motif choice — do NOT redraw or restyle the face.
+</instruction>
+`
+  })()
+
   if (hasSpeakerPhoto && speakerZoneContext) {
     console.log('[Event Poster] v24.29: Speaker photo composition guidance ENABLED (60% text boundary)')
+  }
+
+  // v53.0: Composition-strategy-aware block. Fires for ALL strategies the Subject
+  // Classifier emits. The portrait-hero variant fires whether or not a speaker photo
+  // is attached — the strategy says "this poster centers on ONE person" regardless,
+  // and the v52.2 block inside speakerPhotoBboxReservation only fires when a photo
+  // IS attached. This new block covers the gap (portrait-hero, no photo attached).
+  const compositionStrategyBlock = (() => {
+    const strategy = options.compositionStrategy
+    if (!strategy) return ''
+    const blocks: Record<string, string> = {
+      'portrait-hero': hasSpeakerPhotoEarly
+        ? '' // Already covered by v52.2 inside speakerPhotoBboxReservation above — avoid duplicating
+        : `<instruction>(DO NOT RENDER — composition strategy: portrait-hero, no reference photo attached)
+This poster centers on ONE specific person being honored. Because no reference portrait is attached:
+- Draw a SINGLE DIGNIFIED PORTRAIT of the honoree at the center of the composition, occupying roughly 40-55% of the canvas height around the visual center. Indian features, culturally appropriate attire matching the brief's tone (formal sari/kurta for traditional; business attire for corporate).
+- The portrait is the ONLY human in the scene. No crowds. No audience. No team members. No attendees. No silhouettes of other people anywhere in the composition (foreground, midground, or background).
+- Surround the portrait with an EMPTY DIGNIFIED STAGE BACKDROP: architecture (ballroom, sabha hall, decorative pillars, drapes), ceremonial lighting (warm spotlights, soft glow, ambient backlight, theatrical depth), decorative objects (flowers, garlands, ceremonial banners, cake on a stand, brand-color textures).
+- If a separate ${'`'}speakerPhotoBboxReservation${'`'} block also appears in this prompt (meaning a reference photo WAS attached after all), THAT block takes precedence and you should follow its instructions instead of drawing a portrait yourself.
+- Frame the portrait with decorative motifs (florals, mandala accents, brand-colored geometric framing) that match the tone of the event.
+</instruction>
+`,
+      'activity-collage': `<instruction>(DO NOT RENDER — composition strategy: activity-collage, v54.1)
+Compose ONE integrated, cohesive scene set in a SINGLE continuous environment. This is NOT a split screen, NOT a diptych/triptych, and NOT stacked horizontal bands.
+- If the brief describes a SINGLE activity (e.g. one run/marathon, one workshop, one drive, one tournament), render it as ONE unified dynamic hero scene with real depth — foreground action, midground, background — full of motion and energy. Do not segment it.
+- Only if the brief genuinely lists MULTIPLE distinct activities may you depict more than one — and even then they MUST share ONE seamless environment connected by soft, flowing transitions (a shared ground plane, overlapping light, connecting motion trails or ribbons), never separated into boxed panels, grid cells, or hard-edged sections.
+- OVERRIDE: if any other reference text in this prompt mentions "panels", "zones", "grid", "multi-track", "modular", or "collage", treat those ONLY as soft, blended regions inside this single continuous scene — do NOT draw literal dividers, frames, boxes, or split-screen sections.
+- Avoid: split-screen, diptych, triptych, stacked horizontal bands, boxed/rectangular panels, modular grid cells, hard divider lines between sections, comic-strip layout.
+</instruction>
+`,
+      'object-hero': `<instruction>(DO NOT RENDER — composition strategy: object-hero)
+This poster centers on ONE symbolic object (the launched product / book / device / app). Compose so the object dominates approximately 60% of the central content area, lit with dramatic product photography lighting (rim light, soft key, deep shadow). Clean backdrop — minimal decorative competition. People should be secondary or absent. The object IS the hero — everything else frames it.
+</instruction>
+`,
+      'environment-scene': `<instruction>(DO NOT RENDER — composition strategy: environment-scene)
+This poster centers on the PLACE itself (heritage walk venue / new lab / new building / campus). Compose so the architectural / spatial subject occupies the central content area in detail — show the building facade, the landscape, the venue interior, the spatial atmosphere. People are incidental scale figures only, not the focus. Cinematic architectural depth with appropriate ambient lighting for the place.
+</instruction>
+`,
+      // 'concept-iconic' → no override (current default behavior is correct for concepts)
+    }
+    return blocks[strategy] || ''
+  })()
+  if (options.compositionStrategy) {
+    console.log(`[Event Poster] v53.0: Composition strategy "${options.compositionStrategy}" — block ${compositionStrategyBlock.length > 0 ? 'INJECTED' : 'SKIPPED (covered elsewhere or default)'}`)
   }
 
   // v24.17: Log speaker text completely skipped from Gemini prompt when photo overlay is enabled
@@ -1110,19 +1156,9 @@ export function buildEventPosterPrompt(
       // PRIORITY 2: Design Intelligence AI-generated colors
       // PRIORITY 3: Hardcoded Event Context defaults
 
-      // NEW v4.5: Check if footer content actually exists before instructing AI to style it
-      const hasFooter = options.footerContext && (
-        options.footerContext.website ||
-        options.footerContext.phone ||
-        options.footerContext.email ||
-        options.footerContext.address ||
-        (options.footerContext.social && (
-          options.footerContext.social?.instagram ||
-          options.footerContext.social?.linkedin ||
-          options.footerContext.social?.facebook ||
-          options.footerContext.social?.twitter
-        ))
-      )
+      // v51.0: Footer text is composited by Sharp (enhanced-4-row-strip).
+      // AI does not render footer details — zone reserved via pixel constraints.
+      const hasFooter = false
 
       // CUSTOM COLORS (Highest Priority - user-selected colors)
       // v6.4 FIX: Custom colors are for BACKGROUND/DESIGN, not text
@@ -1306,412 +1342,72 @@ export function buildEventPosterPrompt(
         }
       }
 
-      // If Design Intelligence provided full typography guidance with colors, use enhanced format
+      // v51.0: Build background style block once (was duplicated across both branches)
+      const speakerPhotoZoneNote = hasSpeakerPhotoEarly
+        ? '\nSPEAKER PHOTO ZONE (60%-90%): keep clean — user photo composited here.'
+        : ''
+      let backgroundStyleBlock: string
+      if (isYiChapterEvent) {
+        backgroundStyleBlock = `YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram style):
+Official Yi chapter communication. Typography is the hero; background calm and uncluttered.
+Pick one: (A) deep Yi blue gradient #005B96→#003A6E with soft radial glow [most on-brand];
+(B) brand-primary clean solid/gradient with generous negative space;
+(C) clean off-white #F8FAFF with one bold Yi-blue accent (corner block / thick side border / 8% top-band).
+Optional: ONE symbolic watermark at 8–12% opacity behind text (tooth outline, runner silhouette, circuit node).
+70%+ of canvas stays pure uncluttered background. No photographic scenes, no crowds, no medals/confetti,
+no cinematic depth-of-field, no complex lighting.${speakerPhotoZoneNote}`
+      } else if (isYiSpotlight) {
+        backgroundStyleBlock = `YI SPOTLIGHT — Freepik / Behance premium poster quality.
+ONE dominant focal element commands the composition; everything else amplifies it.
+Build 4–5 depth layers: deep gradient base → subtle painterly texture 8–10% → atmospheric radial glow behind subject → large confident focal subject (45–60% canvas height, dynamic pose, lit from front/above) → optional foreground accent.
+Composition: diagonal tension, asymmetric balance, or radial draw — NOT flat centered stacking.
+2–3 deliberate jewel-palette colors with one warm accent; ensure strong contrast against text zones.
+Info anchor band at 75–85% vertical in accent color (Yi orange #FF6B35), 8–10% canvas height.
+Indian/South Asian faces, clothing, architecture, vegetation — recognisably Tamil Nadu/South Indian.${hasSpeakerPhotoEarly ? '\nSPEAKER PHOTO ZONE (60%-90%): no AI faces — scene people stay upper portion.' : ''}`
+      } else {
+        backgroundStyleBlock = `SCENE-BASED BACKGROUND — storytelling through environment.
+Depict a REAL SCENE or ENVIRONMENT that tells the event story. Choose literal OR conceptual based on stronger visual impact.
+Literal examples: Indian doctor explaining anatomy with charts; Indian youth in safety vests at zebra crossing; Indian professionals at monitors with code/circuit boards; Indian speaker at podium in conference hall; Indian volunteers planting saplings; Indian performers on stage with instruments; South Indian graduates in caps and gowns receiving diplomas.
+Conceptual metaphors (often more memorable): graduates bursting through open books into golden sky; mortarboards transforming into birds; lone leader silhouette at apex of grand staircase; brain rendered as glowing AI circuit city; giant hands cradling miniature Earth with tree growing upward; heartbeat line forming running silhouette.
+Concept-as-device: audience silhouettes FORM the shape; books UNFOLD into wings; circuit board patterns BECOME a brain; tree roots ARE a map.
+Include: recognisable environment, concrete topical objects, professional depth-of-field, lighting matching setting, Indian/South Asian people actively DOING the activity.
+Avoid: abstract waves/dots/mesh, generic geometry, Western faces, amorphous gradients with no concrete elements.${hasSpeakerPhotoEarly ? '\nSPEAKER PHOTO ZONE (60%-90%): no AI faces — scene people stay upper portion.' : ''}`
+      }
+
+      const commonBackgroundRules = `Render all text as part of the poster design — typography IS the design.
+Background flows top-to-bottom as ONE seamless photograph/painting — NO horizontal bands, divider lines, stripes, or visible zone boundaries. Hierarchy comes from whitespace, color contrast, and font size — not lines. Info cards / detail bars / CTA buttons are foreground elements that sit on top of the seamless background.
+
+${backgroundStyleBlock}
+
+Text color hierarchy: headline in ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}; tagline in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}; body details in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}.${data.registrationInfo ? `\nCTA "${data.registrationInfo}" is a prominent button in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description}.` : ''}`
+
+      // If Design Intelligence provided typography guidance, include extra font details
       if (options.designContext?.typographyGuidance) {
-        // ... existing typography guidance logic ...
         const tg = options.designContext.typographyGuidance
-        // Smart Alignment Logic:
-        // Minimalist/Tech -> Left Aligned
-        // Rich/Creative -> Asymmetric/Dynamic
-        // Balanced/Formal -> Center Aligned
         const smartAlignment = tg.alignment || (
           sophistication === 'minimalist' ? 'left' :
             sophistication === 'rich' ? 'asymmetric' :
               'center'
         )
-        aiTypographySection = `
-<typography_and_color_specifications>
-TYPOGRAPHY SYSTEM (AI-GENERATED):
+        aiTypographySection = `<typography_and_color_specifications>
+TYPOGRAPHY: ${tg.typographyStyle || 'sans'} fonts, ${smartAlignment}-aligned. Headline: ${tg.headlineStyle}. Body: ${tg.bodyStyle}. Hierarchy: ${tg.hierarchy}.
 
-FONT STYLES (MOOD-BASED):
-- Font Category: ${tg.typographyStyle || 'sans'} (Priority: use high-quality ${tg.typographyStyle || 'sans'} fonts)
-- Alignment Strategy: ${smartAlignment}-aligned layout (varied composition)
-- Headline Style: ${tg.headlineStyle}
-- Body Style: ${tg.bodyStyle}
-- Hierarchy: ${tg.hierarchy}
-
-TEXT RENDERING (v46.0 — GEMINI RENDERS ALL TEXT):
-
-Render ALL text elements as part of the poster design. Typography IS the design — make it visually powerful and cohesive with the background.
-
-TEXT COLOR PALETTE:
-- Headline color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}
-- Tagline/subtext color: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}
-- Detail text color: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}
-
-SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
-
-AVOID these elements in the generated image (negative prompt list style):
-horizontal lines, vertical lines, diagonal lines, divider bars, section separators, stripe patterns, band divisions, border lines, ruled lines, gradient bands, visible zone boundaries, segmented backgrounds, horizontal breaks, flow lines, motion streaks, connecting lines, slash marks, underscores, dashes, separator elements, decorative line patterns
-
-CREATE instead:
-ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
-
-NOTE: Information containers (info cards, detail bars, CTA buttons) are FOREGROUND content elements
-that sit ON TOP of the seamless background. They do not break the background continuity.
-
-The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
-
-${isYiChapterEvent ? `
-YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram Style):
-
-STYLE REFERENCE: Yi Kanniyakumari (@yi.kanniyakumari) — professional, clean, corporate-minimal.
-This is an OFFICIAL Yi chapter communication. Typography is the visual hero. Background must be calm and uncluttered.
-
-BACKGROUND — choose the most suitable:
-  OPTION A (Yi Blue Gradient, most on-brand): Deep Yi blue (#005B96) at top, midnight navy (#003A6E) at bottom. A subtle soft radial glow from upper-center adds depth without clutter. This is the canonical Yi chapter look.
-  OPTION B (Brand Color Minimal): The event's primary brand color as a clean solid/gradient background with generous negative space.
-  OPTION C (White Professional): Clean off-white (#F8FAFF) background with one bold Yi blue accent element (corner block, thick side border, or top-band at 8% of canvas height).
-
-OPTIONAL — at most ONE symbolic watermark (8–12% opacity, behind the text zone):
-  Dental/health event → clean tooth outline or smile arc
-  Running/sports event → single runner silhouette
-  Technology event → minimal circuit node or line pattern
-  Award/meeting event → none needed — pure gradient is the correct choice for Yi chapter
-
-MANDATORY:
-✅ At least 70% of canvas is the pure, uncluttered background color
-✅ Background is calm — overlaid text (white/yellow) must be instantly legible
-✅ Professional corporate quality comparable to CII national communications
-
-ABSOLUTE PROHIBITIONS (Yi chapter non-negotiables):
-❌ NO photographic scenes — no action photography, no people running or gathered in parks
-❌ NO crowds, groups, or multiple-person scenes of any kind
-❌ NO stock-photo or cinematic-style environmental storytelling
-❌ NO decorative medals, confetti, ribbons, trophy icons, or celebration clutter
-❌ NO cinematic depth-of-field, dramatic shadows, or complex lighting narratives
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area empty and clean — user's speaker photo will be overlaid here.` : ''}
-` : isYiSpotlight ? `
-YI SPOTLIGHT CREATIVE BACKGROUND — Freepik / Behance premium poster quality:
-
-DESIGN STANDARD: This poster must look like it belongs on Freepik's premium collection or a Behance featured project.
-Not a generic event flyer. A DESIGNED PIECE that stops someone mid-scroll.
-
-━━ FOCAL POINT LAW ━━
-ONE dominant visual element commands the entire composition.
-Every other element — color, texture, light, type — exists only to amplify that one focal point.
-If someone squints from across the room, they should still know exactly what this poster is about.
-
-━━ DEPTH LAYERS (premium technique) ━━
-Build the image as 4–5 stacked layers from back to front:
-  Layer 1 — GRADIENT BASE: A deep, rich gradient (dark jewel tone at top, slightly warmer at bottom).
-    The gradient color comes from the event's emotional theme — let the event decide.
-    NOT flat corporate blue. Deep, dimensional, atmospheric.
-  Layer 2 — TEXTURE: A subtle painterly grain or brush texture at 8–10% opacity over the gradient.
-    This single layer transforms a flat gradient into a premium, tactile surface.
-  Layer 3 — ATMOSPHERIC GLOW: A soft radial bloom of warm or cool light directly behind the focal subject.
-    This separates the subject from the background with luminous depth — the "Freepik look."
-  Layer 4 — FOCAL SUBJECT: The main visual — a person, symbolic object, or conceptual image.
-    Large. Confident. Lit from front or above. Occupying 45–60% of canvas height.
-    DYNAMIC pose or unexpected angle — NOT stiffly centered.
-  Layer 5 — FOREGROUND ACCENT: Optional — a subtle graphic element, diagonal color band, or
-    abstract shape in the near foreground at low opacity to add three-dimensional framing.
-
-━━ COMPOSITION ENERGY ━━
-Choose ONE composition strategy that fits the event's emotion:
-  DIAGONAL TENSION — subject or key lines run diagonally for energy, movement, forward motion
-  ASYMMETRIC BALANCE — subject off-center with generous negative space on one side for sophistication
-  RADIAL DRAW — elements converge on the focal subject, pulling the eye inward
-NEVER: flat centered stacking with equal visual weight top and bottom.
-
-━━ COLOR DRAMA ━━
-2–3 deliberate colors chosen for EMOTIONAL IMPACT, not event categorisation:
-  The brief above from the Creative Director specifies the colors — follow it.
-  If no brief is provided: choose deep, rich tones (jewel palette) with one warm accent.
-  Ensure strong contrast between background and any overlaid text zones.
-
-━━ INFO ANCHOR BAND ━━
-At 75%–85% vertical position: a clean horizontal band in the event's accent color (Yi orange #FF6B35 or
-the Creative Director's specified accent) spanning full width. Height ≈ 8–10% of canvas.
-This band anchors date and venue information visually. Keep it clean — content sits on top.
-
-━━ INDIAN AUTHENTICITY ━━
-Indian/South Asian faces, clothing, and settings. Authentic Indian architecture, vegetation, and signage.
-The poster should feel instantly recognisable to a Tamil Nadu / South Indian audience as THEIR poster.
-
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people and atmospheric elements should appear in the upper portion only.` : ''}
-` : `
-SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
-
-The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
-
-SCENE EXAMPLES — choose LITERAL or CONCEPTUAL based on what creates STRONGER visual impact:
-
-LITERAL (real environment — grounded, documentary):
-- Health/Medical → Indian doctor explaining anatomy to students with charts and medical models
-- Road Safety → Indian youth in safety vests at a zebra crossing with traffic signs and cones
-- Technology → Indian professionals at monitors with code, circuit boards, and tech equipment
-- Leadership/Business → Indian speaker at a podium with attendees in a conference hall
-- Environmental → Indian volunteers planting saplings with banners and recycling props
-- Cultural/Arts → Indian performers on stage with instruments and colorful decorations
-- Graduation/Convocation → South Indian graduates in caps and gowns receiving diplomas on stage with proud families watching from the audience; emotional embrace between graduate and parents; group of graduates tossing mortarboards against a radiant sky
-
-CONCEPTUAL (visual metaphor — MORE MEMORABLE and shareable):
-- Graduation/Achievement → Indian graduates in caps and gowns bursting through open books into golden sky; mortarboard hats transforming into birds in flight; grand staircase of books ascending toward radiant light
-- Business/Leadership → A lone Indian leader silhouette at the apex of a grand staircase against an epic skyline; audience silhouettes forming a rising arrow; bold figure commanding the stage
-- Technology/Innovation → Human brain rendered as a glowing AI circuit city illuminated from within; robot and AI elements forming a human silhouette; neural network patterns as a living digital map
-- Environmental/Sustainability → Giant hands cradling a miniature Earth while a tree grows upward; Indian volunteers in a lush green natural landscape
-- Health/Medical → Medical healing symbols transforming into human figures embracing life and vitality; heartbeat line forming a human running silhouette
-- Road Safety → Bold graphic composition with traffic signs and road elements as a striking design system
-
-CONCEPT-AS-DEVICE (most powerful technique — the event's core symbol BECOMES the composition itself):
-- Leadership → audience silhouettes FORM the shape of a rising mountain peak or upward arrow
-- Graduation → open books UNFOLD into the shape of wings mid-flight
-- Technology → circuit board patterns BECOME a human brain or AI face
-- Environmental → a tree's root structure IS a map / human figure
-- Health → heartbeat waveform FORMS the shape of a running human silhouette
-
-SELECTION PRINCIPLE: Choose whichever treatment — literal or conceptual — creates a MORE STRIKING, MORE MEMORABLE poster for this specific event. Conceptual imagery often produces more shareable, Pinterest-worthy results.
-
-THE SCENE MUST INCLUDE:
-✅ A recognizable ENVIRONMENT (classroom, conference hall, workspace, clinic, road crossing, venue)
-✅ CONCRETE OBJECTS related to the topic (charts, equipment, tools, props, signage)
-✅ Professional DEPTH-OF-FIELD (foreground sharp, background soft)
-✅ LIGHTING that matches the setting (classroom daylight, stage spots, outdoor natural light)
-✅ When people appear: INDIAN/South Asian appearance, actively DOING the activity (not posing)
-
-THE SCENE MUST NOT INCLUDE:
-❌ Abstract waves, flowing lines, dot grids, mesh patterns, atmospheric particles
-❌ Generic geometric shapes with no connection to the event topic
-❌ Non-Indian or Western-looking faces — if people appear, they MUST look Indian/South Asian
-❌ Amorphous gradients with no concrete scene elements
-
-THE STORY TEST: Can a viewer understand what this event is about JUST from the background?
-"I see Indian students at a road crossing with safety vests and traffic signs" → Road Safety ✅
-"I see a workspace with monitors and circuit boards" → Tech event ✅
-"I see abstract pink and teal waves" → Could be anything ❌
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
-`}
-
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}.
-
-Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}.
-${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description} with high visual contrast.` : ''}
-${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}.` : ''}
-
-COLOR APPLICATION:
-- Each text role has a DIFFERENT color for visual hierarchy and readability
-- Use EXACT colors specified above - do not substitute or approximate
-- Maintain minimum contrast ratios for accessibility
-- Color differentiation helps guide viewer's eye from hero → headline → body → CTA → caption
-- If brand colors are specified, integrate them with these text color guidelines
+${commonBackgroundRules}
 </typography_and_color_specifications>
 `
       } else {
-
-        // Fallback: Build color-aware typography section from event context defaults
         const fallbackAlignment = sophistication === 'minimalist' ? 'left' :
-          sophistication === 'rich' ? 'asymmetric' :
-            'center'
+          sophistication === 'rich' ? 'asymmetric' : 'center'
+        aiTypographySection = `<typography_and_color_specifications>
+TYPOGRAPHY: ${fallbackAlignment}-aligned layout.
 
-        aiTypographySection = `
-<typography_and_color_specifications>
-TYPOGRAPHY SYSTEM:
-- Alignment Strategy: ${fallbackAlignment}-aligned layout (varied composition)
-
-TEXT RENDERING (v46.0 — GEMINI RENDERS ALL TEXT):
-
-Render ALL text elements as part of the poster design. Typography IS the design — make it visually powerful and cohesive with the background.
-
-TEXT COLOR PALETTE:
-- Headline color: ${getSafeColor(colorSource, 'hero', COLOR_FALLBACKS.hero).description}
-- Tagline/subtext color: ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}
-- Detail text color: ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}
-
-SEAMLESS BACKGROUND REQUIREMENT (v24.13 - per Gemini documentation):
-
-AVOID these elements in the generated image (negative prompt list style):
-horizontal lines, vertical lines, diagonal lines, divider bars, section separators, stripe patterns, band divisions, border lines, ruled lines, gradient bands, visible zone boundaries, segmented backgrounds, horizontal breaks, flow lines, motion streaks, connecting lines, slash marks, underscores, dashes, separator elements, decorative line patterns
-
-CREATE instead:
-ONE seamless, continuous background that flows from top to bottom like a single photograph or painting. Use WHITE SPACE, COLOR CONTRAST, and FONT SIZE differences to create hierarchy - the visual background remains unified throughout.
-
-NOTE: Information containers (info cards, detail bars, CTA buttons) are FOREGROUND content elements
-that sit ON TOP of the seamless background. They do not break the background continuity.
-
-The poster MUST have ONE continuous visual flow from top to bottom with NO horizontal breaks, lines, or divisions.
-
-${isYiChapterEvent ? `
-YI CHAPTER MINIMAL BACKGROUND (Yi Kanniyakumari Instagram Style):
-
-STYLE REFERENCE: Yi Kanniyakumari (@yi.kanniyakumari) — professional, clean, corporate-minimal.
-This is an OFFICIAL Yi chapter communication. Typography is the visual hero. Background must be calm and uncluttered.
-
-BACKGROUND — choose the most suitable:
-  OPTION A (Yi Blue Gradient, most on-brand): Deep Yi blue (#005B96) at top, midnight navy (#003A6E) at bottom. A subtle soft radial glow from upper-center adds depth without clutter. This is the canonical Yi chapter look.
-  OPTION B (Brand Color Minimal): The event's primary brand color as a clean solid/gradient background with generous negative space.
-  OPTION C (White Professional): Clean off-white (#F8FAFF) background with one bold Yi blue accent element (corner block, thick side border, or top-band at 8% of canvas height).
-
-OPTIONAL — at most ONE symbolic watermark (8–12% opacity, behind the text zone):
-  Dental/health event → clean tooth outline or smile arc
-  Running/sports event → single runner silhouette
-  Technology event → minimal circuit node or line pattern
-  Award/meeting event → none needed — pure gradient is the correct choice for Yi chapter
-
-MANDATORY:
-✅ At least 70% of canvas is the pure, uncluttered background color
-✅ Background is calm — overlaid text (white/yellow) must be instantly legible
-✅ Professional corporate quality comparable to CII national communications
-
-ABSOLUTE PROHIBITIONS (Yi chapter non-negotiables):
-❌ NO photographic scenes — no action photography, no people running or gathered in parks
-❌ NO crowds, groups, or multiple-person scenes of any kind
-❌ NO stock-photo or cinematic-style environmental storytelling
-❌ NO decorative medals, confetti, ribbons, trophy icons, or celebration clutter
-❌ NO cinematic depth-of-field, dramatic shadows, or complex lighting narratives
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area empty and clean — user's speaker photo will be overlaid here.` : ''}
-` : isYiSpotlight ? `
-YI SPOTLIGHT CREATIVE BACKGROUND — Freepik / Behance premium poster quality:
-
-DESIGN STANDARD: This poster must look like it belongs on Freepik's premium collection or a Behance featured project.
-Not a generic event flyer. A DESIGNED PIECE that stops someone mid-scroll.
-
-━━ FOCAL POINT LAW ━━
-ONE dominant visual element commands the entire composition.
-Every other element — color, texture, light, type — exists only to amplify that one focal point.
-If someone squints from across the room, they should still know exactly what this poster is about.
-
-━━ DEPTH LAYERS (premium technique) ━━
-Build the image as 4–5 stacked layers from back to front:
-  Layer 1 — GRADIENT BASE: A deep, rich gradient (dark jewel tone at top, slightly warmer at bottom).
-    The gradient color comes from the event's emotional theme — let the event decide.
-    NOT flat corporate blue. Deep, dimensional, atmospheric.
-  Layer 2 — TEXTURE: A subtle painterly grain or brush texture at 8–10% opacity over the gradient.
-    This single layer transforms a flat gradient into a premium, tactile surface.
-  Layer 3 — ATMOSPHERIC GLOW: A soft radial bloom of warm or cool light directly behind the focal subject.
-    This separates the subject from the background with luminous depth — the "Freepik look."
-  Layer 4 — FOCAL SUBJECT: The main visual — a person, symbolic object, or conceptual image.
-    Large. Confident. Lit from front or above. Occupying 45–60% of canvas height.
-    DYNAMIC pose or unexpected angle — NOT stiffly centered.
-  Layer 5 — FOREGROUND ACCENT: Optional — a subtle graphic element, diagonal color band, or
-    abstract shape in the near foreground at low opacity to add three-dimensional framing.
-
-━━ COMPOSITION ENERGY ━━
-Choose ONE composition strategy that fits the event's emotion:
-  DIAGONAL TENSION — subject or key lines run diagonally for energy, movement, forward motion
-  ASYMMETRIC BALANCE — subject off-center with generous negative space on one side for sophistication
-  RADIAL DRAW — elements converge on the focal subject, pulling the eye inward
-NEVER: flat centered stacking with equal visual weight top and bottom.
-
-━━ COLOR DRAMA ━━
-2–3 deliberate colors chosen for EMOTIONAL IMPACT, not event categorisation:
-  The brief above from the Creative Director specifies the colors — follow it.
-  If no brief is provided: choose deep, rich tones (jewel palette) with one warm accent.
-  Ensure strong contrast between background and any overlaid text zones.
-
-━━ INFO ANCHOR BAND ━━
-At 75%–85% vertical position: a clean horizontal band in the event's accent color (Yi orange #FF6B35 or
-the Creative Director's specified accent) spanning full width. Height ≈ 8–10% of canvas.
-This band anchors date and venue information visually. Keep it clean — content sits on top.
-
-━━ INDIAN AUTHENTICITY ━━
-Indian/South Asian faces, clothing, and settings. Authentic Indian architecture, vegetation, and signage.
-The poster should feel instantly recognisable to a Tamil Nadu / South Indian audience as THEIR poster.
-
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people and atmospheric elements should appear in the upper portion only.` : ''}
-` : `
-SCENE-BASED BACKGROUND (v33.1 - STORYTELLING THROUGH ENVIRONMENT):
-
-The background MUST depict a REAL SCENE or ENVIRONMENT that tells the event's story:
-
-SCENE EXAMPLES — choose LITERAL or CONCEPTUAL based on what creates STRONGER visual impact:
-
-LITERAL (real environment — grounded, documentary):
-- Health/Medical → Indian doctor explaining anatomy to students with charts and medical models
-- Road Safety → Indian youth in safety vests at a zebra crossing with traffic signs and cones
-- Technology → Indian professionals at monitors with code, circuit boards, and tech equipment
-- Leadership/Business → Indian speaker at a podium with attendees in a conference hall
-- Environmental → Indian volunteers planting saplings with banners and recycling props
-- Cultural/Arts → Indian performers on stage with instruments and colorful decorations
-- Graduation/Convocation → South Indian graduates in caps and gowns receiving diplomas on stage with proud families watching from the audience; emotional embrace between graduate and parents; group of graduates tossing mortarboards against a radiant sky
-
-CONCEPTUAL (visual metaphor — MORE MEMORABLE and shareable):
-- Graduation/Achievement → Indian graduates in caps and gowns bursting through open books into golden sky; mortarboard hats transforming into birds in flight; grand staircase of books ascending toward radiant light
-- Business/Leadership → A lone Indian leader silhouette at the apex of a grand staircase against an epic skyline; audience silhouettes forming a rising arrow; bold figure commanding the stage
-- Technology/Innovation → Human brain rendered as a glowing AI circuit city illuminated from within; robot and AI elements forming a human silhouette; neural network patterns as a living digital map
-- Environmental/Sustainability → Giant hands cradling a miniature Earth while a tree grows upward; Indian volunteers in a lush green natural landscape
-- Health/Medical → Medical healing symbols transforming into human figures embracing life and vitality; heartbeat line forming a human running silhouette
-- Road Safety → Bold graphic composition with traffic signs and road elements as a striking design system
-
-CONCEPT-AS-DEVICE (most powerful technique — the event's core symbol BECOMES the composition itself):
-- Leadership → audience silhouettes FORM the shape of a rising mountain peak or upward arrow
-- Graduation → open books UNFOLD into the shape of wings mid-flight
-- Technology → circuit board patterns BECOME a human brain or AI face
-- Environmental → a tree's root structure IS a map / human figure
-- Health → heartbeat waveform FORMS the shape of a running human silhouette
-
-SELECTION PRINCIPLE: Choose whichever treatment — literal or conceptual — creates a MORE STRIKING, MORE MEMORABLE poster for this specific event. Conceptual imagery often produces more shareable, Pinterest-worthy results.
-
-THE SCENE MUST INCLUDE:
-✅ A recognizable ENVIRONMENT (classroom, conference hall, workspace, clinic, road crossing, venue)
-✅ CONCRETE OBJECTS related to the topic (charts, equipment, tools, props, signage)
-✅ Professional DEPTH-OF-FIELD (foreground sharp, background soft)
-✅ LIGHTING that matches the setting (classroom daylight, stage spots, outdoor natural light)
-✅ When people appear: INDIAN/South Asian appearance, actively DOING the activity (not posing)
-
-THE SCENE MUST NOT INCLUDE:
-❌ Abstract waves, flowing lines, dot grids, mesh patterns, atmospheric particles
-❌ Generic geometric shapes with no connection to the event topic
-❌ Non-Indian or Western-looking faces — if people appear, they MUST look Indian/South Asian
-❌ Amorphous gradients with no concrete scene elements
-
-THE STORY TEST: Can a viewer understand what this event is about JUST from the background?
-"I see Indian students at a road crossing with safety vests and traffic signs" → Road Safety ✅
-"I see a workspace with monitors and circuit boards" → Tech event ✅
-"I see abstract pink and teal waves" → Could be anything ❌
-${hasSpeakerPhotoEarly ? `
-SPEAKER PHOTO ZONE (60%-90%): Keep this area free of AI-generated faces — user's speaker photo will be overlaid here. Scene people should appear in the upper portion only.` : ''}
-`}
-
-Speaker names or tagline text MUST be notably smaller than the event name, using medium-weight typography in ${getSafeColor(colorSource, 'headline', COLOR_FALLBACKS.headline).description}.
-
-Date, venue, and event details MUST be smaller supporting text in ${getSafeColor(colorSource, 'body', COLOR_FALLBACKS.body).description}.
-${data.registrationInfo ? `
-The call-to-action "${data.registrationInfo}" MUST be a prominent button element in ${getSafeColor(colorSource, 'cta', COLOR_FALLBACKS.cta).description} with high visual contrast.` : ''}
-${hasFooter ? `
-Footer or organization text MUST be the smallest text, in ${getSafeColor(colorSource, 'caption', COLOR_FALLBACKS.caption).description}.` : ''}
-
-COLOR APPLICATION:
-- Each text role has a DIFFERENT color for visual hierarchy and readability
-- Use EXACT colors specified above - do not substitute or approximate
-- Color differentiation helps guide viewer's eye through the content
-- If brand colors are specified, integrate them with these text color guidelines
+${commonBackgroundRules}
 </typography_and_color_specifications>
 `
       }
 
     }
   }
-
-  // v44.0: Yi chapter events suppress decorative/creative-twist — they add medals, confetti, complex scenes
-  const aiDecorativeSection = (!isYiChapterEvent && options.designContext?.decorativeElements)
-    ? `
-<ai_decorative_elements>
-Corner Treatment: ${options.designContext.decorativeElements.corners}
-Pattern Overlay: ${options.designContext.decorativeElements.patterns}
-Accent Elements: ${options.designContext.decorativeElements.accents}
-</ai_decorative_elements>
-`
-    : ''
-
-  // NEW v3.5: Build creative twist section for unique visual signature
-  // v44.0: Suppressed for Yi chapter events — keeps design minimal and clean
-  const creativeTwistSection = (!isYiChapterEvent && options.designContext?.creativeTwist)
-    ? `
-<creative_twist>
-UNIQUE VISUAL SIGNATURE (MANDATORY): ${options.designContext.creativeTwist}
-This ONE element should make this design immediately recognizable and memorable.
-Integrate this creative twist prominently into the background or decorative elements.
-</creative_twist>
-`
-    : ''
 
   // Build v4.1 contexts with correct overrides
   const v41Contexts = buildAllV41Contexts({
@@ -1850,23 +1546,55 @@ Integrate this creative twist prominently into the background or decorative elem
 
     This shadow is WHERE the event text will be composited by Sharp after generation — the darker pixels must give enough contrast for light text to read clearly, while still feeling like natural scene lighting.`
 
+  // v51.0: Event intent summary — compact creative direction (replaces verbatim brief block).
+  // AI has full typography freedom; exact-text-fidelity dropped per v51.0 compaction.
+  const intentParts: string[] = [eventName]
+  if (data.eventType) intentParts.push(`${data.eventType} event`)
+  if (formattedDateTime) intentParts.push(formattedDateTime)
+  if (venueStr) intentParts.push(`at ${venueStr}`)
+  const originalUserBriefBlock = `<event_intent>
+(DO NOT RENDER) ${intentParts.join(' · ')}${eventDescription ? ` — themed "${eventDescription}"` : ''}${data.targetAudience ? ` for ${data.targetAudience}` : ''}.
+</event_intent>
+
+`
+
+  // v53.6: STYLE LOCK — hand-authored prompt fragment for the user's chosen
+  // background style, injected VERBATIM at the very top of the prompt (right
+  // after the user's intent). No LLM ever paraphrases this. Bypasses agent
+  // sanitization that was diluting bold style choices ("dark cinematic",
+  // "festive", "duotone") into "professional balanced premium" hedges. Highest
+  // visual hierarchy in the prompt — Gemini reads top-down and weights early
+  // sections heaviest. Sourced from lib/config/background-styles.ts.
+  const _styleLockText = getGeminiStyleLock(options.backgroundStyle)
+  const styleLockBlock = _styleLockText
+    ? `<style_direction>(DO NOT RENDER — visual style direction, HIGHEST PRIORITY. This describes the visual treatment of the entire composition. Every other instruction below operates WITHIN this style direction.)
+${_styleLockText}
+</style_direction>
+
+`
+    : ''
+  if (_styleLockText) {
+    console.log(`[Event Poster v53.6] 🎨 Style lock active: "${options.backgroundStyle}" injected verbatim at prompt top (${_styleLockText.length} chars, hand-authored, no LLM paraphrasing)`)
+  }
+
   // v47.0: Creative Vision Header — placed BEFORE spatial constraints so Gemini reads
   // the design concept (color story, visual anchor, mood) before entering compliance mode.
+  // v51.1: Removed labeled section blocks (FOCAL VISUAL / TEXT ZONE / Logo bar safe zone)
+  // and decorative box characters (╔ ╚ ══). Gemini was rendering these as visible labels
+  // on the poster. Now uses plain prose inside <instruction> with bare pixel ranges.
+  const headerEndPx = Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)
+  const focalEndPercent = Math.floor(CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4)
+  const focalEndPx = Math.floor(CANVAS_HEIGHT * focalEndPercent / 100)
+  const contentEndPx = Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)
   const creativeVisionHeader = options.backgroundStyle === 'custom'
     ? `<instruction>
-(DO NOT RENDER — creative brief for visual composition only)
-╔══ AI CUSTOM THEME — ${eventName} ══╗
-CONCEPT: You are the creative director. Based on the event details, autonomously design this poster.
-LAYOUT (TOP TO BOTTOM — STRICTLY FOLLOW PIXEL ZONES):
-  • 0–${CONTENT_START}% (0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): Logo bar safe zone — gradient fills this area, NO visual objects, NO text here
-  • ${CONTENT_START}–${Math.floor(CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4)}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}–${Math.floor(CANVAS_HEIGHT * (CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4) / 100)}px): FOCAL VISUAL ZONE — place ONE clean iconic symbol/object that represents this event (NOT a person, NOT a realistic scene)
-  • ${Math.floor(CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4)}–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * (CONTENT_START + (CONTENT_END - CONTENT_START) * 0.4) / 100)}–${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}px): TEXT ZONE — headline, tagline, date/venue card
-  • ${CONTENT_END}–100% (${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}–${CANVAS_HEIGHT}px): Footer safe zone — gradient only, NO text
-BACKGROUND: Vivid full-canvas gradient — choose 2 colors that perfectly match the event mood
-FOCAL VISUAL: ONE clean, bold, flat or semi-realistic ICON/SYMBOL/OBJECT (e.g. wheat sheaf, blood drop, gear, book) — centred, prominent, isolated on the gradient
-TEXT: Bold typography for headline, smaller for tagline and details — all BELOW the focal visual
-╚══ BRIEF END ══╝
-Absorb this before reading constraints below.
+(DO NOT RENDER — creative brief only.)
+You are the creative director for an event poster titled ${eventName}. The artwork is ONE continuous full-canvas gradient — same colors, same texture, same atmosphere flowing seamlessly from y=0 to y=${CANVAS_HEIGHT}px. No band dividers, no horizontal seams, no separate scenes stacked vertically. Within this one continuous artwork the following vertical layout decisions apply:
+- From 0px to ${headerEndPx}px: the same gradient continues — quiet, atmospheric, empty of objects and text. This region is NOT a separate scene; it is the same artwork breathing upward.
+- From ${headerEndPx}px to ${focalEndPx}px: place a single centred iconic symbol or motif (flat or semi-realistic) that represents the event — examples include a wheat sheaf, blood drop, gear, book. Not a person, not a realistic scene. Exactly ONE symbol — never duplicate it elsewhere on the canvas.
+- From ${focalEndPx}px to ${contentEndPx}px: render the event headline, tagline, and date/venue card below the symbol. Bold typography for the headline, smaller weights for supporting text.
+- From ${contentEndPx}px to ${CANVAS_HEIGHT}px: the same gradient continues — quiet, atmospheric, empty of objects and text. Same artwork, just extending naturally downward.
+Background: vivid full-canvas gradient using two colors that match the event mood. Nothing photorealistic. Never split the canvas into two mini-scenes.
 </instruction>
 
 `
@@ -1876,15 +1604,7 @@ Absorb this before reading constraints below.
     eventName
   )
 
-  return `${creativeVisionHeader}<!-- ============================================= -->
-<!-- SPATIAL LAYOUT CONSTRAINTS (v24.0 - LAYER 1) -->
-<!-- ============================================= -->
-
-<instruction>
-${pixelPreciseConstraints}
-</instruction>
-
-<!-- ============================================= -->
+  return `${originalUserBriefBlock}${styleLockBlock}${creativeVisionHeader}<!-- ============================================= -->
 <!-- MANDATORY COLOR PALETTE (v27.0 - LAYER 2)  -->
 <!-- ============================================= -->
 
@@ -1944,8 +1664,7 @@ All Design Intelligence suggestions below are SUPPLEMENTAL - prioritize user's e
 ${typographyRules}
 
 <instruction>(DO NOT RENDER — poster context for visual composition only, NOT text to display)
-POSTER DESCRIPTION:
-A ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for a ${(data as any).eventType || 'professional'} event${eventDescription ? ` — themed around "${eventDescription}"` : ''}.Target Audience: ${data.targetAudience || eventContext.defaultAudience}.${eventDescription ? `\nEVENT CONTEXT: The visual design, imagery, and atmosphere must reflect the topic "${eventDescription}". This is the PRIMARY thematic direction for the poster.` : ''}
+This is a ${sophistication === 'minimalist' ? 'sophisticated, high-impact minimalist' : 'visually rich, immersive'} event poster for a ${(data as any).eventType || 'professional'} event${eventDescription ? `, themed around "${eventDescription}"` : ''}. The intended audience is ${data.targetAudience || eventContext.defaultAudience}.${eventDescription ? ` The visual design, imagery, and atmosphere should reflect the topic "${eventDescription}" — this is the primary thematic direction.` : ''}
 </instruction>
 
 ${initiativeColorContext ? `
@@ -1969,469 +1688,114 @@ The poster achieves these visual storytelling goals: It looks and feels like a $
 </instruction>`
     }
 
-${hasSpeakerPhoto ? speakerZoneContext : ''}
-
-${options.speakerLayoutContext && !hasSpeakerPhoto ? `
-<instruction>
-SPEAKER LAYOUT AGENT DECISION (v7.1 - AI-Analyzed, DO NOT RENDER):
-${options.speakerLayoutContext}
-
-CRITICAL: The above layout analysis was performed by an AI agent that analyzed the TOTAL number of speakers
-vs speakers with photos. Photo sizing is based on TOTAL speakers to prevent oversized photos when only
-some speakers have uploaded photos. Follow the layout guidance strictly.
-
-MULTI-SPEAKER TEXT POSITIONING (v24.12 - MANDATORY):
-For posters with 2+ speakers, follow this vertical layout to avoid photo overlap:
-- 40%-46%: Event headline (largest, most prominent)
-- 46%-50%: Event tagline/theme
-- 50%-54%: Date, time, venue
-- 54%-58%: SPEAKER NAMES AND DESIGNATIONS (must render here, NOT lower)
-- 58%-62%: Dress code, entry limits, additional details
-- 62%-68%: [RESERVED FOR PHOTO OVERLAYS - DO NOT PLACE TEXT HERE]
-
-⚠️ CRITICAL: Speaker names placed at 60%+ will be completely HIDDEN by circular photo overlays.
+${hasSpeakerPhoto ? speakerPhotoBboxReservation : ''}
+${options.archetypeHint || ''}
+${hasSpeakerPhoto && options.archetypeHint && (options.speakerRenderMode ?? 'gemini') === 'gemini' ? `<instruction>(DO NOT RENDER — archetype interpretation guidance when a real reference photo IS attached AND speakerRenderMode='gemini')
+v53.5 ARCHETYPE + REFERENCE PHOTO (gemini mode): The archetype block above describes the visual world this poster lives in (framing, lighting, motifs, palette, mood). The reference photo (second attached image) is the SPECIFIC person to draw as the central subject of that world. Render them together: the archetype's framing wraps the person from the reference photo. Match face/attire/expression to the reference image so the likeness is recognizable, then build the archetype's mehrab/garland/halo/motifs/lighting AROUND them. ONE portrait of this person, integrated into the archetype, no duplicates anywhere else on the canvas.
 </instruction>
 ` : ''}
-${'' /* v24.17: When hasSpeakerPhoto=true, speaker text rendering is handled by Sharp, not Gemini */}
+${hasSpeakerPhoto && options.archetypeHint && (options.speakerRenderMode ?? 'gemini') === 'sharp' ? `<instruction>(DO NOT RENDER — archetype interpretation guidance when a real reference photo IS attached AND speakerRenderMode='sharp')
+v53.4 IMPORTANT: A real reference portrait is attached as the second image input AND the speaker bbox reservation block above defines where it will composite. When the archetype block above describes "the honoured figure", "the subject", "the portrait", "the central figure", or any depiction of a person — THAT IS THE REFERENCE PHOTO, not a person you should draw. Your job for this generation is to design ONLY the archetype's framing, backdrop, lighting, decorative motifs, palette, and architectural elements — everything AROUND the subject. Do NOT draw the subject yourself. Do NOT draw a circular portrait, a head-and-shoulders figure, or any human silhouette anywhere on the canvas. The mehrab arch, jaali screens, gold filigree, garlands, lamps, halo light, and palette discipline from the archetype DO apply — render those. The portrait itself comes from the post-processing overlay.
+</instruction>
+` : ''}
+${compositionStrategyBlock}
+${options.speakerLayoutContext && !hasSpeakerPhoto ? `<instruction>(DO NOT RENDER — speaker layout guidance) ${options.speakerLayoutContext}
+Place speaker names within ${CONTENT_START}–${CONTENT_END}% from the top; never below this range — photo overlays would hide them.
+</instruction>
+` : ''}
 
 ${logoStripZoneContext ? `${logoStripZoneContext}
 
 ` : ''}
 ${logoContext}
 <!-- ============================================= -->
-<!-- TEXT CONTENT (v46.0 — RENDER ALL OF THIS)   -->
+<!-- SPATIAL LAYOUT CONSTRAINTS (v50.0 — MOVED AFTER CREATIVE CONTENT) -->
+<!-- Reordered from prompt-top to here: Gemini now reads creative vision, -->
+<!-- color palette, typography, visual scene FIRST, then technical zones. -->
+<!-- This shifts Gemini from compliance mode to creative mode. -->
 <!-- ============================================= -->
 
-<instruction>(DO NOT RENDER AS TEXT) TEXT FIDELITY RULE — HIGHEST PRIORITY: Every text value inside <text_content> MUST be rendered EXACTLY as provided. Copy each string character-for-character. Do NOT paraphrase, summarise, translate, alter spelling, or invent any words. If you cannot fit the text, reduce font size — never substitute or omit words.</instruction>
+<instruction>
+${pixelPreciseConstraints}
+</instruction>
+
+<!-- TEXT CONTENT — render as visually appropriate -->
 
 <text_content>
-  <text role="headline"
-    weight="ultra-bold-900"
-    size="DOMINANT — fill 70%+ canvas width, towering scale, each letter tall and commanding"
-    case="ALL-CAPS for maximum power — OR split-case drama: key word(s) in UPPERCASE at 130% size, secondary words in smaller caps or title case for visual tension (e.g. 'NATURE bloom FEST' or 'KNOWLEDGE light DAY')"
-    effects="APPLY AT LEAST 2: gradient-color-fill (sweep primary→accent across letters) | 3D-extrusion-with-depth-shadow | per-word-color (each word different palette color) | outline-stroke-in-contrast-color | subtle-inner-glow on hero word"
-    render="VERBATIM — do NOT alter, paraphrase, or invent words"
-    zone="${textZones.headline.start}%–${textZones.headline.end}%">${eventName}</text>
-${eventDescription ? `  <text role="tagline"
-    weight="semibold-600"
-    size="medium — 35–45% of headline height"
-    case="Sentence case (first word capitalised only) for a warm conversational feel — OR Title Case for formal events — NEVER all-caps (reserved for headline only)"
-    effects="clean italic for elegance | single accent-color word | wide letter-spacing for a premium airy look"
-    render="VERBATIM — copy these EXACT words: '${eventDescription}' — do NOT paraphrase, shorten, translate, or invent any words. Reduce font size if needed, never change the text."
-    zone="${textZones.tagline.start}%–${textZones.tagline.end}%">${eventDescription}</text>` : ''}
-${(formattedDateTime || venueStr) ? `  <text role="date_venue"
-    style="INFO-CARD — frosted-glass panel | dark pill badge | translucent rounded block — NEVER plain bare text"
-    icons="📅 before date · 🕐 before time range · 📍 before venue — use ONLY these three icons"
-    weight="medium"
-    case="Mixed case as formatted (e.g. 'Fri, 5 Jun, 2026') — do NOT force all-caps; readability is priority"
-    effects="card has subtle drop-shadow or glow edge; HIGH-CONTRAST text inside the card"
-    render="VERBATIM — copy date and venue strings exactly as given"
-    zone="${textZones.dateVenue.start}%–${textZones.dateVenue.end}%">${[formattedDateTime, venueStr].filter(Boolean).join(' · ')}</text>` : ''}
-${eventNote ? `  <text role="additional_details"
-    style="chip row | icon-led bullets | 2-col grid — NEVER a plain paragraph"
-    weight="regular-to-medium"
-    case="Title Case for each chip/item label (e.g. 'Tree Plantation', 'Seed Ball Workshop') — short, scannable"
-    effects="each chip has a small accent icon; subtle background pill behind each item"
-    render="VERBATIM — render each item label exactly as given, do not rephrase"
-    zone="${textZones.additionalDetails.start}%–${textZones.additionalDetails.end}%">${eventNote}</text>` : ''}
-</text_content>
+  Headline: ${eventName}
+${eventDescription ? `  Tagline: ${eventDescription}\n` : ''}${(formattedDateTime || venueStr) ? `  Date/Venue card (📅 🕐 📍 icons only): ${[formattedDateTime, venueStr].filter(Boolean).join(' · ')}\n` : ''}${eventNote ? `  Additional details (chip row or icon bullets): ${eventNote}\n` : ''}</text_content>
 
-<!-- ============================================= -->
-<!-- VISUAL CONTEXT (WITHIN SPATIAL ZONES)       -->
-<!-- ============================================= -->
-
-<!-- v21.0: Layout percentages removed from prose to prevent rendering as visible text -->
-<!-- v22.0: Now using structured XML tags at TOP instead of vague spatial language -->
-<!-- v23.0: Reordered sections - spatial constraints now appear FIRST (before typography) -->
-<!-- v24.12.1: Wrapped heading in instruction tags to prevent text leak -->
-
-<instruction>(DO NOT RENDER AS TEXT) LAYOUT AND COMPOSITION RULES:</instruction>
+<instruction>(DO NOT RENDER) LAYOUT AND COMPOSITION RULES:</instruction>
 
   <layout_composition_rules>
-    0. CONTENT BOUNDARY ENFORCEMENT (OVERRIDES ALL OTHER RULES):
-  - The ABSOLUTE BOTTOM BOUNDARY for any content element is ${_contentEndPx}px from top
-  - Pixels ${_contentEndPx}–${CANVAS_HEIGHT} are physically covered by logo overlays and WILL NOT APPEAR
-  - If all content does NOT fit above ${_contentEndPx}px: reduce font sizes, tighten spacing, use 2-column layout
-  - Priority when space is tight: Headline > Date/Time > Venue > Speaker > Note/Additional
-  - NEVER push content downward to make it fit — compress it instead
-  - (DO NOT RENDER) Date/venue container must be fully enclosed above ${_contentEndPx}px. Its bottom must not pass ${_contentEndPx - 30}px. It is overlaid ON the scene background within the content zone.
 
-    1. FOLLOW SPATIAL LAYOUT CONSTRAINTS (PRIMARY AUTHORITY - v24.29):
-  - CONTENT ZONE: ${CONTENT_START}% to ${CONTENT_END}% of canvas height (${Math.floor(1440 * CONTENT_START / 100)}px to ${Math.floor(1440 * CONTENT_END / 100)}px for 1440px canvas)
-  - ALL TEXT MUST FIT within this ${CENTER_ZONE_HEIGHT}% vertical zone (${Math.floor(1440 * CENTER_ZONE_HEIGHT / 100)}px available height)
-  - HEADER ZONE (0-${CONTENT_START}%, 0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): FORBIDDEN — NO text, NO decorative UI elements, NO corner frames, NO dot patterns, NO geometric ornaments — logo overlays sit here
-  - ⚠️ NEVER render any logo, logo placeholder, "LOGO" text, emoji icon (🍀, 🏷️, etc.), "[LOGO]", or any brand mark in the image — logos are composited programmatically AFTER generation. Leave header/footer zones as pure, clean background artwork only.
-  ${hasSpeakerPhoto ? `- SPEAKER OVERLAY ZONE (60%-90%): FORBIDDEN for text - reserved for speaker photo overlays (864px to 1296px)` : ''}
-  - FOOTER ZONE (${CONTENT_END}%-100%): FORBIDDEN for text - reserved for footer bar
-  - Refer to <spatial_layout_constraints> above for EXACT Y-coordinate positioning
-  - The <text_zone> and <forbidden_zone> boundaries are ABSOLUTE - follow them precisely
-  - This is a technical requirement for post-processing, not a creative suggestion
+VERTICAL BANDS (single scene flows edge-to-edge; only TEXT and FACES respect boundaries):
+This poster is ONE continuous magazine-cover-quality scene from a single camera angle. The scene's background (sky, ceiling, walls, floor, atmosphere) flows naturally through every band. Logo bars composite over top/bottom with transparency — the scene shows through behind them. There is exactly ONE scene on this canvas — never two scenes stacked vertically, never a mini-scene above plus a mini-scene below.
 
-  CONTENT OVERFLOW RULE:
-  - If event has extensive content: Use smaller fonts and tighter spacing
-  - Priority: Event title > Date/Venue > Speaker > Additional details
-  - NEVER expand text into 0-${CONTENT_START}% header or ${CONTENT_END}%-100% footer zones
-${contentDensityAnalysis.density === 'dense' ? `
-  ⚠️ HIGH CONTENT DENSITY DETECTED (v39.0) — This poster has extensive text content.
-  - Use COMPACT font sizes for additional details and registration info (max 16px equivalent)
-  - Additional details and registration info MUST fit between ${textZones.additionalDetails.start}% and ${CONTENT_END - 2}%
-  - Use 2-column layout for additional details if content is long
-  - If content STILL overflows: TRUNCATE least important details — NEVER push below ${CONTENT_END}%
-  - The ${CONTENT_END}% boundary (${_contentEndPx}px) is a HARD PHYSICAL LIMIT — content below it is INVISIBLE
-` : ''}
-    2. HIERARCHY OVER RIGIDITY (WITHIN ZONES):
-  - Do NOT rigidly center everything. Follow the "Alignment Strategy" defined in the typography section above.
-  - If alignment is 'left', align key text elements to a strong left grid line WITHIN each <text_zone>
-  - If alignment is 'asymmetric', create a dynamic balance between text and visuals WITHIN zones
-  - Alignment applies WITHIN each <text_zone>, not across the entire canvas
+• UPPER CONTINUATION 0–${CONTENT_START}% (0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): this band is the atmospheric upward extension of the same central scene — same lighting, same depth, same environment, same camera angle. Sky, ceiling, soft haze, depth-of-field blur, or upper background of the same room. It is NOT a separate scene. NO text, NO human faces, NO new focal subjects, NO duplicated motifs, NO logo placeholders, NO invented decorations here.
 
-3. TEXT ELEMENTS TO RENDER (v46.0 — GEMINI RENDERS ALL TEXT):
-  All text in <text_content> is YOUR responsibility — render it as a DESIGNED element, not raw text.
+• CONTENT BAND ${CONTENT_START}%–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}–${_contentEndPx}px): the ONLY band where text AND focal subjects (faces, performers) belong. Subjects in lower portion (~${CONTENT_START + 15}–${CONTENT_END}%); text overlaid upper portion (~${CONTENT_START}–${CONTENT_START + 15}%). Position camera so human heads land here.
 
-  CASE TREATMENT HIERARCHY (creates visual rhythm and instant readability):
-    • HEADLINE  → ALL-CAPS (dominant, authoritative) OR split-case drama (hero word ALL-CAPS large + secondary words smaller caps/title case)
-    • TAGLINE   → Sentence case ("Plant today, breathe tomorrow!") — warm, human, contrasts with all-caps headline
-    • DATE/VENUE→ Mixed case as naturally formatted ("Fri, 5 Jun, 2026 | 10:00 AM") — never all-caps
-    • DETAILS   → Title Case per chip ("Tree Plantation" · "Seed Ball Workshop") — scannable labels
-    The visual rhythm: SHOUT (headline) → speak (tagline) → inform (date/venue) → list (details)
+• LOWER CONTINUATION ${CONTENT_END}%–100% (${_contentEndPx}–${CANVAS_HEIGHT}px): this band is the atmospheric downward extension of the same central scene — same floor, same ground, same lighting falloff. It is NOT a separate scene. NO text, NO faces, NO new subjects, NO duplicated focal group here.
 
-  HEADLINE: Ultra-bold (weight 800–900). Fill ~70% canvas width — undisputed visual anchor. Apply MULTIPLE effects:
-    • GRADIENT FILL: sweep event palette colors left→right across letters
-    • 3D EXTRUSION: letters have visible depth/thickness with a cast shadow
-    • PER-WORD COLOR: each word in a different palette color
-    • CONTRAST STROKE: thin outline so letters pop off any background
-    • SIZE DRAMA: hero word(s) at 130–150% scale vs rest of headline
-    — Apply at least 2. Flat monochrome text is NOT acceptable.
+${hasSpeakerPhoto ? `• SPEAKER PORTRAIT OVERLAY (composited after generation): see the reserved-rectangle instruction above for exact pixel bounds — keep that rectangle clear of faces, text, and important focal subjects; captions for the speaker render BELOW the rectangle, never beside or behind it.\n` : ''}Anything below ${_contentEndPx}px is invisible. When tight: compress fonts, use 2-col layout, drop least-important details. Priority: Headline > Date/Time > Venue > Speaker > Additional. Background bleeds edge-to-edge with NO frame, NO rounded corners, NO card border. ONE focal group only — don't duplicate above AND below.
+${contentDensityAnalysis.density === 'dense' ? `HIGH DENSITY — use compact fonts (≤16px details), 2-col layout, truncate over overflow.\n` : ''}
+TEXT RENDERING — render each text in <text_content> as a DESIGNED element, not raw type:
+• HEADLINE → Ultra-bold (800–900), fills ~70% width, ALL-CAPS or split-case drama (hero word at 130–150%). Apply 2+ effects (gradient fill / 3D extrusion / per-word color / contrast stroke). Flat monochrome not acceptable.
+• TAGLINE → Semi-bold (600), 35–45% of headline scale, sentence case, one accent-color word.
+• DATE/VENUE → designed card (frosted glass / dark badge / gradient pill — never bare floating text). Lines: "📅 [date]  🕐 [time]" then "📍 [venue]". Card bottom stays above ${_contentEndPx - 30}px.
+• ADDITIONAL DETAILS → scannable chip row or icon-led bullets — not a paragraph.
 
-  TAGLINE: Semi-bold (600). 35–45% of headline scale. Sentence case. One accent-color word or clean italic for contrast. Compact gap below headline.
+COLOR FIDELITY:
+${(() => {
+  const rc = options.resolvedColors || options.brandContext
+  const secondaryHex = (rc?.secondaryColor || '').toLowerCase()
+  const isYellowSecondary = /^#(f[a-f0-9]|e[a-f0-9])(f[a-f0-9]|e[a-f0-9])[0-5]/i.test(secondaryHex)
+  return isYellowSecondary
+    ? `Brand secondary is YELLOW (${secondaryHex}). Use warm-white / neutral-white lighting — no cool/blue/cyan tint that drifts yellow toward cyan/teal.`
+    : `Match brand color hues precisely; no cool-tint contamination of warm brand colors.`
+})()}
 
-  DATE/VENUE (info-card): NEVER bare floating text. Render inside a DESIGNED CONTAINER:
-    • Frosted-glass rounded card (60–80% opacity, subtle blur)
-    • Dark translucent badge with glowing border edge
-    • Gradient-fill pill with high-contrast white text inside
-    Card must have a drop-shadow or glow so it visually floats above the background.
-    CARD LAYOUT — STRICTLY 2 LINES:
-      LINE 1: 📅 [date portion]  🕐 [time range portion]
-            (split the datetime string at the | separator: 📅 goes before date, 🕐 goes before time range)
-      LINE 2: 📍 [venue name]
-    ICON RULES: Use ONLY 📅 for date, 🕐 for time, 📍 for venue. Do NOT use 🗓, ♪, ⏰ or any other icon.
-    The 📍 pin icon MUST be at the START of LINE 2, NOT at the end of LINE 1. Both lines are centred inside the card.
+${textContrastGuidance}
 
-  ADDITIONAL DETAILS: Scannable chip row, icon-led bullets, or compact 2-column grid. Never a plain paragraph.
-
-  All text MUST fit within the content zone: ${CONTENT_START}%–${CONTENT_END}%
-
-    3A. READING FLOW (v33.0 - MANDATORY):
-
-    The viewer's eye MUST follow a PREDICTABLE PATH through the poster:
-    STEP 1 (0.5s): Eye lands on HEADLINE — the largest, boldest element
-    STEP 2 (1.0s): Eye moves to TAGLINE — positioned directly below headline, smaller but clear
-    STEP 3 (1.5s): Eye finds date/venue info — visually integrated, readable detail section
-    STEP 4 (2.5s): Eye sees SPEAKER/CONTEXT — names, designations, or additional details
-
-    Achieved through: SIZE PROGRESSION, VISUAL WEIGHT, SPATIAL GAPS, ALIGNMENT CONSISTENCY.
-
-    TEXT-SAFE BACKGROUND (v43.0):
-    Design the ${CONTENT_START}%–${CONTENT_END}% background zone to make Gemini-rendered text readable:
-    You MUST ACTIVELY DESIGN this zone to have a clean, text-readable background.
-
-    REQUIRED VISUAL TREATMENT for ${CONTENT_START}%–${CONTENT_END}%:
-    ✅ OPTION A — Atmospheric gradient band: smooth color wash (sky fading to tone, open wall, stage backdrop)
-    ✅ OPTION B — Depth-of-field defocus: background elements are blurred out-of-focus in this zone
-    ✅ OPTION C — Open space: interior with clear open space, empty stage backdrop, uncluttered wall
-    ✅ OPTION D — Low-contrast bokeh: very soft light halos or bokeh — NO recognizable shapes
-
-    FORBIDDEN IN TEXT ZONE (${CONTENT_START}%–${CONTENT_END}%):
-    ❌ NO human faces or eyes — face in text zone = text becomes unreadable
-    ❌ NO architectural details (windows, columns, patterns) — complex texture blocks text
-    ❌ NO crowds or groups of people positioned in mid-zone
-    ❌ NO high-contrast edges or sharp shapes that compete with text
-
-    SUBJECT PLACEMENT RULE (v43.0 — CRITICAL):
-    • Place ALL people / subjects in the LOWER section (65%–${CONTENT_END}%) — BELOW the main text area
-    • The text zone (${CONTENT_START}%–65%) sits ABOVE the subjects — naturally showing clean ceiling / sky / backdrop behind it
-    • Think: magazine cover — subject faces camera from lower half, headline reads cleanly in the calm upper-mid area
-    • Think: conference banner — audience/stage at bottom, clean branded backdrop in the text band above them
-    • NEVER place a subject's face or torso in the ${CONTENT_START}%–60% range
-
-    ZONE SANDWICH MODEL (mandatory scene construction):
-    • Top (0%–${CONTENT_START}%): Rich visual — ceiling, stage lights, dramatic sky, upper architecture
-    • Mid / TEXT ZONE (${CONTENT_START}%–${CONTENT_END}%): SOFT, CALM, atmospheric — gradient, defocused, or open space
-    • Bottom (${CONTENT_END}%–100%): Rich visual — ground, subjects, lower environment
-
-    ${textContrastGuidance}
-
-    ${contentZoneShadowGuidance}
-
-4. FULL-CANVAS VISUAL FLOW (v24.12.2 - MANDATORY):
-
-  ⚠️ CRITICAL: Create ONE CONTINUOUS visual design across the ENTIRE canvas (0% to 100%)
-
-  WHAT TO DO:
-  ✅ Background gradients MUST extend from top edge (0%) to bottom edge (100%)
-  ✅ Atmospheric/environmental elements (sky, ground, lighting, architecture) flow edge-to-edge
-  ✅ Header area (0-${CONTENT_START}%) and Footer area (${CONTENT_END}-100%): BACKGROUND ENVIRONMENT ONLY — gradients, sky, ground, atmosphere
-  ✅ Create ONE unified design - the entire poster is ONE artwork
-  ✅ Use gradients, shapes, and lighting that span the full canvas height
-
-  SUBJECT PLACEMENT RULE (v40.2 — SINGLE GROUP ONLY):
-  ❌ DO NOT place runners, people, or focal subjects in BOTH the upper and lower zones
-  ❌ DO NOT repeat the same subject group twice in the poster
-  ✅ ALL subjects (runners, people, athletes) appear in ONE continuous focal group — positioned in the 40%-70% content zone or spanning a single continuous region
-  ✅ Lower zone (${CONTENT_END}%-100%): Shows ONLY ground/road/floor continuation + atmospheric environment — NO duplicate subject group
-
-  WHAT NOT TO DO:
-  ❌ Do NOT create separate visual sections for header/content/footer
-  ❌ Do NOT use different background colors or styles for different zones
-  ❌ Do NOT create visible bands, stripes, or horizontal divisions
-  ❌ Do NOT treat header/footer as separate design areas
-  ❌ DO NOT place the scene inside a rounded rectangle, photo card, image frame, or bordered container (v35.4)
-  ❌ DO NOT use solid-color background in the top area with a "photo card" in the lower area — THIS IS THE MOST COMMON FAILURE MODE
-  ❌ The scene must have NO rounded corners, NO border, NO card-shadow — it IS the canvas itself, not a card on the canvas
-  ❌ NEVER create a "plain colored header area (with floating title text) + scene card below it" split layout
-  ✅ The scene artwork bleeds to ALL FOUR canvas edges — top, bottom, left, right — with ZERO frame or margin
-  ✅ Header (0-${CONTENT_START}%): Atmospheric TOP of scene (ceiling, sky, stage lights, upper architecture) — no text, no subjects, BACKGROUND ONLY
-  ✅ Footer (${CONTENT_END}-100%): Atmospheric BOTTOM of scene (ground/road/floor receding into distance) — no text, NO DUPLICATE SUBJECTS, environment only
-
-  TEXT vs VISUALS separation:
-  - TEXT stays in ${CONTENT_START}%-${CONTENT_END}% zone (Sharp overlays cover 0-${CONTENT_START}% and ${CONTENT_END}-100%)
-  - VISUALS (backgrounds, gradients, shapes) MUST flow through ALL zones
-  - The same gradient/design should be visible behind the logo overlays
-  - This creates seamless integration between AI poster and logo bars
-
-5. TEXT PROTECTION AND READABILITY:
-- Keep <text_zone> areas clear of complex decorative elements for readability
-- HEADLINE ZONE (<text_zone id="headline">): Sharp composites headline here — keep background clear
-  - RULE: NO decorative elements, NO complex graphics, ONLY clean atmospheric background
-${eventDescription ? `- TAGLINE ZONE (<text_zone id="tagline">): Event description rendering area
-  - RULE: Simple gradient background only, NO competing visual elements
-` : ''}
-- Decorative elements (phones, speedometers, icons) should be placed in CORNERS and EDGES of the CONTENT ZONE ONLY (${CONTENT_START}%–${CONTENT_END}%) — NEVER in the header (0–${CONTENT_START}%) or footer (${CONTENT_END}–100%) zones
-- Use SUBTLE OPACITY for background elements near text zones
-- If element conflicts with any <text_zone>, REMOVE the element
-
-LAYERING SPECIFICATION:
-- TEXT = Foreground layer (always on top)
-- Visual decorative elements = Background layer
-- Text is always readable, never obscured by visuals
-${hasFooterContent && footerReservePercent > 0 ? `
-
-6. FORBIDDEN ZONES (CRITICAL):
-  - <forbidden_zone id="header_branding"> (top ${CONTENT_START}%, 0–${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px): ABSOLUTELY NO text, focal elements, decorative UI chrome, corner brackets, corner frames, dot grids, geometric ornaments, or icons of any kind — ONLY clean gradient/color background continuation
-  - <forbidden_zone id="footer_bar"> (bottom ${100 - CONTENT_END}%, ${Math.floor(CANVAS_HEIGHT * CONTENT_END / 100)}–${CANVAS_HEIGHT}px): ABSOLUTELY NO content, text, or decorative elements — clean gradient background only
-  - These zones will be covered by logo bar overlays — anything placed there will be invisible or clipped
-  - Background gradient/color texture MAY flow through these zones seamlessly
-  - ⚠️ Corner decorations, dot patterns, bracket frames MUST stay inside the CONTENT ZONE (${CONTENT_START}%–${CONTENT_END}%) only — NEVER in header or footer zones
-` : ''}
-${customFieldsText.length > 0 ? `
-
-${hasFooterContent && footerReservePercent > 0 ? '7' : '6'}. ADDITIONAL DETAILS POSITIONING:
-  - Position in <text_zone id="additional_details"> (see spatial_layout_constraints for exact Y-coordinates)
-  - This zone is between main content and footer with adequate spacing
-
-  RENDERING FORMAT:
-  - Render as clean, scannable list or 2-column grid (see TOPICS AND CONTENT LAYOUT section)
-  - Use icons or bullets for visual hierarchy
-  - Ensure line-height is at least 1.5x for readability
-` : ''}
-    ${organizerCaption ? `${(() => {
-  let num = 4
-  if (hasFooterContent && footerReservePercent > 0) num++
-  if (customFieldsText.length > 0) num++
-  return num
-})()}. ORGANIZER CAPTION POSITIONING:
-  - Position organizer caption BELOW the main headline, ABOVE the tagline/description
-  - Use a small, light-weight font — half the visual prominence of the headline
-  - This is a credit line (e.g., "${organizerCaption}")
-  - Keep it on a single line, never wrap
-  - Color: subdued/muted (silver, off-white, or semi-transparent)
-` : ''}
-    ${eventDescription ? `${(() => {
-  let num = 4
-  if (hasFooterContent && footerReservePercent > 0) num++
-  if (customFieldsText.length > 0) num++
-  if (organizerCaption) num++
-  return num
-})()}. TAGLINE POSITIONING:
-  - Position tagline BELOW the headline with adequate gap
-  - The tagline appears AFTER "${eventName}" in the UPPER section
-  - Text content: "${eventDescription}"` : ''
-    }
-
-${speakers.length > 0 && !hasSpeakerPhoto ? `${(() => {
-  // v24.17: Entire speaker text section SKIPPED when photo overlay enabled
-  // Sharp handles speaker name/designation rendering alongside photo
-  let num = 4
-  if (hasFooterContent && footerReservePercent > 0) num++
-  if (customFieldsText.length > 0) num++
-  if (eventDescription) num++
-  return num
-})()}. SPEAKER${speakers.length > 1 ? 'S' : ''} TEXT POSITIONING & TYPOGRAPHY:
-${buildSpeakerTextSection(speakers, colorSource)}
-
-   - Group speaker name and designation together visually (similar to Date/Time/Venue grouping).
-${speakers.length > 1 ? `
-   MULTI-SPEAKER LAYOUT (${speakers.length} speakers):
-   - Layout Style: ${speakers.length === 2 ? 'Horizontal row (side-by-side)' : speakers.length === 3 ? 'Horizontal row or vertical stack based on available space' : 'Grid layout (2x2 or 2x3) for optimal balance'}
-   - Spacing: Maintain adequate spacing between speakers
-   - Alignment: ${speakers.length === 2 ? 'Distributed evenly with equal visual weight' : 'Center-aligned with balanced distribution'}
-   - Visual Hierarchy: All speakers should have EQUAL prominence (same font size, weight, and color)
-   - Consistency: Each speaker follows the same format: [Name] + [Designation]
-   - Balance: Ensure visual balance across the entire speaker section` : ''}` : ''
-    }
-
-${data.entryFee ? `${(() => {
-      let feeSection = 4
-      if (hasFooterContent && footerReservePercent > 0) feeSection++
-      if (customFieldsText.length > 0) feeSection++
-      if (eventDescription) feeSection++
-      if (speakers.length > 0) feeSection++
-      return feeSection
-    })()}. FEE:
-   - "Registration fee: ${data.entryFee}" can be a subtle detail or a badge.` : ''
-    }
+${contentZoneShadowGuidance}
+${organizerCaption ? `\nOrganizer caption "${organizerCaption}": small light-weight font (half headline prominence), single line, subdued color, below headline / above tagline.\n` : ''}${speakers.length > 0 && !hasSpeakerPhoto ? `\nSpeakers (text only, no photos):\n${buildSpeakerTextSection(speakers, colorSource)}\nGroup name + designation visually (like date/venue grouping). All speakers EQUAL prominence.${speakers.length > 1 ? ` Layout: ${speakers.length === 2 ? 'horizontal side-by-side' : speakers.length === 3 ? 'horizontal row or vertical stack' : '2x2 / 2x3 grid'}.` : ''}\n` : ''}${data.entryFee ? `\nRegistration fee "${data.entryFee}" — subtle detail or badge.\n` : ''}
   </layout_composition_rules>
 
-TOPICS AND CONTENT LAYOUT:
-If topics are provided in Additional Details, do NOT render them as a single paragraph.Render them as a clean, scannable list or a 2 - column grid.Use micro - icons or glowing nodes as bullets to guide the eye.Ensure line - height is at least 1.5x for readability.
+${options.brandContext?.colorSource === 'custom' && options.brandContext.primaryColor
+  ? `CUSTOM COLOR PALETTE (background, not text): dominant ${options.brandContext.primaryColor}, secondary ${options.brandContext.secondaryColor || 'complementary'}, accent ${options.brandContext.accentColor || 'contrast'}. Text white for contrast. Do not substitute with brown/amber/navy/gold defaults.`
+  : (options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} primary, ${options.brandContext.secondaryColor || 'white'} secondary.` : '')}
 
-${options.brandContext?.colorSource === 'custom' && options.brandContext.primaryColor ? `
-BACKGROUND & DESIGN COLOR PALETTE (CRITICAL - THIS IS FOR BACKGROUND, NOT TEXT):
-The user has selected CUSTOM COLORS. These colors define the overall VISUAL DESIGN:
-
-🎨 DOMINANT BACKGROUND COLOR: ${options.brandContext.primaryColor}
-   - This MUST be the MAIN COLOR of the design (backgrounds, gradients, shapes)
-   - This should be the color people SEE when they look at the poster
-   - Use in: background gradients, geometric shapes, accent blocks, decorative elements
-   - The entire design should be DOMINATED by this color
-
-🎨 SECONDARY DESIGN COLOR: ${options.brandContext.secondaryColor || 'complementary'}
-   - Use for secondary visual elements, overlays, and design accents
-   - Can be used in: subtle gradients, borders, highlighted sections
-
-🎨 ACCENT/HIGHLIGHT COLOR: ${options.brandContext.accentColor || 'contrast'}
-   - Use for small pops of color, icons, and emphasis elements
-
-⚠️ CRITICAL COLOR RESTRICTIONS:
-- DO NOT use brown, amber, tan, beige, or warm earth tones as the main background
-- DO NOT use navy, gold, or generic "professional" palettes
-- DO NOT ignore these colors and use AI default palettes
-- The TEXT should be WHITE for maximum contrast against the colored background
-- Make ${options.brandContext.primaryColor} the DOMINANT color of the entire design
-` : (options.brandContext ? `Color scheme: ${options.brandContext.primaryColor} as primary with ${options.brandContext.secondaryColor || 'white'} as secondary` : '')}
-
-⚠️ LAYOUT BOUNDARY (v46.0):
-ALL text content zone: ${CONTENT_START}%–${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px–${_contentEndPx}px).
-Anything outside this zone is covered by logo overlays and will be invisible.
-
-${/* v26.0: Inject storytelling narrative BEFORE decorative elements — skipped for custom theme */''}${(options.backgroundStyle !== 'custom' && options.designContext?.storytellingContext) ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}
-
-` : ''}${options.backgroundStyle !== 'custom' ? decorativeElementsContext : ''}
+${(options.backgroundStyle !== 'custom' && options.designContext?.storytellingContext) ? `${buildStorytellingNarrativeSection(options.designContext.storytellingContext)}\n\n` : ''}${options.backgroundStyle !== 'custom' ? decorativeElementsContext : ''}
 
 ${backgroundSettingContext}
 
-${contentDensityGuidance ? `${contentDensityGuidance}
-
-` : ''}${(options.backgroundStyle && options.backgroundStyle !== 'scene') ? `
-<instruction>(DO NOT RENDER AS TEXT) BACKGROUND STYLE ENFORCEMENT — HIGHEST PRIORITY:
-The user has selected "${options.backgroundStyle.toUpperCase()}" background style. This OVERRIDES any scene-based visual direction earlier in this prompt.
+${contentDensityGuidance ? `${contentDensityGuidance}\n\n` : ''}${(options.backgroundStyle && options.backgroundStyle !== 'scene' && !_styleLockText) ? `<instruction>(DO NOT RENDER) BACKGROUND STYLE — user selected "${options.backgroundStyle.toUpperCase()}". Overrides scene-based direction.
 ${options.backgroundStyle === 'custom'
   ? buildCustomThemeGuidance(CONTENT_START, CONTENT_END, CANVAS_HEIGHT)
   : BACKGROUND_STYLE_GUIDANCE[options.backgroundStyle as BackgroundStyleId]}
-DO NOT generate a photorealistic Indian scene. DO NOT place real people in the background unless the style specifically calls for them. The background MUST match the selected style above.
 </instruction>
-` : ''}VISUAL STYLE:
-${(options.backgroundStyle && options.backgroundStyle !== 'scene')
-  ? (options.backgroundStyle === 'custom'
-      ? buildCustomThemeGuidance(CONTENT_START, CONTENT_END, CANVAS_HEIGHT)
-      : BACKGROUND_STYLE_GUIDANCE[options.backgroundStyle as BackgroundStyleId])
-  : (options.designContext?.designStrategy || eventContext.style)} with ${colors} color palette. The mood is ${options.designContext?.emotionalJob || eventContext.mood}. Typography uses a ${tg_style}-vibe(${tg_cat}) with ${tg_align}-aligned layout that commands attention. Event details are clean and readable with supportive icons. The call-to-action button has bold, high contrast styling. Energy level: ${eventContext.energy}.
+` : ''}VISUAL STYLE: ${_styleLockText
+  ? `(see <style_direction> block at top of prompt for the authoritative style direction)`
+  : (options.backgroundStyle && options.backgroundStyle !== 'scene')
+    ? (options.backgroundStyle === 'custom'
+        ? buildCustomThemeGuidance(CONTENT_START, CONTENT_END, CANVAS_HEIGHT)
+        : BACKGROUND_STYLE_GUIDANCE[options.backgroundStyle as BackgroundStyleId])
+    : (options.designContext?.designStrategy || eventContext.style)} with ${colors} palette. Mood: ${options.designContext?.emotionalJob || eventContext.mood}. Typography: ${tg_style}-vibe (${tg_cat}), ${tg_align}-aligned. Energy: ${eventContext.energy}.
 
-${options.multiColorTypography ? `
-${buildMultiColorTypographyInstructions(options.multiColorTypography)}
-` : ''}
-
+${options.multiColorTypography ? `${buildMultiColorTypographyInstructions(options.multiColorTypography)}\n` : ''}
 ${EVENT_POSTER_EXAMPLES}
 
-QUALITY STANDARDS (v46.0 - INTEGRATED DESIGN QUALITY):
-This integrated poster passes the COHESIVE DESIGN TEST:
-✅ Text and background are ONE unified composition — typography is woven INTO the visual, not layered on top
-✅ Headline, tagline, date, and venue are rendered with visual style matching the event mood
-✅ High contrast: all text is clearly readable against its background
-✅ Professional finish: strong visual depth, lighting, atmosphere, and typographic hierarchy
-✅ NO watermarks, NO placeholder labels, NO generic stock photo aesthetics
-${sophistication === 'rich'
-      ? 'The design is visually stunning — rich, layered backgrounds that frame and elevate the text.'
-      : 'The design is clean and focused — text has clear breathing room against a well-composed background.'
-    }
-${hasFooterContent && footerReservePercent > 0
-      ? ` The bottom footer section is completely clean — ZERO text or graphics below ${CONTENT_END}% (logo overlays will be placed there).`
-      : ''
-    }${customFieldsText.length > 0 && footerReservePercent > 0
-      ? ` Additional Details text is in the lower content zone, clearly above the footer boundary.`
-      : ''
-    } All text is within ${CONTENT_START}%–${CONTENT_END}% and the design flows seamlessly without separation bands.
+QUALITY: text+background ONE unified composition; high contrast; no watermarks, placeholder labels, or stock-photo aesthetics. ${sophistication === 'rich' ? 'Rich, layered backgrounds frame the text.' : 'Clean, focused — text has breathing room.'}
 
-DESIGN CONSTRAINTS:
-${sophistication === 'rich'
-      ? `Avoid boring, empty layouts. "Clutter" is allowed if it means "Rich Texture" and "Detail". Do not leave vast empty white spaces unless they are intentional negative space. Avoid: tiny unreadable text, low contrast text, amateur composition.`
-      : `The design avoids cluttered layouts, tiny unreadable text, poor hierarchy, generic stock photo aesthetics, unprofessional design, too many competing fonts, competing focal points, low contrast text on busy backgrounds, landscape orientation, and busy patterns in the header band area.`
-    }
-    ${hasSpeakerPhoto ? `
-${
-  // v6.8: REMOVED all speaker photo zone constraint language
-  // Reason: ANY mention of "zones", "forbidden shapes", or "photo placement" causes Gemini to visualize it
-  // New strategy: Gemini creates background freely, Sharp handles photo overlay independently
-  ''
-}` : ''}
-${speakers.length > 0 && !hasSpeakerPhoto ? `
-<instruction>
-SPEAKER TEXT ONLY (No Photos, DO NOT RENDER THIS):
-- Speakers appear as TEXT with visual prominence (names are in text role tags above)
-- Do NOT draw circular frames, silhouettes, or visual representations of people
-- Follow Section 5 typography guidance: semibold names, regular designations
-</instruction>` : ''}
+${options?.preventionEnhancements?.length ? `LEARNED IMPROVEMENTS:\n${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n` : ''}
+CREATIVE DIRECTION: ${sophistication === 'minimalist'
+  ? `Professional minimalism — vast negative space (40%+), clean solid or subtle gradient background, one or two high-impact elements. Elite, quiet, powerful.`
+  : `Rich layered backgrounds with structural intention. Multiple opacity layers, gradients, glows, ambient lighting. ${data.eventType}-themed elements throughout. Background RICH, information delivery STRUCTURED. Premium-Canva-template feel — organized complexity, not chaos.`}
 
-<instruction>
-FINAL POSITIONING VERIFICATION (DO NOT RENDER):
+Indian/South Asian people may appear actively doing the event activity. No logos (added in post-processing).
 
-Before generating the image, verify text placement:
-
-1. Headline "${eventName}": Position in safe content area (below ${headerStartPercent}% line) ✓
-2. Date/Venue: Position in middle safe content area ✓
-${hasFooterContent && footerReservePercent > 0 ? `3. All content: Keep above ${CONTENT_END}% line ✓` : ''}
-
-If ANY text overlaps reserved zones, MOVE it into safe content area.
-</instruction>
-
-${options?.preventionEnhancements?.length ? `
-LEARNED IMPROVEMENTS (from past feedback):
-${options.preventionEnhancements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
-` : ''
-    }
-
-CREATIVE DIRECTION:
-${sophistication === 'minimalist'
-      ? `AI MUST focus on PROFESSIONAL MINIMALISM. Use vast negative space (40%+). AVOID busy or immersive backgrounds. Use a clean, solid color or very subtle matte gradient as the background. Integrate ONLY ONE or TWO high-impact visual elements subtly. The design should feel elite, quiet, and powerful.`
-      : `UNLEASH VISUAL IMPACT with STRUCTURAL INTENTION. The AI has full creative control over creating rich, layered backgrounds — but ALL visual elements must SUPPORT the information hierarchy, not compete with it. Use multiple layers of visual elements at different opacities. Add depth with gradients, glows, and ambient lighting effects. Integrate ${data.eventType}-themed visual elements throughout the design. CRITICAL: The background is RICH, but the information delivery is STRUCTURED. Date/time/venue appear in a visually distinct info card or bar. The poster looks like a premium Canva template — organized complexity, not visual chaos.`
-    }
-Control the visual mood, color harmony, and professional finish.Style the typography with appropriate sizes, weights, and high - contrast rendering.
-
-The image may include INDIAN PEOPLE (South Asian appearance) actively doing the event activity in the background scene when it enhances the visual story. No logos appear (added via post-processing). Only the exact text listed above appears in the image.
-
-The goal is a visually stunning poster that immediately communicates "${data.eventType || 'professional event'}" through ${sophistication === 'minimalist' ? 'clean, professional minimalism' : 'rich visual language'}${options.logoStripMode?.enabled
-      ? ', with a distinct header band at the top.'
-      : (sophistication === 'rich' ? ', with a fully integrated, immersive header.' : ', while keeping the top header area clean and simple.')
-    }
-
-⚠️ FINAL ZONE ENFORCEMENT (NON-NEGOTIABLE — READ LAST, APPLY FIRST):
-ANY text above ${CONTENT_START}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px) WILL BE PHYSICALLY CUT OFF by header overlays.
-ANY text below ${CONTENT_END}% (${_contentEndPx}px) WILL BE PHYSICALLY CUT OFF by footer overlays.
-This is a hardware compositing constraint — NOT a design guideline. Overflow is INVISIBLE.
-
-⚠️ DATE/VENUE CARD HARD STOP: The bottom edge of the info card (including its padding/shadow) MUST be fully above ${_contentEndPx - 20}px from the top. If the card would exceed this, reduce font size and card padding — do NOT allow it to cross ${_contentEndPx}px under any circumstances.
-
-ALL text elements MUST be between ${CONTENT_START}% and ${CONTENT_END}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px–${_contentEndPx}px). No exceptions. No partial overflows.
+ZONE ENFORCEMENT: text above ${CONTENT_START}% (${Math.floor(CANVAS_HEIGHT * CONTENT_START / 100)}px) or below ${CONTENT_END}% (${_contentEndPx}px) is physically cut off by overlays. Date/Venue card bottom (with padding/shadow) must stay above ${_contentEndPx - 20}px.
 `.trim()
 }
 

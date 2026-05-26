@@ -44,6 +44,7 @@ import {
   Coins,
   CalendarDays,
   Link2,
+  FlaskConical,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 
@@ -71,6 +72,11 @@ const mainNavItems: NavItem[] = [
     title: 'Create',
     href: ROUTES.create,
     icon: Sparkles,
+  },
+  {
+    title: 'Lab',
+    href: ROUTES.lab,
+    icon: FlaskConical,
   },
   {
     title: 'Bulk Generate',
