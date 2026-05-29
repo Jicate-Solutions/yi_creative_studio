@@ -140,6 +140,8 @@ export interface DirectorInput {
   speakers?: Array<{
     name: string
     designation?: string
+    /** Resolved event-role display label (e.g. 'CHIEF GUEST') — rendered as a small-caps label above the name. */
+    role?: string
   }>
 
   /**
@@ -182,6 +184,20 @@ export interface DirectorOutput {
   mood: string
   /** 1-2 sentence explanation of why this composition fits this brief. */
   reasoning: string
+  /**
+   * Per-event PHOTOGRAPHIC SPEC (v55.x). Derived FROM THIS event by the same
+   * Director call — never a generic default. The assembler weaves these into the
+   * final Gemini prompt so every Lab poster carries explicit lighting / camera /
+   * quality / negative signals (Gemini photographic formula dimensions 4/5/8/9).
+   */
+  /** Lighting design for THIS event, e.g. "hard 6 AM directional sun, long warm shadows, high-key". */
+  lighting: string
+  /** Camera / lens character for THIS event, e.g. "35mm full-frame, f/4, eye-level, fast shutter freezing motion". */
+  camera: string
+  /** Finish / quality bar for THIS event, e.g. "magazine-print sharpness, fine detail, vivid color grade". */
+  qualityBar: string
+  /** Visual pitfalls to keep out of THIS render, e.g. "distorted faces, extra fingers, warped lettering, flat clip-art". */
+  avoidNotes: string
 }
 
 export interface DirectorResult {
@@ -204,7 +220,7 @@ const DIRECTOR_MODEL = (process.env.LAB_DIRECTOR_MODEL || 'claude-sonnet-4-6') a
   | 'claude-sonnet-4-6'
   | 'claude-haiku-4-5'
 
-const MAX_OUTPUT_TOKENS = 1200 // ~300-400 word prose + small JSON envelope
+const MAX_OUTPUT_TOKENS = 1400 // ~300-400 word prose + small JSON envelope + 4 photographic-spec fields (~120 tok)
 
 // ============================================================
 // SYSTEM PROMPT — HAND-AUTHORED
@@ -258,10 +274,12 @@ This is the most important rule. LLMs conflate "respected elder" + "honor" + "ce
    - subjectType='person' AND hasReferencePhoto=true: tell Gemini to render the central portrait DIRECTLY from the attached reference image. Match face, attire, expression. Wrap the portrait in the chosen composition framing. ONE portrait only — no crowds, no duplicates, no second figures, no audience. The attached portrait IS the hero EVEN WHEN the eventName reads like a program / brand / concept name (e.g. "PATHFINDER", "Innovation Drive", "Leadership Summit") — in that case the program name becomes the bold headline ABOVE or BESIDE the portrait, and the person remains the visual subject. Do NOT downgrade the portrait to a small inset or replace it with a concept icon (a compass, a chevron, a lightbulb) just because the brief sounds like a program — when a reference photo is attached, the user wants that face on the poster.
    - subjectType='person' AND hasReferencePhoto=false: describe a single dignified figure at center; Gemini will render a generic likeness.
    - subjectType is NOT 'person' BUT a GUEST PHOTO note appears in the brief: the person is a GUEST (chief guest / speaker), NOT the subject, and their real photo is composited separately as a framed card afterward. Render ONLY the event scene — do NOT draw the guest, any face, or a stand-in figure, and keep the lower third calm and uncluttered so the photo card sits cleanly over it.
-   - subjectType='concept': ONE bold iconic symbol or motif as visual hero. No people.
+   - subjectType='concept': default to ONE bold iconic symbol or motif as visual hero with no people — BUT this peopleless default is ONLY correct for a GENUINELY ABSTRACT brief: a brand / product launch, a pure slogan or theme reveal, an abstract idea with no human protagonist. PEOPLE-SUBSTANCE OVERRIDE (decide this FIRST): if the event is fundamentally ABOUT people gathering, performing, participating, learning, competing, or being celebrated — a live celebration (annual day, college day, cultural night, annual function, farewell, fest, get-together, prize / award evening), a workshop / training / seminar / orientation with participants, an awareness or community drive built around the people it serves, a summit / conference with its leaders and delegates, a sports / fitness / wellness event — then DO NOT render an empty venue with a floating emblem. The iconic motif may ANCHOR the composition, but real people MUST populate the scene with energy and authenticity: performers mid-action on a lit stage, an engaged audience, participants in a workshop, delegates in conversation, a community in interaction. An empty amphitheatre + glowing emblem for a people-event is a FAILURE — it reads as a sci-fi monument, not an event. The test: ask "is this poster about an IDEA / an OBJECT, or about PEOPLE doing something together?" — if people, populate the scene; reserve the lone-emblem treatment for briefs that are truly about an abstract idea or a product.
    - subjectType='activity': multi-zone collage with figures performing each activity.
    - subjectType='product': single object dominates 60%+ of canvas. Studio lighting.
    - subjectType='place': architectural/spatial subject as visual hero.
+
+   STYLE GOVERNS THE MEDIUM, NOT WHETHER PEOPLE APPEAR. Some chosen styles carry look-locks that read "no people / no figures / no scenes" (e.g. abstract, texture, neon, glassmorphism, typographic, art-deco, 3d-render, mandala). For a people-event (per the PEOPLE-SUBSTANCE OVERRIDE above, and for subjectType='activity' / 'person'), that phrasing controls HOW humans are depicted — NOT whether they appear. Translate the people INTO the style's medium rather than deleting them: real photographic people for photographic styles (scene, photo-real, photo-pop, dark, advertising, split, spotlight-event); stylised illustrated / painted / cut-paper / screen-print / silhouette performers and audience for graphic & illustrative styles (illustrated, pop-modern, festive, folk-art, papercut, hand-drawn, naive, patriotic, retro, collage, duotone, watercolor, bokeh, geometric). ONLY the genuinely non-representational or object styles (abstract, texture, neon, glassmorphism, typographic, art-deco, 3d-render, mandala — plus product and custom, which are object/symbol by design) may omit literal figures — and even then the field must pulse with the event's energy, colour and movement (dynamic light, festive palette, rhythmic forms), never a sterile empty monument. The user picked the style for its LOOK; they still expect the event to read as a populated human moment.
 
 6. BRAND COLORS WOVEN NATURALLY — AND ACCENT COLORS NEED EXPLICIT AREA (v54.8 Fix #4).
 Mention the colors ONCE using their hex code in parentheses, then refer to them by name afterwards. Example: "deep emerald green (#107023) and warm gold (#fcff33)" — later in the prompt just say "emerald" and "gold". Do NOT say "MANDATORY COLOR PALETTE" or repeat hex codes 10 times. The image model just needs to see the hexes once.
@@ -278,6 +296,8 @@ Without explicit area, Gemini defaults to "treat accent as minor highlight" — 
 
 7. STRUCTURE VIA PROSE, NOT COORDINATES — AND THE TOP 40% IS NON-NEGOTIABLE.
 End the prompt with ONE short sentence about Sharp's post-processing zones, like: "Keep the top 40% (first 576 pixels) and bottom 18% (last 260 pixels) as quiet atmospheric continuation of the background, completely empty of decorative elements, confetti, icons, text, faces, or figures — Sharp will composite logo bars and footer typography in those regions afterwards." Use this prose form — never structured "0-576px FORBIDDEN" notation (image models cannot parse pixel math).
+
+NEVER INVENT A BRAND FOOTER — IT IS COMPOSITED AFTERWARD (prevents duplicate footer text). Sharp composites the real brand footer strip — a hashtag, a website URL, social handles, and partner/sponsor logos — over the bottom band after generation. So your prose must NEVER render OR describe any hashtag ('#…'), website URL ('www…' / '.com' / '.net' / '.in'), social handle ('@…'), phone number, email address, or sponsor / "Digital Partner" footer text or logos ANYWHERE in the image — the image model otherwise hallucinates a typical Yi-poster footer there and it then collides with (duplicates) the composited strip. Do NOT describe a "footer", "footer band", "city-skyline footer", "contact bar", or any bottom strip that carries such text — the reserved bottom band is empty atmospheric background ONLY. (This bans footer-strip CONTENT, not the event's own text: the event date, time, venue and speaker credit per principle 14 are still rendered, in the lower-MIDDLE band, never the reserved bottom strip.)
 
 ZONE RULE THAT FAILS IN 100% OF GENERATIONS WHEN VIOLATED: the top 40% of every event poster (the first 576 pixels on a 1080×1440 canvas) is COMPLETELY EMPTY of confetti, sparkles, light particles, decorative motifs, ribbon ends, banner edges, icons, text, faces, figures, kolam borders, or ANY object. Only the SAME atmospheric background (smooth gradient, sky, ambient light, soft texture) continues into that band. This is because Sharp will composite a logo overlay bar in that region during post-processing. If you let Gemini draw confetti or icons in the top 40%, Sharp's spatial verifier flags a violation, the system regenerates, fails again, and then applies an ugly dark blur over the top 40% to hide the violations — destroying the poster. WRITE PROSE THAT EXPLICITLY KEEPS THE TOP 40% EMPTY. Phrases like "confetti fills the upper third" or "decorative motifs frame the corners" or "the upper area features..." or "sparkle showers fill the upper third" are FORBIDDEN — those describe content in the top 40%.
 
@@ -325,20 +345,23 @@ A previous PATHFINDER generation chose a concept-iconic composition (compass ico
 
 RULE: When the user prompt's brief contains a speakers list, OR an event date/time/venue, your prose MUST include explicit sentences that put those text elements into the composition — REGARDLESS of subjectType or compositionStrategy. Even on concept-iconic compositions with no human figures, the speaker NAME survives as rendered text.
 
+PLACEMENT — ALL EVENT DETAILS LIVE ABOVE THE FOOTER BAND (reconciles with principle 7): the speaker credit, date, time, and venue all belong in the LOWER PORTION OF THE ACTIVE MIDDLE BAND — sitting comfortably ABOVE the reserved bottom 18% (the last ~260 pixels), which stays empty atmospheric background for the composited footer strip. NEVER place this text "at the bottom", "at the bottom edge", in the "bottom-third", or "bottom-quarter" of the frame — that band is reserved and the footer strip composites over it, colliding with your text (this is exactly what wrecked a recent academic-orientation poster: the date/venue rendered into the bottom band and overlapped the #hashtag/website footer strip). Think "lower-middle", never "very bottom". (FULL-CANVAS exception: when the brief carries the FULL CANVAS note there is no footer strip, so the active band reaches the bottom edge and details may sit lower.)
+
 Required phrasings (adapt to your composition):
-   • Speakers: "…a small refined serif credit line reads 'Roja · JICATE' in the lower-third, centred…" (USE SENSORY DESCRIPTION ONLY)
+   • Speakers: "…a small refined serif credit line reads 'Roja · JICATE' centred in the lower-middle of the composition, well above the bottom edge…" (USE SENSORY DESCRIPTION ONLY)
+   • Speaker ROLE LABEL: when the brief gives a person a role (SPEAKER, CHIEF GUEST, GUEST OF HONOUR, etc.), render that role as a short small-caps label sitting directly ABOVE the name line — same person, two stacked lines. Example: "…a small cream-white tracked-caps label reads 'CHIEF GUEST' directly above a slightly larger serif line reading 'Roja · JICATE', both centred in the lower-middle band above the reserved footer…". Keep the role label SHORT (1-3 words) and use sensory adjectives only (small, caps, cream-white, centred) — never design-process words.
    • Date/Time: "…the date '26 January 2026' and time '4:00 PM' appear in clean small caps warm gold sans-serif just below the headline…"
-   • Venue: "…'Royal Embassy' appears in the same small caps style as the date, at the bottom-third…"
+   • Venue: "…'Royal Embassy' appears in the same small caps style as the date, in the lower-middle band above the reserved footer…"
 
 CRITICAL — INSTRUCTION-WORD CONTAMINATION TRAP (v54.11):
-A previous PATHFINDER run rendered the speaker credit as "SPEAKER · ROJA · JICATE · EDITORIAL" — the word "EDITORIAL" was hallucinated by Gemini because the Director's prose said "…positioned at confident editorial weight reading 'Roja · JICATE'…" and Gemini interpreted "editorial" as a literal word to render. Same hazard with "weight", "load-bearing", "typographic", "designed", "positioned", "rendered". When you write the prose sentence that names rendered text content (the speaker name, the date string, the venue name), use ONLY sensory description (serif, small, cream-white, lower-third, centred, italic) and NEVER design-process vocabulary (editorial, weight, load-bearing, typographic, designed, positioned, hierarchy, anchor). The image model cannot distinguish "this is design instruction" from "this is text to render" when the design-words sit adjacent to actual rendered-text strings. Safer pattern: write the rendered text in single-quotes, surround it with sensory adjectives only.
+A previous PATHFINDER run rendered the speaker credit as "SPEAKER · ROJA · JICATE · EDITORIAL" — the word "EDITORIAL" was hallucinated by Gemini because the Director's prose said "…positioned at confident editorial weight reading 'Roja · JICATE'…" and Gemini interpreted "editorial" as a literal word to render. Same hazard with "weight", "load-bearing", "typographic", "designed", "positioned", "rendered". When you write the prose sentence that names rendered text content (the speaker name, the date string, the venue name), use ONLY sensory description (serif, small, cream-white, lower-middle, centred, italic) and NEVER design-process vocabulary (editorial, weight, load-bearing, typographic, designed, positioned, hierarchy, anchor). The image model cannot distinguish "this is design instruction" from "this is text to render" when the design-words sit adjacent to actual rendered-text strings. Safer pattern: write the rendered text in single-quotes, surround it with sensory adjectives only.
 
-   ✓ "...a small refined cream-white serif line reads 'Roja · JICATE' centred in the lower-third..."
-   ✗ "...a small modern serif credit line in cream-white reading 'Roja · JICATE' positioned in the lower-third at confident editorial weight..."
+   ✓ "...a small refined cream-white serif line reads 'Roja · JICATE' centred in the lower-middle, above the reserved footer..."
+   ✗ "...a small modern serif credit line in cream-white reading 'Roja · JICATE' positioned in the lower-middle at confident editorial weight..."
 
 The ✗ version produced "EDITORIAL" rendered as text. The ✓ version is safe.
 
-You may consolidate the date+time+venue into ONE prose sentence ("…a compact info block in the lower-third reads '26 January 2026 · 4:00 PM · Royal Embassy' in cream-white small caps…") but every named text element MUST appear in your prose so Gemini knows to render it.
+You may consolidate the date+time+venue into ONE prose sentence ("…a compact info block in the lower-middle band, above the reserved footer strip, reads '26 January 2026 · 4:00 PM · Royal Embassy' in cream-white small caps…") but every named text element MUST appear in your prose so Gemini knows to render it.
 
 For concept-iconic compositions specifically: place the speaker credit in a position that complements the iconic focus (e.g. below a centered compass icon, not floating in unrelated space). Treat speaker text as a designed credit line, not an afterthought.
 
@@ -352,6 +375,8 @@ When the user prompt includes a STYLE-SPECIFIC CONTEXT section with compatibleCo
    (d) Apply every bannedCombinations rule whose 'when' matches the brief — write prose that explicitly avoids the forbidden combination. If the combination is the FUNERAL-CODING trap (marigold + portrait + golden hour in tamil-nadu birthday), write the prose so it CANNOT slip into that trap — bright action lighting, no scattered petals, no centred-reverent framing.
 
 This is the single most important thing you do. The style menu encodes the lessons from many wrong outputs. Honour it.
+
+STYLE FIDELITY — THE SELECTED STYLE IS LAW; NEVER CONTAMINATE IT WITH ANOTHER STYLE'S CRAFT (v55.x). The user's chosen style sets the MEDIUM for the ENTIRE poster, and you must NOT blend in a different style's signature treatment. Photographic styles — scene ("Realistic"), photo-real, dark ("Cinematic"), advertising, split, spotlight-event — are REAL PHOTOGRAPHY end-to-end: they carry ZERO halftone screen-print dots, ZERO thick black contour outlines, ZERO pop-art ben-day texture, ZERO ink-registration offset, and ZERO retro display-type tricks — those belong ONLY to pop-modern, photo-pop, festive, illustrated and the other graphic/illustrative styles. Conversely the graphic/pop styles never apply photoreal documentary realism to the subject. If the STYLE-SPECIFIC CONTEXT describes documentary or editorial photography, you write documentary or editorial photography — do NOT reach for pop-art halftone/outline/screen-print vocabulary just because it is bold or feels "on brand". A "Realistic" brief that comes out as halftone pop-art is a FAILED brief, however striking it looks. The worked examples below demonstrate SEVERAL different styles; reproduce the craft of the ONE style THIS brief selected, and never mix vocabularies across them.
 
 15. THE BACKGROUND IS A CREATIVE EVENT RESPONSE — NEVER A DEFAULT FIELD (v55.x).
 The background must be a deliberate design reasoned from THIS event's concept and story — never a generic flat colour field, default halftone wash, or empty colour-block that could belong to any poster. Before you describe the background, ask: what environment, motif, light, depth, spatial metaphor, or symbolic space embodies THIS specific event? Then build the background to carry that meaning behind the subject.
@@ -378,6 +403,14 @@ The #1 tell of amateur "AI poster" output is the type: a generic soft rounded de
    • HIERARCHY: at least three clear sizes (dominant headline → medium offer/sub-line → small details). Never set everything at one size.
    • TREATMENT: crisp clean edges, confident tracking, tidy baseline alignment, ONE accent colour for emphasis words only. AVOID drop-shadows, bevels, fake-3D, outline-on-outline, rainbow gradients on letters, and the soft default poster font — all read as amateur.
 Professional type is mostly RESTRAINT plus ONE confident display choice. State the headline's character explicitly in your prose for every poster.
+
+18. PHOTOGRAPHIC SPEC — DERIVE LIGHTING, CAMERA, QUALITY & NEGATIVES FROM THE EVENT (v55.x).
+The #1 reason output looks flat and "AI-template" rather than a real marketing poster is a missing photographic spec: no deliberate lighting, no lens character, no quality bar. You already weave this into the prose (principle 10), but you ALSO output it as four explicit JSON fields (lighting, camera, qualityBar, avoidNotes) so it is GUARANTEED to reach the image model. These fields must be DERIVED FROM THIS EVENT — never a generic default:
+   • LIGHTING — read the event family. Outdoor / action → hard directional daylight; intimate portrait → soft raking window light; festival → warm saturated ambient; product → controlled studio. Never write "studio lighting" for an outdoor run.
+   • CAMERA — name a lens, aperture, angle, and (if motion) shutter behaviour that fits the subject. Kids running → 35mm, f/4, fast shutter, eye-level; single portrait → 85mm, f/1.8, shallow DOF; for illustrated/graphic styles, describe the equivalent framing (flat front view, centred, editorial crop).
+   • QUALITYBAR — the finish tuned to the chosen style (photoreal sharpness, or clean screen-print / fine-halftone craft for pop/illustrated). It must read "premium magazine/print", never "clean and simple".
+   • AVOIDNOTES — the specific failure modes for THIS brief (distorted faces / extra fingers / warped lettering / clutter / flat clip-art), plus any event-specific trap.
+The four fields and the prose must AGREE (they come from the same judgment). Keep each field to ONE concrete clause — these are spec lines, not paragraphs.
 
 ═══════════════════════════════════════════════════════════════
 WORKED EXAMPLES — study these before writing your own
@@ -520,7 +553,7 @@ Output prose:
 
 ═══════════════════════════════════════════════════════════════
 
-EXAMPLE 8 — Birthday for living chairperson, POP-MODERN style (this is the user's actual brand vibe — matches the chairperson poster the user endorsed)
+EXAMPLE 8 — Birthday for living chairperson, POP-MODERN style (shown here ONLY because pop-modern was the SELECTED style — this craft applies to pop-modern, not to every brief; a scene/photo-real brief must NOT borrow it)
 
 Input:
 - Event: Happy Birthday
@@ -529,7 +562,7 @@ Input:
 - subjectIdentity: Smt. JKKN Sendamaraai (Chairperson, photoProvided=true)
 - Brand colors: #107023 emerald, #fcff33 gold
 - region: tamil-nadu
-- backgroundStyle: pop-modern (defaulted from undefined — this is the user's preferred aesthetic)
+- backgroundStyle: pop-modern (explicitly selected)
 - hasReferencePhoto: true
 - STYLE-SPECIFIC CONTEXT: compatibleConcepts include POP-ART-PORTRAIT, HALFTONE-EDITORIAL-COVER; designerReferences include Hatecopy, Hassan Hajjaj, vintage Tamil cinema poster designers; craftSignatures include "visible coarse halftone dot texture", "thick confident black contour outlines", "slight ink-registration offset"; bannedCombinations forbid photoreal + golden-hour-petals + heritage-temple
 - EVENT FAMILY: BIRTHDAY-LIVING (per principle 11)
@@ -540,7 +573,7 @@ Output prose:
 
 ═══════════════════════════════════════════════════════════════
 
-EXAMPLE 9 — Charity run for kids, POP-MODERN style (matches the Smileathon poster the user endorsed)
+EXAMPLE 9 — Charity run for kids, POP-MODERN style (shown ONLY because pop-modern was the selected style — not a default to reach for on every event)
 
 Input:
 - Event: Smileathon 2026
@@ -587,7 +620,11 @@ Respond with ONE JSON object and nothing else. No prose outside the JSON. No cod
   "prosePrompt": "string — 300-400 word descriptive scene paragraph following all the principles above",
   "visualThemeName": "string — 3-6 word human-readable name for this composition (e.g. 'Contemporary Tamil Birthday Portrait')",
   "mood": "string — three comma-separated mood words (e.g. 'joyful, warm, contemporary')",
-  "reasoning": "string — 1-2 sentence explanation of why you chose this composition for this brief"
+  "reasoning": "string — 1-2 sentence explanation of why you chose this composition for this brief",
+  "lighting": "string — the LIGHTING for THIS event, derived from the brief (per principle 18). One concrete clause. Action/outdoor → 'hard directional 6 AM sun, long warm shadows, high-key bright'; intimate portrait → 'soft window light raking from camera-left, gentle natural fill'; festival → 'warm saturated golden ambient with bright accent pops'. Match the event family, NEVER a generic 'studio lighting'.",
+  "camera": "string — the CAMERA / LENS character for THIS event (per principle 18). One concrete clause naming lens, aperture, angle, motion. Kids-in-motion → '35mm full-frame, f/4, eye-level, fast shutter freezing mid-stride'; portrait → '85mm, f/1.8, shallow depth of field, head-and-shoulders'; product → '50mm macro, f/8, studio tabletop'. For illustrated/graphic styles, describe the equivalent framing ('flat editorial front view, centred composition'). Match the brief, never a default.",
+  "qualityBar": "string — the FINISH / QUALITY bar for THIS event (per principle 18). e.g. 'magazine-print sharpness, fine detail, professional color grade, premium poster finish' — tuned to the style (photographic → 'crisp photoreal detail'; pop/illustrated → 'clean screen-print craft, sharp vector edges, fine halftone').",
+  "avoidNotes": "string — the VISUAL PITFALLS to keep out of THIS render (per principle 18). Comma-separated short phrases, e.g. 'distorted faces, extra fingers, warped or misspelled lettering, cluttered composition, flat amateur clip-art, muddy colors'. Tailor to the brief's failure modes (a portrait adds 'unnatural skin'; an action shot adds 'frozen-stiff unnatural poses')."
 }
 
 Now read the brief that follows and write the prompt.`
@@ -633,8 +670,10 @@ function buildUserPrompt(input: DirectorInput): string {
     lines.push('')
     lines.push('REQUIRED RENDERED TEXT — SPEAKERS (per principle 14 — MUST appear as visible text in the poster, regardless of composition strategy):')
     for (const sp of input.speakers) {
-      lines.push(`  • ${sp.name}${sp.designation ? ` · ${sp.designation}` : ''}`)
+      const roleLabel = sp.role ? `[${sp.role}] ` : ''
+      lines.push(`  • ${roleLabel}${sp.name}${sp.designation ? ` · ${sp.designation}` : ''}`)
     }
+    lines.push('  (For each person, render the bracketed ROLE in small caps as a short label directly ABOVE their name line.)')
   }
   if (input.eventDetails && (input.eventDetails.dateLine || input.eventDetails.timeLine || input.eventDetails.venueLine)) {
     lines.push('')
@@ -757,9 +796,16 @@ export async function createDirectorBrief(
       visualThemeName: (parsed.visualThemeName || 'Untitled Composition').trim(),
       mood: (parsed.mood || 'contemporary, clean, confident').trim(),
       reasoning: (parsed.reasoning || '').trim(),
+      // v55.x photographic spec — safe defaults if the model omitted a field, so the
+      // assembler always has a usable spec rather than a missing dimension.
+      lighting: (parsed.lighting || 'soft natural directional light with gentle fill, clear depth').trim(),
+      camera: (parsed.camera || '50mm full-frame, eye-level, balanced depth of field').trim(),
+      qualityBar: (parsed.qualityBar || 'premium magazine-print sharpness, fine detail, professional color grade').trim(),
+      avoidNotes: (parsed.avoidNotes || 'distorted faces, extra fingers, warped or misspelled lettering, cluttered composition, flat amateur clip-art').trim(),
     }
 
     console.log(`[Lab Creative Director v54.0] ✅ "${output.visualThemeName}" — mood: ${output.mood} — prompt ${output.prosePrompt.length} chars`)
+    console.log(`[Lab Creative Director v55.x] 📷 lighting: ${output.lighting} | camera: ${output.camera}`)
 
     // Track API usage (cost flows to dashboard)
     if (options?.trackUsage) {
@@ -810,13 +856,46 @@ function heuristicFallback(input: DirectorInput): DirectorResult {
   const { eventName, subjectType, compositionStrategy, brandColors, hasReferencePhoto } = input
   const colorMention = `${brandColors.primary}${brandColors.secondary ? ` and ${brandColors.secondary}` : ''}`
 
+  // People-substance events must stay POPULATED even on the rule-based fallback —
+  // otherwise an API failure silently reverts to the empty-emblem look this whole
+  // override was built to prevent. The classifier already routes most of these to
+  // subjectType='activity'; this keyword net is a safety layer for concept-classified
+  // people-events (annual day, workshop, summit, awareness drive, etc.).
+  const peopleEventRe = /\b(annual day|college day|school day|cultural|celebration|function|farewell|fresher|reunion|get-?together|fest|festival|talent|sports|marathon|workshop|training|seminar|orientation|conference|summit|symposium|awareness|graduation|convocation|felicitation|carnival|gathering)\b/i
+  const isPeopleEvent =
+    subjectType === 'activity' ||
+    compositionStrategy === 'activity-collage' ||
+    (peopleEventRe.test(eventName) && subjectType !== 'product' && subjectType !== 'place' && subjectType !== 'person')
+
   let prose = ''
   if (subjectType === 'person' && hasReferencePhoto) {
     prose = `A clean contemporary portrait composition for "${eventName}". The central focus is the attached reference portrait, rendered directly from the photo with face and expression preserved exactly. Modern editorial framing against a clean ${colorMention} backdrop with soft warm directional lighting. The subject is the only figure in the frame — no crowds, no decorative clutter. Generous calm space above and below for typography. Mood: confident, warm, contemporary. Keep the top 40% (first 576 pixels) and bottom 18% (last 260 pixels) as soft atmospheric continuation of the background — completely empty of decorative elements, confetti, icons, text, faces, or figures. Sharp will composite logo bars and footer typography in those regions afterwards.`
+  } else if (isPeopleEvent) {
+    prose = `A vibrant, populated event poster for "${eventName}". Real people are the heart of the frame — an engaged audience and figures mid-action (performing, participating, celebrating together) inside a believable, on-theme venue rendered with warm directional light and genuine depth. Authentic, energetic, human — never an empty venue or a lone floating emblem. The brand palette (${colorMention}) carries across the scene as light, accent and atmosphere; a strong central motif may anchor the composition, but the people populate it. Keep the top 40% (first 576 pixels) and bottom 18% (last 260 pixels) as soft atmospheric continuation of the background — empty of text, icons, figures and decorative elements. Sharp will composite logo bars and footer typography in those regions afterwards.`
   } else if (subjectType === 'concept' || compositionStrategy === 'concept-iconic') {
-    prose = `A clean modern brand poster for "${eventName}". A single bold geometric icon dominates the centre, rendered in the brand palette (${colorMention}) against a smooth gradient field. No people, no clutter, generous negative space, Apple-keynote restraint. Modern contemporary tech-brand aesthetic. Keep the top 40% and bottom 18% as smooth atmospheric continuation of the background — empty of decorative elements. Sharp will composite logo bars and footer typography afterwards.`
+    prose = `A clean modern brand poster for "${eventName}". A single bold geometric icon dominates the centre, rendered in the brand palette (${colorMention}) against a smooth gradient field. Generous negative space, Apple-keynote restraint, minimal or no human figures — appropriate because this brief is an abstract idea or product, not a people-event. Keep the top 40% and bottom 18% as smooth atmospheric continuation of the background — empty of decorative elements. Sharp will composite logo bars and footer typography afterwards.`
   } else {
     prose = `A modern contemporary event poster for "${eventName}". Clean composition in the brand palette (${colorMention}), generous negative space, modern editorial sensibility, restrained decoration. Keep the top 40% and bottom 18% as smooth atmospheric continuation of the background — empty of decorative elements. Sharp will composite logo bars and footer typography afterwards.`
+  }
+
+  // v55.x: per-branch photographic spec so the fallback still carries all four
+  // dimensions (the assembler expects them present even when the API is down).
+  let lighting = 'soft natural directional light with gentle fill, clear depth'
+  let camera = '50mm full-frame, eye-level, balanced depth of field'
+  const qualityBar = 'premium magazine-print sharpness, fine detail, professional color grade'
+  let avoidNotes = 'warped or misspelled lettering, cluttered composition, flat amateur clip-art, muddy colors'
+  if (subjectType === 'person' && hasReferencePhoto) {
+    lighting = 'soft window light raking from camera-left, gentle natural fill, sculpted warm highlight'
+    camera = '85mm, f/1.8, shallow depth of field, head-and-shoulders crop'
+    avoidNotes = 'distorted or duplicated face, extra fingers, unnatural skin, warped lettering, cluttered background'
+  } else if (isPeopleEvent) {
+    lighting = 'bright warm directional daylight, lively high-key ambience, genuine depth'
+    camera = '35mm full-frame, f/4, eye-level, fast shutter freezing motion'
+    avoidNotes = 'empty venue, lone floating emblem, distorted faces, extra limbs, frozen-stiff poses, warped lettering'
+  } else if (subjectType === 'concept' || compositionStrategy === 'concept-iconic') {
+    lighting = 'clean even studio light with a single confident accent glow'
+    camera = 'flat front-on editorial view, centred composition, crisp edges'
+    avoidNotes = 'visual clutter, busy background, warped lettering, low-contrast muddiness'
   }
 
   return {
@@ -825,6 +904,10 @@ function heuristicFallback(input: DirectorInput): DirectorResult {
       visualThemeName: 'Heuristic Fallback Composition',
       mood: 'contemporary, clean, neutral',
       reasoning: 'API unavailable or output malformed — generated from rule-based template.',
+      lighting,
+      camera,
+      qualityBar,
+      avoidNotes,
     },
     usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0, cacheCreationTokens: 0, totalTokens: 0, latencyMs: 0 },
   }

@@ -55,6 +55,43 @@ export interface FormatZones {
   speakerPhotoZone?: ZoneBoundary
 }
 
+/**
+ * Director-facing profile for the Forge Creative Director (lib/agents/forge-creative-director.ts).
+ *
+ * The Director's system prompt is written for a 1080×1440 vertical poster — it tells Gemini to
+ * keep the "top 40% / bottom 18%" empty for composited logo bars. That layout is WRONG for a square
+ * Instagram post or a wide Facebook cover. This profile gives the Director (and the assembler) the
+ * canvas SHAPE, the format's JOB, and the EXACT reserve bands to keep atmospheric — so every format
+ * composes to its own shape instead of a tall poster.
+ *
+ * `event_poster` (poster_portrait) reproduces the current behaviour exactly: reserveTopPct=40 →
+ * 1440×0.40 = 576px, reserveBottomPct=18. Other categories get shape-appropriate bands.
+ */
+export interface DirectorProfile {
+  /** One-line canvas shape, e.g. "a square 1:1 social post". Used in the Director's FORMAT PROFILE block. */
+  shape: string
+  /** One-line statement of the format's job, e.g. a scroll-stopping feed post vs a formal certificate. */
+  purpose: string
+  /**
+   * % of canvas HEIGHT to keep as quiet atmospheric background at the TOP (for a composited logo bar).
+   * Anchored to headerZone.end so the Director's reserve aligns with the spatial verifier's detection zone.
+   */
+  reserveTopPct: number
+  /**
+   * % of canvas HEIGHT to keep quiet at the BOTTOM (for a composited footer strip).
+   * Explicit per category; the route's forbidden-zone footer threshold is 100 - reserveBottomPct.
+   */
+  reserveBottomPct: number
+  /**
+   * Whether a Yi footer strip (hashtag / website / social handle / partner logos) is composited for
+   * this format. When false, the assembler does NOT tell Gemini to avoid that content — formats like
+   * business cards and thumbnails legitimately carry their own contact / CTA text.
+   */
+  footerStripActive: boolean
+  /** Optional extra composition guidance unique to the shape (e.g. Facebook cover profile-photo occlusion). */
+  safeZoneNotes?: string
+}
+
 // ============================================================================
 // Zone Configurations
 // ============================================================================
@@ -157,6 +194,105 @@ const ZONE_CONFIGS: Record<FormatCategory, FormatZones> = {
   }
 }
 
+/**
+ * Director profiles per format category.
+ *
+ * reserveTopPct mirrors each category's headerZone.end (keeps Director reserve aligned with the
+ * spatial verifier's header detection zone). reserveBottomPct is set explicitly — poster_portrait
+ * MUST stay 18 so event_poster output is unchanged (the forbidden-zone footer threshold derives from
+ * 100 - reserveBottomPct = 82, matching the legacy value).
+ */
+const DIRECTOR_PROFILES: Record<FormatCategory, DirectorProfile> = {
+  poster_portrait: {
+    shape: 'a tall vertical poster (portrait, roughly 3:4 to 4:5)',
+    purpose:
+      'a premium event/announcement poster — a clear hero, a dominant headline, and supporting details stacked in the lower-middle band.',
+    reserveTopPct: 40,
+    reserveBottomPct: 18,
+    footerStripActive: true,
+  },
+  poster_landscape: {
+    shape: 'a wide landscape key visual (roughly 16:9)',
+    purpose:
+      'a wide, punchy key visual — ONE strong focal point (an expressive face or object) plus a few genuinely LARGE words, instantly readable even at small thumbnail size.',
+    reserveTopPct: 20,
+    reserveBottomPct: 14,
+    footerStripActive: false,
+    safeZoneNotes:
+      'Landscape: keep the composition horizontally balanced; the focal subject can sit to one side with the headline filling the other.',
+  },
+  poster_square: {
+    shape: 'a square 1:1 social feed post',
+    purpose:
+      'a scroll-stopping square feed post — one bold central focal point, breathing room for a short punchy headline, legible as a small thumbnail.',
+    reserveTopPct: 30,
+    reserveBottomPct: 14,
+    footerStripActive: true,
+  },
+  certificate: {
+    shape: 'a formal landscape certificate (roughly 4:3)',
+    purpose:
+      'a formal certificate — a centred, symmetrical, ornate-but-restrained layout with generous margins and an elegant border; calm, official, ceremonial.',
+    reserveTopPct: 15,
+    reserveBottomPct: 12,
+    footerStripActive: false,
+    safeZoneNotes:
+      'Certificate: centre the composition symmetrically; leave clear horizontal space mid-lower for the recipient name and signatory lines.',
+  },
+  social_portrait: {
+    shape: 'a tall 9:16 vertical story / reel cover',
+    purpose:
+      'a full-screen vertical mobile story — one immersive focal subject filling the frame, a short bold headline, designed to be glanced at in seconds.',
+    reserveTopPct: 20,
+    reserveBottomPct: 14,
+    footerStripActive: true,
+    safeZoneNotes:
+      'Story: keep the very top and very bottom clear of essential content — platform UI (profile chip, reply bar) overlays those edges.',
+  },
+  social_landscape: {
+    shape: 'a wide landscape social post (roughly 1.91:1)',
+    purpose:
+      'a wide feed post / link card — a confident horizontal composition with the focal subject on one side and a strong headline on the other.',
+    reserveTopPct: 15,
+    reserveBottomPct: 12,
+    footerStripActive: true,
+  },
+  presentation: {
+    shape: 'a 16:9 presentation slide',
+    purpose:
+      'a clean presentation slide — generous content space, a clear title area, restrained decoration, professional and legible from a distance.',
+    reserveTopPct: 10,
+    reserveBottomPct: 10,
+    footerStripActive: false,
+  },
+  document: {
+    shape: 'an A4/A5 document page (portrait)',
+    purpose:
+      'a formal document cover/page — structured margins, a clear title block, restrained professional layout.',
+    reserveTopPct: 10,
+    reserveBottomPct: 8,
+    footerStripActive: false,
+  },
+  card: {
+    shape: 'a small card (e.g. a business card)',
+    purpose:
+      'a compact card — minimal, precise, high-contrast; a small number of elements with deliberate spacing. Contact details are part of the design here.',
+    reserveTopPct: 15,
+    reserveBottomPct: 12,
+    footerStripActive: false,
+  },
+  ultrawide: {
+    shape: 'an ultra-wide cover / banner (roughly 21:9 or wider)',
+    purpose:
+      'a wide cinematic cover banner — a panoramic horizontal scene with the headline and focal interest weighted to one region, lots of calm negative space elsewhere.',
+    reserveTopPct: 12,
+    reserveBottomPct: 10,
+    footerStripActive: false,
+    safeZoneNotes:
+      'Cover banner: keep the lower-left region calmer — on Facebook/LinkedIn the profile photo and page name overlap that corner.',
+  },
+}
+
 // ============================================================================
 // Format to Category Mapping
 // ============================================================================
@@ -242,6 +378,16 @@ export function getFormatCategory(formatId: string): FormatCategory {
 export function getFormatZones(formatId: string): FormatZones {
   const category = getFormatCategory(formatId)
   return ZONE_CONFIGS[category]
+}
+
+/**
+ * Get the Director profile (canvas shape, format job, reserve bands) for a format ID.
+ * Falls back to poster_portrait for unknown formats — same default as getFormatCategory, so an
+ * unmapped format behaves exactly like event_poster (the historical default).
+ */
+export function getFormatProfile(formatId: string): DirectorProfile {
+  const category = getFormatCategory(formatId)
+  return DIRECTOR_PROFILES[category]
 }
 
 /**

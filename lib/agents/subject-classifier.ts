@@ -119,6 +119,7 @@ activity — Event featuring multiple distinct activities or experiences.
     • Description lists 3+ activities (e.g. "Dance performances, Singing & music, Stage events, Talent showcases").
     • Cultural fest, hackathon, sports day, carnival, talent show, club fest.
     • Words like "activities", "events", "shows", "performances", "competitions" plural.
+    • LIVE CELEBRATION / annual-function events — Annual Day, College Day, Cultural Night / Cultural Programme, Annual Celebration / Annual Function, Farewell, Freshers' Celebration, Talent Show, Get-together — where students or members PERFORM on a stage before an audience. These are activity EVEN WHEN specific acts are NOT enumerated: the occasion itself implies a stage, performers (dance / song / skit), and an appreciative audience. An abstract THEME line (e.g. "Beyond Boundaries, Beyond Dreams") is decorative framing — it does NOT turn a live celebration into an abstract concept. (Festival / national-day GREETINGS like "Happy Diwali" / "Republic Day Wishes" stay concept — those are commemorative wishes, not a live performance programme.)
 
 product — Launch or showcase of a physical or digital object.
   Strong signals:
@@ -134,7 +135,7 @@ place — Place / venue / facility is the subject.
 DECISION ORDER (apply top-to-bottom; stop at first match)
 ═══════════════════════════════════════════════════════════════
 1. If a single specific person is being honored / spotlighted / memorialized (per "person" signals) → person.
-2. Else if multiple distinct activities are explicitly listed → activity.
+2. Else if multiple distinct activities are explicitly listed, OR the event is fundamentally a live celebration / performance gathering (annual day, college day, cultural night / programme, annual function / celebration, farewell, talent show) → activity.
 3. Else if a launch / reveal of an object is described → product.
 4. Else if a place / venue is the subject → place.
 5. Otherwise → concept.
@@ -254,6 +255,7 @@ EDGE-CASE NOTES
 - A "Republic Day" / "Independence Day" / "Diwali" / "Pongal" / "Christmas" greeting poster → concept (the festival/day is the abstract subject).
 - A sports tournament listing matches / categories → activity. A single championship match → concept (the match itself, not multiple activities).
 - A graduation / convocation poster: if a specific graduand is named → person; if it's a general convocation announcement → concept.
+- DISTINGUISH a live CELEBRATION EVENT from a GREETING poster: "Annual Day", "College Day", "Cultural Night", "Annual Function / Celebration", "Farewell", "Talent Show" are LIVE events with a stage + performers + audience → activity (even without an itemised act list — the occasion implies the people). A festival / national-day GREETING ("Happy Diwali", "Republic Day Greetings", "Pongal Wishes") is a commemorative wish with no live programme → concept. Test: does the poster announce a live event where people perform and gather (activity), or extend wishes for a day / festival (concept)?
 
 ═══════════════════════════════════════════════════════════════
 COMMON MISTAKES TO AVOID
@@ -317,6 +319,10 @@ EXTENDED EXAMPLE BANK (study the boundary, not just the obvious case)
   → activity, activity-collage. Multi-track event.
 - eventName="Tech Symposium", description="Paper presentations, poster sessions, panel discussions, workshops"
   → activity, activity-collage. Multi-segment symposium.
+- eventName="Annual Day Celebration 2026", description="Beyond Boundaries, Beyond Dreams", targetAudience="students, parents, faculty"
+  → activity, activity-collage. A college Annual Day is a LIVE stage celebration — students perform (dance, music, skits) before an audience. The abstract theme is decorative framing, NOT a reason to drop the people or go emblem-only. confidence 0.8.
+- eventName="College Day & Cultural Night", description="An evening of student performances and prize distribution"
+  → activity, activity-collage. Live celebration: stage performances + audience, even though the acts aren't itemised.
 
 [product] examples — boundary cases:
 - eventName="Book Launch: 'Roots & Wings' by Dr. Author Name", description="Author signing event"

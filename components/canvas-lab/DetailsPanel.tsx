@@ -12,7 +12,8 @@ import { SmartPasteInput } from '@/components/create/smart-paste'
 import { useFieldExtraction } from '@/hooks/use-field-extraction'
 import { cn } from '@/lib/utils'
 import type { DynamicSchemaField } from '@/lib/prompts/generate-fields-prompt'
-import type { SpeakerPhotoCustomization, SpeakerItem } from '@/lib/config/design-constants'
+import type { SpeakerPhotoCustomization, SpeakerItem, SpeakerRole } from '@/lib/config/design-constants'
+import { SPEAKER_ROLE_LABELS } from '@/lib/config/design-constants'
 import type { SuggestableField } from '@/types/suggestions'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
 import { getFormatFields } from '@/lib/schemas/formatFieldSchemas'
@@ -581,7 +582,7 @@ export function DetailsPanel({
             speakers={speakerPhotoValue?.speakers || []}
             onAddSpeaker={() => {
               const current = speakerPhotoValue?.speakers || []
-              handleSpeakerPhotoChange({ speakers: [...current, { id: crypto.randomUUID(), name: '', designation: '' }] })
+              handleSpeakerPhotoChange({ speakers: [...current, { id: crypto.randomUUID(), name: '', designation: '', role: 'speaker' }] })
             }}
             onRemoveSpeaker={(id) => {
               const updated = (speakerPhotoValue?.speakers || []).filter(s => s.id !== id)
@@ -702,7 +703,7 @@ function InlineSpeakerSection({ speakers, onAddSpeaker, onRemoveSpeaker, onUpdat
                 </div>
               )}
 
-              {/* Name + Designation inline */}
+              {/* Name + Title/Org inline */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-muted-foreground/60">Name</label>
@@ -714,14 +715,28 @@ function InlineSpeakerSection({ speakers, onAddSpeaker, onRemoveSpeaker, onUpdat
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground/60">Role</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground/60">Title / Org</label>
                   <Input
-                    placeholder="CEO, Company"
+                    placeholder="CEO, JICATE"
                     value={speaker.designation || ''}
                     onChange={(e) => onUpdateSpeaker(speaker.id, { designation: e.target.value })}
                     className="h-8 text-xs bg-muted/30 border-border/50"
                   />
                 </div>
+              </div>
+
+              {/* Event role — renders as a label above the name on the poster */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground/60">Role on poster</label>
+                <select
+                  value={speaker.role || 'speaker'}
+                  onChange={(e) => onUpdateSpeaker(speaker.id, { role: e.target.value as SpeakerRole })}
+                  className="h-8 w-full rounded-md border border-border/50 bg-muted/30 px-2 text-xs"
+                >
+                  {(Object.keys(SPEAKER_ROLE_LABELS) as SpeakerRole[]).map((r) => (
+                    <option key={r} value={r}>{SPEAKER_ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Photo upload */}

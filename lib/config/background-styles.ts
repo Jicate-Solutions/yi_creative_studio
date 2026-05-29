@@ -201,7 +201,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
     designIntelligenceHint:
       'STYLE OVERRIDE — USER SELECTED DARK CINEMATIC (v50.3): Keep the event scene and people from the original concept, but render with deep cinematic lighting — dramatic side-light on faces, hard rim-light shadows, atmospheric haze, spotlight beams, lens flares in brand accent color. Think Roger Deakins / Bradford Young cinematography: rich shadows, sculpted highlights, intentional darkness around the subjects. People and event details remain the focal point; the darkness frames them. NOT empty atmosphere — composed cinematic scene with people in dramatic light. Use CONCEPT 1 (LITERAL SCENE) with cinematic treatment.',
     geminiStyleLock:
-      'Roger Deakins cinematography. The frame lives in shadow — 70% of the canvas is rich darkness, 30% is sculpted highlight. Hard sidelight rakes the subject from one direction; the opposite side falls completely into shadow with zero fill. Spotlight beams cut through atmospheric haze as visible volumetric god-rays. Caravaggio chiaroscuro logic — the darkness IS the subject, the light only reveals what the darkness chooses to show. Lens flare burns at one edge in the brand accent color. Subtle 35mm film grain throughout. Decisively dark — not moody, not merely atmospheric — sculpted. Mood: watched, witnessed, important.',
+      'Roger Deakins cinematography. The frame lives in shadow — 70% of the canvas is rich darkness, 30% is sculpted highlight. Hard sidelight rakes the subject from one direction; the opposite side falls completely into shadow with zero fill. Spotlight beams cut through atmospheric haze as visible volumetric god-rays. Caravaggio chiaroscuro logic — the darkness IS the subject, the light only reveals what the darkness chooses to show. Lens flare burns at one edge in the brand accent color. Subtle 35mm film grain throughout. Decisively dark — not moody, not merely atmospheric — sculpted. Mood: watched, witnessed, important. When the brief is an event WITH people (a celebration, performance, ceremony or gathering), the people REMAIN present and are sculpted by this dramatic light — a night stage or ceremony caught in theatrical spill-light, performers and an audience picked out of the shadow — the darkness FRAMES them, it never replaces them with an empty void. Reserve pure subject-free chiaroscuro for single-person tributes or abstract concept reveals.',
     compatibleConcepts: [
       {
         name: 'CHIAROSCURO-PORTRAIT',
@@ -301,6 +301,11 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
         description:
           'Layered flat geometric depth — foreground, mid-ground, background in 3-4 solid tones — with an optional single long-shadow or subtle grain for dimension. Clean modern poster art.',
       },
+      {
+        name: 'FLAT-VECTOR-FIGURE-CAST',
+        description:
+          'A flat-vector cast of people mid-action — performers, students, an engaged audience — built from clean simplified shapes in the limited palette. Crisp and uncluttered, the figures carry the energy. Use for people-events so the poster shows the celebration, not just a lone icon.',
+      },
     ],
     designerReferences: [
       'Malika Favre (bold minimal flat vector, négative space)',
@@ -386,6 +391,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       { name: 'TESSELLATION-FIELD', description: 'A repeating tessellation or grid pattern as a structured graphic ground.' },
       { name: 'DIAGONAL-DYNAMIC-BANDS', description: 'Bold diagonal colour bands creating energy and direction.' },
       { name: 'MEMPHIS-PLAYFUL-GEOMETRY', description: 'Playful Memphis-style shapes and squiggles for youthful, energetic events.' },
+      { name: 'FIGURES-FROM-SHAPES', description: 'Stylised people mid-action assembled from bold geometric shapes — circles, triangles and bands forming performers and an audience (Cassandre / Bauhaus figure-construction). Structured yet alive; use for people-events so figures, not just patterns, carry the energy.' },
     ],
     designerReferences: [
       'Bauhaus (Herbert Bayer, László Moholy-Nagy)',
@@ -456,6 +462,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       { name: 'DIAGONAL-SPLIT-DYNAMIC', description: 'A bold diagonal divide between scene and panel for energy and movement.' },
       { name: 'BEFORE-AFTER-DUALITY', description: 'Two halves contrasting a theme — then/now, problem/solution — carried by the split.' },
       { name: 'TYPE-PANEL-MAGAZINE', description: 'Scene on one side, a generous type panel on the other — editorial-cover discipline.' },
+      { name: 'EVENT-PEOPLE-PANEL', description: 'For a people-event, the photographic half captures a real people-moment — performers mid-action or an engaged audience at shallow depth — and the solid colour panel answers it. People populate the image half, not just a venue or object.' },
     ],
     designerReferences: [
       'New York Times Magazine cover design',
@@ -1056,6 +1063,11 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
         description:
           'Bold hand-carved-feeling linework and hatching for a graphic, hand-printed look — strong black line, limited ink colour, expressive texture.',
       },
+      {
+        name: 'SKETCHED-EVENT-CROWD',
+        description:
+          'A loose hand-drawn scene full of people mid-action — sketched performers and a lively audience with wobbly confident contours, as if drawn on the spot. Warm and immediate; use for people-events so the crowd, not a lone object, carries the page.',
+      },
     ],
     designerReferences: [
       'Christoph Niemann (ink line + wit)',
@@ -1188,6 +1200,11 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
         description:
           'An intricate symmetrical cut-paper motif (sanjhi / kirigami tradition) as the centrepiece — delicate, ornamental, handcrafted.',
       },
+      {
+        name: 'CUT-PAPER-PERFORMERS',
+        description:
+          'Layered cut-paper figures — performers and an audience built as stacked paper silhouettes casting soft shadows, mid-celebration in a paper diorama. Use for people-events so the scene is populated, not a lone motif.',
+      },
     ],
     designerReferences: [
       'Eiko Ojala (digital paper-cut depth + shadow)',
@@ -1238,6 +1255,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       { name: 'MONUMENT-SKYLINE-BAND', description: 'Flat-vector silhouettes of national monuments (India Gate, Qutub Minar) and a green map of India along a lower band, tricolour sky above.' },
       { name: 'CHAKRA-RADIANT-EMBLEM', description: 'The Ashoka chakra as a precise radiant centrepiece, navy on white, with restrained tricolour framing.' },
       { name: 'SALUTING-CITIZEN-VECTOR', description: 'Flat-vector citizens, students or flag-bearers in proud silhouette against a tricolour field — community pride.' },
+      { name: 'CITIZENS-CELEBRATING', description: 'Flat-vector citizens, students or performers mid-celebration as the FOCUS — proud, energetic figures in tricolour styling, with monuments, chakra and map as supporting motifs behind them. Use for people-events so the crowd leads, not the emblem.' },
     ],
     designerReferences: [
       'MyGov / Government of India national-day campaign vector design',
@@ -1378,6 +1396,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       { name: 'VINTAGE-TRAVEL-POSTER', description: 'A WPA / mid-century travel-poster composition with rounded retro display type.' },
       { name: 'ALBUM-SLEEVE-GROOVE', description: '70s record-sleeve warmth — halftone grain, off-register print, analogue character.' },
       { name: 'RETRO-BADGE-LOCKUP', description: 'A circular retro badge or emblem with vintage display type as the focal lockup.' },
+      { name: 'RETRO-FIGURE-POSTER', description: 'WPA / mid-century travel-poster figures — heroic stylised people mid-action rendered in the sun-faded palette with halftone grain and rounded display type. Use for people-events so figures populate the poster, not just a sunset arc.' },
     ],
     designerReferences: [
       '1970s travel & advertising poster design',
@@ -1448,6 +1467,7 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       { name: 'NEWSPRINT-CUTOUT-MIX', description: 'Halftone newsprint cut-outs and stamped type, punk/dada ransom-note energy.' },
       { name: 'PHOTO-FRAGMENT-MONTAGE', description: 'Cut photo fragments montaged with graphic shapes and marks.' },
       { name: 'HANDMADE-MOODBOARD', description: 'A curated-chaotic art-board of mixed materials around the event idea.' },
+      { name: 'ILLUSTRATED-FIGURE-MONTAGE', description: 'Stylised figures — performers, students, an audience — layered with torn paper, tape and marks into an energetic people-scene (illustrated cut-outs or photo fragments both welcome). Use for people-events so the montage centres on people, not only objects and type.' },
     ],
     designerReferences: [
       'Hannah Höch / dada photomontage',
@@ -1622,6 +1642,769 @@ export const BACKGROUND_STYLES: BackgroundStyleOption[] = [
       },
     ],
   },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // v56.0 — Wide style expansion (Modern / Bold / Premium / Cultural / College)
+  // ════════════════════════════════════════════════════════════════════════
+  {
+    id: 'minimal',
+    label: 'Minimal',
+    icon: '⬜',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED MINIMAL (SWISS): Strip everything non-essential. Vast calm negative space, ONE small focal element or a single confident line of type, a tightly limited palette (brand colour + one neutral). No scenes, no clutter, no decoration. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Swiss International Typographic minimalism. Vast disciplined negative space dominates — roughly two-thirds of the canvas is calm empty ground. ONE small, perfectly-placed focal element (a single icon, a thin rule, one word) carries the whole composition on a precise modular grid. A tightly limited palette: one brand colour plus a single neutral, nothing more. Helvetica-era restraint, Dieter Rams "less but better" discipline, Kenya Hara emptiness. No gradients, no texture, no shadow, no decoration of any kind. Mood: confident, premium, intellectual, quiet. The power is in what is left out.',
+    compatibleConcepts: [
+      { name: 'SINGLE-ELEMENT-FOCUS', description: 'One small focal element on a vast calm field — a lone icon, mark, or object placed with surgical precision; the emptiness around it is the design.' },
+      { name: 'GRID-TYPE-COMPOSITION', description: 'A pure typographic composition on a strict modular grid — confident type as the only content, aligned with mathematical Swiss precision.' },
+      { name: 'NEGATIVE-SPACE-HERO', description: 'The empty space itself is the subject; a tiny mark anchors one corner and lets the silence speak (Kenya Hara emptiness).' },
+      { name: 'SINGLE-RULE-DIVIDE', description: 'One thin confident rule divides the field and organises a minimal hierarchy with nothing else.' },
+    ],
+    designerReferences: [
+      'Josef Müller-Brockmann (Swiss grid)',
+      'Dieter Rams (less but better)',
+      'Kenya Hara (MUJI emptiness)',
+      'Massimo Vignelli (timeless modernism)',
+      'Jan Tschichold (the new typography)',
+    ],
+    craftSignatures: [
+      'vast disciplined negative space — at least two-thirds calm empty ground',
+      'one focal element only, placed on a precise modular grid',
+      'a palette of a single brand colour plus one neutral',
+      'clean grotesque sans type, generous margins, mathematical alignment',
+      'no gradients, textures, shadows, or decorative elements anywhere',
+      'confident asymmetry and restraint — the power is in the omission',
+    ],
+    bannedCombinations: [
+      { when: 'this minimal style is selected', avoid: 'busy scenes, multiple competing elements, or decorative motifs', because: 'Minimalism is defined by subtraction; any clutter destroys the entire premise.' },
+      { when: 'a high-energy festival or celebration brief', avoid: 'cold empty minimalism when the brief needs warmth and energy', because: 'It codes intellectual / premium-calm — wrong register for loud joyful events.' },
+      { when: 'this minimal style is selected', avoid: 'gradients, drop-shadows, or photoreal texture', because: 'Those add visual weight that breaks the flat, quiet Swiss discipline.' },
+    ],
+  },
+  {
+    id: 'comic',
+    label: 'Comic',
+    icon: '💥',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED COMIC / MANGA: Render as sequential comic-book art — bold panels, thick ink outlines, ben-day / halftone dot shading, speech bubbles, dynamic action lines, a hand-lettered sound-effect word (POW, ZOOM). Saturated flat colours. NOT fine-art pop (that is pop-modern). Use CONCEPT 1 or 2.',
+    geminiStyleLock:
+      'Comic-book / manga sequential art. Bold black ink outlines on every figure and edge, flat saturated cel colours, ben-day halftone dot shading in the shadows, dynamic speed-lines radiating energy. Characters drawn mid-action with exaggerated dramatic poses and expressive faces. A hand-lettered sound-effect word ("POW", "GO!", "ZOOM") bursts across the frame inside a jagged starburst. Speech bubbles with confident tails. Optional panel-gutter framing. Jack Kirby dynamism meets shonen-manga energy and Hergé ligne-claire cleanliness, with modern webtoon colour. Mood: kinetic, fun, narrative, youthful. The image reads as one electric frame torn from a comic.',
+    compatibleConcepts: [
+      { name: 'ACTION-SPLASH-PAGE', description: 'A single dramatic comic splash-page moment — the hero mid-action, speed-lines exploding outward, a sound-effect word bursting across the frame.' },
+      { name: 'MANGA-HERO-CLOSEUP', description: 'A shonen-manga close-up — expressive determined face, screentone shading, dramatic ink, motion focus-lines converging on the eyes.' },
+      { name: 'MULTI-PANEL-STRIP', description: 'Two or three clean comic panels with gutters telling a tiny sequence of the event, ligne-claire clarity.' },
+      { name: 'SOUND-EFFECT-TYPO', description: 'A giant hand-lettered onomatopoeia ("SMASH", "WIN!") IS the hero graphic, with a small action vignette tucked beneath.' },
+    ],
+    designerReferences: [
+      'Jack Kirby (dynamic Marvel action)',
+      'Hergé (Tintin ligne claire)',
+      'Roy Lichtenstein (ben-day comic panels)',
+      'shonen manga (One Piece / Naruto energy)',
+      'modern webtoon colour',
+    ],
+    craftSignatures: [
+      'thick confident black ink outlines on every figure and edge',
+      'flat saturated cel colours with ben-day / screentone halftone shading',
+      'dynamic speed-lines and motion focus radiating energy',
+      'a hand-lettered sound-effect word inside a jagged starburst',
+      'speech bubbles with confident tails, optional panel gutters',
+      'exaggerated dramatic poses and expressive faces',
+    ],
+    bannedCombinations: [
+      { when: 'this comic style is selected', avoid: 'photoreal skin, lens blur, or documentary realism', because: 'Comic art is inked and cel-shaded; photoreal elements shatter the look.' },
+      { when: 'a solemn, formal, or memorial brief', avoid: 'kinetic comic energy and sound-effect bursts', because: 'It codes fun / youthful narrative — wrong register for solemn occasions.' },
+      { when: 'this comic style is selected', avoid: 'fine-art pop screen-print silkscreen treatment (that is pop-modern territory)', because: 'Comic is sequential narrative line-art, not gallery pop-art; mixing the two confuses the style.' },
+    ],
+  },
+  {
+    id: 'aurora',
+    label: 'Aurora',
+    icon: '🌌',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED AURORA GRADIENT: Generate a smooth flowing holographic mesh gradient in the brand palette — soft luminous colour blending like northern lights, gentle glow, generous depth. Modern tech-brand vibe. No scenes or people. Use CONCEPT 3.',
+    geminiStyleLock:
+      'Modern tech-brand aurora gradient. A smooth flowing mesh-gradient fills the frame — luminous colour blending softly like northern lights or a long-exposure sky, the brand palette melting through saturated mids into deep edges. Gentle volumetric glow blooms from within the gradient; subtle grain keeps it from banding. Soft floating light-wisps add depth. Instagram-2016 / Stripe / Apple-keynote gradient confidence. Typography sits crisp and bright over the luminous field. Mood: modern, optimistic, premium-tech, weightless. The colour itself is the whole world.',
+    compatibleConcepts: [
+      { name: 'MESH-GRADIENT-FIELD', description: 'A smooth flowing mesh gradient blending the brand palette like aurora light — the luminous field is the entire composition.' },
+      { name: 'AURORA-GLOW-DEPTH', description: 'Northern-lights ribbons of soft glow drift across deep space with volumetric depth, brand colours melting together.' },
+      { name: 'HOLOGRAPHIC-SHEEN', description: 'An iridescent holographic sheen shifts across the field, modern and premium, type sitting bright over it.' },
+      { name: 'LIGHT-WISP-ATMOSPHERE', description: 'Soft floating light-wisps and bloom add gentle depth to a luminous gradient ground.' },
+    ],
+    designerReferences: [
+      'Instagram 2016 gradient rebrand',
+      'Stripe brand gradients',
+      'Apple keynote aurora backdrops',
+      'holographic / iridescent foil design',
+      'long-exposure aurora photography',
+    ],
+    craftSignatures: [
+      'a smooth flowing mesh gradient blending the brand palette, no hard edges',
+      'gentle volumetric glow blooming from within the field',
+      'subtle grain to prevent banding',
+      'soft floating light-wisps for depth',
+      'crisp bright typography sitting over the luminous ground',
+      'modern, optimistic, premium-tech weightlessness',
+    ],
+    bannedCombinations: [
+      { when: 'text legibility matters', avoid: 'the brightest glow directly behind the headline', because: 'Bloom behind type kills contrast; keep one calmer zone for the type to sit on.' },
+      { when: 'this aurora style is selected', avoid: 'hard geometric edges, realistic scenes, or figures', because: 'Aurora is pure flowing luminous colour; literal elements break the field.' },
+      { when: 'a heritage, cultural, or solemn event', avoid: 'glossy tech-brand aurora', because: 'It codes modern SaaS / tech — mismatched on warm heritage or solemn briefs.' },
+    ],
+  },
+  {
+    id: 'isometric',
+    label: 'Isometric',
+    icon: '📐',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED ISOMETRIC: Generate a clean axonometric (isometric) 3D vector illustration — a tiny detailed world or object built on 30-degree isometric geometry, flat brand-palette colours with soft long shadows. Tech / education vibe. Use CONCEPT 2.',
+    geminiStyleLock:
+      'Clean isometric vector illustration. A precise axonometric world built on 30-degree isometric geometry — tiny detailed buildings, devices, people, or objects rendered as crisp flat-shaded 3D blocks in the brand palette. Each surface is a flat tone with one lighter top-face and one darker side-face giving clean dimension; soft long ambient-occlusion shadows ground every element. No perspective vanishing point — parallel edges throughout. Floating modular tiles and subtle depth layers. Modern tech / SaaS / explainer-illustration vocabulary. Mood: organised, smart, friendly, contemporary. A neat little world seen from a perfect three-quarter angle.',
+    compatibleConcepts: [
+      { name: 'ISO-MINI-WORLD', description: 'A tiny detailed isometric world — a campus, a stage, a workspace — built from clean 3D blocks; the little diorama IS the design.' },
+      { name: 'ISO-OBJECT-HERO', description: 'One hero object (a trophy, device, book, rocket) rendered as a crisp isometric 3D model floating on a calm field.' },
+      { name: 'ISO-PROCESS-FLOW', description: 'Isometric tiles connected in a flow showing the event journey or steps, modular and clear.' },
+      { name: 'ISO-STACKED-LAYERS', description: 'Floating stacked isometric layers with depth and soft shadows, modern explainer-illustration depth.' },
+    ],
+    designerReferences: [
+      'modern SaaS isometric explainer illustration',
+      'technical / axonometric architectural drawing',
+      'isometric pixel-art tradition',
+      'Monument Valley game art',
+      'Material Design isometric spot-illustration',
+    ],
+    craftSignatures: [
+      'strict 30-degree isometric geometry — parallel edges, no perspective vanishing point',
+      'flat-shaded faces: a lighter top, a darker side, clean dimension',
+      'soft long ambient-occlusion shadows grounding each element',
+      'a tightly limited brand palette across all blocks',
+      'floating modular tiles and subtle depth layers',
+      'organised, smart, friendly, contemporary',
+    ],
+    bannedCombinations: [
+      { when: 'this isometric style is selected', avoid: 'realistic perspective, photoreal texture, or lens blur', because: 'Isometric is parallel-projection flat-shaded vector; perspective or photoreal breaks the projection.' },
+      { when: 'a warm, emotional, or heritage event', avoid: 'cool technical isometric when warmth is needed', because: 'It codes tech / explainer — can feel clinical on warm cultural briefs.' },
+      { when: 'this isometric style is selected', avoid: 'messy organic clutter with no grid logic', because: 'Isometric power is in clean modular order; chaos makes it look amateur.' },
+    ],
+  },
+  {
+    id: 'vaporwave',
+    label: 'Y2K',
+    icon: '🪩',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED Y2K / VAPORWAVE: Generate retro-futurist 80s-90s nostalgia — chrome 3D lettering, holographic gradients, neon pink-and-cyan, a glowing perspective grid running to a sunset horizon, glitch and CRT-scanline texture. Use CONCEPT 3.',
+    geminiStyleLock:
+      'Y2K / vaporwave retro-futurism. Liquid-chrome 3D lettering with rainbow holographic reflections, a hot-pink-and-cyan neon palette over deep indigo, a glowing magenta perspective grid running to a gradient sunset horizon. Wireframe shapes, low-poly classical busts, palm silhouettes and dolphins float as nostalgic 90s clip-motifs. CRT scanlines, subtle glitch displacement, and chromatic aberration at the edges. Windows-95 / mall-poster / synthwave-album energy. Mood: nostalgic, dreamy, ironic, electric. The image feels beamed from a 1995 vision of the future.',
+    compatibleConcepts: [
+      { name: 'CHROME-TYPE-HERO', description: 'Liquid-chrome 3D lettering with holographic rainbow reflections dominates as the hero, floating over a neon grid.' },
+      { name: 'SYNTHWAVE-GRID-HORIZON', description: 'A glowing magenta perspective grid runs to a gradient sunset horizon — outrun / synthwave energy.' },
+      { name: 'Y2K-CLIPART-COLLAGE', description: 'Nostalgic 90s clip-motifs — low-poly busts, dolphins, palms, stars — collaged over a holographic field.' },
+      { name: 'GLITCH-CRT-FIELD', description: 'CRT scanlines, glitch displacement, and chromatic aberration over a neon gradient — retro-tech texture.' },
+    ],
+    designerReferences: [
+      'vaporwave aesthetic (Macintosh Plus era)',
+      'synthwave / outrun album art',
+      '1990s Windows / mall graphic design',
+      'holographic Y2K product packaging',
+      'retro-futurist VHS / CRT visuals',
+    ],
+    craftSignatures: [
+      'liquid-chrome 3D lettering with holographic rainbow reflections',
+      'a hot-pink-and-cyan neon palette over deep indigo',
+      'a glowing perspective grid running to a gradient sunset horizon',
+      'CRT scanlines, glitch displacement, chromatic aberration',
+      'nostalgic 90s clip-motifs (busts, palms, dolphins, stars)',
+      'nostalgic, dreamy, ironic, electric',
+    ],
+    bannedCombinations: [
+      { when: 'this Y2K style is selected', avoid: 'muted natural palettes or documentary realism', because: 'Vaporwave lives on neon artifice; natural restraint kills it.' },
+      { when: 'a formal, corporate, or solemn event', avoid: 'ironic retro-futurist Y2K kitsch', because: 'It codes nostalgic / playful — wrong register for serious or solemn briefs.' },
+      { when: 'text legibility matters', avoid: 'heavy glitch and scanlines across the headline', because: 'Glitch over type destroys readability; keep the headline zone cleaner.' },
+    ],
+  },
+  {
+    id: 'grunge',
+    label: 'Grunge',
+    icon: '🎸',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED GRUNGE / ZINE: Distressed punk gig-poster — torn paper, photocopier grit, rough halftone, spray and ink splatter, ransom-note / Xerox typography, high-contrast scratchy textures. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Punk zine / gig-poster grunge. Distressed photocopier-degraded textures throughout — high-contrast blown-out Xerox halftone, torn and taped paper edges, ink splatter, spray-paint overspray, scratched and scribbled marks, coffee-stain grime. Ransom-note cut-and-paste typography mixing clashing weights, photocopied-to-death contrast, slight skew and misalignment. A raw limited palette — often near-monochrome with one aggressive spot colour. David Carson deconstruction, Jamie Reid Sex-Pistols cut-up energy, 90s skate-zine rawness. Mood: rebellious, raw, urgent, anti-design. The image looks photocopied, torn, and stuck to a wall.',
+    compatibleConcepts: [
+      { name: 'XEROX-RANSOM-NOTE', description: 'Cut-and-paste ransom-note typography over blown-out photocopier halftone — Jamie Reid punk energy, raw and urgent.' },
+      { name: 'TORN-TAPED-COLLAGE', description: 'Torn paper layers, masking tape, and stapled fragments collaged with grit and one spot colour.' },
+      { name: 'SPLATTER-OVERSPRAY', description: 'Ink splatter and spray overspray erupt across a distressed field, gig-poster aggression.' },
+      { name: 'DECONSTRUCTED-TYPE', description: 'David-Carson deconstruction — type smashed, skewed, overlapped, broken on purpose.' },
+    ],
+    designerReferences: [
+      'David Carson (Ray Gun deconstruction)',
+      'Jamie Reid (Sex Pistols cut-up)',
+      'punk / hardcore zine culture',
+      'screen-printed gig posters',
+      '90s skate-graphic rawness',
+    ],
+    craftSignatures: [
+      'high-contrast blown-out photocopier Xerox halftone',
+      'torn and taped paper edges, ink splatter, spray overspray',
+      'ransom-note cut-and-paste type with clashing weights and skew',
+      'a raw near-monochrome palette plus one aggressive spot colour',
+      'scratched, scribbled, grimy distressed textures',
+      'rebellious, raw, urgent, anti-design',
+    ],
+    bannedCombinations: [
+      { when: 'a premium, corporate, or formal brief', avoid: 'raw photocopier grunge and ransom-note chaos', because: 'It codes rebellious / lo-fi — the opposite of polished or corporate.' },
+      { when: 'this grunge style is selected', avoid: 'clean gradients, glossy polish, or pristine vector edges', because: 'Polish defeats the deliberately degraded, torn aesthetic.' },
+      { when: 'critical details (date, venue) must stay legible', avoid: 'distressing the essential info into illegibility', because: 'Grunge can shred readability — keep the must-read lines on a cleaner patch.' },
+    ],
+  },
+  {
+    id: 'street',
+    label: 'Street Art',
+    icon: '🧨',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED STREET ART / GRAFFITI: Urban wall graffiti — spray-paint wildstyle lettering, stencil art (Banksy), drips, paste-ups, sticker-bomb, brick / concrete texture. Bold and rebellious. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Urban street-art graffiti. A textured brick, concrete, or shuttered-wall ground tagged with vivid spray-paint — wildstyle bubble lettering with hard drips and highlights, a crisp stencil motif (Banksy single-colour spray-through), layered paste-up posters and sticker-bombs peeling at the corners, a two-tone throw-up. Aerosol overspray haze, dripping paint, scuffed grime. Bold saturated street palette over the wall neutrals. NYC-subway / Bristol-stencil / contemporary-mural energy. Mood: rebellious, urban, energetic, unsanctioned. The image looks sprayed onto a real city wall.',
+    compatibleConcepts: [
+      { name: 'WILDSTYLE-LETTERING', description: 'Vivid spray-paint wildstyle bubble lettering with drips and highlights dominates the wall as the hero.' },
+      { name: 'STENCIL-MOTIF', description: 'A crisp single-colour spray-through stencil motif (Banksy energy) sits on textured concrete.' },
+      { name: 'PASTEUP-STICKER-BOMB', description: 'Layered paste-up posters and a sticker-bomb peel at the corners over a tagged wall.' },
+      { name: 'MURAL-WALL-SCENE', description: 'A bold contemporary street mural fills a real brick / shutter wall, saturated and energetic.' },
+    ],
+    designerReferences: [
+      'NYC subway graffiti tradition',
+      'Banksy (stencil street art)',
+      'Keith Haring (bold street line)',
+      'contemporary urban muralism',
+      'sticker / paste-up culture',
+    ],
+    craftSignatures: [
+      'a textured brick / concrete / shutter wall ground',
+      'spray-paint wildstyle lettering with hard drips and highlights',
+      'a crisp single-colour spray-through stencil motif',
+      'layered paste-ups and sticker-bombs peeling at the corners',
+      'aerosol overspray haze, dripping paint, scuffed grime',
+      'rebellious, urban, energetic, unsanctioned',
+    ],
+    bannedCombinations: [
+      { when: 'a formal, heritage, or solemn brief', avoid: 'unsanctioned street-graffiti rawness', because: 'It codes urban / rebellious — wrong register for formal or solemn occasions.' },
+      { when: 'this street style is selected', avoid: 'clean studio backgrounds or glossy vector polish', because: 'Street art needs the gritty wall and aerosol texture; polish breaks the illusion.' },
+      { when: 'used for a tamil-nadu / india event', avoid: 'western-only subway-tag clichés with no local relevance', because: 'In India lean to contemporary Indian street-mural energy so it reads locally, not as imported pastiche.' },
+    ],
+  },
+  {
+    id: 'risograph',
+    label: 'Risograph',
+    icon: '🖨️',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED RISOGRAPH: Indie riso print — 2 to 3 bright spot inks (no full CMYK), visible coarse grain, deliberate layer misregistration, overprint blend where inks overlap, matte paper. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Risograph print craft. The image is built from just two or three bright spot inks (fluoro pink, blue, yellow, green) — NO full-colour photography — laid as separate layers with deliberate misregistration, so edges sit slightly offset and overlapping inks overprint into a third multiplied hue. Coarse riso grain and gentle mottle throughout, matte uncoated-paper texture, a slightly imperfect hand-printed charm. Simplified flat shapes and halftone gradients in each ink. Contemporary indie art-print / riso-zine energy. Mood: warm, crafty, indie, tactile. The image looks pulled off a real risograph drum.',
+    compatibleConcepts: [
+      { name: 'TWO-INK-SCENE', description: 'A simplified scene in two spot inks with overprint where they overlap, indie riso warmth.' },
+      { name: 'MISREGISTER-LAYERS', description: 'Deliberately offset ink layers create a charming hand-printed misregistration effect.' },
+      { name: 'RISO-HALFTONE-GRADIENT', description: 'Coarse riso halftone gradients in each spot ink build soft tone from flat colour.' },
+      { name: 'OVERPRINT-MOTIF', description: 'A bold motif where two inks overlap into a multiplied third hue — the overprint IS the highlight.' },
+    ],
+    designerReferences: [
+      'contemporary risograph art-print studios',
+      'riso-zine / indie comics culture',
+      'mid-century spot-colour print',
+      'Risotto Studio / Nous Vous riso work',
+      'fluoro-ink screen-print tradition',
+    ],
+    craftSignatures: [
+      'only two or three bright spot inks — no full CMYK photography',
+      'deliberate layer misregistration with slightly offset edges',
+      'overprint blend where inks overlap into a multiplied hue',
+      'coarse riso grain and gentle mottle throughout',
+      'matte uncoated-paper texture and hand-printed charm',
+      'simplified flat shapes with riso-halftone gradients',
+    ],
+    bannedCombinations: [
+      { when: 'this risograph style is selected', avoid: 'full-colour photoreal rendering or glossy gradients', because: 'Riso is a limited spot-ink print; full colour and gloss break the craft.' },
+      { when: 'a high-gloss premium or corporate brief', avoid: 'imperfect indie riso grain and misregistration', because: 'It codes crafty / indie, not slick-premium — register mismatch.' },
+      { when: 'this risograph style is selected', avoid: 'more than three inks or seamless registration', because: 'The whole identity is few inks plus visible misregistration; cleaning that up loses the look.' },
+    ],
+  },
+  {
+    id: 'luxury',
+    label: 'Luxury',
+    icon: '👑',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED LUXURY GALA: Black or deep-jewel ground with real gold-foil accents, elegant high-contrast serif type, foil-stamp shine, generous space, restrained ornament. Awards / gala / anniversary elegance. Use CONCEPT 2.',
+    geminiStyleLock:
+      'Luxury foil-stamp elegance. A deep black or jewel-tone ground (obsidian, midnight navy, oxblood, forest) carries real metallic gold-foil accents that catch light with a true foil sheen — a thin gold hairline frame, a small foil monogram or emblem, elegant gold detailing. High-contrast modern serif typography (sharp thin-and-thick strokes) set with generous letter-spacing and luxurious negative space. Restrained ornament, impeccable balance, embossed depth. Cartier / Chanel / five-star-invitation refinement. Mood: premium, elegant, exclusive, timeless. The image feels expensive and quietly confident.',
+    compatibleConcepts: [
+      { name: 'FOIL-MONOGRAM-HERO', description: 'A small gold-foil monogram or emblem on a deep jewel ground, framed by a thin gold hairline — quiet luxury.' },
+      { name: 'SERIF-GALA-LOCKUP', description: 'An elegant high-contrast serif lockup with generous spacing, gold detailing, and luxurious negative space.' },
+      { name: 'EMBOSS-DETAIL-MACRO', description: 'A close foil-emboss detail catching light, premium and tactile, on dark stock.' },
+      { name: 'JEWEL-GROUND-RESTRAINT', description: 'A rich jewel-tone field with one restrained gold ornament — exclusivity through restraint.' },
+    ],
+    designerReferences: [
+      'Cartier / Chanel luxury branding',
+      'five-star event invitation design',
+      'foil-stamp / letterpress stationery craft',
+      'high-fashion editorial elegance (Vogue masthead)',
+      'premium spirits / watch packaging',
+    ],
+    craftSignatures: [
+      'a deep black or jewel-tone ground (obsidian, navy, oxblood, forest)',
+      'real metallic gold-foil accents with a true light-catching sheen',
+      'a thin gold hairline frame and a small foil monogram or emblem',
+      'high-contrast modern serif type with generous letter-spacing',
+      'luxurious negative space and impeccable balance',
+      'restrained ornament, embossed depth, timeless refinement',
+    ],
+    bannedCombinations: [
+      { when: 'a playful, casual, or kids brief', avoid: 'austere black-and-gold luxury formality', because: 'It codes exclusive / formal — wrong register for playful or childlike events.' },
+      { when: 'this luxury style is selected', avoid: 'bright saturated pop colours, clutter, or cartoon motifs', because: 'Luxury lives on restraint and a dark jewel-plus-gold palette; loud colour cheapens it.' },
+      { when: 'this luxury style is selected', avoid: 'flat matte gold with no light variation', because: 'Foil reads as luxury only when it catches light; flat gold looks like a plain yellow fill.' },
+    ],
+  },
+  {
+    id: 'movie-keyart',
+    label: 'Movie Poster',
+    icon: '🎞️',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED MOVIE KEY-ART: Compose like a theatrical film poster — a dramatic hero montage, a big stylised title treatment low on the canvas, a small "billing block" credit line, cinematic colour grade and lighting. Use CONCEPT 1.',
+    geminiStyleLock:
+      'Theatrical movie key-art. A dramatic cinematic hero composition — a central character or montage of layered figures and scene fragments fading into atmospheric darkness, lit with a bold cinematic colour grade (teal-and-orange, or a single dramatic hue). A large stylised TITLE TREATMENT anchors the lower third — custom display lettering with a metal, glow, or texture finish — and a small condensed "billing block" credit line sits beneath it. Volumetric haze, lens flare, layered depth. Drew Struzan montage craft / Saul Bass graphic boldness / modern blockbuster key-art. Mood: epic, dramatic, anticipatory, cinematic. The image sells a story the way a film one-sheet does.',
+    compatibleConcepts: [
+      { name: 'HERO-MONTAGE-ONESHEET', description: 'A layered montage of figures and scene fragments fading into darkness with a big title low on the canvas — Drew Struzan one-sheet craft.' },
+      { name: 'SINGLE-CHARACTER-KEYART', description: 'One dramatic hero figure lit cinematically against atmospheric depth, the title treatment anchoring the lower third.' },
+      { name: 'GRAPHIC-BASS-POSTER', description: 'A bold Saul-Bass graphic concept — one striking symbolic image and a confident title, minimal and iconic.' },
+      { name: 'TITLE-TREATMENT-HERO', description: 'A massive stylised film-title treatment (metal / glow / texture) IS the hero, with a small montage above and a billing block beneath.' },
+    ],
+    designerReferences: [
+      'Drew Struzan (painted montage one-sheets)',
+      'Saul Bass (graphic film posters)',
+      'modern blockbuster key-art (Marvel / Dune)',
+      'classic Hollywood one-sheet tradition',
+      'BLT Communications theatrical design',
+    ],
+    craftSignatures: [
+      'a dramatic hero montage fading into atmospheric darkness',
+      'a bold cinematic colour grade (teal-and-orange or one dramatic hue)',
+      'a large stylised title treatment anchoring the lower third',
+      'a small condensed billing-block credit line beneath the title',
+      'volumetric haze, lens flare, and layered depth',
+      'epic, dramatic, anticipatory cinematic energy',
+    ],
+    bannedCombinations: [
+      { when: 'a light, casual, or purely informational brief', avoid: 'epic blockbuster movie-poster drama', because: 'It codes cinematic / event-of-the-year — overblown for low-key informational notices.' },
+      { when: 'this movie key-art style is selected', avoid: 'flat even lighting or a clean white background', because: 'Film key-art lives on dramatic light and atmospheric depth; flat lighting kills it.' },
+      { when: 'rendering the title treatment', avoid: 'long sentences inside the title lockup', because: 'Image models garble long titles; keep the title-treatment string short and bold.' },
+    ],
+  },
+  {
+    id: 'monoline',
+    label: 'Line Art',
+    icon: '✒️',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED MONOLINE LINE-ART: Single continuous-weight line illustration — elegant minimal contour drawing, one or two line colours on a calm ground, no fills or shading. Editorial and refined. Use CONCEPT 2.',
+    geminiStyleLock:
+      'Monoline continuous-line illustration. Everything is drawn with a single, even line weight — elegant unbroken contour lines that describe figures, objects, or motifs with confident economy, ideally as one continuous flowing stroke. One or two line colours (a brand hue, maybe a single accent) on a calm flat ground; minimal or no fills, no shading, no texture. Generous negative space, refined editorial balance. Single-line-art / New-Yorker-spot / modern-editorial sensibility. Mood: elegant, intelligent, light, contemporary. The whole image lives in the grace of one line.',
+    compatibleConcepts: [
+      { name: 'CONTINUOUS-SINGLE-LINE', description: 'One unbroken continuous line describes the whole subject — the elegance is in never lifting the pen.' },
+      { name: 'MONOLINE-ICON-MOTIF', description: 'A refined monoline icon or motif sits on a calm ground with generous space, editorial and light.' },
+      { name: 'LINE-FIGURE-GESTURE', description: 'A gestural monoline figure caught in motion, pure contour, no fills.' },
+      { name: 'TWO-COLOUR-LINE-COMPOSITION', description: 'A composition in two line colours only, layered contours creating depth without shading.' },
+    ],
+    designerReferences: [
+      'Picasso single-line drawings',
+      'Matisse line contour',
+      'New Yorker spot illustration',
+      'modern monoline editorial illustrators',
+      'continuous-line tattoo art',
+    ],
+    craftSignatures: [
+      'a single even line weight throughout — no thick-thin variation',
+      'elegant unbroken contour lines, ideally one continuous stroke',
+      'one or two line colours on a calm flat ground',
+      'minimal or no fills, no shading, no texture',
+      'generous negative space and refined editorial balance',
+      'elegant, intelligent, light, contemporary',
+    ],
+    bannedCombinations: [
+      { when: 'this monoline style is selected', avoid: 'solid fills, gradients, photoreal shading, or heavy texture', because: 'Monoline is pure line; fills and shading turn it into a different illustration style.' },
+      { when: 'a loud, high-energy, or maximalist brief', avoid: 'sparse delicate line-art when the brief needs punch', because: 'It codes refined / quiet — wrong register for loud maximalist events.' },
+      { when: 'this monoline style is selected', avoid: 'dramatic line-weight variation or many colours', because: 'The identity is ONE even weight and a tiny palette; breaking that loses the monoline elegance.' },
+    ],
+  },
+  {
+    id: 'bw-editorial',
+    label: 'B&W Photo',
+    icon: '⚫',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED BLACK & WHITE EDITORIAL: A timeless monochrome photograph of the real scene — rich full tonal range from deep blacks to bright whites, documentary honesty, film grain. No colour at all. Use CONCEPT 1 (LITERAL SCENE).',
+    geminiStyleLock:
+      'Timeless black-and-white editorial photojournalism. A real monochrome photograph with a rich full tonal range — deep velvety blacks, luminous highlights, sculpted mid-tone greys. Real people in a real venue, documentary honesty, natural available light shaping form. 35mm full-frame depth, fine silver film grain, no colour anywhere. Henri Cartier-Bresson decisive-moment composition, Sebastião Salgado tonal drama, Ansel-Adams highlight-to-shadow range. Mood: timeless, dignified, honest, cinematic. The absence of colour makes the moment feel permanent.',
+    compatibleConcepts: [
+      { name: 'DECISIVE-MOMENT-MONO', description: 'A Cartier-Bresson decisive moment in pure black-and-white — the instant everything aligns, rich tonal range.' },
+      { name: 'TONAL-DRAMA-PORTRAIT', description: 'A Salgado-style monochrome portrait sculpted by light, deep blacks and luminous highlights.' },
+      { name: 'DOCUMENTARY-MONO-SCENE', description: 'An honest black-and-white documentary scene of the real event, natural light, full grey scale.' },
+      { name: 'HIGH-CONTRAST-GRAPHIC-MONO', description: 'A graphic high-contrast black-and-white composition, bold shapes of pure black and white.' },
+    ],
+    designerReferences: [
+      'Henri Cartier-Bresson (decisive moment)',
+      'Sebastião Salgado (monochrome tonal drama)',
+      'Ansel Adams (zone-system tonal range)',
+      'Raghu Rai (Indian black-and-white reportage)',
+      'classic LIFE-magazine photojournalism',
+    ],
+    craftSignatures: [
+      'a rich full tonal range — deep velvety blacks to luminous highlights',
+      'real people in a real venue, documentary honesty',
+      'natural available light sculpting form, no studio strobe',
+      '35mm full-frame depth with fine silver film grain',
+      'absolutely no colour — pure monochrome',
+      'timeless, dignified, honest, cinematic',
+    ],
+    bannedCombinations: [
+      { when: 'a vibrant festival or celebration brief', avoid: 'sombre monochrome when the brief needs colour and joy', because: 'B&W codes timeless / serious — it can drain the energy from a colourful celebration.' },
+      { when: 'this black-and-white style is selected', avoid: 'any colour element, colour tint, or duotone treatment', because: 'The identity is pure monochrome; any colour breaks it (that would be duotone).' },
+      { when: 'this style is selected', avoid: 'flat grey low-contrast rendering', because: 'B&W editorial needs the full range — deep blacks and bright whites; flat grey looks washed out.' },
+    ],
+  },
+  {
+    id: 'temple-mural',
+    label: 'Temple Mural',
+    icon: '🛕',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED INDIAN TEMPLE MURAL: Render in the South-Indian temple-mural tradition (Kerala mural / Tanjore painting) — rich earthy ochre, terracotta, indigo and deep red, gold-leaf accents, ornate borders, stylised figures with almond eyes, flat decorative depth. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'South-Indian temple-mural tradition (Kerala mural & Tanjore painting). Rich natural pigment palette — ochre yellow, terracotta red, deep indigo, leaf green, lamp black — with real gold-leaf accents catching light. Stylised figures with elongated almond eyes, graceful hand gestures (mudras), and decorative crowns, set against flat ornamental depth. Intricate borders of lotus, creeper, and kolam motifs frame the composition; gesso-relief embossing and gold foil on the focal elements. Kerala-mural linework meets Tanjore gilded richness. Mood: sacred, ornate, ancestral, opulent. The image feels painted on a temple wall and gilded by hand.',
+    compatibleConcepts: [
+      { name: 'GILDED-FOCAL-FIGURE', description: 'A stylised central figure or motif with almond eyes and mudras, gold-leaf gilded, framed by ornate borders — Tanjore opulence.' },
+      { name: 'KERALA-MURAL-SCENE', description: 'A flat decorative mural scene in natural pigments with graceful figures and creeper borders — Kerala temple-wall craft.' },
+      { name: 'LOTUS-BORDER-EMBLEM', description: 'A focal emblem framed by intricate lotus, creeper, and kolam borders, gold on earthy pigment.' },
+      { name: 'GESSO-RELIEF-DETAIL', description: 'Gesso-relief embossing and gold foil lift the focal elements into tactile gilded depth.' },
+    ],
+    designerReferences: [
+      'Kerala temple-mural tradition',
+      'Tanjore (Thanjavur) gilded painting',
+      'Mysore traditional painting',
+      'South-Indian gopuram fresco art',
+      'palm-leaf manuscript illumination',
+    ],
+    craftSignatures: [
+      'a natural pigment palette — ochre, terracotta, indigo, leaf green, lamp black',
+      'real gold-leaf accents catching light on the focal elements',
+      'stylised figures with elongated almond eyes and graceful mudras',
+      'intricate lotus, creeper, and kolam decorative borders',
+      'gesso-relief embossing and flat ornamental depth',
+      'sacred, ornate, ancestral, opulent',
+    ],
+    bannedCombinations: [
+      { when: 'a modern, corporate, or tech brief', avoid: 'heavy sacred temple-mural ornament', because: 'It codes devotional / heritage — mismatched on contemporary corporate or tech events.' },
+      { when: 'a joyful living-person birthday', avoid: 'deity-like gilded reverence around the person', because: 'Sacred temple-mural treatment of a living person reads as devotional / memorial; reserve it for cultural, spiritual, and festival briefs.' },
+      { when: 'this temple-mural style is selected', avoid: 'photoreal depth, lens blur, or flat digital gradients', because: 'It is hand-painted flat ornamental craft; photoreal or digital-flat elements break the tradition.' },
+    ],
+  },
+  {
+    id: 'gond',
+    label: 'Gond Art',
+    icon: '🦚',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED GOND TRIBAL ART: Render in the Central-Indian Gond folk tradition — bold flat figures of animals, trees, and people filled entirely with rhythmic patterns of fine dots, dashes, and lines, vivid saturated colours on a dark or warm ground. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Gond tribal folk art (Central India, Pradhan Gond tradition). Bold flat silhouettes of animals, trees, birds, and people, each filled ENTIRELY with rhythmic signature patterns — rows of fine dots, dashes, commas, and parallel lines that pulse with movement. Vivid saturated colours (often on a dark or warm earthy ground), every form outlined and densely in-filled, no empty space inside the shapes. Interconnected motifs of nature, folklore, and daily life flow across the canvas. Jangarh Singh Shyam lineage, contemporary Gond-art revival. Mood: vibrant, rhythmic, ancestral, alive. The image hums with hand-drawn pattern.',
+    compatibleConcepts: [
+      { name: 'PATTERN-FILLED-CREATURE', description: 'A bold flat animal, bird, or tree filled entirely with rhythmic Gond dot-and-dash patterning is the hero.' },
+      { name: 'GOND-TREE-OF-LIFE', description: 'A flowing tree-of-life with interconnected creatures and motifs, every form pattern-filled.' },
+      { name: 'FOLKLORE-NARRATIVE-FIELD', description: 'Interconnected figures of folklore and daily life flow across the canvas in dense rhythmic pattern.' },
+      { name: 'DOT-DASH-MOTIF-HERO', description: 'A single nature motif rendered in signature fine dots and dashes on a warm or dark ground.' },
+    ],
+    designerReferences: [
+      'Jangarh Singh Shyam (Pradhan Gond master)',
+      'Gond tribal painting tradition (Madhya Pradesh)',
+      'Bhajju Shyam contemporary Gond art',
+      'Indian tribal / Adivasi folk art',
+      'Patangarh school of Gond painting',
+    ],
+    craftSignatures: [
+      'bold flat silhouettes of animals, trees, birds, and people',
+      'every form filled ENTIRELY with rhythmic dots, dashes, and lines',
+      'vivid saturated colours on a dark or warm earthy ground',
+      'confident outlines with dense pattern in-fill, no empty interior',
+      'interconnected motifs of nature, folklore, and daily life',
+      'vibrant, rhythmic, ancestral, alive',
+    ],
+    bannedCombinations: [
+      { when: 'a corporate, tech, or formal brief', avoid: 'dense tribal Gond folk patterning as the whole look', because: 'It codes folk / cultural — can feel mismatched on sleek corporate or tech events.' },
+      { when: 'this Gond style is selected', avoid: 'photoreal rendering, lens blur, or empty flat fills inside the forms', because: 'Gond identity is pattern-filled flat folk art; photoreal or empty fills break the tradition.' },
+      { when: 'depicting people', avoid: 'realistic anatomical portraiture', because: 'Gond figures are stylised flat folk forms; realistic portraiture is the wrong idiom here.' },
+    ],
+  },
+  {
+    id: 'chalkboard',
+    label: 'Chalkboard',
+    icon: '🖍️',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED CHALKBOARD: Hand-lettered chalk on a blackboard — white and pastel chalk strokes, decorative chalk lettering and flourishes, doodle frames and banners, slight smudge and dust. Cafe / casual / community vibe. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Hand-lettered chalkboard art. A dark slate-black (or deep green) blackboard ground with white and soft-pastel chalk strokes — decorative hand-lettering mixing script and bold caps, chalk flourishes, hand-drawn banners, arrows, laurels, and doodle frames. Visible chalk grain, gentle smudges, eraser ghosts, and chalk dust give authentic texture. Cafe-menu / wedding-welcome-board / classroom charm. Mood: warm, friendly, handmade, inviting. The image looks lovingly drawn in chalk by hand.',
+    compatibleConcepts: [
+      { name: 'CHALK-LETTERING-HERO', description: 'Decorative hand-lettered chalk typography mixing script and bold caps IS the hero, with flourishes and banners.' },
+      { name: 'DOODLE-FRAME-BOARD', description: 'Hand-drawn chalk doodle frames, laurels, and arrows organise the content on a slate ground.' },
+      { name: 'CAFE-MENU-BOARD', description: 'A cafe-menu-board layout with chalk illustrations and tidy hand-lettered sections.' },
+      { name: 'CHALK-ILLUSTRATION-MOTIF', description: 'A charming white-chalk illustration motif on the blackboard, sketchy and warm.' },
+    ],
+    designerReferences: [
+      'cafe / bistro chalkboard menu art',
+      'wedding chalkboard welcome signs',
+      'vintage schoolroom blackboard lettering',
+      'hand-lettering / chalk-typography revival',
+      'sign-painter chalk craft',
+    ],
+    craftSignatures: [
+      'a dark slate-black or deep-green blackboard ground',
+      'white and soft-pastel chalk strokes with visible grain',
+      'decorative hand-lettering mixing script and bold caps',
+      'chalk flourishes, banners, arrows, laurels, doodle frames',
+      'gentle smudges, eraser ghosts, and chalk dust texture',
+      'warm, friendly, handmade, inviting',
+    ],
+    bannedCombinations: [
+      { when: 'a premium, luxury, or high-tech brief', avoid: 'casual handmade chalkboard charm', because: 'It codes cafe / casual / community — wrong register for sleek premium or tech events.' },
+      { when: 'this chalkboard style is selected', avoid: 'photoreal scenes, glossy gradients, or crisp vector fills', because: 'Chalkboard is hand-drawn chalk on slate; photoreal or vector elements break the handmade feel.' },
+      { when: 'this chalkboard style is selected', avoid: 'a white or light background', because: 'The chalk reads only against a dark slate board; a light ground defeats the medium.' },
+    ],
+  },
+  {
+    id: 'double-exposure',
+    label: 'Double Exposure',
+    icon: '🌗',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED DOUBLE EXPOSURE: Blend a bold silhouette (a head profile, a figure, a key shape) with a second scene/landscape showing through it — artistic photographic multiply-blend, clean negative space around the silhouette. Use CONCEPT 1 or 3.',
+    geminiStyleLock:
+      'Artistic double-exposure photography. A bold primary silhouette — a head profile, a figure, a tree, a key shape — is filled with a second photographic scene showing through it (a landscape, a cityscape, a crowd, foliage), blended where the two images multiply together. The silhouette holds crisp edges against clean negative space; the inner scene fades softly toward the silhouette edges. A restrained palette, often near-monochrome with one tint, keeps it elegant. Contemporary editorial / book-cover / title-sequence craft. Mood: poetic, layered, conceptual, cinematic. Two images become one idea.',
+    compatibleConcepts: [
+      { name: 'PROFILE-LANDSCAPE-BLEND', description: 'A head or figure profile filled with a meaningful landscape or scene showing through — the classic poetic double-exposure.' },
+      { name: 'SILHOUETTE-CITY-BLEND', description: 'A bold silhouette filled with a cityscape or crowd, the second scene living inside the first.' },
+      { name: 'NATURE-FIGURE-MERGE', description: 'A figure merged with foliage, water, or sky, the two images multiplying into one idea.' },
+      { name: 'SHAPE-SCENE-INSET', description: 'A key symbolic shape holds a scene inside it against clean negative space, conceptual and elegant.' },
+    ],
+    designerReferences: [
+      'True Detective title-sequence double exposure',
+      'contemporary editorial double-exposure portraiture',
+      'book-cover conceptual photography',
+      'Dan Mountford double-exposure art',
+      'fashion-magazine multiply-blend imagery',
+    ],
+    craftSignatures: [
+      'a bold primary silhouette with crisp edges against clean negative space',
+      'a second photographic scene showing through the silhouette',
+      'soft multiply-blend where the two images overlap',
+      'the inner scene fading gently toward the silhouette edges',
+      'a restrained palette, often near-monochrome with one tint',
+      'poetic, layered, conceptual, cinematic',
+    ],
+    bannedCombinations: [
+      { when: 'a loud, playful, or maximalist brief', avoid: 'quiet poetic double-exposure subtlety', because: 'It codes conceptual / elegant — wrong register for loud playful events.' },
+      { when: 'this double-exposure style is selected', avoid: 'a cluttered busy silhouette or many competing blends', because: 'The effect needs ONE clear silhouette and ONE inner scene; clutter muddies the idea.' },
+      { when: 'this style is selected', avoid: 'flat solid fills with no second image inside the silhouette', because: 'The whole identity is the second scene blended within; without it, it is just a silhouette.' },
+    ],
+  },
+  {
+    id: 'collegiate',
+    label: 'Collegiate',
+    icon: '🎓',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED COLLEGIATE / ACADEMIC: Heraldic campus crest, deep navy / maroon with gold, classic serif and varsity-block type, laurel and ribbon motifs, scholarly symmetry. Convocations / academic events / departments. Use CONCEPT 2.',
+    geminiStyleLock:
+      'Collegiate heraldic academia. A deep academic palette — navy, maroon, or forest with antique gold — anchors a symmetrical, scholarly composition. A central heraldic crest or shield with laurel wreaths, ribbons, an open book, a torch, or a quill; classic high-contrast serif typography paired with collegiate varsity-block lettering; a fine gold rule frame and crest detailing. Ivy-league / convocation / honour-society dignity. Mood: scholarly, prestigious, dignified, traditional. The image carries the gravitas of an academic institution.',
+    compatibleConcepts: [
+      { name: 'HERALDIC-CREST-HERO', description: 'A central heraldic crest or shield with laurels, ribbon, book, or torch anchors a symmetrical scholarly composition.' },
+      { name: 'CONVOCATION-FORMAL', description: 'A formal symmetrical academic lockup in navy-and-gold with serif type — convocation / honour dignity.' },
+      { name: 'LAUREL-EMBLEM-FRAME', description: 'A gold laurel wreath frames a focal emblem on a deep academic ground, prestigious and traditional.' },
+      { name: 'VARSITY-SERIF-LOCKUP', description: 'A collegiate varsity-block plus classic serif type lockup with a fine gold rule frame.' },
+    ],
+    designerReferences: [
+      'Ivy-league university heraldry',
+      'academic convocation / diploma design',
+      'honour-society and crest engraving',
+      'classic collegiate athletic lettering',
+      'traditional university press typography',
+    ],
+    craftSignatures: [
+      'a deep academic palette — navy, maroon, or forest with antique gold',
+      'a central heraldic crest or shield with laurels, ribbon, book, or torch',
+      'classic high-contrast serif paired with collegiate varsity-block type',
+      'a fine gold rule frame and crest detailing',
+      'symmetrical, balanced, scholarly composition',
+      'scholarly, prestigious, dignified, traditional',
+    ],
+    bannedCombinations: [
+      { when: 'a casual, playful, or youth-fun brief', avoid: 'formal heraldic collegiate gravitas', because: 'It codes prestigious / traditional — wrong register for casual or playful campus events.' },
+      { when: 'this collegiate style is selected', avoid: 'neon, pop, or trendy graphic treatment', because: 'Collegiate heraldry is traditional and dignified; trendy graphics break the academic register.' },
+      { when: 'this collegiate style is selected', avoid: 'asymmetric chaotic layout', because: 'Heraldic academia relies on symmetry and balance; chaos undercuts the gravitas.' },
+    ],
+  },
+  {
+    id: 'tech-hud',
+    label: 'Tech Fest',
+    icon: '🤖',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED TECH-FEST HUD: Futuristic sci-fi heads-up-display — glowing UI panels, circuit-board traces, data grids, holographic rings and reticles, thin neon-on-dark line-work, digital glow. Hackathons / tech symposia / robotics. Use CONCEPT 3.',
+    geminiStyleLock:
+      'Sci-fi heads-up-display (HUD) tech-fest design. A deep dark-blue or black ground alive with glowing UI — thin luminous circuit-board traces, hexagonal data grids, holographic rings, targeting reticles, waveform and code fragments, floating glassy panels with crisp neon line-work in cyan, electric blue, and the brand accent. Subtle scanlines and a faint grid horizon; digital glow and lens bloom on the brightest lines. Iron-Man-HUD / Tron / sci-fi-interface vocabulary. Mood: futuristic, intelligent, high-energy, digital. The image feels like a holographic interface booting up.',
+    compatibleConcepts: [
+      { name: 'HUD-INTERFACE-FIELD', description: 'Glowing holographic UI panels, rings, and reticles float on a dark ground — a sci-fi interface as the whole composition.' },
+      { name: 'CIRCUIT-TRACE-MOTIF', description: 'Luminous circuit-board traces and a hex data-grid form a glowing tech motif around the focal element.' },
+      { name: 'HOLO-RING-HERO', description: 'Concentric holographic rings and a reticle frame a central glowing focal element, Iron-Man-HUD energy.' },
+      { name: 'DATA-GRID-HORIZON', description: 'A faint Tron grid horizon with floating data panels and code fragments, digital depth.' },
+    ],
+    designerReferences: [
+      'Iron Man / MCU holographic HUD design',
+      'Tron light-grid aesthetic',
+      'sci-fi film UI (Territory Studio / GMUNK)',
+      'hackathon / tech-fest key art',
+      'cyber FUI (fantasy user interface) art',
+    ],
+    craftSignatures: [
+      'a deep dark-blue or black ground with glowing UI',
+      'thin luminous circuit-board traces and hexagonal data grids',
+      'holographic rings, targeting reticles, waveforms, code fragments',
+      'crisp neon line-work in cyan, electric blue, and the brand accent',
+      'subtle scanlines, a faint grid horizon, digital glow and bloom',
+      'futuristic, intelligent, high-energy, digital',
+    ],
+    bannedCombinations: [
+      { when: 'a heritage, cultural, or solemn brief', avoid: 'futuristic sci-fi HUD circuitry', because: 'It codes tech / futuristic — mismatched on heritage or solemn occasions.' },
+      { when: 'this tech-HUD style is selected', avoid: 'bright daylight, pastel palettes, or photoreal natural scenes', because: 'HUD glow reads only on a dark digital ground; light natural scenes kill it.' },
+      { when: 'this style is selected', avoid: 'rendering long code or UI text as literal readable strings', because: 'Image models garble dense UI text; keep code / data as suggestive texture, not literal paragraphs.' },
+    ],
+  },
+  {
+    id: 'varsity',
+    label: 'Varsity',
+    icon: '🏆',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED VARSITY ATHLETIC: Bold collegiate sports graphic — varsity-block and athletic-script lettering, jersey numbers, team-banner stripes, chevrons, a stadium / field energy, athletic-team palette. Sports day / tournaments. Use CONCEPT 1 or 2.',
+    geminiStyleLock:
+      'Varsity athletic sports graphic. Bold collegiate sports design — big varsity-block letterforms with felt-patch layered outlines, athletic brush-script accents, large jersey numerals, team-banner stripes and chevrons, a laurel or shield athletic badge. A confident two-or-three colour team palette over a stadium, field, or halftone-action ground; dynamic diagonal energy. American-collegiate / sports-team / tournament-poster vocabulary. Mood: bold, energetic, competitive, team-proud. The image feels like a championship banner.',
+    compatibleConcepts: [
+      { name: 'VARSITY-LETTER-HERO', description: 'Big varsity-block lettering with felt-patch layered outlines and a jersey numeral dominates as the athletic hero.' },
+      { name: 'ATHLETIC-BADGE-CREST', description: 'A sports badge / shield with laurels, banner ribbon, and team palette anchors the composition.' },
+      { name: 'STADIUM-ACTION-GROUND', description: 'A stadium or field ground with halftone-action energy behind bold athletic type and chevrons.' },
+      { name: 'TEAM-BANNER-STRIPES', description: 'Team-banner stripes, chevrons, and diagonal energy build a tournament-poster lockup.' },
+    ],
+    designerReferences: [
+      'American collegiate athletic branding',
+      'vintage varsity letterman lettering',
+      'sports-team / tournament poster design',
+      'Nike sports key-art energy',
+      'esports / league banner graphics',
+    ],
+    craftSignatures: [
+      'big varsity-block letterforms with felt-patch layered outlines',
+      'athletic brush-script accents and large jersey numerals',
+      'team-banner stripes, chevrons, and a laurel / shield badge',
+      'a confident two-or-three colour team palette',
+      'a stadium, field, or halftone-action ground with diagonal energy',
+      'bold, energetic, competitive, team-proud',
+    ],
+    bannedCombinations: [
+      { when: 'a calm, formal, or solemn brief', avoid: 'loud competitive varsity-athletic energy', because: 'It codes sporty / team-proud — wrong register for calm or solemn occasions.' },
+      { when: 'this varsity style is selected', avoid: 'delicate thin type, pastel palettes, or quiet minimalism', because: 'Varsity is bold athletic graphic; delicate restraint contradicts the team-banner energy.' },
+      { when: 'rendering jersey numerals or letters', avoid: 'long words inside the felt-patch lockup', because: 'Image models garble long text in heavy layered letterforms; keep the varsity string short and bold.' },
+    ],
+  },
+  {
+    id: 'campus-doodle',
+    label: 'Campus Doodle',
+    icon: '📓',
+    designIntelligenceHint:
+      'STYLE OVERRIDE — USER SELECTED CAMPUS DOODLE: Student-notebook aesthetic — ruled or grid paper ground, ballpoint and marker doodles, sticky notes, washi tape, highlighter swipes, hand-drawn arrows and stars, scribbled hand-lettering. Freshers / clubs / fun campus notices. Use CONCEPT 2 or 3.',
+    geminiStyleLock:
+      'Student-notebook doodle aesthetic. A ruled-line or grid paper ground covered in playful hand-drawn ballpoint and marker doodles — stars, arrows, hearts, speech bubbles, little characters, underlines and circles. Stuck-on elements: yellow sticky notes, strips of washi tape, a paper-clip, a torn notebook edge, highlighter swipes glowing under key words. Scribbled mixed hand-lettering, casual and imperfect. Bullet-journal / scrapbook / study-aesthetic charm. Mood: playful, youthful, personal, fun. The image looks like a creative student decorated their notebook page.',
+    compatibleConcepts: [
+      { name: 'NOTEBOOK-PAGE-LAYOUT', description: 'A ruled or grid notebook page with doodles, sticky notes, and highlighter swipes organising the content casually.' },
+      { name: 'DOODLE-CHARACTER-FUN', description: 'Playful hand-drawn ballpoint characters and doodles bounce around the focal text, youthful and personal.' },
+      { name: 'STICKY-NOTE-COLLAGE', description: 'Sticky notes, washi tape, and paper-clipped scraps collage the event details, scrapbook charm.' },
+      { name: 'HIGHLIGHTER-EMPHASIS', description: 'Highlighter swipes and hand-drawn arrows / stars emphasise key words on a paper ground.' },
+    ],
+    designerReferences: [
+      'bullet-journal / study-aesthetic design',
+      'scrapbook and washi-tape craft',
+      'student doodle / margin-art culture',
+      'sticky-note and notebook lettering',
+      'casual hand-lettered planner art',
+    ],
+    craftSignatures: [
+      'a ruled-line or grid paper ground',
+      'ballpoint and marker doodles — stars, arrows, hearts, little characters',
+      'sticky notes, washi tape, paper-clip, torn notebook edge',
+      'highlighter swipes glowing under key words',
+      'scribbled mixed hand-lettering, casual and imperfect',
+      'playful, youthful, personal, fun',
+    ],
+    bannedCombinations: [
+      { when: 'a premium, formal, or corporate brief', avoid: 'casual student-notebook doodle charm', because: 'It codes youthful / informal — wrong register for premium or formal events.' },
+      { when: 'this campus-doodle style is selected', avoid: 'photoreal scenes, glossy gradients, or slick vector polish', because: 'The aesthetic is hand-drawn on paper; polish breaks the personal notebook feel.' },
+      { when: 'this style is selected', avoid: 'a dark or photographic background instead of paper', because: 'The doodles live on a light ruled-paper ground; losing the paper defeats the notebook concept.' },
+    ],
+  },
+]
+
+/**
+ * The single source of truth for the default background style — used when the
+ * user has not explicitly picked a style tile. Consumed by the UI picker
+ * (LogosStylePanel display), the generation payloads (CanvasCreatePage), and the
+ * backend routes (generate / generate-lab / generate-forge). Keeping ONE constant
+ * here prevents the split-brain bug where the UI highlighted "Realistic" (scene)
+ * while the Lab/Forge routes silently defaulted to 'pop-modern' — so the tile shown
+ * disagreed with the style generated. `scene` is enriched (full styleContext concept
+ * menu), so the Director still receives documentary guidance when this default fires.
+ */
+export const DEFAULT_BACKGROUND_STYLE: BackgroundStyleId = 'scene'
+
+/**
+ * UI grouping for the style picker. Styles are presented in collapsible category
+ * sections instead of one flat 51-tile grid. This is presentation-only — it does
+ * not affect generation. Any style id NOT listed here still appears (the helper
+ * getGroupedBackgroundStyles() collects leftovers into an 'Other' group), so adding
+ * a new style never silently hides it.
+ */
+export interface BackgroundStyleCategory {
+  label: string
+  styleIds: BackgroundStyleId[]
+}
+
+export const STYLE_CATEGORIES: BackgroundStyleCategory[] = [
+  {
+    label: 'Photographic',
+    styleIds: ['scene', 'photo-real', 'photo-pop', 'bw-editorial', 'dark', 'bokeh', 'advertising', 'spotlight-event', 'split', 'movie-keyart', 'double-exposure'],
+  },
+  {
+    label: 'Illustration',
+    styleIds: ['illustrated', 'hand-drawn', 'naive', 'monoline', 'comic', 'papercut', 'collage', 'watercolor', 'risograph', 'retro'],
+  },
+  {
+    label: 'Graphic & Type',
+    styleIds: ['pop-modern', 'typographic', 'geometric', 'minimal', 'isometric', '3d-render', 'product', 'duotone'],
+  },
+  {
+    label: 'Abstract & Atmospheric',
+    styleIds: ['abstract', 'aurora', 'neon', 'glassmorphism', 'texture'],
+  },
+  {
+    label: 'Cultural & Heritage',
+    styleIds: ['mandala', 'folk-art', 'temple-mural', 'gond', 'patriotic', 'art-deco', 'festive'],
+  },
+  {
+    label: 'Premium & Bold',
+    styleIds: ['luxury', 'grunge', 'street', 'vaporwave', 'chalkboard'],
+  },
+  {
+    label: 'Campus & Academic',
+    styleIds: ['collegiate', 'varsity', 'tech-hud', 'campus-doodle'],
+  },
+  {
+    label: 'Custom',
+    styleIds: ['custom'],
+  },
 ]
 
 const STYLE_INDEX: Map<BackgroundStyleId, BackgroundStyleOption> = new Map(
@@ -1652,4 +2435,25 @@ export function getBackgroundStyle(id: string | undefined | null): BackgroundSty
 
 export function isValidBackgroundStyle(id: string): id is BackgroundStyleId {
   return STYLE_INDEX.has(id as BackgroundStyleId)
+}
+
+/**
+ * Returns the styles grouped into UI categories (per STYLE_CATEGORIES), resolving
+ * each id to its full option. Empty categories are dropped, and any style not
+ * assigned to a category is collected into a trailing 'Other' group so nothing is
+ * ever hidden from the picker. Presentation-only.
+ */
+export function getGroupedBackgroundStyles(): Array<{ label: string; styles: BackgroundStyleOption[] }> {
+  const seen = new Set<BackgroundStyleId>()
+  const groups = STYLE_CATEGORIES.map((cat) => {
+    const styles = cat.styleIds
+      .map((id) => STYLE_INDEX.get(id))
+      .filter((s): s is BackgroundStyleOption => !!s)
+    styles.forEach((s) => seen.add(s.id))
+    return { label: cat.label, styles }
+  }).filter((g) => g.styles.length > 0)
+
+  const leftovers = BACKGROUND_STYLES.filter((s) => !seen.has(s.id))
+  if (leftovers.length > 0) groups.push({ label: 'Other', styles: leftovers })
+  return groups
 }

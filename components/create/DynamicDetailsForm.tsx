@@ -75,7 +75,7 @@ import {
 } from '@/lib/config/form-sections'
 import type { DynamicField as ExternalDynamicField } from '@/types/external-event.types'
 import { getFormatCustomizationOptions } from '@/lib/config/format-customization'
-import type { SpeakerPhotoCustomization } from '@/lib/config/design-constants'
+import type { SpeakerPhotoCustomization, SpeakerRole } from '@/lib/config/design-constants'
 
 // Lazy import for SpeakerPhotoUpload to avoid circular dependencies
 const SpeakerPhotoUpload = dynamic(
@@ -153,7 +153,7 @@ interface SpeakerPhotoValue {
   verticalPosition?: 'top' | 'upper' | 'middle' | 'lower' | 'bottom'
   border?: { width: number; color: string }
   shadow?: boolean
-  speakers?: Array<{ id: string; name: string; designation?: string; photoUrl?: string }>
+  speakers?: Array<{ id: string; name: string; designation?: string; role?: SpeakerRole; photoUrl?: string }>
   layoutMode?: 'auto' | 'manual'
   layoutStrategy?: 'side-by-side' | 'stacked' | 'grid'
   spacing?: number
@@ -1256,6 +1256,7 @@ export function DynamicDetailsForm({
                                 id: crypto.randomUUID(),
                                 name: '',
                                 designation: '',
+                                role: 'speaker',
                               }
                             ]
                           })

@@ -94,3 +94,35 @@ export function formatTimeRange(startTime: string | undefined | null, endTime: s
 
   return ''
 }
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+/**
+ * Convert a date string to a friendly display form for rendering on posters.
+ * - ISO "2026-06-08" → "8 June 2026"
+ * - Already-friendly "8 June 2026" → preserved
+ * - Unknown / unparseable → returned as-is
+ *
+ * Parses ISO parts directly (no `new Date()`), so there is no timezone drift.
+ */
+export function formatEventDate(dateInput: string | undefined | null): string {
+  if (!dateInput || typeof dateInput !== 'string') return ''
+  const trimmed = dateInput.trim()
+  if (!trimmed) return ''
+
+  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (iso) {
+    const year = parseInt(iso[1], 10)
+    const month = parseInt(iso[2], 10)
+    const day = parseInt(iso[3], 10)
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${day} ${MONTHS[month - 1]} ${year}`
+    }
+  }
+
+  // Already friendly (or an unrecognized format) — leave untouched.
+  return trimmed
+}

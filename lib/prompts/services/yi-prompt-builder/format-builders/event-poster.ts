@@ -51,7 +51,8 @@ import { buildForbiddenZonesSection, buildZoneReminderSection, buildPixelPrecise
 import { getSophistication, getIntegratedZoneContext } from '../helpers/sophistication-helper'
 
 // Import multi-color typography types (v5.0)
-import type { TextRoleColor, MultiColorTypographyConfig } from '@/lib/config/design-constants'
+import type { TextRoleColor, MultiColorTypographyConfig, SpeakerRole } from '@/lib/config/design-constants'
+import { SPEAKER_ROLE_LABELS } from '@/lib/config/design-constants'
 import { getGeminiStyleLock } from '@/lib/config/background-styles'
 
 // Import dynamic color description builder (v5.4)
@@ -147,6 +148,48 @@ const BACKGROUND_STYLE_GUIDANCE: Record<BackgroundStyleId, string> = {
     'BACKGROUND STYLE: SPOTLIGHT EVENT — Bright daylit gradient field with photo-hero people, a bold headline plus a contrasting coloured sub-line band, a rounded date chip, a thin time/venue detail strip, and a flat city-skyline silhouette anchoring the footer. The top strip stays clean for the separately-composited logo row. Structured, modern, optimistic — never dark or cinematic.',
   advertising:
     'BACKGROUND STYLE: ADVERTISING — Premium advertising key art: one hero subject from a bold cinematic angle, ultra-sharp with shallow depth of field, dramatic high-contrast commercial lighting with a brand-accent rim-light, frozen mid-action energy and motion particles, saturated campaign colour grade, and oversized typography in clean negative space. No real celebrities or named athletes.',
+  // v56.0 wide expansion — all fall back to the verbatim geminiStyleLock at runtime; these
+  // short entries exist to satisfy the exhaustive Record<BackgroundStyleId, string> type.
+  minimal:
+    'BACKGROUND STYLE: MINIMAL (SWISS) — Extreme negative space, ONE small focal element on a precise grid, a single brand colour plus one neutral, clean grotesque type. No gradients, texture, shadow, or decoration. Confident, premium, quiet.',
+  comic:
+    'BACKGROUND STYLE: COMIC / MANGA — Sequential comic art: thick black ink outlines, flat saturated cel colours, ben-day halftone shading, speed-lines, a sound-effect word in a starburst, speech bubbles. Kinetic, fun, narrative. Not fine-art pop.',
+  aurora:
+    'BACKGROUND STYLE: AURORA GRADIENT — A smooth flowing holographic mesh gradient in the brand palette, soft volumetric glow, subtle grain, floating light-wisps, crisp type over the luminous field. Modern, optimistic, premium-tech.',
+  isometric:
+    'BACKGROUND STYLE: ISOMETRIC — Clean axonometric 3D vector at 30 degrees: flat-shaded blocks (lighter top, darker side), soft long shadows, a tiny detailed world or hero object, limited brand palette. Organised, smart, contemporary.',
+  vaporwave:
+    'BACKGROUND STYLE: Y2K / VAPORWAVE — Retro-futurist: liquid-chrome 3D type, holographic pink-and-cyan over indigo, a glowing grid to a sunset horizon, CRT scanlines, glitch, 90s clip-motifs. Nostalgic, dreamy, electric.',
+  grunge:
+    'BACKGROUND STYLE: GRUNGE / ZINE — Distressed punk gig-poster: blown-out photocopier halftone, torn/taped paper, ink splatter, ransom-note cut-and-paste type, near-monochrome plus one spot colour. Rebellious, raw, urgent.',
+  street:
+    'BACKGROUND STYLE: STREET ART / GRAFFITI — Textured brick/concrete wall tagged with spray-paint wildstyle lettering, a stencil motif, paste-ups and sticker-bombs, overspray haze and drips. Bold saturated street palette. Urban, energetic.',
+  risograph:
+    'BACKGROUND STYLE: RISOGRAPH — Two or three bright spot inks only (no full CMYK), deliberate layer misregistration, overprint where inks overlap, coarse riso grain, matte paper. Warm, crafty, indie, tactile.',
+  luxury:
+    'BACKGROUND STYLE: LUXURY GALA — Deep black or jewel-tone ground with real gold-foil accents catching light, a thin gold hairline frame and small foil monogram, high-contrast serif type, luxurious negative space. Premium, elegant, exclusive.',
+  'movie-keyart':
+    'BACKGROUND STYLE: MOVIE KEY-ART — Theatrical film poster: a dramatic hero montage fading into atmospheric darkness, cinematic colour grade, a large stylised title treatment low on the canvas, a small billing-block credit line. Epic, dramatic, cinematic.',
+  monoline:
+    'BACKGROUND STYLE: MONOLINE LINE-ART — Single even line weight throughout, elegant unbroken contour lines (ideally one continuous stroke), one or two line colours on a calm ground, no fills or shading, generous space. Elegant, light, editorial.',
+  'bw-editorial':
+    'BACKGROUND STYLE: BLACK & WHITE EDITORIAL — A timeless monochrome photograph: rich full tonal range (deep blacks to luminous highlights), documentary honesty, natural light, fine film grain, NO colour. Timeless, dignified, cinematic.',
+  'temple-mural':
+    'BACKGROUND STYLE: INDIAN TEMPLE MURAL — Kerala-mural / Tanjore tradition: natural pigment palette (ochre, terracotta, indigo, leaf green) with gold-leaf accents, stylised almond-eyed figures and mudras, lotus/creeper/kolam borders, flat ornamental depth. Sacred, ornate, opulent.',
+  gond:
+    'BACKGROUND STYLE: GOND TRIBAL ART — Bold flat folk silhouettes of animals/trees/people filled entirely with rhythmic dots, dashes, and lines, vivid saturated colour on a dark or warm ground, confident outlines, no empty interior. Vibrant, rhythmic, ancestral.',
+  chalkboard:
+    'BACKGROUND STYLE: CHALKBOARD — Dark slate-black or green board with white/pastel chalk strokes, decorative hand-lettering (script plus bold caps), chalk flourishes, banners, arrows, doodle frames, chalk dust and smudges. Warm, friendly, handmade.',
+  'double-exposure':
+    'BACKGROUND STYLE: DOUBLE EXPOSURE — A bold silhouette (head profile, figure, key shape) filled with a second scene showing through it, soft multiply-blend, crisp edges against clean negative space, restrained near-monochrome palette. Poetic, layered, cinematic.',
+  collegiate:
+    'BACKGROUND STYLE: COLLEGIATE / ACADEMIC — Heraldic crest or shield with laurels, ribbon, book, or torch; deep navy/maroon with antique gold; classic serif plus collegiate varsity-block type; fine gold rule frame; symmetrical scholarly balance. Prestigious, dignified, traditional.',
+  'tech-hud':
+    'BACKGROUND STYLE: TECH-FEST HUD — Sci-fi heads-up display on a dark-blue/black ground: glowing circuit traces, hex data grids, holographic rings and reticles, glassy panels, neon line-work in cyan/electric-blue plus brand accent, scanlines and glow. Futuristic, intelligent, digital.',
+  varsity:
+    'BACKGROUND STYLE: VARSITY ATHLETIC — Bold collegiate sports graphic: varsity-block lettering with felt-patch outlines, athletic brush-script, jersey numerals, team-banner stripes and chevrons, a laurel/shield badge, stadium or halftone-action ground. Bold, energetic, competitive.',
+  'campus-doodle':
+    'BACKGROUND STYLE: CAMPUS DOODLE — Student-notebook aesthetic: ruled or grid paper ground, ballpoint/marker doodles (stars, arrows, hearts, little characters), sticky notes, washi tape, highlighter swipes, scribbled hand-lettering. Playful, youthful, personal.',
 }
 
 function buildCustomThemeGuidance(contentStart: number, contentEnd: number, canvasHeight: number): string {
@@ -679,12 +722,17 @@ function formatEventDate(dateString: string | undefined): string {
 }
 
 function buildSpeakerTextSection(
-  speakers: Array<{ name: string; designation?: string }>,
+  speakers: Array<{ name: string; designation?: string; role?: SpeakerRole | null }>,
   _colorSource: any
 ): string {
   if (!speakers || speakers.length === 0) return ''
   return speakers
-    .map(s => s.designation ? `${s.name} — ${s.designation}` : s.name)
+    .map(s => {
+      const roleLabel = s.role ? SPEAKER_ROLE_LABELS[s.role] : undefined
+      const nameLine = s.designation ? `${s.name} — ${s.designation}` : s.name
+      // Role label renders in small caps directly above the name line.
+      return roleLabel ? `${roleLabel}\n${nameLine}` : nameLine
+    })
     .join('\n')
 }
 
@@ -712,7 +760,7 @@ export function buildEventPosterPrompt(
   const eventName = data.eventName || (rawData.eventTitle as string) || (rawData.title as string) || 'Event'
 
   // NEW v5.0: Multi-speaker extraction (supports both single and array formats)
-  const speakers: Array<{ name: string; designation?: string }> = []
+  const speakers: Array<{ name: string; designation?: string; role?: SpeakerRole | null }> = []
 
   if (Array.isArray((rawData as any).speakers)) {
     // Multi-speaker format
@@ -1759,7 +1807,7 @@ ${(() => {
 ${textContrastGuidance}
 
 ${contentZoneShadowGuidance}
-${organizerCaption ? `\nOrganizer caption "${organizerCaption}": small light-weight font (half headline prominence), single line, subdued color, below headline / above tagline.\n` : ''}${speakers.length > 0 && !hasSpeakerPhoto ? `\nSpeakers (text only, no photos):\n${buildSpeakerTextSection(speakers, colorSource)}\nGroup name + designation visually (like date/venue grouping). All speakers EQUAL prominence.${speakers.length > 1 ? ` Layout: ${speakers.length === 2 ? 'horizontal side-by-side' : speakers.length === 3 ? 'horizontal row or vertical stack' : '2x2 / 2x3 grid'}.` : ''}\n` : ''}${data.entryFee ? `\nRegistration fee "${data.entryFee}" — subtle detail or badge.\n` : ''}
+${organizerCaption ? `\nOrganizer caption "${organizerCaption}": small light-weight font (half headline prominence), single line, subdued color, below headline / above tagline.\n` : ''}${speakers.length > 0 && !hasSpeakerPhoto ? `\nSpeakers (text only, no photos):\n${buildSpeakerTextSection(speakers, colorSource)}\nGroup name + designation visually (like date/venue grouping). All speakers EQUAL prominence. When a line in ALL-CAPS (e.g. CHIEF GUEST, SPEAKER) precedes a name, render it as a small tracked-out caps role label directly ABOVE that person's name.${speakers.length > 1 ? ` Layout: ${speakers.length === 2 ? 'horizontal side-by-side' : speakers.length === 3 ? 'horizontal row or vertical stack' : '2x2 / 2x3 grid'}.` : ''}\n` : ''}${data.entryFee ? `\nRegistration fee "${data.entryFee}" — subtle detail or badge.\n` : ''}
   </layout_composition_rules>
 
 ${options.brandContext?.colorSource === 'custom' && options.brandContext.primaryColor

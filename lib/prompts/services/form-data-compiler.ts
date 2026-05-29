@@ -5,7 +5,7 @@
  * Unlike hardcoded extraction, this captures dynamic/custom fields too.
  */
 
-import type { DesignData } from '@/lib/config/design-constants'
+import type { DesignData, SpeakerRole } from '@/lib/config/design-constants'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
 import { formatEventTime } from '@/lib/utils/time-formatter'
 import type { SubjectAnalysis } from '@/lib/agents/subject-classifier'
@@ -36,6 +36,7 @@ export interface CompiledFormData {
   speakers: Array<{
     name: string | null
     designation: string | null
+    role: SpeakerRole | null
   }> | null
 
   // Description
@@ -168,7 +169,7 @@ export function compileFormData(
   // NEW: Extract speakers array (supports both legacy and new formats)
   // Speaker text data is ALWAYS included in prompts when provided.
   // The speakerPhotoEnabled flag only controls whether photos are overlaid post-generation.
-  let speakersArray: Array<{ name: string | null; designation: string | null }> | null = null
+  let speakersArray: Array<{ name: string | null; designation: string | null; role: SpeakerRole | null }> | null = null
 
   // Check for speakers array in form data
   if (Array.isArray(formData.speakers)) {
@@ -176,6 +177,7 @@ export function compileFormData(
       .map((s: any) => ({
         name: s.name || s.speakerName || null,
         designation: s.designation || s.speakerDesignation || null,
+        role: (s.role as SpeakerRole) || null,
       }))
       .filter(s => s.name && s.name.trim())
   } else if (extractedFields.speakerName) {
@@ -183,6 +185,7 @@ export function compileFormData(
     speakersArray = [{
       name: extractedFields.speakerName,
       designation: extractedFields.speakerDesignation,
+      role: null,
     }]
   }
 

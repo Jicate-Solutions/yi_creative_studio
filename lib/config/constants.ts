@@ -147,6 +147,7 @@ export const ROUTES = {
   events: '/events',
   create: '/create',
   lab: '/lab',
+  forge: '/forge',
   gallery: '/gallery',
   templates: '/templates',
   bulk: '/bulk',

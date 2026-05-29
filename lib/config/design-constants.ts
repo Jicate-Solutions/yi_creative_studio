@@ -362,11 +362,32 @@ export type FooterStyle = 'minimal' | 'full' | 'branded'
 export type LayoutMode = 'auto' | 'manual'
 export type LayoutStrategy = 'side-by-side' | 'stacked' | 'grid'
 
+// Event role for a featured person — distinct from `designation` (their org/title).
+// Drives the consistent role label rendered above the name on the poster.
+export type SpeakerRole =
+  | 'speaker'
+  | 'chief_guest'
+  | 'guest_of_honour'
+  | 'special_guest'
+  | 'panelist'
+  | 'moderator'
+
+// Display titles rendered on the poster (and shown in the role selector).
+export const SPEAKER_ROLE_LABELS: Record<SpeakerRole, string> = {
+  speaker: 'SPEAKER',
+  chief_guest: 'CHIEF GUEST',
+  guest_of_honour: 'GUEST OF HONOUR',
+  special_guest: 'SPECIAL GUEST',
+  panelist: 'PANELIST',
+  moderator: 'MODERATOR',
+}
+
 // Individual speaker data structure
 export interface SpeakerItem {
   id: string              // Unique ID (crypto.randomUUID())
   name: string            // Speaker name
-  designation?: string    // Title/role
+  designation?: string    // Org/title, e.g. "CEO, JICATE"
+  role?: SpeakerRole      // Event role (Speaker / Chief Guest / …) — renders as a label above the name
   photoUrl?: string       // Data URL
 }
 

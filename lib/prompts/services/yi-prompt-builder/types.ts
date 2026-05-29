@@ -312,6 +312,32 @@ export type BackgroundStyleId =
   | 'collage'        // Maximalist mixed-media collage — torn paper, photo fragments, tape, stamped type
   | 'spotlight-event' // Yi event-poster look — bright gradient field, photo-hero people, bold headline + colored sub-line band, date chip, detail strip, flat skyline footer, clean logo zone. Attaches a style-only reference image. (distinct from creativeMode 'spotlight' and format id 'event_poster')
   | 'advertising'    // Premium advertising / campaign key art — cinematic hero, shallow DOF, dramatic commercial lighting, frozen action, big typography
+  // ── v56.0: Wide style expansion ──
+  // Modern / trendy
+  | 'minimal'        // Swiss minimalism — extreme whitespace, ONE focal element, refined restrained type
+  | 'comic'          // Comic-book / manga — panels, speech bubbles, ben-day dots, ink, action FX
+  | 'aurora'         // Holographic mesh / aurora gradient — flowing tech-brand colour field, soft glow
+  | 'isometric'      // Axonometric 3D vector mini-scene — technical isometric illustration
+  // Bold / youth
+  | 'vaporwave'      // Y2K / vaporwave — chrome, holographic, retro-futurist grid, pink/cyan nostalgia
+  | 'grunge'         // Grunge / zine — distressed, torn, photocopier grit, punk gig-poster
+  | 'street'         // Street art / graffiti — spray paint, stencil, sticker-bomb, urban wall
+  | 'risograph'      // Risograph print — 2-3 spot-colour, grain, deliberate misregistration, indie
+  // Premium / cinematic
+  | 'luxury'         // Luxury gala — black/jewel + gold foil, elegant serif, foil-stamp
+  | 'movie-keyart'   // Movie key-art — film-poster layout, title treatment, hero montage, billing block
+  | 'monoline'       // Monoline line-art — single continuous-weight line illustration, editorial minimal
+  | 'bw-editorial'   // Black-and-white editorial photojournalism — timeless high-tonal-range monochrome
+  // Cultural / craft
+  | 'temple-mural'   // Indian temple mural — Kerala / Tanjore mural tradition + gold leaf
+  | 'gond'           // Gond tribal art — dot-and-line rhythmic patterning, Central-Indian folk
+  | 'chalkboard'     // Chalkboard — hand-lettered chalk on blackboard, doodle frames
+  | 'double-exposure'// Double exposure — silhouette blended with a scene/landscape, artistic photo
+  // College / campus
+  | 'collegiate'     // Collegiate / academic — heraldic crest, navy + gold, scholarly serif
+  | 'tech-hud'       // Tech-fest HUD — sci-fi heads-up display, circuitry, glowing UI, data-grid
+  | 'varsity'        // Varsity athletic — jersey numerals, collegiate block type, stadium energy
+  | 'campus-doodle'  // Campus doodle — ruled notebook paper, ballpoint doodles, sticky notes, highlighter
 
 export interface BackgroundStyleConfig {
   id: BackgroundStyleId

@@ -96,6 +96,7 @@ After your image is generated, separate post-processing systems composite logos,
 - NEVER draw logo placeholders, "[LOGO]" labels, brand-mark emojis (🏷️ 🍀 etc), or any logo-like shapes
 - NEVER draw speaker photos when a <speaker_photo_zone> is marked "USER PHOTO WILL BE OVERLAID" — keep that zone clean
 - NEVER draw text in zones marked as <forbidden_zone> (logo bar zones, footer zones) — the background scene continues through these zones as atmospheric environment, but TEXT and FOCAL HUMAN SUBJECTS must respect the boundaries
+- NEVER draw a hashtag (#…), website URL (www… / .com / .net / .in), social handle (@…), phone number, email, or "Digital Partner"/sponsor text or logos ANYWHERE — the footer strip composites these afterward, so any version you draw duplicates it (the event's own date/time/venue/speaker text is still rendered, just never as a bottom footer bar)
 
 AI'S CREATIVE CONTROL VS. USER'S FIXED INPUT:
 You control: backgrounds, scene composition, lighting, visual atmosphere, typography styling (size / weight / effects / color — not font family if specified), event-specific environments and objects, decorative motifs that fit the scene.

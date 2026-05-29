@@ -324,7 +324,12 @@
       "WebFetch(domain:medium.com)",
       "mcp__stitch__list_screens",
       "mcp__stitch__get_project",
-      "mcp__stitch__generate_screen_from_text"
+      "mcp__stitch__generate_screen_from_text",
+      "WebFetch(domain:developers.openai.com)",
+      "Bash(Get-ChildItem *)",
+      "WebFetch(domain:www.mangidik.com)",
+      "Bash(Get-Item -Path \"app/\\(dashboard\\)/lab\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -Property FullName)"
     ],
     "deny": [],
     "ask": [],

@@ -41,7 +41,8 @@ import {
   ASPECT_RATIOS,
   DIMENSION_QUALITY,
   ENHANCED_STRIP_ROW_HEIGHTS, // v12.3: Import actual row heights for accurate safe zone calculation
-  getLogoStripStyleByVibe // NEW: for auto-selecting strip shape based on vibe
+  getLogoStripStyleByVibe, // NEW: for auto-selecting strip shape based on vibe
+  SPEAKER_ROLE_LABELS // role → display label for the credit-line role tag
 } from '@/lib/config/design-constants'
 import {
   generatePrompt,
@@ -54,7 +55,7 @@ import {
 } from '@/lib/prompts'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
 import { getPromptStyleConfig } from '@/lib/config/prompt-styles'
-import { getBackgroundStyleHint, getBackgroundStyle } from '@/lib/config/background-styles'
+import { getBackgroundStyleHint, getBackgroundStyle, DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
 import { getFormatZones, getFormatCategory, shouldEnforceZones } from '@/lib/config/format-zones'
 import { shouldApplyLogoBars } from '@/lib/config/format-logo-bar-config'
 import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
@@ -877,7 +878,12 @@ export async function POST(request: NextRequest) {
           && subjectAnalysis.subjectType !== 'person') {
         const firstSpeaker = speakerPhoto?.speakers?.find(s => s?.name?.trim() || s?.photoUrl)
         guestPhotoName = subjectAnalysis.subjectIdentity?.name || firstSpeaker?.name?.trim() || undefined
-        guestPhotoDesignation = subjectAnalysis.subjectIdentity?.role || firstSpeaker?.designation?.trim() || undefined
+        // Prefix the event-role label (CHIEF GUEST, etc.) onto the designation so the
+        // composited inset card caption carries the role alongside the org/title.
+        const firstSpeakerRoleKey = (firstSpeaker as { role?: keyof typeof SPEAKER_ROLE_LABELS } | undefined)?.role
+        const firstSpeakerRoleLabel = firstSpeakerRoleKey ? SPEAKER_ROLE_LABELS[firstSpeakerRoleKey] : undefined
+        const baseDesignation = subjectAnalysis.subjectIdentity?.role || firstSpeaker?.designation?.trim() || undefined
+        guestPhotoDesignation = [firstSpeakerRoleLabel, baseDesignation].filter(Boolean).join(' · ') || undefined
 
         if (process.env.SPEAKER_PHOTO_FORCES_PORTRAIT === 'hero') {
           // Legacy behavior (opt-in): the uploaded portrait IS the hero (full portrait-hero).
@@ -2255,17 +2261,15 @@ export async function POST(request: NextRequest) {
             // v54.7: Look up the full background-style config so we can pass
             // the enriched concept/reference/craft/banlist context into the
             // Director per principle 13.
-            // v54.8 Fix #1 → v54.9 update: Default to 'pop-modern' (the user's
-            // actual brand vibe — Hatecopy + Hassan Hajjaj + Tamil cinema +
-            // halftone screen-print). This is the aesthetic family that produced
-            // the chairperson birthday poster and the Smileathon poster the user
-            // explicitly endorsed. Default was briefly 'scene' (Realistic
-            // photoreal) but Realistic produced Steve-McCurry-photojournalism
-            // output, which is NOT what the user wants for every event. The
-            // user's brand vibe is pop-art designer poster, not editorial photo.
-            // Override by picking another style in the UI.
+            // v55.x default-fidelity fix: the default MUST match what the UI picker
+            // shows highlighted (DEFAULT_BACKGROUND_STYLE = 'scene'/"Realistic"). The
+            // route previously defaulted to 'pop-modern' while the picker showed
+            // "Realistic" selected — so a user who never tapped a tile saw "Realistic"
+            // but silently got pop-art output (the "Realistic → photo-pop" bug). The
+            // default now comes from the single shared constant so the tile shown ALWAYS
+            // equals the style generated. pop-modern stays fully selectable in the UI.
             const _bgStyleIdRaw = (adjustedUserFormData as Record<string, unknown>)?.backgroundStyle as string | undefined
-            const _bgStyleId = _bgStyleIdRaw ?? 'pop-modern'
+            const _bgStyleId = _bgStyleIdRaw ?? DEFAULT_BACKGROUND_STYLE
             const _bgStyleWasDefaulted = !_bgStyleIdRaw
             const _bgStyleConfig = getBackgroundStyle(_bgStyleId)
             const _hasStyleContext =
@@ -2341,10 +2345,14 @@ export async function POST(request: NextRequest) {
                 // that already carries its own name+designation caption — don't also render that name
                 // in the prose (would duplicate). Photo-less speakers still render as text.
                 .filter(s => !(guestPhotoInsetMode && !!(s as { photoUrl?: string }).photoUrl))
-                .map(s => ({
-                  name: s.name!.trim(),
-                  designation: (s as { designation?: string }).designation?.trim() || undefined,
-                })),
+                .map(s => {
+                  const roleKey = (s as { role?: keyof typeof SPEAKER_ROLE_LABELS }).role
+                  return {
+                    name: s.name!.trim(),
+                    designation: (s as { designation?: string }).designation?.trim() || undefined,
+                    role: roleKey ? SPEAKER_ROLE_LABELS[roleKey] : undefined,
+                  }
+                }),
               eventDetails: {
                 dateLine: compiledData.date ?? undefined,
                 timeLine: compiledData.time ?? undefined,
@@ -2376,6 +2384,8 @@ export async function POST(request: NextRequest) {
 
             console.log(`[v54.0 Lab Director] ✅ Swapped prompt: ${finalXmlPrompt.length} chars (XML) → ${assembled.prompt.length} chars (Director prose, ~${assembled.meta.estimatedTokens} tokens)`)
             console.log(`[v54.0 Lab Director] Theme: "${assembled.meta.visualThemeName}" | Mood: ${assembled.meta.mood}`)
+            console.log(`[v55.x Lab Director] 📷 Lighting: ${directorResult.output.lighting} | Camera: ${directorResult.output.camera}`)
+            console.log(`[v55.x Lab Director] ✨ Finish: ${directorResult.output.qualityBar} | Avoid: ${directorResult.output.avoidNotes}`)
             console.log(`[v54.0 Lab Director] Reasoning: ${directorResult.output.reasoning}`)
 
             finalXmlPrompt = assembled.prompt
@@ -2394,16 +2404,25 @@ export async function POST(request: NextRequest) {
         // v38.0: Support both XML tags (pre-sanitization) and parenthetical markers (post-sanitization)
         const formSpeakers = (enrichedFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
         if (formSpeakers && formSpeakers.length > 0) {
-          const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/) ||
+          const xmlSpeakerMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/) ||
             finalXmlPrompt.match(/\(speaker_name[^)]*\)\s*"([^"]+)"/);
 
-          if (!speakerNameMatch) {
+          // v55.x: the Lab Director emits plain prose (no XML tags), so the XML/parenthetical
+          // matchers above never fire on Director output. Treat the speaker as present when the
+          // prose contains the speaker's name as visible text — otherwise we log a false alarm
+          // even when the name renders correctly in the poster.
+          const proseSpeakerName = (formSpeakers as Array<{ name?: string }>).find(
+            (s) => s?.name?.trim() && finalXmlPrompt.toLowerCase().includes(s.name.trim().toLowerCase())
+          )?.name;
+          const renderedSpeaker = xmlSpeakerMatch?.[1] ?? proseSpeakerName;
+
+          if (!renderedSpeaker) {
             console.error('[Generation] 🚨 SPEAKER TEXT NOT IN PROMPT!');
             console.error('[Generation] ⚠️ Speaker will NOT render in image');
             console.error('[Generation] Expected speaker:', formSpeakers[0]?.name);
             console.error('[Generation] Speakers array length:', formSpeakers.length);
           } else {
-            console.log('[Generation] ✅ Speaker text found in prompt:', speakerNameMatch[1]);
+            console.log('[Generation] ✅ Speaker text found in prompt:', renderedSpeaker);
           }
         }
 
@@ -2437,7 +2456,7 @@ export async function POST(request: NextRequest) {
         // Director's prose is self-contained and the legacy 4903-char system text
         // adds compliance-mode noise that suppresses creative interpretation.
         let systemInstruction = useLabDirector
-          ? 'You are a professional image-generation model. Render exactly the visual scene described in the user message, with magazine-cover quality and faithful execution of every detail.'
+          ? 'You are a professional image-generation model. Render exactly the visual scene described in the user message, with magazine-cover quality and faithful execution of every detail. Do not render any hashtag, website URL, social handle, phone number, email, or sponsor/footer contact text or logos — these are composited separately afterward and any version you draw would duplicate them.'
           : YiPromptBuilder.getSystemInstruction()
 
         // v41.0: Logo bar scaffold — replaces zone guide with a base image for Gemini editing mode
@@ -2813,19 +2832,25 @@ ${typographyProfile.hierarchy}
           )
         }
 
-        // v50.5: Header retry CONDITIONAL on logo strip status.
+        // v50.5: Header retry CONDITIONAL on logo-bar status.
         // Previous v41.8 hardcoded retry=false assuming logo bars would cover all violations.
-        // But when user disables logo strip, violations become VISIBLE and break the design
+        // But when there are NO logo bars at all, violations become VISIBLE and break the design
         // (text bleeds into top 40%, ignored by Flash 2.5 model's looser zone compliance).
-        // Now: when logoStripMode is DISABLED, treat violations as REAL and force a retry.
-        //      when logoStripMode is ENABLED, skip retry (logo bar will cover the violation).
-        const HEADER_RETRY_ENABLED = !logoStripMode?.enabled
+        // v55.x fix: gate on the UNIFIED logoBarsActive flag (enhanced4RowStrip OR legacy
+        // logoStripMode), not just the legacy logoStripMode. Checking only the legacy flag made
+        // the 4-Row Strip (the current system) look "disabled" → forced a wasteful retry + mask
+        // even though its opaque bars already cover the header.
+        //   logo bars present  → skip retry (the bar covers the violation)
+        //   no logo bars       → retry (violation would be visible)
+        // NB: full-canvas mode already returns violations=[] above, so this block only runs when
+        //     logoBarsActive is true — HEADER_RETRY_ENABLED is effectively false here (defensive).
+        const HEADER_RETRY_ENABLED = !logoBarsActive
         const headerViolation = violations.find(v => v.zoneType === 'header' && v.severity === 'critical')
         if (headerViolation) {
           if (HEADER_RETRY_ENABLED) {
-            console.log('[v50.5 Zone Retry] ⚠️ Header zone violation detected AND logo strip is DISABLED — text will be visible. Forcing retry.')
+            console.log('[v50.5 Zone Retry] ⚠️ Header zone violation detected AND no logo bars — text will be visible. Forcing retry.')
           } else {
-            console.log('[v41.8 Zone Retry] ℹ️ Header zone violation but logo strip ENABLED — logo bar will cover. Skipping retry.')
+            console.log('[v41.8 Zone Retry] ℹ️ Header zone violation but logo bars ENABLED — logo bar will cover. Skipping retry.')
           }
         }
         if (HEADER_RETRY_ENABLED && headerViolation && storedPromptForRegeneration) {
@@ -2906,16 +2931,18 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
                 imageUrl = retryImageUrl
                 imageBuffer = retryBuffer
                 if (retryResult.actualModel) imageActualModel = retryResult.actualModel
-              } else if (!logoStripMode?.enabled) {
-                // v50.6: Retry failed AND logo strip is disabled — nothing will cover the violation.
+              } else if (!logoBarsActive) {
+                // v50.6: Retry failed AND there are no logo bars — nothing will cover the violation.
                 // Apply smart masking (blur+darken) on the violation zone so it doesn't ship visible.
-                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation AND logo strip is DISABLED')
+                // v55.x fix: gate on logoBarsActive (4-Row Strip OR legacy strip), not the legacy
+                // logoStripMode alone — otherwise the 4-Row Strip's opaque bars get a redundant mask.
+                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation AND no logo bars')
                 console.log('[v50.6 Fallback Masking] Applying smart mask to violation zone')
                 const canvasW = formatDimensions?.width ?? 1080
                 const canvasH = formatDimensions?.height ?? 1440
                 imageBuffer = await smartMaskTextInLogoZones(imageBuffer, violations, canvasW, canvasH) as typeof imageBuffer
               } else {
-                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation — logo strip ENABLED, bars will cover')
+                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation — logo bars ENABLED, bars will cover')
               }
             }
           } catch (retryError) {

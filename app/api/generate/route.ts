@@ -36,7 +36,7 @@ import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, get
 import { calculateSpeakerCardDimensions, calculateBlockDimensions, scaleToFitSafeZone, getLayoutStrategy } from '@/lib/sharp/speaker-dimensions'
 import { analyzeSpeakerLayout, type SpeakerLayoutDecision } from '@/lib/agents/speaker-layout-agent'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
-import type { DesignData, CustomizationData, Enhanced4RowStripMode, ResolutionId } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, Enhanced4RowStripMode, ResolutionId, SpeakerRole } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
   DIMENSION_QUALITY,
@@ -2103,13 +2103,13 @@ export async function POST(request: NextRequest) {
         //   B) designData.customization.speakerPhoto.speakers — from smart-paste or design panel
         //   C) userFormData.speakerName / guestName — single-speaker backwards-compat fields
         const enrichedFormData: Record<string, unknown> = { ...(userFormData || {}) }
-        const mergedSpeakers: Array<{ name: string; designation: string }> = []
+        const mergedSpeakers: Array<{ name: string; designation: string; role?: SpeakerRole }> = []
 
         // Source A: multi-speaker array already in userFormData
         if (Array.isArray(enrichedFormData.speakers)) {
-          for (const s of enrichedFormData.speakers as Array<{ name?: string; designation?: string }>) {
+          for (const s of enrichedFormData.speakers as Array<{ name?: string; designation?: string; role?: SpeakerRole }>) {
             if (s.name?.trim()) {
-              mergedSpeakers.push({ name: s.name.trim(), designation: s.designation?.trim() || '' })
+              mergedSpeakers.push({ name: s.name.trim(), designation: s.designation?.trim() || '', role: s.role })
             }
           }
         }
@@ -2119,7 +2119,7 @@ export async function POST(request: NextRequest) {
           for (const s of originalSpeakerPhotoConfig.speakers) {
             const name = (s as any).name?.trim()
             if (name && !mergedSpeakers.some((m) => m.name === name)) {
-              mergedSpeakers.push({ name, designation: (s as any).designation?.trim() || '' })
+              mergedSpeakers.push({ name, designation: (s as any).designation?.trim() || '', role: (s as any).role })
             }
           }
         }

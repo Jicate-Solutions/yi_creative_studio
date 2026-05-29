@@ -8,12 +8,14 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type {
   SpeakerItem,
+  SpeakerRole,
   PhotoShape,
   PhotoPosition,
   PhotoVerticalPosition,
   LayoutMode,
   LayoutStrategy,
 } from '@/lib/config/design-constants'
+import { SPEAKER_ROLE_LABELS } from '@/lib/config/design-constants'
 
 interface SharedSettings {
   shape: PhotoShape
@@ -371,6 +373,22 @@ function SpeakerCard({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Role on poster — renders as a label above the name */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+              Role on poster
+            </label>
+            <select
+              value={speaker.role || 'speaker'}
+              onChange={(e) => onUpdate({ role: e.target.value as SpeakerRole })}
+              className="h-8 w-full text-xs px-2.5 rounded-lg bg-muted/30 border border-border/50 focus:bg-background"
+            >
+              {(Object.keys(SPEAKER_ROLE_LABELS) as SpeakerRole[]).map((r) => (
+                <option key={r} value={r}>{SPEAKER_ROLE_LABELS[r]}</option>
+              ))}
+            </select>
           </div>
 
           {/* Photo upload */}

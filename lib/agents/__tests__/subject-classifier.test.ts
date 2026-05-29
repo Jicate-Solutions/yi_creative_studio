@@ -131,6 +131,24 @@ const CASES: Case[] = [
       minConfidence: 0.75,
     },
   },
+  {
+    // Regression: a college Annual Day with only an abstract THEME (no enumerated
+    // activity list) was previously falling through to concept → concept-iconic →
+    // "ONE iconic symbol, NO people", producing an empty venue + floating emblem.
+    // It must classify as a live celebration (people performing + audience).
+    name: '6. Annual Day Celebration — live student celebration (must NOT be concept-iconic)',
+    input: {
+      eventName: 'Annual Day Celebration 2026',
+      description: 'Beyond Boundaries, Beyond Dreams',
+      targetAudience: 'students, parents, faculty',
+      organizationContext: { name: 'JKKN College', industry: 'Education' },
+    },
+    expect: {
+      subjectType: 'activity',
+      compositionStrategy: 'activity-collage',
+      minConfidence: 0.7,
+    },
+  },
 ]
 
 // --- runner ------------------------------------------------------------------

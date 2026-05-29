@@ -18,6 +18,7 @@ import { MobileBottomSheet } from './MobileBottomSheet'
 import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
+import { DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
 import { toast } from 'sonner'
 import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Images, Check, Pencil } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
@@ -432,7 +433,7 @@ export function CanvasCreatePage({
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE,
         designData: formData.designData,
         formatId: selectedFormat.id,
         customDimensions: formData.customDimensions || null,
@@ -603,7 +604,7 @@ export function CanvasCreatePage({
         templateUrl: isTemplateMode ? selectedTemplate.image_url : null,
         creationMode: (creationMode === 'spotlight' ? 'scratch' : creationMode) as 'template' | 'scratch',
         creativeMode: creationMode === 'spotlight' ? 'spotlight' : undefined,
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || undefined,
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE,
         designData: formData.designData,
         formatId: selectedFormat?.id,
         customDimensions: formData.customDimensions || null,

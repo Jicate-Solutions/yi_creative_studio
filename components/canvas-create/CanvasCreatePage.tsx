@@ -18,6 +18,7 @@ import { MobileBottomSheet } from './MobileBottomSheet'
 import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { cn } from '@/lib/utils'
 import { isPastDate } from '@/lib/utils/date-utils'
+import { DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
 import { toast } from 'sonner'
 import { FileText, Palette, RefreshCcw, Loader2, Download, Sparkles, Images, Check, Pencil } from 'lucide-react'
 import { PastDateWarningDialog } from '@/components/create/past-date-warning-dialog'
@@ -435,7 +436,7 @@ export function CanvasCreatePage({
         // v54.2: default to 'scene' (the "Realistic" style) so the picker's pre-selected
         // default is actually SENT — previously an uncommitted default was dropped to undefined,
         // which skipped the documentary-photography style lock and produced a freelance graphic poster.
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || 'scene',
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE,
         designData: formData.designData,
         formatId: selectedFormat.id,
         customDimensions: formData.customDimensions || null,
@@ -608,7 +609,7 @@ export function CanvasCreatePage({
         // v54.2: default to 'scene' (the "Realistic" style) so the picker's pre-selected
         // default is actually SENT — previously an uncommitted default was dropped to undefined,
         // which skipped the documentary-photography style lock and produced a freelance graphic poster.
-        backgroundStyle: (formData.formData as any)?.backgroundStyle || 'scene',
+        backgroundStyle: (formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE,
         designData: formData.designData,
         formatId: selectedFormat?.id,
         customDimensions: formData.customDimensions || null,

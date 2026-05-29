@@ -36,7 +36,8 @@ import { useLogos, useVerticals } from '@/hooks'
 import { detectLogoType } from '@/lib/config/logo-locks'
 import { ColorPickerCompact } from '@/components/create/color-picker'
 import type { AIModel } from '@/types/database.types'
-import { BACKGROUND_STYLES } from '@/lib/config/background-styles'
+import { BACKGROUND_STYLES, DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
+import { BackgroundStylePicker } from '@/components/create/background-style-picker'
 
 // Yi Brand default colors
 const YI_BRAND = { primary: '#005B96', secondary: '#FF6B35' }
@@ -113,7 +114,7 @@ export function LogosStylePanel({
 
   // Visual style data — promoted to component scope so the collapsed summary row can read them.
   // Source of truth: lib/config/background-styles.ts (shared with Gemini + OpenAI routes).
-  const bgStyle = ((formData.formData as any)?.backgroundStyle || 'scene') as string
+  const bgStyle = ((formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE) as string
   const bgStyles = BACKGROUND_STYLES
   const bgStyleLabel = bgStyles.find(s => s.id === bgStyle)?.label ?? 'Realistic'
   const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
@@ -254,29 +255,11 @@ export function LogosStylePanel({
                       </div>
                     )}
 
-                    {/* Background Style */}
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Background Style</p>
-                      <div className="grid grid-cols-4 gap-1">
-                        {bgStyles.map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => updateFormData({ backgroundStyle: s.id })}
-                            className={cn(
-                              'flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all duration-150',
-                              bgStyle === s.id
-                                ? 'border-primary bg-primary/5 shadow-sm'
-                                : 'border-border/40 hover:border-border/70 hover:bg-muted/30'
-                            )}
-                          >
-                            <span className="text-base leading-none">{s.icon}</span>
-                            <span className={cn('text-[9px] font-semibold', bgStyle === s.id ? 'text-primary' : 'text-muted-foreground')}>
-                              {s.label}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    {/* Background Style — category-grouped collapsible picker */}
+                    <BackgroundStylePicker
+                      value={bgStyle}
+                      onSelect={(id) => updateFormData({ backgroundStyle: id })}
+                    />
                   </div>
                 )}
               </div>

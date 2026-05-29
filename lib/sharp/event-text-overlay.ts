@@ -30,7 +30,8 @@ export interface EventTextData {
   tagline?: string           // "Break taboos and empower minds..."
   dateTime?: string          // "Sun, 12 Apr, 2026 | 3:16 PM"
   venue?: string             // "JKKN INSTITUTIONS, KUMARAPALAYAM BYPASS"
-  additionalDetails?: string // Prize structure as single string
+  organizationName?: string  // "Department of Physical Education" — host/department line
+  additionalDetails?: string // Prize structure / events list as single string
   registrationInfo?: string  // CTA text
   speakers?: Array<{ name: string; designation?: string }> // Speakers without photos
 }
@@ -210,6 +211,27 @@ export async function renderEventTextOverlay(
       )
       svgElements.push(cardResult.svg)
       currentY = cardResult.bottomY + SECTION_GAP
+    }
+
+    // ── ORGANISATION / DEPARTMENT LINE (host) ──
+    if (eventData.organizationName && eventData.organizationName.trim()) {
+      const orgText = eventData.organizationName.trim().toUpperCase()
+      const orgColor = bgIsDark ? getBestLightColor(brandColors) : getBestDarkColor(brandColors)
+      let orgFont = 26
+      const maxOrgW = canvasWidth - 120
+      while (getTextWidth(orgText, FONT_FAMILY, orgFont, 'bold') > maxOrgW && orgFont > 14) orgFont -= 1
+      const orgPath = textToPath(orgText, {
+        fontFamily: FONT_FAMILY,
+        fontSize: orgFont,
+        fontWeight: 'bold',
+        x: canvasWidth / 2,
+        y: currentY + orgFont,
+        fill: orgColor,
+        textAnchor: 'middle',
+        letterSpacing: 1,
+      })
+      svgElements.push(orgPath)
+      currentY += Math.round(orgFont * 1.5) + SECTION_GAP
     }
 
     // ── SPEAKERS (name + designation, for speakers without photos) ──

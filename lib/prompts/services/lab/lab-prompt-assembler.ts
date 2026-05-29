@@ -65,6 +65,43 @@ export interface AssembledPrompt {
 }
 
 /**
+ * Strategy for turning the Director's per-event `avoidNotes` into prompt text.
+ * The Lab philosophy avoids MUST/DO-NOT (image models flip into compliance mode and
+ * ignore creative intent), but Gemini 3 DOES respond to explicit negatives. Trade-off:
+ *   - 'affirm'  → restate as positive qualities only ("clean natural anatomy, crisp
+ *                 lettering, sharp focus"). Safest under GENTLE mode; positives render well.
+ *   - 'exclude' → explicit "free of X, Y, Z". More direct, slight risk of the model
+ *                 rendering a banned word or going compliance-flat.
+ *   - 'hybrid'  → a positive quality affirmation + a gentle "free of …" tail (default).
+ */
+export type AvoidPhrasingStrategy = 'affirm' | 'exclude' | 'hybrid'
+
+/**
+ * Convert the Director's raw per-event `avoidNotes` (a comma-separated pitfall list)
+ * into one descriptive sentence for the Gemini prompt.
+ *
+ * ── DESIGN DECISION (yours to tune) ───────────────────────────────────────────
+ * The phrasing here materially changes every poster's negative handling. The default
+ * is 'hybrid'. Adjust the branch text or change the default if you prefer pure
+ * affirmation or explicit exclusion. Keep it in the assembler's GENTLE descriptive
+ * voice — no "MUST" / "DO NOT".
+ * ──────────────────────────────────────────────────────────────────────────────
+ */
+function formatAvoidNotes(avoidNotes: string, strategy: AvoidPhrasingStrategy = 'hybrid'): string {
+  const notes = avoidNotes.trim().replace(/[.\s]+$/, '')
+  if (!notes) return ''
+  switch (strategy) {
+    case 'affirm':
+      return 'Rendered with clean natural anatomy, crisp correctly-spelled lettering, sharp focus, and an uncluttered composition.'
+    case 'exclude':
+      return `The finished image is free of ${notes}.`
+    case 'hybrid':
+    default:
+      return `Rendered with clean natural anatomy and crisp, correctly-spelled lettering — free of ${notes}.`
+  }
+}
+
+/**
  * Assemble the final Gemini prompt from the Director's output.
  *
  * The Director's prose already includes:
@@ -73,9 +110,12 @@ export interface AssembledPrompt {
  *   - Subject treatment (portrait-hero / concept-iconic / etc.)
  *   - A short Sharp-zone hint at the end
  *
- * So this assembler mostly passes the prose through. Two tiny adjustments:
+ * So this assembler mostly passes the prose through. Adjustments:
  *   1. Optional "Generate the following image:" prefix for clarity
- *   2. Optional safety-net Sharp hint if Director's prose doesn't already
+ *   2. v55.x: an explicit per-event PHOTOGRAPHIC SPEC block (lighting / camera /
+ *      finish / mood + negatives) so those dimensions always reach Gemini even if
+ *      the prose under-specified them
+ *   3. Optional safety-net Sharp hint if Director's prose doesn't already
  *      mention "Sharp" / "logo bars" / "footer typography"
  */
 export function assembleLabPrompt(
@@ -104,6 +144,22 @@ export function assembleLabPrompt(
   // ("Generate", "Render", "Create", "Design", "MUST", "DO NOT") from prose,
   // mutilating the Director's output. GENTLE mode preserves natural sentences.
   parts.push(`<scene_description>\n${prose}\n</scene_description>`)
+
+  // v55.x: explicit per-event PHOTOGRAPHIC SPEC. The Director derives these per event
+  // (lab-creative-director.ts principle 18) and emits them as structured fields, so we
+  // guarantee Gemini receives lighting/camera/finish/mood + negatives even when the
+  // prose under-specifies them. Descriptive voice keeps the shared sanitizer in GENTLE mode.
+  const specBits: string[] = []
+  if (directorOutput.lighting?.trim()) specBits.push(`Lighting — ${directorOutput.lighting.trim()}.`)
+  if (directorOutput.camera?.trim()) specBits.push(`Camera — ${directorOutput.camera.trim()}.`)
+  if (directorOutput.qualityBar?.trim()) specBits.push(`Finish — ${directorOutput.qualityBar.trim()}.`)
+  if (directorOutput.mood?.trim()) specBits.push(`Mood — ${directorOutput.mood.trim()}.`)
+  const avoidText = formatAvoidNotes(directorOutput.avoidNotes ?? '')
+  if (avoidText) specBits.push(avoidText)
+  if (specBits.length) {
+    parts.push(`<scene_description>\nPhotographic direction for this poster — ${specBits.join(' ')}\n</scene_description>`)
+  }
+
   if (styleReferenceNote) {
     // Descriptive (not command) voice so GENTLE sanitization keeps it and the
     // model treats it as context. Clarifies that the attached reference is a
@@ -118,6 +174,17 @@ export function assembleLabPrompt(
     // verifier flags the top 40% as forbidden but we told Gemini only 15%).
     parts.push(
       `<scene_description>\nThe top 40% of the ${canvasWidth}×${canvasHeight} canvas (the upper 576 pixels) must be empty of all decorative elements, confetti, icons, text, faces, and figures — only soft atmospheric continuation of the background. The bottom 18% must also be quiet atmospheric background. Logo bars and footer typography will be composited in those regions during post-processing.\n</scene_description>`
+    )
+  }
+  if (withSharpSafetyNet) {
+    // Footer-content backstop (fires even when the Director already added the
+    // Sharp zone hint): Sharp composites the real brand footer strip — hashtag,
+    // website, social handles, partner logos — afterward, so the image must NOT
+    // contain any of that text/logos or it duplicates the strip. Banned anywhere
+    // (not just the bottom band), because the model sometimes renders the footer
+    // line a little above the reserved strip too.
+    parts.push(
+      `<scene_description>\nThe finished image contains NO hashtag ('#…'), NO website URL ('www…' / '.com' / '.net' / '.in'), NO social handle ('@…'), NO phone number, NO email address, and NO sponsor or "Digital Partner" footer text or logos anywhere — the brand footer strip carrying those is composited separately during post-processing, so any version drawn here would duplicate it. The event's own date, time, venue and speaker credit are still shown, in the lower-middle of the composition, never as a bottom footer bar.\n</scene_description>`
     )
   }
 
