@@ -36,12 +36,13 @@ import { normalizeSpeakerConfig, getSpeakerCount, getSpeakerCountWithPhotos, get
 import { calculateSpeakerCardDimensions, calculateBlockDimensions, scaleToFitSafeZone, getLayoutStrategy } from '@/lib/sharp/speaker-dimensions'
 import { analyzeSpeakerLayout, type SpeakerLayoutDecision } from '@/lib/agents/speaker-layout-agent'
 import { calculateIntelligentLayout, type MultiSpeakerLayout } from '@/lib/config/multi-speaker-layouts'
-import type { DesignData, CustomizationData, Enhanced4RowStripMode, ResolutionId, SpeakerRole } from '@/lib/config/design-constants'
+import type { DesignData, CustomizationData, Enhanced4RowStripMode, ResolutionId } from '@/lib/config/design-constants'
 import {
   ASPECT_RATIOS,
   DIMENSION_QUALITY,
   ENHANCED_STRIP_ROW_HEIGHTS, // v12.3: Import actual row heights for accurate safe zone calculation
-  getLogoStripStyleByVibe // NEW: for auto-selecting strip shape based on vibe
+  getLogoStripStyleByVibe, // NEW: for auto-selecting strip shape based on vibe
+  SPEAKER_ROLE_LABELS // role → display label for the credit-line role tag
 } from '@/lib/config/design-constants'
 import {
   generatePrompt,
@@ -54,8 +55,8 @@ import {
 } from '@/lib/prompts'
 import { getFormatById, type CreativeFormatId } from '@/lib/config/creative-formats'
 import { getPromptStyleConfig } from '@/lib/config/prompt-styles'
-import { getBackgroundStyleHint, getGeminiStyleLock } from '@/lib/config/background-styles'
-import { getFormatZones, getFormatCategory, shouldEnforceZones } from '@/lib/config/format-zones'
+import { getBackgroundStyleHint, getBackgroundStyle, DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
+import { getFormatZones, getFormatCategory, getFormatProfile, shouldEnforceZones } from '@/lib/config/format-zones'
 import { shouldApplyLogoBars } from '@/lib/config/format-logo-bar-config'
 import { buildFormatPrompt, getStandardAspectRatio } from '@/lib/prompts/format-prompts'
 import {
@@ -81,13 +82,27 @@ import { compileFormData, summarizeCompiledData, buildSceneNarrative } from '@/l
 import { generateUltraProPromptSafe } from '@/lib/prompts/services/ultra-pro-prompt'
 import { classifySubject, type SubjectAnalysis } from '@/lib/agents/subject-classifier'
 import { selectArchetype, archetypeToPromptHint, detectRegionFromAddress } from '@/lib/prompts/creative-dna'
+// v54.0 LAB: Creative Director collapses 4 LLM stages (Event Understanding,
+// Typography Intelligence, Design Intelligence, Ultra-Pro Prompt) into one
+// taste-driven call that emits clean prose. Override via env LAB_USE_DIRECTOR=false.
+import { createDirectorBrief } from '@/lib/agents/designer-creative-director'
+import { assembleDesignerPrompt } from '@/lib/prompts/services/designer/designer-prompt-assembler'
+// Designer Pipeline — deterministic pre-stage that bridges user expectation → AI
+// interpretation and separates colour theory, then CONSTRAINS the Director. Only
+// the designer route uses it; main /api/generate and Forge are untouched.
+import { buildDesignerPipeline, type StyleIntent } from '@/lib/designer-pipeline'
+import { overlayFontFromTypography } from '@/lib/designer-pipeline/idea-parser'
+import { buildTypographyDirectionBlock } from '@/lib/designer-pipeline/s07-typography-plan'
+// Structured Creative Engine (Designer thin slice — flag-gated, event_poster only).
+import { planCreative, renderTextLayers, verifyVisibleText, type CreativePlan, type VisualStrategy, type RenderingMode } from '@/lib/creative-engine'
+import { formatEventDate, formatTimeRange } from '@/lib/utils/time-formatter'
+import { renderEventTextOverlay, type EventTextData } from '@/lib/sharp/event-text-overlay'
+import { pickReferenceForStyle, loadReferenceBase64 } from '@/lib/prompts/reference-library'
 import { criticReview } from '@/lib/agents/poster-critic'
 import { generateCreativeDirectorBrief, generateSpotlightCreativeBrief } from '@/lib/prompts/services/creative-director'
 import { buildLogoAwarenessContext, buildLogoSummary } from '@/lib/prompts/helpers/logo-awareness'
 import type { LogoPlacement } from '@/stores/creative-store'
 import { YiPromptBuilder, injectVerticalContext, type EnhancedBuildOptions } from '@/lib/prompts/services/yi-prompt-builder'
-import { buildLeanPrompt, getLeanSystemInstruction } from '@/lib/prompts/services/lean-prompt-builder'
-import { pickReferenceForSubject, loadReferenceBase64 } from '@/lib/prompts/reference-library'
 import { inferThemeFromDetails, type EventDetails } from '@/lib/services/theme-inference'
 import { resolveAutoDesignChoices } from '@/lib/services/auto-design-selector'
 import { sanitizeForGemini, detectLabelLeaks, stripFieldLabelsOnly, isXmlStructuredPrompt } from '@/lib/prompts/services/prompt-sanitizer'
@@ -102,6 +117,12 @@ import {
 } from '@/lib/ai/event-context-analyzer'
 import OpenAI from 'openai'
 import { buildOpenAIPrompt, getGptImageSize } from '@/lib/prompts/services/openai-prompt-builder'
+// Designer render layer — model→provider routing (one pipeline, switched renderer).
+import { renderPoster } from '@/lib/designer-render/render-router'
+import type { RendererMap, RenderProvider } from '@/lib/designer-render/types'
+// Hardened OpenAI image client (retry + undici socket handling) — preferred over the
+// route-local generateWithOpenAI so routing ChatGPT through this pipeline keeps reliability.
+import { generateWithOpenAI as generateWithOpenAIHardened } from '@/lib/pipelines/openai-pipeline'
 
 // ============================================================================
 // v24.6: FULL-CANVAS GENERATION PROTECTION
@@ -282,38 +303,43 @@ export async function POST(request: NextRequest) {
   let speakerPhotoZoneCoordinates: ReturnType<typeof calculateSpeakerPhotoCoordinates> | undefined
   let speakerLayoutDecision: SpeakerLayoutDecision | undefined  // v7.1: AI-analyzed layout decision
   let referencePhotoBase64: { data: string; mimeType: string } | undefined  // v52.1: speaker portrait passed to Gemini as reference image
-  // v54.0 EXPERIMENT: brand logos passed to Gemini as reference images (mirrors v52.1 speaker photo).
-  // Controlled by LOGO_RENDER_MODE env: 'overlay' (default — Sharp overlay + scaffold, the backup path)
-  // or 'gemini' (pass logo images to Gemini, skip scaffold/overlay/zone-masking).
-  const logoRenderMode = (process.env.LOGO_RENDER_MODE || 'overlay') as 'overlay' | 'gemini'
-  let referenceLogoImages: Array<{ logoId: string; position: string; mimeType: string; data: string; name?: string }> | undefined
-  // v54.4 EXPERIMENT: PROMPT_MODE=lean swaps the ~20K-char heavy prompt for a tight creative
-  // brief (lib/prompts/services/lean-prompt-builder.ts). Default 'full' keeps the existing builder.
-  const promptMode = (process.env.PROMPT_MODE || 'full') as 'full' | 'lean'
-  // v54.5 EXPERIMENT: CONCEPT_FIRST=on runs the Creative Director ideation for every event poster,
-  // feeds its visualConcept into the LEAN prompt as the hero idea, and attaches a matching style
-  // reference image as the quality bar. Implies lean prompt.
-  const conceptFirst = (process.env.CONCEPT_FIRST || 'off') === 'on'
-  const useLeanPrompt = promptMode === 'lean' || conceptFirst
-  // v55.1: how a style reference influences generation.
-  //   'text' (DEFAULT) — inject the reference's described visual language as WORDS (safe: no copying).
-  //   'image'          — attach the raw reference image (higher fidelity BUT copies logos/placeholder
-  //                      text/layout — the templated refs literally contain "LOGO"/"@site" placeholders).
-  //   'off'            — no style reference at all.
-  const styleRefMode = (process.env.STYLE_REFERENCE_MODE || 'text') as 'text' | 'image' | 'off'
-  // v55.3: concept-first owns a coherent CLEAN pipeline regardless of LOGO_RENDER_MODE — real logos
-  // overlaid by Sharp at reserved corners (never Gemini-drawn) + no zone scaffold. This makes
-  // CONCEPT_FIRST=on self-contained, so a stray LOGO_RENDER_MODE=gemini can't reintroduce the
-  // "LOGO" placeholder bug. Outside concept-first, LOGO_RENDER_MODE behaves as before.
-  const effectiveLogoMode = conceptFirst ? 'overlay' : logoRenderMode
-  let conceptBrief: Awaited<ReturnType<typeof generateCreativeDirectorBrief>> | undefined
-  let styleReferenceImages: Array<{ data: string; mimeType: string }> | undefined
-  let styleReferenceNote: string | undefined
+
+  // v55.x GUEST-PHOTO INSET: when a photo is uploaded but the brief is an EVENT (classifier said
+  // concept/activity, not person), the person is a GUEST (chief guest / speaker), not the subject.
+  // Instead of forcing a full-bleed portrait-hero (which made the guest's face swallow the poster),
+  // keep the event as the subject and place the guest as a PROPERLY-SIZED framed headshot inset in
+  // the content band, clear of the logo zone. Size comes from the Speaker Layout Agent's context
+  // analysis (photoSizePercent). These flags are read when building the Director input.
+  let guestPhotoInsetMode = false
+  let guestPhotoName: string | undefined
+  let guestPhotoDesignation: string | undefined
+  let styleReferenceBase64: { data: string; mimeType: string } | undefined  // style-only quality-bar image, attached when the picked style has a reference (e.g. 'spotlight-event')
   // v53.2: Outer-scope mirrors of inner block variables, populated when the
   // scratch-mode block runs. The critic block runs AFTER all creation-mode branches,
   // so it can't see compiledData/subjectAnalysis declared inside any single branch.
   let compiledDataForCritic: { eventName?: string; description?: string; tagline?: string; [key: string]: unknown } | undefined
   let subjectAnalysisForCritic: SubjectAnalysis | undefined
+  // Designer Pipeline: the "AI understood this" summary, surfaced in the response so
+  // the UI can show the interpretation before/with generation.
+  let designerPipelineSummary: string | undefined
+  // Designer Pipeline v2: the resolved role-based style blend, surfaced for the
+  // "Style Mix" UI card (undefined / 'auto' when the user chose AI Auto).
+  let designerStyleBlendPlan: import('@/lib/designer-pipeline').StyleBlendPlan | undefined
+  // User-requested font for the deterministic factual overlay (date/venue/details).
+  // Resolved from the parsed visual idea; undefined → overlay uses its AI default (Poppins).
+  let designerOverlayFont: string | undefined
+  // v1.3 — designed typography plan + its pre-generation audit, hoisted to function scope
+  // so the final-prompt injection (after the Director block) can read them.
+  let designerTypographyPlan: import('@/lib/designer-pipeline').TypographyPlan | undefined
+  let designerTypographyAudit: import('@/lib/designer-pipeline').TypographyAudit | undefined
+
+  // v54.12: Hoist useLabDirector to POST-function scope so the retry path at
+  // route.ts:~2719 can read it. Previous: declared inside try-block at line 837;
+  // when zone retry fired in a nested closure, the variable was out of scope
+  // and crashed with "ReferenceError: useLabDirector is not defined", forcing
+  // the original buggy image (with text in forbidden zones) to be kept. With
+  // this hoist, retry can correctly use Director-aware systemInstruction.
+  const useLabDirector = process.env.LAB_USE_DIRECTOR !== 'false'
 
   try {
     const supabase = await createClient()
@@ -443,6 +469,8 @@ export async function POST(request: NextRequest) {
     // NEW v3.10: Extract color configuration from design data
     const colorConfig = designData?.colorConfig || null
 
+    console.log('[DESIGNER] 🧪 ============ /api/generate-designer — EXPERIMENTAL PIPELINE FORK ============')
+    console.log('[DESIGNER] Main /api/generate is UNTOUCHED. Iterate freely here.')
     console.log('[Generate API] Color Config Received:', {
       useBrandColors: colorConfig?.useBrandColors,
       selectedPalette: colorConfig?.selectedPalette,
@@ -469,6 +497,31 @@ export async function POST(request: NextRequest) {
 
     // v24.0: Declare logoStripZoneCoordinates at function level for accessibility
     let logoStripZoneCoordinates: EnhancedBuildOptions['logoStripZoneCoordinates'] | undefined
+
+    // v55.x FULL-CANVAS MODE: when the logo strip is OFF there are NO logo bars or footer strip
+    // to composite, so the reserved top-40%/bottom-18% zones (and the blur-masking that enforced
+    // them) only crippled the design — they crammed content into a ~432px band and blurred any
+    // overflow. When logos are off, let the poster use the ENTIRE canvas like a finished print ad
+    // (matches the prompt that tested well directly in Gemini). This flag gates four things: the
+    // Director's full-canvas instruction, the assembler's Sharp safety-net, the logo-bar scaffold,
+    // and the forbidden-zone spatial verification/retry/masking.
+    //
+    // v55.x FIX: "logos on" is signalled by the ENHANCED 4-row strip (enhanced4RowStrip.enabled —
+    // what the UI "Logo Strip" toggle actually controls, and what reserves the header/footer zones
+    // + composites the bar) OR the legacy logoStripMode. Keying only on logoStripMode was a bug:
+    // enabling the (enhanced) logo bar left fullCanvasMode=true, so the bar composited over a
+    // full-bleed design and content collided with the logo zone. Full-canvas only when BOTH are off.
+    const logoBarsActive = !!(enhanced4RowStrip?.enabled || logoStripMode?.enabled)
+    const fullCanvasMode = !logoBarsActive
+    console.log(`[v55.x Layout Mode] logoBarsActive=${logoBarsActive} (enhanced4RowStrip.enabled=${!!enhanced4RowStrip?.enabled}, logoStripMode.enabled=${!!logoStripMode?.enabled}) → ${fullCanvasMode ? 'FULL-CANVAS (no logo bars, edge-to-edge)' : 'LOGO-BAR MODE (zones reserved)'}`)
+
+    // v57.0: Per-format SHAPE / JOB / reserve-band profile. Drives the Director's FORMAT PROFILE block,
+    // the assembler's Sharp safety-net, and the forbidden-zone verifier thresholds — so non-poster
+    // formats (square feed posts, wide covers, tall stories, thumbnails, certificates) compose to their
+    // own shape instead of a 1080×1440 poster. poster_portrait reproduces the legacy 40%/18% bands, so
+    // event_poster output is unchanged.
+    const formatProfile = getFormatProfile(formatId || 'event_poster')
+    console.log(`[v57.0 Format Profile] ${formatId || 'event_poster'} → ${formatProfile.shape} | reserve top ${formatProfile.reserveTopPct}% / bottom ${formatProfile.reserveBottomPct}% | footerStrip=${formatProfile.footerStripActive}`)
 
     // v24.3: Declare content-only generation variables at function level
     let originalFormat: typeof selectedFormat = null
@@ -515,7 +568,11 @@ export async function POST(request: NextRequest) {
     const fontPreference = brandConfig?.fontPrimary || undefined
 
     // NEW v3.10: Resolve actual color values from ColorConfig
-    const resolvedColors = resolveColorConfig(colorConfig, brandConfig || undefined)
+    // v1.1 (designer route): `let` (not `const`) so the Designer Pipeline can OVERRIDE these
+    // with the user's own colour request after buildDesignerPipeline runs — BEFORE the values
+    // feed the Director's brandColors and the deterministic text overlay. designerPlan has
+    // priority over legacy context (designer route only).
+    let resolvedColors = resolveColorConfig(colorConfig, brandConfig || undefined)
 
     console.log('[Generate API] Resolved Colors:', {
       primary: resolvedColors.primaryColor,
@@ -707,6 +764,28 @@ export async function POST(request: NextRequest) {
     // Position locking is now user-controlled via the UI
 
     let imageUrl: string
+    // Provider adapters for the render router (dependency injection — wraps the existing
+    // generateWithGemini / generateWithIdeogram / hardened OpenAI client). One pipeline above
+    // this; only the final image call switches by selected model.
+    const renderers: RendererMap = getDesignerRenderers()
+    // ── Structured Creative Engine (Forge thin slice; flag-gated, event_poster only) ──
+    const useCreativeEngine = process.env.CREATIVE_ENGINE === 'true' && formatId === 'event_poster'
+    let enginePlan: CreativePlan | null = null
+    if (useCreativeEngine) {
+      console.log('[Creative Engine] 🧪 ENABLED (CREATIVE_ENGINE=true, formatId=event_poster) — background-only gen + deterministic text')
+    }
+    // Set at the Gemini call site so the detail verify-and-regenerate loop (after resize)
+    // can re-run generation with emphasis on any missing user event details.
+    let regenerateWithEmphasis: ((missing: string[]) => Promise<string>) | null = null
+    // Factual lines (formatted date / venue / organisation) the poster MUST show — captured
+    // where compiledData is in scope so the verify loop (later scope) can read them.
+    let factualDetailLines: string[] = []
+    // v56 HYBRID: legacy event_poster → AI renders scene + headline, Sharp composites the
+    // factual block deterministically (date/time/venue/org/events/speakers). Default ON;
+    // set DESIGNER_DETERMINISTIC_DETAILS=false to revert to AI-rendered details.
+    const useDeterministicDetails =
+      !useCreativeEngine && formatId === 'event_poster' && process.env.DESIGNER_DETERMINISTIC_DETAILS !== 'false'
+    let deterministicEventData: EventTextData | null = null
     let imageActualModel: string | undefined = undefined  // Tracks which model actually ran (may differ after TIER 3 upgrade)
     let storedPromptForRegeneration: string | undefined = undefined  // v24.0: Store prompt for potential regeneration
     let zoneGuideBase64: string | undefined = undefined  // v40.3: Zone guide for visual zone enforcement (hoisted for retry access)
@@ -814,6 +893,24 @@ export async function POST(request: NextRequest) {
       const speakerPhotoEnabled = speakerPhoto?.enabled ?? false
       // v15.1: Pass enhanced4RowStrip to extract initiative text for AI prompt
       const compiledData = compileFormData(adjustedUserFormData, formatId, effectiveDesignData, language, speakerPhotoEnabled, enhanced4RowStrip)
+      factualDetailLines = [
+        formatEventDate(compiledData.date),
+        compiledData.venue,
+        compiledData.organizationName,
+      ].filter((s): s is string => !!s && s.trim().length > 0)
+      // Full factual block for deterministic Sharp rendering (legacy hybrid).
+      deterministicEventData = {
+        dateTime:
+          [formatEventDate(compiledData.date), formatTimeRange(compiledData.time, compiledData.endTime)]
+            .filter(Boolean)
+            .join('  ·  ') || undefined,
+        venue: compiledData.venue ?? undefined,
+        organizationName: compiledData.organizationName ?? undefined,
+        additionalDetails: compiledData.eventNote ?? undefined, // events list / additional details
+        speakers: (compiledData.speakers ?? [])
+          .filter((s): s is NonNullable<typeof s> & { name: string } => !!s?.name)
+          .map((s) => ({ name: String(s.name), designation: s.designation ?? undefined })),
+      }
       console.log('[Generate] === COMPILED FORM DATA ===')
       console.log('[Generate] Summary:\n' + summarizeCompiledData(compiledData))
 
@@ -824,7 +921,7 @@ export async function POST(request: NextRequest) {
       // that downstream stages branch on (portrait-hero, concept-iconic,
       // activity-collage, object-hero, environment-scene).
       // ========================================================
-      const subjectAnalysis: SubjectAnalysis = await classifySubject({
+      let subjectAnalysis: SubjectAnalysis = await classifySubject({
         eventName: compiledData.eventName || '',
         description: compiledData.description || undefined,
         tagline: compiledData.tagline || undefined,
@@ -847,9 +944,66 @@ export async function POST(request: NextRequest) {
           confidence: 0,
         }
       })
+
+      // v55.x: SPEAKER PHOTO FORCES PORTRAIT.
+      // An uploaded speaker photo is an explicit "put this person on the poster" signal. The
+      // text classifier reads program names like "PATHFINDER" as concept (→ compass) and treats
+      // the speaker as a participant, so the face was dropped (Gemini drew the concept and the
+      // Sharp overlay was skipped). Honour the upload: force person/portrait-hero so the Director
+      // renders the attached portrait as the hero subject and the program name becomes the headline.
+      // Runs before every downstream consumer (archetype select, compiledData, critic, Director)
+      // and covers both the AI and heuristic-fallback classification paths. Disable with
+      // SPEAKER_PHOTO_FORCES_PORTRAIT=off.
+      if (process.env.SPEAKER_PHOTO_FORCES_PORTRAIT !== 'off'
+          && userHasSpeakerPhoto
+          && subjectAnalysis.subjectType !== 'person') {
+        const firstSpeaker = speakerPhoto?.speakers?.find(s => s?.name?.trim() || s?.photoUrl)
+        guestPhotoName = subjectAnalysis.subjectIdentity?.name || firstSpeaker?.name?.trim() || undefined
+        // Prefix the event-role label (CHIEF GUEST, etc.) onto the designation so the
+        // composited inset card caption carries the role alongside the org/title.
+        const firstSpeakerRoleKey = (firstSpeaker as { role?: keyof typeof SPEAKER_ROLE_LABELS } | undefined)?.role
+        const firstSpeakerRoleLabel = firstSpeakerRoleKey ? SPEAKER_ROLE_LABELS[firstSpeakerRoleKey] : undefined
+        const baseDesignation = subjectAnalysis.subjectIdentity?.role || firstSpeaker?.designation?.trim() || undefined
+        guestPhotoDesignation = [firstSpeakerRoleLabel, baseDesignation].filter(Boolean).join(' · ') || undefined
+
+        if (process.env.SPEAKER_PHOTO_FORCES_PORTRAIT === 'hero') {
+          // Legacy behavior (opt-in): the uploaded portrait IS the hero (full portrait-hero).
+          subjectAnalysis = {
+            ...subjectAnalysis,
+            subjectType: 'person',
+            compositionStrategy: 'portrait-hero',
+            subjectIdentity: {
+              name: guestPhotoName || compiledData.eventName || 'Speaker',
+              role: guestPhotoDesignation,
+              photoProvided: true,
+            },
+            reasoning: `Speaker photo uploaded (SPEAKER_PHOTO_FORCES_PORTRAIT=hero) — portrait is the hero. (orig: ${subjectAnalysis.reasoning})`,
+          }
+          console.log('[Subject Classifier] 📸 Speaker photo present — forcing person/portrait-hero (hero mode)')
+        } else {
+          // v55.x DEFAULT: the brief is an EVENT and the person is a GUEST (chief guest / speaker).
+          // Keep the event as the subject and place the guest as a properly-sized framed headshot
+          // inset (size from the Speaker Layout Agent), clear of the logo zone — instead of letting
+          // the face swallow the whole poster.
+          guestPhotoInsetMode = true
+          console.log(`[Subject Classifier] 📸 Speaker photo on an EVENT brief — GUEST-PHOTO INSET mode (keeping ${subjectAnalysis.subjectType}/${subjectAnalysis.compositionStrategy}; guest "${guestPhotoName ?? 'unknown'}" as a sized inset, not the hero)`)
+        }
+      }
+
       console.log(`[Subject Classifier] ${subjectAnalysis.subjectType} → ${subjectAnalysis.compositionStrategy} (confidence ${subjectAnalysis.confidence})`)
       if (subjectAnalysis.subjectIdentity) {
         console.log(`[Subject Classifier] Identity: ${subjectAnalysis.subjectIdentity.name}${subjectAnalysis.subjectIdentity.role ? ` (${subjectAnalysis.subjectIdentity.role})` : ''} — photoProvided=${subjectAnalysis.subjectIdentity.photoProvided}`)
+      }
+
+      // v54.12: useLabDirector is now hoisted to POST-function scope above the
+      // outer try block so the zone-retry path can read it without ReferenceError.
+      // Original v54.1 Fix #5 comment kept for context:
+      //   v54.1 Fix #5: Compute useLabDirector EARLY so we can short-circuit the
+      //   four legacy LLM stages (Event Understanding, Typography Intelligence,
+      //   Design Intelligence, Ultra-Pro Prompt) that the Director's prose makes
+      //   redundant. Saves ~50 seconds + ~$0.025 per generation in Lab.
+      if (useLabDirector) {
+        console.log('[v54.1 Lab Director] ⚡ Skip-mode active — will bypass 4 legacy LLM stages (Event Understanding, Typography Intelligence, Design Intelligence, Ultra-Pro Prompt) and call Director directly')
       }
 
       // v53.1: Creative Archetype selection — pick a hand-curated reference design
@@ -977,6 +1131,9 @@ export async function POST(request: NextRequest) {
 
         try {
 
+          if (useLabDirector) {
+            console.log('[v54.1 Lab Director] ⏭️ Skipping Event Understanding (Director will handle this)')
+          } else
           eventProfile = await generateEventUnderstanding({
             eventName,
             description: [compiledData.tagline, compiledData.description].filter(Boolean).join('. ') || formDataContent.description || undefined,
@@ -1000,13 +1157,20 @@ export async function POST(request: NextRequest) {
             temperature: 1.0  // High creativity for concept exploration
           })
 
-          console.log('[Generate] ✅ Event Understanding complete')
-          console.log('[Generate] Literal Meaning:', eventProfile.literalMeaning)
-          console.log('[Generate] Selected Concept:', eventProfile.selectedConcept)
-          console.log('[Generate] Primary Visuals:', eventProfile.visualAssociations.primary.slice(0, 5).join(', '))
-          console.log('[Generate] Confidence:', eventProfile.confidence)
-          console.log('[Generate] Formality:', eventProfile.formality)
-          console.log('[Generate] Energy:', eventProfile.energyLevel)
+          // v55.x: eventProfile is null when useLabDirector skipped Event Understanding (the Director
+          // handles it). Guard the detail logs — dereferencing null here was both a build-blocking
+          // type error AND the runtime "Event Understanding failed: Cannot read properties of null".
+          if (eventProfile) {
+            console.log('[Generate] ✅ Event Understanding complete')
+            console.log('[Generate] Literal Meaning:', eventProfile.literalMeaning)
+            console.log('[Generate] Selected Concept:', eventProfile.selectedConcept)
+            console.log('[Generate] Primary Visuals:', eventProfile.visualAssociations.primary.slice(0, 5).join(', '))
+            console.log('[Generate] Confidence:', eventProfile.confidence)
+            console.log('[Generate] Formality:', eventProfile.formality)
+            console.log('[Generate] Energy:', eventProfile.energyLevel)
+          } else {
+            console.log('[Generate] ⏭️ Event Understanding produced no profile (skipped by Lab Director)')
+          }
 
         } catch (error) {
           console.error('[Generate] ❌ Event Understanding failed:', error)
@@ -1039,6 +1203,9 @@ export async function POST(request: NextRequest) {
         console.log('[Generate] Analyzing typography requirements for:', eventName)
 
         try {
+          if (useLabDirector) {
+            console.log('[v54.1 Lab Director] ⏭️ Skipping Typography Intelligence (Director handles type selection)')
+          } else
           typographyProfile = await generateTypographyIntelligence({
             eventName,
             eventProfile,
@@ -1057,11 +1224,17 @@ export async function POST(request: NextRequest) {
             temperature: 0.8  // Creative but focused
           })
 
-          console.log('[Generate] ✅ Typography Intelligence complete')
-          console.log('[Generate] Headline:', typographyProfile.headline.characteristics.style, typographyProfile.headline.characteristics.weight)
-          console.log('[Generate] Body:', typographyProfile.body.characteristics.style, typographyProfile.body.characteristics.weight)
-          console.log('[Generate] Pairing:', typographyProfile.pairingStrategy)
-          console.log('[Generate] Confidence:', typographyProfile.confidence)
+          // v55.x: typographyProfile is null when useLabDirector skipped this stage — guard the logs
+          // (was a build-blocking type error + the runtime "Typography Intelligence failed" null deref).
+          if (typographyProfile) {
+            console.log('[Generate] ✅ Typography Intelligence complete')
+            console.log('[Generate] Headline:', typographyProfile.headline.characteristics.style, typographyProfile.headline.characteristics.weight)
+            console.log('[Generate] Body:', typographyProfile.body.characteristics.style, typographyProfile.body.characteristics.weight)
+            console.log('[Generate] Pairing:', typographyProfile.pairingStrategy)
+            console.log('[Generate] Confidence:', typographyProfile.confidence)
+          } else {
+            console.log('[Generate] ⏭️ Typography Intelligence produced no profile (skipped by Lab Director)')
+          }
 
         } catch (error) {
           console.error('[Generate] ❌ Typography Intelligence failed:', error)
@@ -1364,7 +1537,7 @@ export async function POST(request: NextRequest) {
       // Creative brief step — runs BEFORE Design Intelligence so brief is injected as HIGHEST PRIORITY
       // • creativeMode === 'spotlight' → Spotlight Creative Brief (single focal visual)
       // • verticalSlug === 'yi_spotlight' → legacy Creative Director (backward compat)
-      if ((creativeMode === 'spotlight' || verticalSlug === 'yi_spotlight' || conceptFirst) && !compiledData.visualDirection) {
+      if ((creativeMode === 'spotlight' || verticalSlug === 'yi_spotlight') && !compiledData.visualDirection) {
         const isSpotlight = creativeMode === 'spotlight'
         console.log(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Generating visual concept...`)
         try {
@@ -1375,10 +1548,6 @@ export async function POST(request: NextRequest) {
             targetAudience: compiledData.targetAudience || '',
             tagline: compiledData.tagline || '',
             eventType: formDataContent.eventType || '',
-            // v55.2: feed the chosen render style so the Creative Director ideates WITHIN it
-            // (a 'scene' style → photographic concept, 'papercut' → cut-paper concept, etc.)
-            styleLabel: backgroundStyle || undefined,
-            styleDirective: getGeminiStyleLock(backgroundStyle) || undefined,
           }
 
           const cdResult = isSpotlight
@@ -1391,12 +1560,6 @@ export async function POST(request: NextRequest) {
           // Inject as highest-priority visual brief
           designBrief.additionalVisualBrief = cdResult.fullBrief
           console.log(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Brief injected:`, cdResult.fullBrief.substring(0, 150) + '...')
-
-          // v54.5: capture the structured concept so it can drive the lean prompt as the hero idea.
-          if (conceptFirst && !isSpotlight && 'visualConcept' in cdResult) {
-            conceptBrief = cdResult as Awaited<ReturnType<typeof generateCreativeDirectorBrief>>
-            console.log('[Concept First] 🎨 Big idea:', conceptBrief.visualConcept?.substring(0, 140))
-          }
         } catch (cdErr) {
           console.error(`[${isSpotlight ? 'Spotlight Brief' : 'Creative Director'}] Non-blocking error:`, cdErr)
           // Continue without brief — fallback to normal generation
@@ -1407,7 +1570,10 @@ export async function POST(request: NextRequest) {
       // v6.0 Phase 2: Pass resolvedColors for color-aware background generation
       // v6.5 Phase 1: Pass eventProfile from Stage 1 for concept-driven design
       // Nebula: pass pre-computed AIEventContext so DI skips its internal analyzeEventContext call
-      const preComputedAiEventContext = await analyzeEventContextPromise
+      // v54.1 Fix #5 (partial): preComputedAiEventContext is safely skippable
+      // (it's just an input optimization). Full DI + Ultra-Pro skip needs more
+      // refactoring (downstream code reads many fields); deferred to a follow-up.
+      const preComputedAiEventContext = useLabDirector ? null : await analyzeEventContextPromise
       const designContextResult = await generateDesignContextSafe(
         designBrief,
         resolvedColors,
@@ -1802,7 +1968,9 @@ export async function POST(request: NextRequest) {
           // Default 'gemini' avoids the duplicate-portrait conflict shown in v53.4
           // testing. Override with SPEAKER_RENDER_MODE=sharp in .env.local to
           // restore the legacy Sharp-overlay behavior.
-          speakerRenderMode: (process.env.SPEAKER_RENDER_MODE || 'gemini') as 'gemini' | 'sharp' | 'hybrid',
+          // Creative Engine paints background-only, so speaker photos MUST be Sharp-composited
+          // (else Gemini draws faces into the "art-only" background).
+          speakerRenderMode: (useCreativeEngine ? 'sharp' : (process.env.SPEAKER_RENDER_MODE || 'gemini')) as 'gemini' | 'sharp' | 'hybrid',
         }
 
         console.log('[Generate] EnhancedBuildOptions:', JSON.stringify(sanitizeForLogging(buildOptions), null, 2))
@@ -2103,13 +2271,13 @@ export async function POST(request: NextRequest) {
         //   B) designData.customization.speakerPhoto.speakers — from smart-paste or design panel
         //   C) userFormData.speakerName / guestName — single-speaker backwards-compat fields
         const enrichedFormData: Record<string, unknown> = { ...(userFormData || {}) }
-        const mergedSpeakers: Array<{ name: string; designation: string; role?: SpeakerRole }> = []
+        const mergedSpeakers: Array<{ name: string; designation: string }> = []
 
         // Source A: multi-speaker array already in userFormData
         if (Array.isArray(enrichedFormData.speakers)) {
-          for (const s of enrichedFormData.speakers as Array<{ name?: string; designation?: string; role?: SpeakerRole }>) {
+          for (const s of enrichedFormData.speakers as Array<{ name?: string; designation?: string }>) {
             if (s.name?.trim()) {
-              mergedSpeakers.push({ name: s.name.trim(), designation: s.designation?.trim() || '', role: s.role })
+              mergedSpeakers.push({ name: s.name.trim(), designation: s.designation?.trim() || '' })
             }
           }
         }
@@ -2119,7 +2287,7 @@ export async function POST(request: NextRequest) {
           for (const s of originalSpeakerPhotoConfig.speakers) {
             const name = (s as any).name?.trim()
             if (name && !mergedSpeakers.some((m) => m.name === name)) {
-              mergedSpeakers.push({ name, designation: (s as any).designation?.trim() || '', role: (s as any).role })
+              mergedSpeakers.push({ name, designation: (s as any).designation?.trim() || '' })
             }
           }
         }
@@ -2144,40 +2312,14 @@ export async function POST(request: NextRequest) {
           enrichedFormData.speakerDesignation = mergedSpeakers[0].designation
         }
 
-        // v54.5/v55.1: concept-first anchors to a curated reference. Default 'text' mode injects the
-        // reference's described visual language as WORDS (no image attached) to avoid Gemini copying
-        // the template's logo rows / placeholder text. 'image' mode attaches the raw reference.
-        if (conceptFirst && styleRefMode !== 'off' && !styleReferenceNote) {
-          const ref = pickReferenceForSubject(subjectAnalysis?.subjectType)
-          if (ref) {
-            styleReferenceNote = ref.note
-            if (styleRefMode === 'image') {
-              const loaded = loadReferenceBase64(ref.file)
-              if (loaded) styleReferenceImages = [loaded]
-            }
-            console.log(`[Style Reference] Concept-first using "${ref.id}" (${styleRefMode} mode) for subjectType="${subjectAnalysis?.subjectType || 'unknown'}"`)
-          }
-        }
-
-        // Build the prompt. v54.4/v54.5: lean mode (incl. concept-first) uses the tight creative
-        // brief; default uses the full YiPromptBuilder. Both consume the SAME upstream AI context.
-        const xmlPrompt = useLeanPrompt
-          ? buildLeanPrompt(selectedFormat, enrichedFormData as Record<string, unknown>, {
-              ...(buildOptions as object),
-              conceptBrief,
-              styleReferenceUsed: !!(styleReferenceImages && styleReferenceImages.length),
-              styleReferenceNote,
-            } as Parameters<typeof buildLeanPrompt>[2])
-          : YiPromptBuilder.buildPrompt(formatId, enrichedFormData, {
-              ...buildOptions,
-              // v6.5: Pass calculated speaker photo coordinates to prompt builder
-              speakerPhotoZoneCoordinates,
-              // v7.0: Pass calculated logo strip zone coordinates to prompt builder
-              logoStripZoneCoordinates,
-            })
-        if (useLeanPrompt) {
-          console.log(`[Prompt Mode] LEAN${conceptFirst ? ' + CONCEPT-FIRST' : ''} active — ${xmlPrompt.length} chars (vs ~20K full).${conceptBrief ? ' Hero idea from Creative Director.' : ''}${styleReferenceImages?.length ? ' Style reference attached.' : ''}`)
-        }
+        // Build XML-structured prompt using YiPromptBuilder
+        const xmlPrompt = YiPromptBuilder.buildPrompt(formatId, enrichedFormData, {
+          ...buildOptions,
+          // v6.5: Pass calculated speaker photo coordinates to prompt builder
+          speakerPhotoZoneCoordinates,
+          // v7.0: Pass calculated logo strip zone coordinates to prompt builder
+          logoStripZoneCoordinates,
+        })
 
         // Inject vertical context if applicable (redundant with buildOptions.verticalId but kept for compatibility)
         // v46.0: Pass brand colors so vertical's hardcoded Yi palette (jewel tones, Yi Orange,
@@ -2185,10 +2327,386 @@ export async function POST(request: NextRequest) {
         const verticalBrandColors = resolvedColors && resolvedColors.source !== 'fallback'
           ? { primary: resolvedColors.primaryColor, secondary: resolvedColors.secondaryColor, accent: resolvedColors.accentColor }
           : undefined
-        // v54.4: skip vertical-context injection in lean mode (keeps the brief lean).
-        const finalXmlPrompt = (verticalSlug && !useLeanPrompt)
+        let finalXmlPrompt = verticalSlug
           ? injectVerticalContext(xmlPrompt, verticalSlug, verticalBrandColors)
           : xmlPrompt
+
+        // ════════════════════════════════════════════════════════════════════
+        // v54.0 LAB CREATIVE DIRECTOR — Prompt swap (Phase 3 of Lab fork)
+        // ════════════════════════════════════════════════════════════════════
+        // v54.1: useLabDirector was already declared at the top of this scope
+        // (after Subject Classifier completes) so it can also gate the 4 legacy
+        // LLM stages that the Director makes redundant. Reuse it here.
+        if (useCreativeEngine) {
+          // ════════════════════════════════════════════════════════════════════
+          // STRUCTURED CREATIVE ENGINE — 15-stage pipeline (background-only)
+          // Replaces the prose Director path: AI emits a structured CreativeDirection,
+          // the scene prompt describes ART ONLY, and the deterministic text render
+          // (after generation) draws all typography.
+          // ════════════════════════════════════════════════════════════════════
+          try {
+            console.log('[Creative Engine] 🎬 Running planCreative (stages 1–12a)...')
+            enginePlan = await planCreative(
+              {
+                compiled: compiledData,
+                extras: {
+                  formatId: formatId || 'event_poster',
+                  brand: {
+                    primary: resolvedColors.primaryColor,
+                    secondary: resolvedColors.secondaryColor,
+                    accent: resolvedColors.accentColor,
+                    region: detectRegionFromAddress(
+                      (brandConfig as { footerAddress?: string | null } | null | undefined)?.footerAddress
+                      ?? ((effectiveDesignData as Record<string, unknown> | null)?.footerContext as { address?: string } | undefined)?.address
+                    ),
+                  },
+                  backgroundStyle: (adjustedUserFormData as Record<string, unknown>)?.backgroundStyle as string | undefined,
+                  fullCanvas: fullCanvasMode,
+                  logoBarsEnabled: logoBarsActive,
+                  speakerPhotoFlags: (speakerPhoto?.speakers ?? []).map(
+                    (s) => !!(s as { photoUrl?: string } | null | undefined)?.photoUrl
+                  ),
+                  rawFormData: adjustedUserFormData as Record<string, unknown>,
+                },
+              },
+              {
+                formatId: formatId || 'event_poster',
+                // Optional user overrides (form fields) — else the selectors pick defaults.
+                visualStrategy: (adjustedUserFormData as Record<string, unknown>)?.visualStrategy as
+                  | VisualStrategy
+                  | undefined,
+                renderingMode: (adjustedUserFormData as Record<string, unknown>)?.renderingMode as
+                  | RenderingMode
+                  | undefined,
+                trackUsage:
+                  organizationId && user?.id
+                    ? { organizationId, userId: user.id, creativeId: null }
+                    : undefined,
+              }
+            )
+            finalXmlPrompt = enginePlan.scene.backgroundPrompt
+            console.log(`[Creative Engine] 🎯 visual strategy: ${enginePlan.strategy.strategy} (${enginePlan.strategy.source}) | rendering mode: ${enginePlan.renderingMode}`)
+            console.log(
+              `[Creative Engine] ✅ Background-only scene ${finalXmlPrompt.length} chars | theme="${enginePlan.scene.meta.theme}" | family=${enginePlan.semantic.eventFamily} | director=${enginePlan.direction.source}`
+            )
+            console.log(
+              `[Creative Engine] 🅰 ${enginePlan.layout.textLayers.length} deterministic text layers queued for Sharp render`
+            )
+          } catch (engineErr) {
+            console.warn(
+              '[Creative Engine] ⚠️ pipeline failed, falling back to legacy prompt:',
+              engineErr instanceof Error ? engineErr.message : engineErr
+            )
+            enginePlan = null
+          }
+        } else if (useLabDirector) {
+          try {
+            console.log('[v54.0 Lab Director] 🎬 Collapsing 4 old stages into ONE Director call...')
+
+            // v54.7: Look up the full background-style config so we can pass
+            // the enriched concept/reference/craft/banlist context into the
+            // Director per principle 13.
+            // v55.x default-fidelity fix: the default MUST match what the UI picker
+            // shows highlighted (DEFAULT_BACKGROUND_STYLE = 'scene'/"Realistic"). The
+            // route previously defaulted to 'pop-modern' while the picker showed
+            // "Realistic" selected — so a user who never tapped a tile saw "Realistic"
+            // but silently got pop-art output (the "Realistic → photo-pop" bug). The
+            // default now comes from the single shared constant so the tile shown ALWAYS
+            // equals the style generated. pop-modern stays fully selectable in the UI.
+            const _bgStyleIdRaw = (adjustedUserFormData as Record<string, unknown>)?.backgroundStyle as string | undefined
+            // Style Blend Engine — the user's ordered style stack. Its LEAD style (1st
+            // pick) drives the base pipeline (concept menu, style-reference image, lock);
+            // the secondary styles are layered in as role directives by the blend stage.
+            const _styleStackRaw = (adjustedUserFormData as Record<string, unknown>)?.styleStack
+            const _styleStack = Array.isArray(_styleStackRaw) ? (_styleStackRaw as string[]) : []
+            const _stackLead = _styleStack.find((s) => typeof s === 'string' && s.trim())
+            const _bgStyleId = _stackLead ?? _bgStyleIdRaw ?? DEFAULT_BACKGROUND_STYLE
+            const _bgStyleWasDefaulted = !_stackLead && !_bgStyleIdRaw
+            const _bgStyleConfig = getBackgroundStyle(_bgStyleId)
+            const _hasStyleContext =
+              !!_bgStyleConfig?.compatibleConcepts &&
+              !!_bgStyleConfig?.designerReferences &&
+              !!_bgStyleConfig?.craftSignatures &&
+              !!_bgStyleConfig?.bannedCombinations
+            if (_hasStyleContext) {
+              console.log(`[v54.7 Style Context] ✅ Passing enriched concept menu for style="${_bgStyleId}"${_bgStyleWasDefaulted ? ' (defaulted from undefined per v54.8 Fix #1)' : ''} (${_bgStyleConfig?.compatibleConcepts?.length} concepts, ${_bgStyleConfig?.designerReferences?.length} refs, ${_bgStyleConfig?.craftSignatures?.length} craft sigs, ${_bgStyleConfig?.bannedCombinations?.length} banlist rules)`)
+            } else {
+              console.log(`[v54.7 Style Context] ⚠️ Style "${_bgStyleId}" has no enriched concept menu yet — Director will write without style-specific concept routing (v54.7-phase1 covers scene/photo-real/dark only)`)
+            }
+
+            // Style-only reference image: when the picked style has a registered
+            // reference (e.g. 'spotlight-event'), attach it as a quality-bar image.
+            // The model matches its LOOK (palette/lighting/composition/type) but
+            // never its content — hero, text, and logos come from elsewhere.
+            const _styleRef = pickReferenceForStyle(_bgStyleId)
+            let _styleRefNote: string | undefined
+            if (_styleRef) {
+              const loaded = loadReferenceBase64(_styleRef.file)
+              if (loaded) {
+                styleReferenceBase64 = loaded
+                _styleRefNote = _styleRef.note
+                console.log(`[Style Reference] ✅ Attaching style-only reference "${_styleRef.id}" for style="${_bgStyleId}" (image mode)`)
+              } else {
+                console.warn(`[Style Reference] ⚠️ Reference "${_styleRef.file}" for style="${_bgStyleId}" failed to load — continuing on style prose only`)
+              }
+            }
+
+            // ── Designer Pipeline (deterministic pre-stage) ────────────────────
+            // Build an explicit design understanding BEFORE the Director runs, then
+            // inject it as hard constraints so the Director's prose keeps the real
+            // actor as the hero and obeys the separated 60-30-10 colour roles. The
+            // userFacingSummary is surfaced in the response for the "AI understood
+            // this" UI. Deterministic → no extra LLM call, no latency on the Director.
+            const designerPlan = buildDesignerPipeline({
+              eventName: compiledData.eventName ?? 'Untitled Event',
+              description: compiledData.description ?? undefined,
+              tagline: compiledData.tagline ?? undefined,
+              targetAudience: compiledData.targetAudience ?? undefined,
+              organizationName: compiledData.organizationName ?? undefined,
+              formatId: formatId || 'event_poster',
+              canvasDimensions: {
+                width: selectedFormat?.width ?? 1080,
+                height: selectedFormat?.height ?? 1440,
+              },
+              brandColors: {
+                primary: resolvedColors.primaryColor,
+                secondary: resolvedColors.secondaryColor,
+                accent: resolvedColors.accentColor,
+              },
+              backgroundStyle: _bgStyleId,
+              styleIntent: ((): StyleIntent => {
+                if (_bgStyleId === 'advertising') return 'advertising'
+                if (_bgStyleId === 'spotlight-event') return 'institutional'
+                return 'auto'
+              })(),
+              hasReferencePhoto: guestPhotoInsetMode ? false : !!userHasSpeakerPhoto,
+              // The user's own visual idea (highest-priority direction). Read from the
+              // raw form (any accepted key) or the compiled visualDirection so the final
+              // generation honours the SAME idea the pre-generation preview showed.
+              userVisualIdea:
+                ((adjustedUserFormData as Record<string, unknown> | undefined)?.userVisualIdea as string) ||
+                ((adjustedUserFormData as Record<string, unknown> | undefined)?.creativeDirection as string) ||
+                compiledData.visualDirection ||
+                undefined,
+              // v1.1 — natural colour names the hex validator rejected + explicit colour fields.
+              colorRequests: ((): string[] => {
+                const reqs: string[] = []
+                const cc = colorConfig?.customColors as
+                  | { primary?: string; secondary?: string; accent?: string }
+                  | null
+                  | undefined
+                if (cc) {
+                  for (const v of [cc.primary, cc.secondary, cc.accent]) {
+                    if (typeof v === 'string' && v.trim() && !isValidHex(v.trim())) reqs.push(v.trim())
+                  }
+                }
+                const fd = adjustedUserFormData as Record<string, unknown> | undefined
+                for (const k of ['colorRequests', 'colourRequests', 'colors', 'colours', 'colorWords', 'palette']) {
+                  const v = fd?.[k]
+                  if (typeof v === 'string' && v.trim()) reqs.push(v.trim())
+                  else if (Array.isArray(v)) reqs.push(...v.filter((x): x is string => typeof x === 'string' && !!x.trim()))
+                }
+                return reqs
+              })(),
+              // v2 Style Blend Engine — the user's ordered style stack (no-op when empty).
+              styleBlend: {
+                styleStack: _styleStack,
+                styleRecipe:
+                  ((adjustedUserFormData as Record<string, unknown> | undefined)
+                    ?.styleRecipe as import('@/lib/designer-pipeline').StyleRecipeId | 'auto' | undefined) ??
+                  'auto',
+              },
+            })
+            designerPipelineSummary = designerPlan.userFacingSummary
+            designerStyleBlendPlan = designerPlan.styleBlendPlan
+            // Honour the user's font for the deterministic factual overlay (detail → general → title).
+            // Undefined when no font was named, so the overlay keeps its AI default.
+            designerOverlayFont = overlayFontFromTypography(designerPlan.bridge.parsedIdea?.typographyRequests ?? [])
+            designerTypographyPlan = designerPlan.typographyPlan
+            designerTypographyAudit = designerPlan.typographyAudit
+            if (designerOverlayFont) {
+              console.log(`[Designer Pipeline] ✍️ User overlay font: "${designerOverlayFont}" (factual block date/venue/details)`)
+            }
+            if (designerPlan.styleBlendPlan.mode !== 'auto') {
+              console.log(
+                `[Style Blend] 🎨 ${designerPlan.styleBlendPlan.stackLabel}: ${designerPlan.styleBlendPlan.understoodBullets.join(' · ')}`
+              )
+            }
+            console.log(`[Designer Pipeline] 🌉 ${designerPlan.userFacingSummary}`)
+            console.log(
+              `[Designer Pipeline] subject="${designerPlan.designIntent.mainSubject}" narrative=${designerPlan.designIntent.narrativeMode} strategy=${designerPlan.designIntent.visualStrategy} render=${designerPlan.stylePlan.renderingMode} contrast=${designerPlan.colorPlan.contrastLevel}`
+            )
+
+            // ── USER-COLOURS ENFORCEMENT (Designer Pipeline v1.1) ──────────────
+            // When the Color Theory stage resolved the palette from the USER'S OWN colour
+            // request (natural names / gradients), those colours WIN over the brand/fallback
+            // palette resolveColorConfig produced. Re-assign resolvedColors HERE — before the
+            // values feed the Director's brandColors and the deterministic text overlay — so the
+            // whole downstream chain (Director input, brandContext, overlay) uses the user's
+            // colours. designerPlan has priority over legacy context (designer route only).
+            {
+              const _cp = designerPlan.colorPlan as unknown as Record<string, unknown>
+              // v2 discriminator (userColorsHonored / source) with legacy isCustomPalette fallback.
+              const _userColorsHonored =
+                _cp.userColorsHonored === true ||
+                _cp.source === 'user-color-request' ||
+                _cp.isCustomPalette === true
+              // Read role colours via either the v2 (dominant/…) or legacy (dominantColor/…) names.
+              const _role = (k: 'dominant' | 'support' | 'accent' | 'neutral'): string | undefined => {
+                const v2 = _cp[k]
+                const legacy = _cp[`${k}Color`]
+                return (typeof v2 === 'string' && v2) || (typeof legacy === 'string' && legacy) || undefined
+              }
+              const _dom = _role('dominant')
+              const _sup = _role('support')
+              const _acc = _role('accent')
+              if (_userColorsHonored && _dom && isValidHex(_dom)) {
+                const _before = { ...resolvedColors }
+                resolvedColors = {
+                  primaryColor: _dom,
+                  secondaryColor: _sup && isValidHex(_sup) ? _sup : resolvedColors.secondaryColor,
+                  accentColor: _acc && isValidHex(_acc) ? _acc : resolvedColors.accentColor,
+                  // ColorSource has no 'user-color-request' member; 'custom' is the type-safe
+                  // equivalent (USER CUSTOM COLORS) and keeps source-driven narratives correct.
+                  source: 'custom',
+                }
+                console.log(
+                  `[Designer Enforce] user colors override → primary ${_before.primaryColor}→${resolvedColors.primaryColor}, secondary ${_before.secondaryColor}→${resolvedColors.secondaryColor}, accent ${_before.accentColor}→${resolvedColors.accentColor} (was source=${_before.source})`
+                )
+              }
+            }
+
+            // Append the pipeline constraints to the style lock so the Director must
+            // obey them (actor preservation + colour discipline + mustAvoid list).
+            const _effectiveStyleLock = [
+              _bgStyleConfig?.geminiStyleLock ?? undefined,
+              designerPlan.directorConstraints,
+            ]
+              .filter(Boolean)
+              .join('\n\n')
+
+            const directorResult = await createDirectorBrief({
+              eventName: compiledData.eventName ?? 'Untitled Event',
+              description: compiledData.description ?? undefined,
+              tagline: compiledData.tagline ?? undefined,
+              targetAudience: compiledData.targetAudience ?? undefined,
+              subjectType: subjectAnalysis.subjectType,
+              compositionStrategy: subjectAnalysis.compositionStrategy,
+              subjectIdentity: subjectAnalysis.subjectIdentity,
+              brandColors: {
+                primary: resolvedColors.primaryColor,
+                secondary: resolvedColors.secondaryColor,
+                accent: resolvedColors.accentColor,
+              },
+              region: detectRegionFromAddress(
+                (brandConfig as { footerAddress?: string | null } | null | undefined)?.footerAddress
+                ?? ((effectiveDesignData as Record<string, unknown> | null)?.footerContext as { address?: string } | undefined)?.address
+              ),
+              backgroundStyle: _bgStyleId,
+              styleLock: _effectiveStyleLock || undefined, // v55.x curated look + Designer Pipeline constraints (actor preservation, 60-30-10 colour roles, mustAvoid)
+              formatId: formatId || 'event_poster',
+              canvasDimensions: {
+                width: selectedFormat?.width ?? 1080,
+                height: selectedFormat?.height ?? 1440,
+              },
+              formatProfile, // v57.0: canvas shape, format job, reserve bands (per principle 19)
+              hasReferencePhoto: guestPhotoInsetMode ? false : !!userHasSpeakerPhoto, // v55.x: inset mode → Director must NOT draw the face (Sharp composites the real photo); other cases unchanged
+              fullCanvas: fullCanvasMode, // v55.x: logo strip OFF → compose edge-to-edge, no reserved zones
+              guestPhoto: guestPhotoInsetMode // v55.x: guest at an event → sized framed-headshot inset, not the hero
+                ? {
+                    name: guestPhotoName,
+                    designation: guestPhotoDesignation,
+                    sizePercent: speakerLayoutDecision?.photoSizePercent,
+                  }
+                : undefined,
+              vertical: verticalSlug ?? undefined,
+              // v54.8 Fix #3: Pass speakers (name + designation) and event date/time/venue
+              // into the Director so principle 14 fires — speaker text and event details
+              // must appear in the prose so Gemini renders them as visible text. Previous
+              // PATHFINDER run dropped "Roja / JICATE" entirely because concept-iconic prose
+              // didn't mention the speaker.
+              speakers: (speakerPhoto?.speakers ?? [])
+                .filter((s): s is NonNullable<typeof s> & { name: string } => !!s?.name?.trim())
+                // v55.x: in guest-inset mode, a speaker WITH a photo becomes a Sharp-composited card
+                // that already carries its own name+designation caption — don't also render that name
+                // in the prose (would duplicate). Photo-less speakers still render as text.
+                .filter(s => !(guestPhotoInsetMode && !!(s as { photoUrl?: string }).photoUrl))
+                .map(s => {
+                  const roleKey = (s as { role?: keyof typeof SPEAKER_ROLE_LABELS }).role
+                  return {
+                    name: s.name!.trim(),
+                    designation: (s as { designation?: string }).designation?.trim() || undefined,
+                    role: roleKey ? SPEAKER_ROLE_LABELS[roleKey] : undefined,
+                  }
+                }),
+              deterministicDetails: useDeterministicDetails,
+              eventDetails: {
+                dateLine: formatEventDate(compiledData.date) || undefined,
+                timeLine: compiledData.time ?? undefined,
+                venueLine: compiledData.venue ?? undefined,
+                organizationName: compiledData.organizationName ?? undefined,
+              },
+              styleContext: _hasStyleContext
+                ? {
+                    label: _bgStyleConfig!.label,
+                    compatibleConcepts: _bgStyleConfig!.compatibleConcepts!,
+                    designerReferences: _bgStyleConfig!.designerReferences!,
+                    craftSignatures: _bgStyleConfig!.craftSignatures!,
+                    bannedCombinations: _bgStyleConfig!.bannedCombinations!,
+                  }
+                : undefined,
+            }, {
+              trackUsage: organizationId && user?.id
+                ? { organizationId, userId: user.id, creativeId: null }
+                : undefined,
+            })
+
+            const assembled = assembleDesignerPrompt(directorResult.output, {
+              canvasWidth: selectedFormat?.width ?? 1080,
+              canvasHeight: selectedFormat?.height ?? 1440,
+              styleReferenceNote: _styleRefNote,
+              // v55.x: in full-canvas mode the Director already omits the zone sentence and there
+              // are no logo bars — don't append the safety net.
+              withSharpSafetyNet: !fullCanvasMode,
+              // v57.0: reserve bands + footer-strip flag from the FORMAT PROFILE so non-poster formats
+              // get their own shape's safety net. poster_portrait = 40/18 → event_poster unchanged.
+              reserveTopPct: formatProfile.reserveTopPct,
+              reserveBottomPct: formatProfile.reserveBottomPct,
+              footerStripActive: formatProfile.footerStripActive,
+            })
+
+            console.log(`[v54.0 Lab Director] ✅ Swapped prompt: ${finalXmlPrompt.length} chars (XML) → ${assembled.prompt.length} chars (Director prose, ~${assembled.meta.estimatedTokens} tokens)`)
+            console.log(`[v54.0 Lab Director] Theme: "${assembled.meta.visualThemeName}" | Mood: ${assembled.meta.mood}`)
+            console.log(`[v55.x Lab Director] 📷 Lighting: ${directorResult.output.lighting} | Camera: ${directorResult.output.camera}`)
+            console.log(`[v55.x Lab Director] ✨ Finish: ${directorResult.output.qualityBar} | Avoid: ${directorResult.output.avoidNotes}`)
+            console.log(`[v54.0 Lab Director] Reasoning: ${directorResult.output.reasoning}`)
+
+            finalXmlPrompt = assembled.prompt
+          } catch (directorErr) {
+            // Director failed — fall back to the XML prompt the old pipeline built
+            console.warn('[v54.0 Lab Director] ⚠️ Director call failed, falling back to XML prompt:', directorErr instanceof Error ? directorErr.message : directorErr)
+          }
+        } else {
+          console.log('[v54.0 Lab Director] Disabled via LAB_USE_DIRECTOR=false — using legacy XML prompt path')
+        }
+
+        // v1.3 — Typography Intelligence: append a dedicated TYPOGRAPHY_DIRECTION block so
+        // Gemini renders DESIGNED poster lettering (not plain document text). Skipped for
+        // engine-exact (there the title copy is rendered deterministically, not AI-drawn).
+        // Applies whether the Director path produced the prompt or it fell back to XML.
+        if (designerTypographyPlan && designerTypographyPlan.typographyMode !== 'engine-exact') {
+          const tp = designerTypographyPlan
+          const typoBlock = buildTypographyDirectionBlock(tp, compiledData.eventName ?? '', [])
+          finalXmlPrompt = `${finalXmlPrompt}\n\n${typoBlock}`
+          console.log(
+            `[v1.3 Typography] ${tp.personalityBlend.join(' + ')} | mode=${tp.typographyMode}` +
+              `${tp.userFontsHonored ? ' | user fonts honoured' : ''}` +
+              `${designerTypographyAudit ? ` | audit=${Math.round(designerTypographyAudit.score * 100)}%` : ''}`
+          )
+          if (designerTypographyAudit && !designerTypographyAudit.pass) {
+            console.warn(`[v1.3 Typography] ⚠️ plan audit below bar: ${designerTypographyAudit.notes.join('; ')}`)
+          }
+        }
 
         // v24.0: Store prompt for potential regeneration if text violations are detected
         storedPromptForRegeneration = finalXmlPrompt
@@ -2197,16 +2715,25 @@ export async function POST(request: NextRequest) {
         // v38.0: Support both XML tags (pre-sanitization) and parenthetical markers (post-sanitization)
         const formSpeakers = (enrichedFormData as any)?.speakers || (formDataContent as any)?.speakers || [];
         if (formSpeakers && formSpeakers.length > 0) {
-          const speakerNameMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/) ||
+          const xmlSpeakerMatch = finalXmlPrompt.match(/<text role="speaker_name[^"]*"[^>]*>([^<]+)<\/text>/) ||
             finalXmlPrompt.match(/\(speaker_name[^)]*\)\s*"([^"]+)"/);
 
-          if (!speakerNameMatch) {
+          // v55.x: the Lab Director emits plain prose (no XML tags), so the XML/parenthetical
+          // matchers above never fire on Director output. Treat the speaker as present when the
+          // prose contains the speaker's name as visible text — otherwise we log a false alarm
+          // even when the name renders correctly in the poster.
+          const proseSpeakerName = (formSpeakers as Array<{ name?: string }>).find(
+            (s) => s?.name?.trim() && finalXmlPrompt.toLowerCase().includes(s.name.trim().toLowerCase())
+          )?.name;
+          const renderedSpeaker = xmlSpeakerMatch?.[1] ?? proseSpeakerName;
+
+          if (!renderedSpeaker) {
             console.error('[Generation] 🚨 SPEAKER TEXT NOT IN PROMPT!');
             console.error('[Generation] ⚠️ Speaker will NOT render in image');
             console.error('[Generation] Expected speaker:', formSpeakers[0]?.name);
             console.error('[Generation] Speakers array length:', formSpeakers.length);
           } else {
-            console.log('[Generation] ✅ Speaker text found in prompt:', speakerNameMatch[1]);
+            console.log('[Generation] ✅ Speaker text found in prompt:', renderedSpeaker);
           }
         }
 
@@ -2235,23 +2762,27 @@ export async function POST(request: NextRequest) {
         console.log(finalXmlPrompt.substring(0, 1000))
         console.log('[Generate] ... (truncated)')
 
-        // Get system instruction. v54.4: lean mode uses a short guardrails-only instruction.
-        const systemInstruction = useLeanPrompt
-          ? getLeanSystemInstruction()
+        // Get system instruction from YiPromptBuilder
+        // v54.0 LAB: when Director is active, system instruction is minimal — the
+        // Director's prose is self-contained and the legacy 4903-char system text
+        // adds compliance-mode noise that suppresses creative interpretation.
+        let systemInstruction = useLabDirector
+          ? 'You are a professional image-generation model. Render exactly the visual scene described in the user message, with magazine-cover quality and faithful execution of every detail. Do not render any hashtag, website URL, social handle, phone number, email, or sponsor/footer contact text or logos — these are composited separately afterward and any version you draw would duplicate them.'
           : YiPromptBuilder.getSystemInstruction()
 
         // v41.0: Logo bar scaffold — replaces zone guide with a base image for Gemini editing mode
         // Gemini sees the actual blue bars and must design AROUND them (not just read instructions)
         // This makes zone violations physically impossible rather than just advisory
         // zoneGuideBase64 is hoisted to outer scope so retry blocks can access it
-        // v54.0: Skip the scaffold in LOGO_RENDER_MODE='gemini' — no logo bars exist, so Gemini
-        // fills the full canvas (this also removes the empty header/footer void bands).
-        if (logoRenderMode !== 'gemini' && !conceptFirst) {
         try {
           const aspectKey = selectedFormat?.aspectRatio as keyof typeof DIMENSION_QUALITY
           const resKey = (resolution || '1K') as keyof (typeof DIMENSION_QUALITY)['3:4']
           const guideDims = DIMENSION_QUALITY[aspectKey]?.[resKey]
-          if (guideDims) {
+          if (fullCanvasMode) {
+            // v55.x: logo strip OFF → no bars to design around. Skip the scaffold so Gemini
+            // composes edge-to-edge instead of leaving the top/bottom bands empty.
+            console.log('[Scaffold] ⏭️ Full-canvas mode (logo strip OFF) — skipping logo-bar scaffold so Gemini composes edge-to-edge')
+          } else if (guideDims) {
             const { createLogoBarScaffold } = await import('@/lib/sharp/logo-overlay')
             // v42.2: Scaffold shows ACTUAL bar height only (~24-25%).
             // Sharp now handles ALL text (headline/tagline/date/venue) — Gemini generates background only.
@@ -2273,76 +2804,45 @@ export async function POST(request: NextRequest) {
         } catch (zoneGuideErr) {
           console.warn('[Scaffold] ⚠️ Failed to create scaffold (non-critical, continuing without):', zoneGuideErr)
         }
-        } else {
-          console.log(`[Scaffold] ⏭️ scaffold skipped (${conceptFirst ? 'concept-first: clean lean canvas' : 'LOGO_RENDER_MODE=gemini'})`)
-        }
 
         // Generate with Gemini — v43.3: preview model 429 → auto-fallback to stable
         try {
           // v52.1: Compute reference photo base64 once before the call (lazy — only when speaker photo enabled)
-          if (userHasSpeakerPhoto && !referencePhotoBase64) {
+          // v55.x GUEST-PHOTO INSET: in inset mode we do NOT hand the photo to Gemini — the REAL photo
+          // is composited afterward by the Sharp speaker-overlay at an exact, context-computed size
+          // (auto-resized, free-space AI placement, logo-zone-avoiding, crisp caption). Not attaching
+          // it here means (a) Gemini draws NO face → no duplicate, and (b) skipSharpSpeakerOverlay
+          // becomes false (it requires referencePhotoBase64) → the Sharp overlay auto-engages.
+          if (userHasSpeakerPhoto && !referencePhotoBase64 && !guestPhotoInsetMode) {
             const extracted = await extractFirstSpeakerPhotoBase64(speakerPhoto)
             if (extracted) {
               referencePhotoBase64 = extracted
               console.log(`[v52.1 Reference Photo] Extracted ${extracted.mimeType}, ${Math.round(extracted.data.length / 1024)}KB base64 — will pass to Gemini`)
             }
-          }
-          // v54.0/v54.3: Logo handling depends on LOGO_RENDER_MODE.
-          //   'gemini'  — pass logo IMAGES to Gemini to composite (experiment; brand-redraw risk).
-          //   'overlay' (default) — inject the logo FIELD positions as RESERVED safe zones so Gemini
-          //              keeps those spots clean, then Sharp overlays the REAL logo files there.
-          let logoInjectedPrompt = finalXmlPrompt
-          if (logosPlacements?.length) {
-            if (effectiveLogoMode === 'gemini' && !referenceLogoImages) {
-              referenceLogoImages = await extractLogoImagesBase64(logosPlacements, supabase)
-              if (referenceLogoImages.length) {
-                logoInjectedPrompt = buildLogoRenderInstruction(referenceLogoImages) + finalXmlPrompt
-                console.log(`[Logo Render] LOGO_RENDER_MODE='gemini' — passing ${referenceLogoImages.length} logo image(s) to Gemini (Sharp overlay + scaffold skipped)`)
-              }
-            } else if (effectiveLogoMode !== 'gemini' && !enhanced4RowStrip?.enabled) {
-              // Default: reserve the field positions in the prompt; Sharp overlays the real logos after.
-              logoInjectedPrompt = buildLogoZoneReservationInstruction(logosPlacements) + finalXmlPrompt
-              console.log(`[Logo Render] overlay mode — injected logo safe-zone reservation for ${logosPlacements.length} placement(s); real logos overlaid via Sharp at their field positions`)
-            }
-          }
-          // v55.5: cost/text BALANCE for concept-first. Flash 2.5 ("Nano Banana") can't render crisp
-          // text or think — floor it to Nano Banana 2 (Flash 3.1: thinks, far better text, Flash-tier
-          // cost, NOT Pro's 4×). A user's explicit Pro/NB2 choice is respected. Force thinking High
-          // where supported (cheap, big text gain). Resolution stays the user's choice (cost lever).
-          const effectiveModel = (conceptFirst && model === 'gemini-2.5-flash-image')
-            ? 'gemini-3.1-flash-image-preview'
-            : model
-          const effectiveThinkingLevel = (conceptFirst && effectiveModel === 'gemini-3.1-flash-image-preview')
-            ? 'High'
-            : thinkingLevel
-          if (conceptFirst && effectiveModel !== model) {
-            console.log(`[Concept First] ⬆️ Model floored ${model} → ${effectiveModel} for text quality (NB2 thinks → far crisper text than Flash 2.5, same Flash-cost tier). Choose Nano Banana Pro for best, or 2K for crisper letterforms.`)
+          } else if (guestPhotoInsetMode) {
+            console.log('[v55.x Guest Inset] Not attaching photo to Gemini — the real photo is composited by Sharp afterward at the context-computed size (exact, zone-aware).')
           }
           ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
-            logoInjectedPrompt,
+            finalXmlPrompt,
             promptDesignData,
             systemInstruction,
             selectedFormat,
             resolution,
-            effectiveModel,
+            model,
             0,
-            effectiveThinkingLevel,
+            thinkingLevel,
             useImageSearch,
             zoneGuideBase64,
             referencePhotoBase64,
-            referenceLogoImages,
-            styleReferenceImages
+            styleReferenceBase64
           ))
         } catch (genErr: any) {
           const errMsg = (genErr?.message || '').toLowerCase()
           const is429 = errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota') || errMsg.includes('resource_exhausted')
-          // v53.6: Preview model returned no image even after the no-grounding retry inside
-          // generateWithGemini — fall back to the stable model rather than hard-500.
-          const isNoImage = errMsg.includes('no image generated')
           const isPreviewModel = model && model.includes('preview')
-          if ((is429 || isNoImage) && isPreviewModel) {
-            // v43.3 / v53.6: Preview model failed (quota OR empty response) — retry with stable model
-            console.warn(`[v43.3 Fallback] ⚠️ ${model} ${is429 ? 'quota exceeded' : 'returned no image'} — retrying with gemini-2.5-flash-image (stable)`)
+          if (is429 && isPreviewModel) {
+            // v43.3: Preview model quota exhausted — silently retry with stable model
+            console.warn(`[v43.3 Fallback] ⚠️ ${model} quota exceeded — retrying with gemini-2.5-flash-image (stable)`)
             ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(
               finalXmlPrompt,
               promptDesignData,
@@ -2360,6 +2860,12 @@ export async function POST(request: NextRequest) {
           } else {
             throw genErr
           }
+        }
+        // Capture a regenerator for the detail verify loop (XML/Director path).
+        regenerateWithEmphasis = async (missing: string[]) => {
+          const emphasis = `\n\n<scene_description>\nThese exact text lines are REQUIRED and must appear clearly, legibly, and correctly spelled in the finished poster: ${missing.map((m) => `"${m}"`).join(', ')}. Render every one of them prominently within the design — do not omit any.\n</scene_description>`
+          const r = await generateWithGemini(finalXmlPrompt + emphasis, promptDesignData, systemInstruction, selectedFormat, resolution, model, 0, thinkingLevel, useImageSearch, zoneGuideBase64, referencePhotoBase64, styleReferenceBase64)
+          return r.imageBase64
         }
       } else {
         // ========================================================
@@ -2422,40 +2928,47 @@ ${typographyProfile.hierarchy}
           console.log('[Generate] ⚠️ Typography Intelligence available but confidence too low:', typographyProfile.confidence)
         }
 
-        if (provider === 'google') {
-          // Extract resolution from designData or use default
-          const resolution = promptDesignData?.resolution || '1K'
-          ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(promptData.prompt, promptDesignData, promptData.systemPrompt, selectedFormat, resolution, model, 0, thinkingLevel, useImageSearch))
-        } else if (provider === 'ideogram') {
-          imageUrl = await generateWithIdeogram(
-            promptData.prompt,
-            promptDesignData,
-            promptData.styleType,
-            promptData.magicPrompt,
-            promptData.negativePrompt,
-            selectedFormat
-          )
-        } else if (provider === 'openai') {
-          const openAIPromptText = buildOpenAIPrompt({
-            ultraProPrompt,
-            designContext,
-            compiledData,
-            format: selectedFormat!,
-            logoConfig: {
-              hasLogo: logoAwarenessContext.hasLogos,
-              positions: logoAwarenessContext.activeLogos.map((l: { position: string }) => l.position),
-            },
+        // OpenAI uses its own compact prompt (built from the same upstream design context),
+        // not the Gemini/Ideogram XML prompt. Built here only when needed.
+        const openAIPromptText = provider === 'openai'
+          ? buildOpenAIPrompt({
+              ultraProPrompt,
+              designContext,
+              compiledData,
+              format: selectedFormat!,
+              logoConfig: {
+                hasLogo: logoAwarenessContext.hasLogos,
+                positions: logoAwarenessContext.activeLogos.map((l: { position: string }) => l.position),
+              },
+              imageQuality: imageQuality || 'high',
+            })
+          : undefined
+
+        // Render via the router — selected model decides the provider adapter.
+        const rendered = await renderPoster(
+          {
+            modelId: model,
+            provider: provider as RenderProvider,
+            prompt: promptData.prompt,
+            systemPrompt: promptData.systemPrompt,
+            designData: promptDesignData,
+            format: selectedFormat,
+            resolution: promptDesignData?.resolution || '1K',
+            thinkingLevel,
+            useImageSearch,
+            styleType: promptData.styleType,
+            magicPrompt: promptData.magicPrompt,
+            negativePrompt: promptData.negativePrompt,
+            openAIPromptText,
             imageQuality: imageQuality || 'high',
-          })
-          ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithOpenAI(
-            openAIPromptText, selectedFormat, imageQuality || 'high', model
-          ))
-        } else {
-          return NextResponse.json(
-            { error: 'Invalid AI provider' },
-            { status: 400 }
-          )
-        }
+            signal: request.signal,
+          },
+          renderers
+        )
+        imageUrl = rendered.imageUrl
+        if (rendered.actualModel) imageActualModel = rendered.actualModel
+        // Gemini adapter supplies the detail-verify regenerator; other providers omit it.
+        if (rendered.regenerateWithEmphasis) regenerateWithEmphasis = rendered.regenerateWithEmphasis
       }
     } else if (templateUrl) {
       // Template-based generation using Gemini Vision with v3.0 integration
@@ -2535,19 +3048,28 @@ ${typographyProfile.hierarchy}
       if (templateId) {
         await supabase.rpc('increment_template_use_count', { template_id: templateId })
       }
-    } else if (provider === 'google') {
-      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithGemini(enhancedPrompt, null, undefined, selectedFormat, '1K', model, 0, thinkingLevel, useImageSearch))
-    } else if (provider === 'ideogram') {
-      imageUrl = await generateWithIdeogram(enhancedPrompt, null, undefined, undefined, undefined, selectedFormat)
-    } else if (provider === 'openai') {
-      ;({ imageBase64: imageUrl, actualModel: imageActualModel } = await generateWithOpenAI(
-        enhancedPrompt, selectedFormat, imageQuality || 'high', model
-      ))
     } else {
-      return NextResponse.json(
-        { error: 'Invalid AI provider' },
-        { status: 400 }
+      // Simple prompt-only path (no scratch designData, no template) — same router,
+      // selected model decides the provider adapter.
+      const rendered = await renderPoster(
+        {
+          modelId: model,
+          provider: provider as RenderProvider,
+          prompt: enhancedPrompt,
+          designData: null,
+          format: selectedFormat,
+          resolution: '1K',
+          thinkingLevel,
+          useImageSearch,
+          openAIPromptText: enhancedPrompt,
+          imageQuality: imageQuality || 'high',
+          signal: request.signal,
+        },
+        renderers
       )
+      imageUrl = rendered.imageUrl
+      if (rendered.actualModel) imageActualModel = rendered.actualModel
+      // Parity note: this path historically did not wire regenerateWithEmphasis.
     }
 
     // Resize to exact format dimensions if format is selected
@@ -2561,6 +3083,80 @@ ${typographyProfile.hierarchy}
         formatDimensions.height,
         'fill' // Use fill (stretch) to avoid cropping content
       )
+    }
+
+    // ════════════════════════════════════════════════════════
+    // DETAIL VERIFY-AND-REGENERATE — guarantee user event details render.
+    // The AI-text paths (legacy prose Director, and engine ai_native) sometimes
+    // drop factual lines (date/venue/organisation). After generation we read the
+    // poster back (Gemini vision) and, if any required line is missing, regenerate
+    // with explicit emphasis. Presence-detection is reliable here (a truly absent
+    // line won't be in the OCR readout); spelling is best-effort. Non-blocking.
+    // ════════════════════════════════════════════════════════
+    // ── DETERMINISTIC DETAILS (legacy hybrid) — Sharp composites the factual block in a
+    //    reserved lower band the AI kept calm, so user input always renders correctly.
+    if (useDeterministicDetails && deterministicEventData) {
+      try {
+        const hadPrefix = imageUrl.startsWith('data:')
+        const buf = Buffer.from(hadPrefix ? imageUrl.split(',')[1] : imageUrl, 'base64')
+        const cw = formatDimensions?.width ?? 1080
+        const ch = formatDimensions?.height ?? 1440
+        const band = fullCanvasMode ? { startPercent: 63, endPercent: 95 } : { startPercent: 55, endPercent: 77 }
+        const composited = await renderEventTextOverlay(buf, deterministicEventData, {
+          canvasWidth: cw,
+          canvasHeight: ch,
+          renderZone: band,
+          brandColors: {
+            primary: resolvedColors.primaryColor,
+            secondary: resolvedColors.secondaryColor,
+            accent: resolvedColors.accentColor,
+          },
+          fontFamily: designerOverlayFont,
+        })
+        imageUrl = (hadPrefix ? 'data:image/png;base64,' : '') + composited.toString('base64')
+        console.log(`[Deterministic Details] ✅ composited factual block (date/venue/org/events) in band ${JSON.stringify(band)}`)
+      } catch (e) {
+        console.warn('[Deterministic Details] failed (non-fatal):', e instanceof Error ? e.message : e)
+      }
+    } else if (
+      formatId === 'event_poster' &&
+      regenerateWithEmphasis &&
+      (!useCreativeEngine || enginePlan?.renderingMode === 'ai_native')
+    ) {
+      const factualRequired = factualDetailLines
+
+      if (factualRequired.length > 0) {
+        const maxRetries = Number(process.env.TEXT_VERIFY_MAX_RETRIES ?? 1)
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          let verdict: Awaited<ReturnType<typeof verifyVisibleText>>
+          try {
+            const b64 = imageUrl.startsWith('data:') ? imageUrl.split(',')[1] : imageUrl
+            verdict = await verifyVisibleText(b64, factualRequired)
+          } catch (vErr) {
+            console.warn('[Detail Verify] verification failed (non-fatal):', vErr instanceof Error ? vErr.message : vErr)
+            break
+          }
+          if (verdict.allPresent) {
+            console.log(`[Detail Verify] ✅ all event details present${attempt > 0 ? ` (after ${attempt} regen)` : ''}`)
+            break
+          }
+          if (attempt === maxRetries) {
+            console.warn(`[Detail Verify] ⚠️ still missing after ${attempt} regen attempt(s): ${verdict.missing.join(' | ')}`)
+            break
+          }
+          console.warn(`[Detail Verify] ❌ missing: ${verdict.missing.join(' | ')} — regenerating (attempt ${attempt + 1}/${maxRetries})`)
+          try {
+            let regen = await regenerateWithEmphasis(verdict.missing)
+            if (formatDimensions) {
+              regen = await resizeImageToExactDimensions(regen, formatDimensions.width, formatDimensions.height, 'fill')
+            }
+            imageUrl = regen
+          } catch (rErr) {
+            console.warn('[Detail Verify] regeneration failed (non-fatal):', rErr instanceof Error ? rErr.message : rErr)
+            break
+          }
+        }
+      }
     }
 
     // ========================================================
@@ -2606,22 +3202,32 @@ ${typographyProfile.hierarchy}
       // Import the verifier dynamically
       const { detectTextInForbiddenZones } = await import('@/lib/sharp/text-zone-verifier')
 
-      // v41.5: Use FIXED 40% header threshold — matches scaffold (0–40% solid bar zone).
-      // The 40% covers both: actual bar background (0–25%) + floating Row 2/3 cards (25–40%).
-      // Footer uses actual bar height — no floating elements there.
+      // v41.5 / v57.0: header threshold = the FORMAT PROFILE's top reserve band (the band the Director
+      // was told to keep atmospheric). For event_poster this is 40% (scaffold: bar 0–25% + floating
+      // Row 2/3 cards 25–40%); other shapes use their own reserve (square 30%, landscape 20%, …) so the
+      // verifier doesn't flag legitimate content. Footer uses the actual bar height, falling back to
+      // 100 − reserveBottomPct (event_poster → 82, unchanged).
       const canvasHForVerifier = formatDimensions?.height || 1440
       const actualFooterBarPx = logoStripZoneCoordinates?.footerHeight ?? 0
-      const headerEndPercent = 40  // matches scaffold: bar (25%) + floating cards (25-40%)
+      const headerEndPercent = formatProfile.reserveTopPct  // event_poster = 40
       const footerStartPercent = actualFooterBarPx > 0
         ? Math.floor(((canvasHForVerifier - actualFooterBarPx) / canvasHForVerifier) * 100) - 2
-        : 82  // fallback
-      console.log(`[Spatial Verification] Thresholds v41.5: header=40% (bar+floats), footer=${actualFooterBarPx}px→${footerStartPercent}%`)
+        : (100 - formatProfile.reserveBottomPct)  // event_poster → 82
+      console.log(`[Spatial Verification] Thresholds v57.0: header=${headerEndPercent}% (profile reserve), footer=${actualFooterBarPx}px→${footerStartPercent}%`)
 
-      const violations = await detectTextInForbiddenZones(
-        imageBuffer,
-        headerEndPercent,
-        footerStartPercent
-      )
+      // v55.x: in full-canvas mode there are no logo bars / footer to protect, so a text-in-top
+      // "violation" is actually the intended full-bleed design. Skip detection entirely — this is
+      // what was forcing the zone-retry and the blur+darken mask that wrecked the poster.
+      const violations: Awaited<ReturnType<typeof detectTextInForbiddenZones>> = fullCanvasMode
+        ? []
+        : await detectTextInForbiddenZones(
+            imageBuffer,
+            headerEndPercent,
+            footerStartPercent
+          )
+      if (fullCanvasMode) {
+        console.log('[Spatial Verification] ⏭️ Full-canvas mode (logo strip OFF) — skipping forbidden-zone check, retry & blur-masking; poster uses the entire canvas')
+      }
 
       if (violations.length > 0) {
         console.warn('[Spatial Verification] ⚠️ VIOLATIONS DETECTED:', violations)
@@ -2635,22 +3241,25 @@ ${typographyProfile.hierarchy}
           )
         }
 
-        // v50.5: Header retry CONDITIONAL on logo strip status.
+        // v50.5: Header retry CONDITIONAL on logo-bar status.
         // Previous v41.8 hardcoded retry=false assuming logo bars would cover all violations.
-        // But when user disables logo strip, violations become VISIBLE and break the design
+        // But when there are NO logo bars at all, violations become VISIBLE and break the design
         // (text bleeds into top 40%, ignored by Flash 2.5 model's looser zone compliance).
-        // Now: when logoStripMode is DISABLED, treat violations as REAL and force a retry.
-        //      when logoStripMode is ENABLED, skip retry (logo bar will cover the violation).
-        // v54.0/v54.4: Disable header retry/masking when Gemini owns the full canvas — i.e. in
-        // LOGO_RENDER_MODE='gemini' (logos occupy the corners) or PROMPT_MODE='lean' (we trust the
-        // model's composition and don't blur it with the band-policing the lean prompt omits).
-        const HEADER_RETRY_ENABLED = !logoStripMode?.enabled && logoRenderMode !== 'gemini' && !useLeanPrompt
+        // v55.x fix: gate on the UNIFIED logoBarsActive flag (enhanced4RowStrip OR legacy
+        // logoStripMode), not just the legacy logoStripMode. Checking only the legacy flag made
+        // the 4-Row Strip (the current system) look "disabled" → forced a wasteful retry + mask
+        // even though its opaque bars already cover the header.
+        //   logo bars present  → skip retry (the bar covers the violation)
+        //   no logo bars       → retry (violation would be visible)
+        // NB: full-canvas mode already returns violations=[] above, so this block only runs when
+        //     logoBarsActive is true — HEADER_RETRY_ENABLED is effectively false here (defensive).
+        const HEADER_RETRY_ENABLED = !logoBarsActive
         const headerViolation = violations.find(v => v.zoneType === 'header' && v.severity === 'critical')
         if (headerViolation) {
           if (HEADER_RETRY_ENABLED) {
-            console.log('[v50.5 Zone Retry] ⚠️ Header zone violation detected AND logo strip is DISABLED — text will be visible. Forcing retry.')
+            console.log('[v50.5 Zone Retry] ⚠️ Header zone violation detected AND no logo bars — text will be visible. Forcing retry.')
           } else {
-            console.log('[v41.8 Zone Retry] ℹ️ Header zone violation but logo strip ENABLED — logo bar will cover. Skipping retry.')
+            console.log('[v41.8 Zone Retry] ℹ️ Header zone violation but logo bars ENABLED — logo bar will cover. Skipping retry.')
           }
         }
         if (HEADER_RETRY_ENABLED && headerViolation && storedPromptForRegeneration) {
@@ -2685,7 +3294,12 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
           const zoneRetryPrompt = retryInstruction + storedPromptForRegeneration
 
           try {
-            const retrySystemInstruction = YiPromptBuilder.getSystemInstruction()
+            // v54.1 Fix #4: Retry path also respects useLabDirector. Without this,
+            // retries hardcoded the 4903-char legacy system instruction, defeating
+            // the Director's voice on every zone-retry attempt.
+            const retrySystemInstruction = useLabDirector
+              ? 'You are a professional image-generation model. Render exactly the visual scene described in the user message, with magazine-cover quality and faithful execution of every detail.'
+              : YiPromptBuilder.getSystemInstruction()
             const retryResolution = (effectiveDesignData?.resolution || '1K') as '1K' | '2K' | '4K'
 
             const retryResult = await generateWithGemini(
@@ -2700,8 +3314,7 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
               useImageSearch,
               zoneGuideBase64, // v40.3: Pass zone guide through retries
               referencePhotoBase64, // v52.1: Pass reference portrait through retries
-              referenceLogoImages, // v54.0: Pass logo references through retries
-              styleReferenceImages // v54.5: Pass style reference through retries
+              styleReferenceBase64 // style-only reference image through retries
             )
 
             // Resize retry result to exact format dimensions
@@ -2727,16 +3340,18 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
                 imageUrl = retryImageUrl
                 imageBuffer = retryBuffer
                 if (retryResult.actualModel) imageActualModel = retryResult.actualModel
-              } else if (!logoStripMode?.enabled) {
-                // v50.6: Retry failed AND logo strip is disabled — nothing will cover the violation.
+              } else if (!logoBarsActive) {
+                // v50.6: Retry failed AND there are no logo bars — nothing will cover the violation.
                 // Apply smart masking (blur+darken) on the violation zone so it doesn't ship visible.
-                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation AND logo strip is DISABLED')
+                // v55.x fix: gate on logoBarsActive (4-Row Strip OR legacy strip), not the legacy
+                // logoStripMode alone — otherwise the 4-Row Strip's opaque bars get a redundant mask.
+                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation AND no logo bars')
                 console.log('[v50.6 Fallback Masking] Applying smart mask to violation zone')
                 const canvasW = formatDimensions?.width ?? 1080
                 const canvasH = formatDimensions?.height ?? 1440
                 imageBuffer = await smartMaskTextInLogoZones(imageBuffer, violations, canvasW, canvasH) as typeof imageBuffer
               } else {
-                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation — logo strip ENABLED, bars will cover')
+                console.warn('[v32.1 Zone Retry] ⚠️ Retry still has header violation — logo bars ENABLED, bars will cover')
               }
             }
           } catch (retryError) {
@@ -2806,21 +3421,44 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
       console.error('[Spatial Verification] Verification failed (non-fatal):', verificationError)
     }
 
+    // ── Creative Engine: render text per renderingMode ──
+    // engine_exact / hybrid_shape → Sharp draws the copy deterministically over the
+    // text-free (or container) background. ai_native → the AI already rendered the
+    // copy; we VERIFY the required text instead of overlaying.
+    if (useCreativeEngine && enginePlan && enginePlan.renderingMode !== 'ai_native') {
+      try {
+        const hadPrefix = imageUrl.startsWith('data:')
+        const bgBuf = Buffer.from(hadPrefix ? imageUrl.split(',')[1] : imageUrl, 'base64')
+        const rendered = await renderTextLayers(
+          bgBuf,
+          enginePlan.layout,
+          enginePlan.context.renderableText,
+          {
+            brand: {
+              primary: resolvedColors.primaryColor,
+              secondary: resolvedColors.secondaryColor,
+              accent: resolvedColors.accentColor,
+            },
+          }
+        )
+        imageUrl = (hadPrefix ? 'data:image/png;base64,' : '') + rendered.imageBuffer.toString('base64')
+        console.log(`[Creative Engine] ✅ Composited ${rendered.appliedLayers.length} deterministic text layers (${enginePlan.renderingMode})`)
+      } catch (textErr) {
+        console.warn(
+          '[Creative Engine] ⚠️ deterministic text render failed (non-fatal):',
+          textErr instanceof Error ? textErr.message : textErr
+        )
+      }
+    }
+    // (ai_native text verification is handled earlier by the DETAIL VERIFY-AND-REGENERATE loop.)
+
     // If logos need to be overlaid, process with Sharp
     // v14.2: Skip individual logo placement when enhanced 4-row strip is enabled
     // The 4-row strip fetches and places brand logos from logosPlacements automatically
     // v25.0: When enhanced4RowStrip exists but enabled=false, skip ALL logo overlays (user disabled the feature)
     // Only use legacy system for old creatives without enhanced4RowStrip config at all
-    const fourRowStripActive = !!enhanced4RowStrip?.enabled
-    if (effectiveLogoMode === 'gemini') {
-      console.log('[Logo Render] ⏭️ LOGO_RENDER_MODE=gemini — Sharp logo overlay skipped (logos rendered by Gemini)')
-    }
-    // v54.3: Overlay the user's individually-placed logos whenever the 4-row strip is NOT actively
-    // enabled. Previously a present-but-disabled enhanced4RowStrip (v25.0) skipped ALL overlays,
-    // leaving logos the user positioned in the logo section unrendered. Disabling the STRIP layout
-    // must not discard explicitly-placed logos. (effectiveLogoMode='gemini' still skips — Gemini draws;
-    // concept-first forces 'overlay' so real logos are always stamped, never drawn.)
-    if (logosPlacements && logosPlacements.length > 0 && effectiveLogoMode !== 'gemini' && !fourRowStripActive) {
+    const hasEnhanced4RowConfig = enhanced4RowStrip !== undefined
+    if (logosPlacements && logosPlacements.length > 0 && !hasEnhanced4RowConfig) {
       // NEW v4.8: Design Intelligence for Logo Strips
       // If user hasn't manually selected a strip shape, infer it from the AI's design strategy/vibe
       let stripShape = designData?.stripShape
@@ -2835,8 +3473,13 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
       console.log(`Logo strip mode: ${logoStripMode?.enabled ? 'ENABLED' : 'disabled'} for rows: ${logoStripMode?.rows?.join(', ') || 'none'}, opacity: ${logoStripMode?.opacity ?? 100}%, logoBound: ${logoStripMode?.logoBound ?? false}`)
       console.log(`Logo strip shape: ${stripShape || 'default (curved)'}`) // NEW v3.11
       imageUrl = await overlayLogos(imageUrl, logosPlacements, supabase, logoBackgroundColor, logoStripMode, stripShape)
-    } else if (fourRowStripActive) {
-      console.log('[Logo Placement] Skipping individual logo placement - Enhanced 4-Row Strip will handle brand logos')
+    } else if (hasEnhanced4RowConfig) {
+      // User has enhanced4RowStrip config - either enabled or explicitly disabled
+      if (enhanced4RowStrip?.enabled) {
+        console.log('[Logo Placement] Skipping individual logo placement - Enhanced 4-Row Strip will handle brand logos')
+      } else {
+        console.log('[Logo Placement] Logo Strip feature is DISABLED by user - skipping all logo overlays')
+      }
     }
 
     // ========================================================
@@ -3867,6 +4510,15 @@ Do NOT render any text, title, date, venue, or label above y=${headerEndPx}px or
       thumbnailUrl, // Server-generated thumbnail for gallery preview
       // v36.0: Return prompt for generation memory (truncated to 3000 chars)
       promptUsed: storedPromptForRegeneration?.slice(0, 3000) || '',
+      // Designer Pipeline: "AI understood this" summary for the UI (undefined when
+      // the Director path was skipped, e.g. LAB_USE_DIRECTOR=false).
+      designerUnderstanding: designerPipelineSummary || undefined,
+      // Designer Pipeline v2: ordered style blend for the "Style Mix" UI card
+      // (undefined when AI Auto / no styles were picked).
+      styleBlendPlan:
+        designerStyleBlendPlan && designerStyleBlendPlan.mode !== 'auto'
+          ? designerStyleBlendPlan
+          : undefined,
       // v4.0: Include prevention action ID for fix validation tracking
       preventionActionId: preventionActionId || undefined,
       // v4.1: A/B testing data for prevention effectiveness measurement
@@ -4668,105 +5320,6 @@ async function generateWithOpenAI(
   return { imageBase64, actualModel: modelId }
 }
 
-// v54.0 EXPERIMENT: Map a logo grid position id to a human-readable placement for Gemini.
-// The lock rule (lib/config/logo-locks.ts): Yi → top-1 (left edge), CII → top-6 (right edge).
-function describeLogoPosition(position: string): string {
-  const p = (position || '').toLowerCase()
-  if (p === 'top-1' || p === 'top-left') return 'the TOP-LEFT corner'
-  if (p === 'top-6' || p === 'top-right') return 'the TOP-RIGHT corner'
-  if (p.startsWith('top')) return 'the TOP edge, horizontally centered'
-  if (p.includes('bottom-1') || p === 'bottom-left') return 'the BOTTOM-LEFT corner'
-  if (p.includes('bottom-6') || p === 'bottom-right') return 'the BOTTOM-RIGHT corner'
-  if (p.startsWith('bottom')) return 'the BOTTOM edge, horizontally centered'
-  if (p.includes('center') || p.includes('middle')) return 'the center'
-  return `the ${position} area`
-}
-
-// v54.0 EXPERIMENT: Fetch each placed logo as base64 so it can be attached to the Gemini
-// request as a reference image (mirrors extractFirstSpeakerPhotoBase64). Prefers the file_url
-// carried on the placement; falls back to the organization_logos table by logoId.
-async function extractLogoImagesBase64(
-  logosPlacements: Array<{ logoId: string; position: string; logo?: { file_url?: string; name?: string } }>,
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<Array<{ logoId: string; position: string; mimeType: string; data: string; name?: string }>> {
-  const results: Array<{ logoId: string; position: string; mimeType: string; data: string; name?: string }> = []
-
-  // Resolve any missing file_urls from the DB in one query (same source as overlayLogos).
-  const missingIds = logosPlacements.filter(p => !p.logo?.file_url).map(p => p.logoId)
-  const urlMap = new Map<string, { file_url?: string; name?: string }>()
-  if (missingIds.length) {
-    try {
-      const { data: rows } = await supabase
-        .from('organization_logos')
-        .select('id, file_url, name')
-        .in('id', missingIds)
-      for (const r of rows || []) urlMap.set(r.id, { file_url: r.file_url, name: r.name })
-    } catch (err) {
-      console.warn('[Logo Render] ⚠️ DB lookup for logo URLs failed:', err)
-    }
-  }
-
-  for (const p of logosPlacements) {
-    const fileUrl = p.logo?.file_url || urlMap.get(p.logoId)?.file_url
-    const name = p.logo?.name || urlMap.get(p.logoId)?.name
-    if (!fileUrl) continue
-    try {
-      if (fileUrl.startsWith('data:')) {
-        const match = fileUrl.match(/^data:([^;]+);base64,(.+)$/)
-        if (!match) continue
-        results.push({ logoId: p.logoId, position: p.position, mimeType: match[1] || 'image/png', data: match[2] || '', name })
-      } else if (fileUrl.startsWith('http')) {
-        const res = await fetch(fileUrl)
-        if (!res.ok) continue
-        const buf = Buffer.from(await res.arrayBuffer())
-        results.push({
-          logoId: p.logoId,
-          position: p.position,
-          mimeType: res.headers.get('content-type') || 'image/png',
-          data: buf.toString('base64'),
-          name,
-        })
-      }
-    } catch (err) {
-      console.warn(`[Logo Render] ⚠️ Failed to fetch logo ${p.logoId}:`, err)
-    }
-  }
-  return results
-}
-
-// v54.0 EXPERIMENT: Build a (DO NOT RENDER) instruction telling Gemini to reproduce the
-// attached brand logos EXACTLY (no redraw/restyle) and place each at its locked position.
-function buildLogoRenderInstruction(
-  logos: Array<{ position: string; name?: string }>
-): string {
-  const lines = logos.map((l, i) => {
-    const label = l.name ? `the "${l.name}" logo` : `brand logo #${i + 1}`
-    return `- ${label} → place it in ${describeLogoPosition(l.position)}, small, with clear padding from the edge.`
-  })
-  return `<logo_placement>(DO NOT RENDER this block as visible words — it describes the attached brand logo reference images.)
-${logos.length} brand logo image(s) are attached as reference inputs. Reproduce each logo EXACTLY as provided — identical colours, shapes, lettering and proportions. Do NOT redraw, restyle, recolour, translate, or invent logos; treat them as fixed brand assets composited into the artwork.
-${lines.join('\n')}
-Seat the logos on a subtle solid or gradient band (or directly on clean background) so they stay crisp and legible. Preserve each logo's aspect ratio; never stretch or warp.
-</logo_placement>
-
-`
-}
-
-// v54.3: Build a (DO NOT RENDER) safe-zone reservation from the logo placement FIELDS, telling
-// Gemini to keep those exact positions clean. The real logo files are overlaid there by Sharp
-// afterward (brand-exact, no Gemini redraw). This is the default 'overlay' path.
-function buildLogoZoneReservationInstruction(
-  placements: Array<{ position: string; logo?: { name?: string } }>
-): string {
-  const spots = Array.from(new Set(placements.map((p) => describeLogoPosition(p.position))))
-  return `<logo_safe_zones>(DO NOT RENDER this block as visible text — it is a layout reservation.)
-Brand logos are overlaid in post-processing at FIXED positions. Keep these specific areas CLEAN and uncluttered — plain background, gradient, or soft atmospheric detail only. Do NOT place any text, faces, key subjects, or busy high-contrast detail in: ${spots.join('; ')}.
-Leave a small margin of clear breathing room around each so an overlaid logo reads crisply against a calm backdrop.
-</logo_safe_zones>
-
-`
-}
-
 // v52.1: Layer-3 subject awareness — extract the first speaker's photo as base64 + mime
 // so Gemini can see the actual portrait it must compose around (palette, lighting, mood).
 // Returns null if there's no usable photo. Handles both data: URLs and http(s) URLs.
@@ -4796,6 +5349,54 @@ async function extractFirstSpeakerPhotoBase64(
   }
 }
 
+/**
+ * Build the provider-adapter map for the render router (dependency injection).
+ *
+ * Each adapter THIN-WRAPS an existing render function and normalizes the result to
+ * { imageUrl, actualModel?, regenerateWithEmphasis? }:
+ *  - google   → generateWithGemini (returns base64 data URL; supplies the detail-verify retry)
+ *  - ideogram → generateWithIdeogram (returns a remote URL; no actualModel, legacy parity)
+ *  - openai   → hardened lib/pipelines/openai-pipeline (NOT the route-local copy) for retry/socket safety
+ *
+ * Declared as a hoisted function so it can reference the generateWith* declarations below it.
+ */
+function getDesignerRenderers(): RendererMap {
+  return {
+    google: async (i) => {
+      const r = await generateWithGemini(
+        i.prompt, i.designData, i.systemPrompt, i.format, i.resolution, i.modelId, 0, i.thinkingLevel, i.useImageSearch
+      )
+      return {
+        imageUrl: r.imageBase64,
+        actualModel: r.actualModel,
+        regenerateWithEmphasis: async (missing: string[]) => {
+          const emphasis = `\n\n========================================\nREQUIRED VISIBLE TEXT (must appear, legible & correctly spelled): ${missing.map((m) => `"${m}"`).join(', ')}. Render every one of them prominently — do not omit any.\n========================================`
+          const rr = await generateWithGemini(
+            i.prompt + emphasis, i.designData, i.systemPrompt, i.format, i.resolution, i.modelId, 0, i.thinkingLevel, i.useImageSearch
+          )
+          return rr.imageBase64
+        },
+      }
+    },
+    ideogram: async (i) => {
+      const imageUrl = await generateWithIdeogram(
+        i.prompt, i.designData, i.styleType, i.magicPrompt, i.negativePrompt, i.format
+      )
+      return { imageUrl }
+    },
+    openai: async (i) => {
+      const r = await generateWithOpenAIHardened({
+        prompt: i.openAIPromptText ?? i.prompt,
+        format: i.format!,
+        quality: i.imageQuality ?? 'high',
+        modelId: i.modelId,
+        signal: i.signal,
+      })
+      return { imageUrl: r.imageBase64, actualModel: r.actualModel }
+    },
+  }
+}
+
 async function generateWithGemini(
   prompt: string,
   designData?: DesignData | null,
@@ -4808,9 +5409,7 @@ async function generateWithGemini(
   useImageSearch?: boolean,            // Flash 3.1 only: enable Google Image Search grounding (default true)
   zoneGuideBase64?: string,            // v40.3: Zone guide image — visual reference for logo overlay zones
   referencePhotoBase64?: { data: string; mimeType: string },  // v52.1: actual speaker portrait as reference image
-  referenceLogoImages?: Array<{ logoId: string; position: string; mimeType: string; data: string; name?: string }>,  // v54.0: brand logos passed to Gemini (LOGO_RENDER_MODE='gemini')
-  styleReferenceImages?: Array<{ data: string; mimeType: string }>,  // v54.5: style reference image(s) — quality bar (CONCEPT_FIRST)
-  noImageRetry: boolean = false        // v53.6: guard — true when this call is the no-grounding retry (prevents infinite recursion)
+  styleReferenceBase64?: { data: string; mimeType: string }  // style-only quality-bar image (e.g. 'spotlight-event') — match its look, never its content
 ): Promise<{ imageBase64: string; actualModel: string }> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -5000,17 +5599,9 @@ async function generateWithGemini(
     console.log(`[IMAGE SEARCH] Adding Google Image Search grounding tool for ${currentModel}`)
   }
 
-  const contentParts: Array<Record<string, unknown>> = []
-  // v54.5: style reference goes FIRST so "the first attached image" in the prompt refers to it.
-  const useStyleRef = styleReferenceImages && styleReferenceImages.length > 0 && modelCaps?.supportsImageInput
-  if (useStyleRef && styleReferenceImages) {
-    for (const ref of styleReferenceImages) {
-      contentParts.push({ inlineData: { mimeType: ref.mimeType, data: ref.data } })
-    }
-    console.log(`[Style Reference] ✅ Attaching ${styleReferenceImages.length} style reference image(s) to Gemini request (first input)`)
-  }
   // v40.3: Include zone guide image in parts when supported (visual zone enforcement)
   const useZoneGuide = zoneGuideBase64 && modelCaps?.supportsImageInput
+  const contentParts: Array<Record<string, unknown>> = []
   if (useZoneGuide) {
     contentParts.push({ inlineData: { mimeType: 'image/png', data: zoneGuideBase64 } })
     console.log('[Scaffold] ✅ Attaching logo bar scaffold to Gemini request (image-editing mode — bars physically occupy top/bottom)')
@@ -5022,13 +5613,13 @@ async function generateWithGemini(
     contentParts.push({ inlineData: { mimeType: referencePhotoBase64.mimeType, data: referencePhotoBase64.data } })
     console.log('[v52.1 Reference Photo] ✅ Attaching speaker portrait to Gemini request (subject-aware composition)')
   }
-  // v54.0 EXPERIMENT: attach brand logo reference images so Gemini composites them natively.
-  const useReferenceLogos = referenceLogoImages && referenceLogoImages.length > 0 && modelCaps?.supportsImageInput
-  if (useReferenceLogos && referenceLogoImages) {
-    for (const logo of referenceLogoImages) {
-      contentParts.push({ inlineData: { mimeType: logo.mimeType, data: logo.data } })
-    }
-    console.log(`[Logo Render] ✅ Attaching ${referenceLogoImages.length} logo reference image(s) to Gemini request`)
+  // Style-only reference: attached as a look quality-bar (matched, never copied).
+  // The prompt envelope (assembleDesignerPrompt styleReferenceNote) tells the model this
+  // image is a style guide only — its people/text/logos belong to another event.
+  const useStyleReference = styleReferenceBase64 && modelCaps?.supportsImageInput
+  if (useStyleReference && styleReferenceBase64) {
+    contentParts.push({ inlineData: { mimeType: styleReferenceBase64.mimeType, data: styleReferenceBase64.data } })
+    console.log('[Style Reference] ✅ Attaching style-only reference image to Gemini request (look quality-bar)')
   }
   contentParts.push({ text: sanitizedPrompt })
 
@@ -5065,6 +5656,7 @@ async function generateWithGemini(
   const geminiHeaders = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
   const geminiBody = JSON.stringify(requestBody)
   const MAX_BODY_RETRIES = 3
+  console.log('[Gemini] request body bytes:', geminiBody.length, '| model:', modelEndpoint, '| attached images:', contentParts.filter(p => 'inlineData' in p).length)
 
   let data: any
   for (let bodyAttempt = 0; bodyAttempt <= MAX_BODY_RETRIES; bodyAttempt++) {
@@ -5086,6 +5678,7 @@ async function generateWithGemini(
     } catch (error) {
       if (error instanceof NetworkError) {
         // Surface the REAL underlying cause (ECONNRESET / UND_ERR_HEADERS_TIMEOUT / TLS cert / etc.).
+        // fetchWithRetry wraps the original error as NetworkError.cause; that error may itself nest a `cause`.
         const inner = (error as NetworkError).cause as { code?: string; message?: string; cause?: { code?: string; message?: string } } | undefined
         const detail = inner?.cause?.code || inner?.code || inner?.cause?.message || inner?.message || (error as Error).message
         console.error('=== GEMINI NETWORK ERROR ===')
@@ -5136,60 +5729,7 @@ async function generateWithGemini(
   const imagePart = parts?.find((p: { inlineData?: { data: string } }) => p.inlineData)
 
   if (!imagePart?.inlineData?.data) {
-    // v53.6: Gemini returned 200 OK but no image part. Diagnose WHY, then self-heal.
-    // Most common cause: the Google Image Search grounding tool makes the model answer with
-    // text/search results instead of an image (intermittent). Dropping it and retrying recovers.
-    const candidate = data.candidates?.[0]
-    const finishReason: string | undefined = candidate?.finishReason
-    const blockReason: string | undefined = data.promptFeedback?.blockReason
-    const hasGroundingMetadata = !!candidate?.groundingMetadata
-    const textPreview = (parts as Array<{ text?: string }> | undefined)
-      ?.filter((p) => p.text)
-      .map((p) => p.text)
-      .join(' ')
-      .slice(0, 300)
-    const hadImageSearchTool = !!(modelCaps?.supportsImageSearch && useImageSearch !== false)
-
-    console.error('[Gemini] ⚠️ 200 OK but no image part returned:', {
-      model: currentModel,
-      finishReason: finishReason ?? '(none)',
-      blockReason: blockReason ?? '(none)',
-      hasGroundingMetadata,
-      hadImageSearchTool,
-      noImageRetry,
-      textPreview: textPreview || '(none)',
-    })
-
-    // A genuine safety/recitation block won't be fixed by retrying — fail with the reason.
-    const isHardBlock =
-      blockReason != null ||
-      ['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST'].includes(finishReason ?? '')
-
-    if (hadImageSearchTool && !noImageRetry && !isHardBlock) {
-      console.warn('[Gemini] 🔄 No image with Image Search grounding — retrying once WITHOUT grounding tool')
-      return await generateWithGemini(
-        prompt,
-        designData,
-        systemPrompt,
-        format,
-        resolution,
-        modelId,          // preserve the originally requested model
-        retryCount,
-        thinkingLevel,
-        false,            // disable Google Image Search grounding for the retry
-        zoneGuideBase64,
-        referencePhotoBase64,
-        referenceLogoImages,  // v54.0: preserve logo references across the retry
-        styleReferenceImages, // v54.5: preserve style reference across the retry
-        true              // noImageRetry — prevents infinite recursion
-      )
-    }
-
-    throw new Error(
-      blockReason
-        ? `No image generated — blocked by safety filter (${blockReason})`
-        : `No image generated${finishReason ? ` (finishReason: ${finishReason})` : ''}`
-    )
+    throw new Error('No image generated')
   }
 
   // Convert base64 to data URL

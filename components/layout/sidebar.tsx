@@ -46,6 +46,7 @@ import {
   Link2,
   FlaskConical,
   Hammer,
+  PenTool,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
 
@@ -83,6 +84,11 @@ const mainNavItems: NavItem[] = [
     title: 'Forge',
     href: ROUTES.forge,
     icon: Hammer,
+  },
+  {
+    title: 'Designer',
+    href: ROUTES.designer,
+    icon: PenTool,
   },
   {
     title: 'Bulk Generate',

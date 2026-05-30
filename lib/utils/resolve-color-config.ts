@@ -14,6 +14,7 @@
  */
 
 import { COLOR_PALETTES, type ColorConfig, type CustomColors } from '@/lib/config/design-constants'
+import { colorNameToHex } from '@/lib/designer-pipeline/color-names'
 
 export type ColorSource = 'brand' | 'preset' | 'custom' | 'fallback'
 
@@ -76,19 +77,32 @@ export function resolveColorConfig(
   if (colorConfig?.selectedPalette === 'custom' && colorConfig.customColors) {
     const { primary, secondary, accent } = colorConfig.customColors
 
-    // Validate all custom colors
-    if (isValidHex(primary) && isValidHex(secondary) && isValidHex(accent)) {
-      console.log('[Color Resolution] Using custom user colors:', { primary, secondary, accent })
+    // v3.11: Accept natural colour NAMES ("Magenta", "Gold gradient"), not just hex.
+    // colorNameToHex passes valid hex through unchanged and maps known names → canonical hex,
+    // so designers can type colour words and have them honoured instead of silently falling back.
+    const rp = colorNameToHex(primary)
+    const rs = colorNameToHex(secondary)
+    const ra = colorNameToHex(accent)
+
+    if (rp && rs && ra) {
+      if (rp !== primary || rs !== secondary || ra !== accent) {
+        console.log('[Color Resolution] Normalized custom colour names → hex:', {
+          primary: `${primary} → ${rp}`,
+          secondary: `${secondary} → ${rs}`,
+          accent: `${accent} → ${ra}`,
+        })
+      }
+      console.log('[Color Resolution] Using custom user colors:', { primary: rp, secondary: rs, accent: ra })
       return {
-        primaryColor: primary,
-        secondaryColor: secondary,
-        accentColor: accent,
+        primaryColor: rp,
+        secondaryColor: rs,
+        accentColor: ra,
         source: 'custom',
       }
     }
 
     // Custom colors invalid - log warning and continue to fallback
-    console.warn('[Color Resolution] Invalid custom colors detected:', { primary, secondary, accent })
+    console.warn('[Color Resolution] Invalid custom colors detected (not hex or a known colour name):', { primary, secondary, accent })
   }
 
   // Priority 3: Preset palette

@@ -19,7 +19,7 @@
  */
 
 import sharp from 'sharp'
-import { textToPath, getTextWidth } from './text-to-path'
+import { textToPath, getTextWidth, resolveFontFamily } from './text-to-path'
 
 // ============================================================
 // TYPES
@@ -49,6 +49,12 @@ export interface EventTextOverlayConfig {
     secondary: string  // e.g., "#fcff33"
     accent: string     // e.g., "#faf9f4"
   }
+  /**
+   * User-requested font for the overlaid factual text (e.g. "Open Sans", "Montserrat").
+   * When omitted or not a registered/loadable family, the overlay falls back to the
+   * default Poppins ("AI" font) — honouring "use the user's font if shared, else AI".
+   */
+  fontFamily?: string
 }
 
 // ============================================================
@@ -121,9 +127,10 @@ async function sampleBackgroundLuminance(
 // CONSTANTS
 // ============================================================
 
-const FONT_FAMILY = 'poppins'           // Default: venue, details
-const DATE_FONT_FAMILY = 'poppins'      // Montserrat .ttf files are invalid (WOFF2 signatures) — use poppins
-const CTA_FONT_FAMILY = 'poppins'       // Same — poppins bold confirmed working
+// Default ("AI") font when the user didn't request one (or theirs isn't loadable).
+// All overlay text now resolves its family at runtime from config.fontFamily; this
+// constant is only the fallback. (Montserrat/Inter/Oswald/Open-Sans TTFs are now valid.)
+const DEFAULT_FONT_FAMILY = 'poppins'
 
 const INFO_CARD_RADIUS = 14
 const CARD_PADDING_X = 24
@@ -162,6 +169,13 @@ export async function renderEventTextOverlay(
 ): Promise<Buffer> {
   const { canvasWidth, canvasHeight, renderZone, brandColors } = config
 
+  // Resolve the overlay font: user's font if shared AND registered/loadable, else AI default.
+  const resolvedUserFont = resolveFontFamily(config.fontFamily)
+  const family = resolvedUserFont ?? DEFAULT_FONT_FAMILY
+  if (config.fontFamily) {
+    console.log(`[Event Text Overlay] Font request "${config.fontFamily}" → ${resolvedUserFont ? `using "${family}"` : `not available, falling back to "${family}"`}`)
+  }
+
   // Skip if no detail data to render
   if (!eventData.headline && !eventData.tagline && !eventData.dateTime && !eventData.venue && !eventData.additionalDetails && !eventData.registrationInfo) {
     return imageBuffer
@@ -193,7 +207,8 @@ export async function renderEventTextOverlay(
         currentY,
         zoneEndPx,
         brandColors,
-        bgIsDark
+        bgIsDark,
+        family
       )
       svgElements.push(headlineResult.svg)
       currentY = headlineResult.bottomY + SECTION_GAP * 2
@@ -207,7 +222,8 @@ export async function renderEventTextOverlay(
         canvasWidth,
         currentY,
         brandColors,
-        bgIsDark
+        bgIsDark,
+        family
       )
       svgElements.push(cardResult.svg)
       currentY = cardResult.bottomY + SECTION_GAP
@@ -219,9 +235,9 @@ export async function renderEventTextOverlay(
       const orgColor = bgIsDark ? getBestLightColor(brandColors) : getBestDarkColor(brandColors)
       let orgFont = 26
       const maxOrgW = canvasWidth - 120
-      while (getTextWidth(orgText, FONT_FAMILY, orgFont, 'bold') > maxOrgW && orgFont > 14) orgFont -= 1
+      while (getTextWidth(orgText, family, orgFont, 'bold') > maxOrgW && orgFont > 14) orgFont -= 1
       const orgPath = textToPath(orgText, {
-        fontFamily: FONT_FAMILY,
+        fontFamily: family,
         fontSize: orgFont,
         fontWeight: 'bold',
         x: canvasWidth / 2,
@@ -242,7 +258,8 @@ export async function renderEventTextOverlay(
         currentY,
         zoneEndPx,
         brandColors,
-        bgIsDark
+        bgIsDark,
+        family
       )
       if (speakerResult.svg) {
         svgElements.push(speakerResult.svg)
@@ -257,7 +274,8 @@ export async function renderEventTextOverlay(
         canvasWidth,
         currentY,
         zoneEndPx,
-        brandColors
+        brandColors,
+        family
       )
       svgElements.push(detailsResult.svg)
       currentY = detailsResult.bottomY + SECTION_GAP
@@ -271,7 +289,8 @@ export async function renderEventTextOverlay(
         canvasWidth,
         currentY,
         zoneEndPx,
-        brandColors
+        brandColors,
+        family
       )
       svgElements.push(ctaResult.svg)
     }
@@ -441,7 +460,8 @@ function buildHeadlineBlock(
   startY: number,
   zoneEndPx: number,
   brandColors: { primary: string; secondary: string; accent: string },
-  bgIsDark: boolean
+  bgIsDark: boolean,
+  family: string
 ): { svg: string; bottomY: number } {
   const elements: string[] = []
   const PADDING_X = 60
@@ -456,15 +476,15 @@ function buildHeadlineBlock(
 
   let headlineSize = 40  // fallback minimum
   let taglineSize  = 18
-  let headlineLines: string[] = headline ? wrapText(headline, 'poppins', 40, 'bold', maxTextWidth) : []
-  let taglineLines: string[]  = tagline  ? wrapText(tagline, 'poppins', 18, 'bold', maxTextWidth) : []
+  let headlineLines: string[] = headline ? wrapText(headline, family, 40, 'bold', maxTextWidth) : []
+  let taglineLines: string[]  = tagline  ? wrapText(tagline, family, 18, 'bold', maxTextWidth) : []
 
   // Find the largest combo (headline size × tagline size) where everything fits
   outer: for (const hs of HEADLINE_SIZES) {
-    const hLines = headline ? wrapText(headline, 'poppins', hs, 'bold', maxTextWidth) : []
+    const hLines = headline ? wrapText(headline, family, hs, 'bold', maxTextWidth) : []
     const lineH  = hs * 1.15
     for (const ts of TAGLINE_SIZES) {
-      const tLines = tagline ? wrapText(tagline, 'poppins', ts, 'bold', maxTextWidth) : []
+      const tLines = tagline ? wrapText(tagline, family, ts, 'bold', maxTextWidth) : []
       const tagH   = ts * 1.3
       const totalH = BG_PADDING_TOP + hLines.length * lineH + 16 + tLines.length * tagH + BG_PADDING_BOTTOM
       if (totalH <= availableHeight) {
@@ -502,15 +522,15 @@ function buildHeadlineBlock(
     currentY += LINE_HEIGHT
     // v44.6: Tighter shadow offsets + higher opacity for better contrast
     elements.push(`<g opacity="0.90">${textToPath(line, {
-      fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
+      fontFamily: family, fontSize: headlineSize, fontWeight: 'bold',
       x: PADDING_X + 3, y: currentY + 3, fill: shadowFillA, textAnchor: 'start',
     })}</g>`)
     elements.push(`<g opacity="1.0">${textToPath(line, {
-      fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
+      fontFamily: family, fontSize: headlineSize, fontWeight: 'bold',
       x: PADDING_X + 1, y: currentY + 1, fill: shadowFillB, textAnchor: 'start',
     })}</g>`)
     elements.push(`<g filter="url(#evt-headline-strong)">${textToPath(line, {
-      fontFamily: 'poppins', fontSize: headlineSize, fontWeight: 'bold',
+      fontFamily: family, fontSize: headlineSize, fontWeight: 'bold',
       x: PADDING_X, y: currentY, fill: headlineColor, textAnchor: 'start',
     })}</g>`)
   }
@@ -523,7 +543,7 @@ function buildHeadlineBlock(
   for (const line of taglineLines) {
     currentY += TAGLINE_LINE_HEIGHT
     elements.push(`<g filter="url(#evt-text-shadow)">${textToPath(line, {
-      fontFamily: 'poppins', fontSize: taglineSize, fontWeight: 'bold',
+      fontFamily: family, fontSize: taglineSize, fontWeight: 'bold',
       x: PADDING_X, y: currentY, fill: taglineColor, textAnchor: 'start',
     })}</g>`)
   }
@@ -546,7 +566,8 @@ function buildInfoCard(
   canvasWidth: number,
   startY: number,
   brandColors: { primary: string; secondary: string; accent: string },
-  bgIsDark: boolean
+  bgIsDark: boolean,
+  family: string
 ): { svg: string; bottomY: number } {
   const elements: string[] = []
   const iconSize = 26  // v40.5: 20 → 26
@@ -556,11 +577,11 @@ function buildInfoCard(
   // Measure text widths to calculate card width (use montserrat for date)
   let maxTextWidth = 0
   if (dateTime) {
-    const w = getTextWidth(dateTime, DATE_FONT_FAMILY, DATE_FONT_SIZE, 'bold')
+    const w = getTextWidth(dateTime, family, DATE_FONT_SIZE, 'bold')
     maxTextWidth = Math.max(maxTextWidth, w + iconSize + iconGap)
   }
   if (venue) {
-    const w = getTextWidth(venue, FONT_FAMILY, VENUE_FONT_SIZE, 'regular')
+    const w = getTextWidth(venue, family, VENUE_FONT_SIZE, 'regular')
     maxTextWidth = Math.max(maxTextWidth, w + iconSize + iconGap)
   }
 
@@ -573,7 +594,7 @@ function buildInfoCard(
     const date3d = text3D(
       dateTime,
       {
-        fontFamily: DATE_FONT_FAMILY,
+        fontFamily: family,
         fontSize: DATE_FONT_SIZE,
         fontWeight: 'bold',
         x: innerTextStartX,
@@ -592,14 +613,14 @@ function buildInfoCard(
   // v43.1: wrapText prevents "JKKN INSTITUTIONS, KUMARAPALAYAM BYPASS" from being clipped to "JKKN INST..."
   if (venue) {
     const maxVenueWidth = cardWidth - CARD_PADDING_X * 2 - iconSize - iconGap
-    const venueLines = wrapText(venue, FONT_FAMILY, VENUE_FONT_SIZE, 'bold', maxVenueWidth).slice(0, 2)
+    const venueLines = wrapText(venue, family, VENUE_FONT_SIZE, 'bold', maxVenueWidth).slice(0, 2)
     const venueFill = bgIsDark ? '#FFFFFF' : getBestDarkColor(brandColors)
     const iconFill = bgIsDark ? brandColors.secondary : getBestDarkColor(brandColors)
     // Pin icon anchored to first line
     elements.push(PIN_ICON(cardX + CARD_PADDING_X, textY, iconSize, iconFill))
     for (const vLine of venueLines) {
       const venuePath = textToPath(vLine, {
-        fontFamily: FONT_FAMILY,
+        fontFamily: family,
         fontSize: VENUE_FONT_SIZE,
         fontWeight: 'bold',
         x: innerTextStartX,
@@ -639,7 +660,8 @@ function buildAdditionalDetails(
   canvasWidth: number,
   startY: number,
   maxY: number,
-  brandColors: { primary: string; secondary: string; accent: string }
+  brandColors: { primary: string; secondary: string; accent: string },
+  family: string
 ): { svg: string; bottomY: number } {
   const margin = 50
   const maxWidth = canvasWidth - margin * 2
@@ -655,7 +677,7 @@ function buildAdditionalDetails(
   let allWrapped: string[][] = []
 
   for (const fs of DETAIL_SIZES) {
-    const wrapped = entries.map(e => wrapText(e, FONT_FAMILY, fs, 'bold', maxWidth))
+    const wrapped = entries.map(e => wrapText(e, family, fs, 'bold', maxWidth))
     const totalLines = wrapped.reduce((sum, w) => sum + w.length, 0)
     const totalH = totalLines * (fs + 4) + 10
     if (totalH <= availableHeight) {
@@ -679,13 +701,13 @@ function buildAdditionalDetails(
 
       if (lineIndex === 0) {
         elements.push(text3D(wLine, {
-          fontFamily: FONT_FAMILY, fontSize, fontWeight: 'bold',
+          fontFamily: family, fontSize, fontWeight: 'bold',
           x: canvasWidth / 2, y: textY,
           fill: brandColors.secondary, textAnchor: 'middle',
         }, '#000000', 2))
       } else {
         const path = textToPath(wLine, {
-          fontFamily: FONT_FAMILY, fontSize, fontWeight: 'bold',
+          fontFamily: family, fontSize, fontWeight: 'bold',
           x: canvasWidth / 2, y: textY, fill: '#FFFFFF', textAnchor: 'middle',
         })
         elements.push(`<g filter="url(#evt-text-shadow)">${path}</g>`)
@@ -718,7 +740,8 @@ function buildRegistrationCTA(
   canvasWidth: number,
   startY: number,
   maxY: number,
-  brandColors: { primary: string; secondary: string; accent: string }
+  brandColors: { primary: string; secondary: string; accent: string },
+  family: string
 ): { svg: string; bottomY: number } {
   const maxWidth = canvasWidth - 80
   const availableHeight = maxY - startY
@@ -731,7 +754,7 @@ function buildRegistrationCTA(
   let cardHeight = 0
 
   for (const fs of CTA_SIZES) {
-    lines = wrapText(text, CTA_FONT_FAMILY, fs, 'bold', maxWidth)
+    lines = wrapText(text, family, fs, 'bold', maxWidth)
     cardHeight = lines.length * (fs + 4) + 18
     if (startY + cardHeight <= maxY) {
       ctaFontSize = fs
@@ -755,7 +778,7 @@ function buildRegistrationCTA(
     const path3d = text3D(
       line,
       {
-        fontFamily: CTA_FONT_FAMILY,
+        fontFamily: family,
         fontSize: ctaFontSize,
         fontWeight: 'bold',
         x: canvasWidth / 2,
@@ -786,7 +809,8 @@ function buildSpeakerBlock(
   startY: number,
   zoneEndPx: number,
   brandColors: { primary: string; secondary: string; accent: string },
-  bgIsDark: boolean
+  bgIsDark: boolean,
+  family: string
 ): { svg: string; bottomY: number } {
   if (speakers.length === 0) return { svg: '', bottomY: startY }
 
@@ -811,24 +835,24 @@ function buildSpeakerBlock(
     if (currentY + NAME_SIZE > zoneEndPx) break
 
     // Speaker name — bold, brand secondary color
-    const nameLines = wrapText(speaker.name, 'poppins', NAME_SIZE, 'bold', maxTextWidth)
+    const nameLines = wrapText(speaker.name, family, NAME_SIZE, 'bold', maxTextWidth)
     for (const line of nameLines) {
       if (currentY + NAME_SIZE > zoneEndPx) break
       currentY += NAME_SIZE
       elements.push(`<g filter="url(#evt-headline-outline)">${textToPath(line, {
-        fontFamily: 'poppins', fontSize: NAME_SIZE, fontWeight: 'bold',
+        fontFamily: family, fontSize: NAME_SIZE, fontWeight: 'bold',
         x: PADDING_X, y: currentY, fill: nameColor, textAnchor: 'start',
       })}</g>`)
     }
 
     // Designation — smaller, muted
     if (speaker.designation) {
-      const desigLines = wrapText(speaker.designation, 'poppins', DESIG_SIZE, 'bold', maxTextWidth)
+      const desigLines = wrapText(speaker.designation, family, DESIG_SIZE, 'bold', maxTextWidth)
       for (const line of desigLines) {
         if (currentY + DESIG_SIZE > zoneEndPx) break
         currentY += DESIG_SIZE + LINE_GAP
         elements.push(`<g filter="url(#evt-text-shadow)">${textToPath(line, {
-          fontFamily: 'poppins', fontSize: DESIG_SIZE, fontWeight: 'bold',
+          fontFamily: family, fontSize: DESIG_SIZE, fontWeight: 'bold',
           x: PADDING_X, y: currentY, fill: desigColor, textAnchor: 'start',
         })}</g>`)
       }

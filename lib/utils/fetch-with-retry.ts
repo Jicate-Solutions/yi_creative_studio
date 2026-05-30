@@ -118,6 +118,22 @@ function isNetworkError(error: any): boolean {
 }
 
 /**
+ * Build a human-readable detail string for an error, digging into the cause chain.
+ * undici throws `TypeError: fetch failed` whose REAL reason lives in `error.cause.code`
+ * (e.g. ECONNRESET, UND_ERR_HEADERS_TIMEOUT, self-signed-cert). Surface it for diagnosis.
+ */
+function describeError(error: any): string {
+  const parts = [
+    error?.code,
+    error?.cause?.code,
+    error?.cause?.cause?.code,
+    error?.cause?.message,
+  ].filter(Boolean)
+  const detail = parts.length ? ` [${Array.from(new Set(parts)).join(' → ')}]` : ''
+  return `${error?.message || String(error)}${detail}`
+}
+
+/**
  * Check if HTTP status code should trigger a retry
  */
 function isRetryableStatus(status: number, retryableStatuses: number[]): boolean {
@@ -258,9 +274,9 @@ export async function fetchWithRetry(
 
         if (isLastAttempt) {
           // All retries exhausted
-          console.error(`${logPrefix} ❌ Network error after ${maxRetries + 1} attempts:`, error.message)
+          console.error(`${logPrefix} ❌ Network error after ${maxRetries + 1} attempts:`, describeError(error))
           throw new NetworkError(
-            `Network error after ${maxRetries + 1} attempts: ${error.message}`,
+            `Network error after ${maxRetries + 1} attempts: ${describeError(error)}`,
             error
           )
         }
@@ -268,14 +284,14 @@ export async function fetchWithRetry(
         // Calculate backoff delay and retry
         const delay = calculateBackoffDelay(attempt, baseDelay)
         console.warn(
-          `${logPrefix} ⚠️ Attempt ${attempt + 1} failed with network error: ${error.message}. Retrying in ${delay}ms...`
+          `${logPrefix} ⚠️ Attempt ${attempt + 1} failed with network error: ${describeError(error)}. Retrying in ${delay}ms...`
         )
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
 
       // Non-retryable error (auth, validation, etc.) - throw immediately
-      console.error(`${logPrefix} ❌ Non-retryable error:`, error.message)
+      console.error(`${logPrefix} ❌ Non-retryable error:`, describeError(error))
       throw error
     }
   }
