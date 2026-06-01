@@ -731,6 +731,13 @@ export function CanvasCreatePage({
           : formData.formData,
       }
 
+      // Mirror handleGenerate: include model-specific params so Flash 3.1 and OpenAI behave correctly.
+      const enrichedPayload = {
+        ...generationPayload,
+        ...(regenerateModel.model_id === 'gemini-3.1-flash-image-preview' && { thinkingLevel, useImageSearch }),
+        ...(regenerateModel.provider === 'openai' && { imageQuality }),
+      }
+
       // UNIFIED PIPELINE: regenerate runs the same common designer pipeline for every model
       // (incl. OpenAI), provider chosen by the internal render router.
       const regenerateEndpoint = '/api/generate-designer'
@@ -739,7 +746,7 @@ export function CanvasCreatePage({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(generationPayload),
+        body: JSON.stringify(enrichedPayload),
       })
 
       if (!response.ok) {
@@ -817,7 +824,10 @@ export function CanvasCreatePage({
     selectedFormat,
     currentOrganization,
     selectedTemplate,
-    // streaming removed - using synchronous fetch now
+    user,
+    thinkingLevel,
+    useImageSearch,
+    imageQuality,
   ])
 
   // Model change handler — auto-resets 512px resolution when switching away from NB2,
@@ -1159,7 +1169,7 @@ export function CanvasCreatePage({
           <RegenerateModal
             open={regenerateModalOpen}
             onOpenChange={setRegenerateModalOpen}
-            currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
+            currentModelId={selectedModelId || selectedModel?.id || models[0]?.id}
             models={models}
             isRegenerating={isGenerating}
             currentBalance={creditsBalance}
@@ -1403,7 +1413,7 @@ export function CanvasCreatePage({
         <RegenerateModal
           open={regenerateModalOpen}
           onOpenChange={setRegenerateModalOpen}
-          currentModelId={selectedModelId || (models.find(m => m.model_id === 'gemini-3.1-flash-image-preview')?.id)}
+          currentModelId={selectedModelId || selectedModel?.id || models[0]?.id}
           models={models}
           isRegenerating={isGenerating}
           currentBalance={creditsBalance}
