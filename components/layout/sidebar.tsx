@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   LayoutDashboard,
+  Sparkles,
   Images,
   Palette,
   Image as ImageIcon,
@@ -71,6 +72,11 @@ const mainNavItems: NavItem[] = [
     title: 'Designer',
     href: ROUTES.designer,
     icon: PenTool,
+  },
+  {
+    title: 'Create',
+    href: ROUTES.create,
+    icon: Sparkles,
   },
   {
     title: 'Bulk Generate',
