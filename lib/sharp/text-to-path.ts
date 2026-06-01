@@ -36,6 +36,31 @@ const FONT_FILES: Record<string, Record<string, string>> = {
     regular: 'inter-regular.ttf',
     bold: 'inter-bold.ttf',
   },
+  oswald: {
+    regular: 'oswald-regular.ttf',
+    bold: 'oswald-bold.ttf',
+  },
+  'open-sans': {
+    regular: 'open-sans-regular.ttf',
+    bold: 'open-sans-bold.ttf',
+  },
+}
+
+/**
+ * Map a free-form font name (e.g. "Open Sans", "OpenSans", "open_sans") to a registered
+ * FONT_FILES key. Returns the canonical key when known, otherwise null so callers can
+ * fall back to their default (AI) font. Keeps the user-font-if-shared-else-AI contract.
+ */
+export function resolveFontFamily(name: string | null | undefined): string | null {
+  if (!name) return null
+  const key = name.trim().toLowerCase().replace(/[\s_]+/g, '-')
+  if (FONT_FILES[key]) return key
+  // Tolerate spaceless variants ("opensans") and partial matches.
+  const collapsed = key.replace(/-/g, '')
+  for (const k of Object.keys(FONT_FILES)) {
+    if (k.replace(/-/g, '') === collapsed) return k
+  }
+  return null
 }
 
 /**
