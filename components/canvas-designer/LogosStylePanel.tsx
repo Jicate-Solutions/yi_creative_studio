@@ -25,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Sparkles, Loader2, UserRound, Paintbrush } from 'lucide-react'
+import { Layers, Palette, Check, X, Zap, Wand2, Image as ImageIcon, Settings2, PanelBottom, LayoutPanelTop, ChevronDown, Eye, Sparkles, Loader2, Paintbrush } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { EnhancedStripCanvas } from '@/components/create/logo-step/enhanced-strip-canvas'
@@ -36,8 +36,7 @@ import { useLogos, useVerticals } from '@/hooks'
 import { detectLogoType } from '@/lib/config/logo-locks'
 import { ColorPickerCompact } from '@/components/create/color-picker'
 import type { AIModel } from '@/types/database.types'
-import { BACKGROUND_STYLES, DEFAULT_BACKGROUND_STYLE } from '@/lib/config/background-styles'
-import { BackgroundStylePicker } from '@/components/create/background-style-picker'
+import { BACKGROUND_STYLES } from '@/lib/config/background-styles'
 import { StyleMixSection } from './StyleMixSection'
 
 // Yi Brand default colors
@@ -90,8 +89,6 @@ export function LogosStylePanel({
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Visual Style section collapsed by default — users rarely need to change it
   const [styleOpen, setStyleOpen] = useState(false)
-  // v2: single background style is now an "Advanced" option under the Style Mix.
-  const [advancedStyleOpen, setAdvancedStyleOpen] = useState(false)
   // Mobile dialog active tab: 'header' | 'footer'
   const [mobileTab, setMobileTab] = useState<'header' | 'footer'>('header')
   const creationMode = formData.creationMode || 'scratch'
@@ -117,27 +114,17 @@ export function LogosStylePanel({
 
   // Visual style data — promoted to component scope so the collapsed summary row can read them.
   // Source of truth: lib/config/background-styles.ts (shared with Gemini + OpenAI routes).
-  const bgStyle = ((formData.formData as any)?.backgroundStyle || DEFAULT_BACKGROUND_STYLE) as string
-  const bgStyles = BACKGROUND_STYLES
-  const bgStyleLabel = bgStyles.find(s => s.id === bgStyle)?.label ?? 'Realistic'
   // v2 Style Blend Engine — the user's ordered style stack (empty = AI Auto).
   const styleStack = (((formData.formData as Record<string, unknown> | undefined)?.styleStack as
     | string[]
     | undefined) || []).filter((s) => typeof s === 'string' && s)
-  // Collapsed-header chip: "Movie Keyart" (single) or "3-style mix" (blend).
+  // Collapsed-header chip: "Movie Poster" (single) | "3-style mix" (blend) | "AI Auto" (empty).
   const styleMixLabel =
     styleStack.length === 0
-      ? null
+      ? 'AI Auto'
       : styleStack.length === 1
-        ? bgStyles.find((s) => s.id === styleStack[0])?.label ?? styleStack[0]
+        ? BACKGROUND_STYLES.find((s) => s.id === styleStack[0])?.label ?? styleStack[0]
         : `${styleStack.length}-style mix`
-  const spotlightTheme = ((formData.formData as any)?.spotlightTheme || 'tricolor') as 'tricolor' | 'brand' | 'gradient'
-  const spotlightThemes = [
-    { id: 'tricolor' as const, label: 'Tricolor',  colors: ['#FF9933', '#FFFFFF', '#138808'] },
-    { id: 'brand'    as const, label: 'Yi Blue',   colors: ['#005B96', '#0071BC'] },
-    { id: 'gradient' as const, label: 'Gradient',  colors: ['#005B96', '#1a2332'] },
-  ]
-  const spotlightThemeLabel = spotlightThemes.find(t => t.id === spotlightTheme)?.label ?? 'Tricolor'
   const enhanced4Row = formData.enhanced4RowStrip
   const logoStripEnabled = enhanced4Row?.enabled !== false
 
@@ -165,24 +152,23 @@ export function LogosStylePanel({
 
   return (
     <TooltipProvider>
-    <div className={embedded ? "flex flex-col bg-muted/10" : "flex flex-col h-full bg-muted/10"}>
-      <div className={embedded ? "p-2.5 space-y-2.5" : "flex-1 overflow-y-auto p-2.5 space-y-2.5"}>
+    <div className={embedded ? "flex flex-col" : "flex flex-col h-full bg-muted/10"}>
+      <div className={embedded ? "" : "flex-1 overflow-y-auto p-2.5 space-y-2.5"}>
 
         {/* ── Creative Setup ── */}
-        <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+        <div className={embedded ? "" : "rounded-xl border border-border/40 bg-card overflow-hidden"}>
           {/* Format + Mode in one compact row */}
-          <div className="p-2 space-y-1.5">
+          <div className={cn("space-y-1.5", embedded ? "px-3 pt-3 pb-2.5" : "px-2.5 py-2")}>
             <FormatDropdown />
             <div className="flex items-center p-0.5 bg-muted/60 rounded-lg border border-border/30">
               {[
-                { mode: 'scratch',   icon: Wand2,      label: 'AI Create' },
-                { mode: 'template',  icon: ImageIcon,  label: 'Template' },
-                { mode: 'spotlight', icon: UserRound,  label: 'Spotlight' },
+                { mode: 'scratch',  icon: Wand2,     label: 'AI Create' },
+                { mode: 'template', icon: ImageIcon, label: 'Template' },
               ].map(({ mode, icon: Icon, label }) => (
                 <button
                   key={mode}
                   onClick={() => {
-                    setCreationMode(mode as 'scratch' | 'template' | 'spotlight')
+                    setCreationMode(mode as 'scratch' | 'template')
                   }}
                   className={cn(
                     'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-all duration-150',
@@ -196,7 +182,7 @@ export function LogosStylePanel({
                 </button>
               ))}
             </div>
-            {(creationMode === 'template' || creationMode === 'spotlight') && (
+            {creationMode === 'template' && (
               <Select value={selectedVertical?.id || ''} onValueChange={selectVertical}>
                 <SelectTrigger className="h-7 text-[11px] w-full rounded-md">
                   <SelectValue placeholder="Select Vertical" />
@@ -214,20 +200,14 @@ export function LogosStylePanel({
                 {/* Collapsed header — always visible */}
                 <button
                   onClick={() => setStyleOpen(v => !v)}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-muted/40 transition-colors duration-150"
+                  className="w-full flex items-center gap-2 py-2 hover:bg-muted/40 transition-colors duration-150"
                 >
-                  <Paintbrush className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 flex-1 text-left">Visual Style</span>
+                  <Paintbrush className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                  <span className="text-xs font-semibold text-foreground/70 flex-1 text-left">Visual Style</span>
                   <div className="flex items-center gap-1.5">
-                    {/* Current selection chips — style mix takes priority when active */}
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-medium">
-                      {styleMixLabel ?? bgStyleLabel}
+                      {styleMixLabel}
                     </span>
-                    {creationMode === 'spotlight' && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-medium">
-                        {spotlightThemeLabel}
-                      </span>
-                    )}
                     <ChevronDown className={cn(
                       'h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-200',
                       styleOpen && 'rotate-180'
@@ -245,65 +225,6 @@ export function LogosStylePanel({
                       onStackChange={(stack) => updateFormData({ styleStack: stack })}
                     />
 
-                    {/* Background Theme — Spotlight only */}
-                    {creationMode === 'spotlight' && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Background Theme</p>
-                        <div className="grid grid-cols-3 gap-1">
-                          {spotlightThemes.map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => updateFormData({ spotlightTheme: t.id })}
-                              className={cn(
-                                'flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all duration-150',
-                                spotlightTheme === t.id
-                                  ? 'border-primary bg-primary/5 shadow-sm'
-                                  : 'border-border/40 hover:border-border/70 hover:bg-muted/30'
-                              )}
-                            >
-                              <div className="flex h-4 w-full rounded overflow-hidden">
-                                {t.colors.map((c, i) => (
-                                  <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
-                                ))}
-                              </div>
-                              <span className={cn('text-[10px] font-semibold', spotlightTheme === t.id ? 'text-primary' : 'text-muted-foreground')}>
-                                {t.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Advanced: single background style (legacy picker) — demoted under
-                        the Style Mix. Still feeds the pipeline as the base styleId. */}
-                    <div className="rounded-lg border border-border/30">
-                      <button
-                        type="button"
-                        onClick={() => setAdvancedStyleOpen(v => !v)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-muted/40 transition-colors"
-                      >
-                        <Settings2 className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 flex-1 text-left">
-                          Advanced · Single Style
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-medium">
-                          {bgStyleLabel}
-                        </span>
-                        <ChevronDown className={cn(
-                          'h-3 w-3 text-muted-foreground/40 transition-transform duration-200',
-                          advancedStyleOpen && 'rotate-180'
-                        )} />
-                      </button>
-                      {advancedStyleOpen && (
-                        <div className="px-2 pb-2 border-t border-border/20 pt-2">
-                          <BackgroundStylePicker
-                            value={bgStyle}
-                            onSelect={(id) => updateFormData({ backgroundStyle: id })}
-                          />
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>
@@ -313,13 +234,13 @@ export function LogosStylePanel({
 
         {/* ── AI Engine — Model selector + Resolution + Model-specific controls ── */}
         {(models.length > 0 || isModelsLoading) && (
-          <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2 space-y-2">
+          <div className={embedded ? "border-t border-border/20 px-3 py-2.5 space-y-2" : "rounded-xl border border-border/40 bg-card px-2.5 py-2 space-y-2"}>
             {/* Model selector row */}
             {models.length > 1 && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 shrink-0">
-                  <Zap className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Model</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 shrink-0 w-[88px]">
+                  <Zap className="h-4 w-4 text-muted-foreground/50" />
+                  <span className="text-xs font-semibold text-foreground/70">Model</span>
                 </div>
                 <Select value={selectedModel?.id || ''} onValueChange={onModelChange}>
                   <SelectTrigger className="flex-1 h-7 text-[11px] rounded-lg border-border/40 bg-muted/50">
@@ -338,10 +259,10 @@ export function LogosStylePanel({
 
             {/* Resolution — hidden for OpenAI (GPT-image-1 uses fixed sizes per format) */}
             {selectedModel?.provider !== 'openai' && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 shrink-0">
-                  <Zap className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Resolution</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 shrink-0 w-[88px]">
+                  <Zap className="h-4 w-4 text-muted-foreground/50" />
+                  <span className="text-xs font-semibold text-foreground/70">Resolution</span>
                 </div>
                 <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
                   {(['1K', '2K', '4K'] as const).map((val) => (
@@ -364,8 +285,8 @@ export function LogosStylePanel({
 
             {/* Flash 3.1 — Thinking level toggle */}
             {selectedModel?.model_id === 'gemini-3.1-flash-image-preview' && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 shrink-0">Speed</span>
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-semibold text-foreground/70 shrink-0 w-[88px]">Speed</span>
                 <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
                   {([['minimal', 'Fast'], ['High', 'Quality']] as const).map(([val, label]) => (
                     <button
@@ -387,8 +308,8 @@ export function LogosStylePanel({
 
             {/* OpenAI GPT-image-1 — Quality tier toggle */}
             {selectedModel?.provider === 'openai' && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 shrink-0">Quality</span>
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-semibold text-foreground/70 shrink-0 w-[88px]">Quality</span>
                 <div className="flex-1 flex items-center p-0.5 bg-muted/50 rounded-lg border border-border/30">
                   {([['high', 'High'], ['medium', 'Standard'], ['low', 'Draft']] as const).map(([val, label]) => (
                     <button
@@ -411,12 +332,12 @@ export function LogosStylePanel({
         )}
 
         {/* ── Logo Strip ── */}
-        <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+        <div className={embedded ? "border-t border-border/20 overflow-hidden" : "rounded-xl border border-border/40 bg-card overflow-hidden"}>
           {/* Toggle row */}
-          <div className="flex items-center justify-between px-2.5 py-2">
+          <div className="flex items-center justify-between px-3 py-2.5">
             <div className="flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Logo Strip</span>
+              <Layers className="h-4 w-4 text-muted-foreground/50" />
+              <span className="text-xs font-semibold text-foreground/70">Logo Strip</span>
             </div>
             <Switch
               aria-label="Enable logo strip"
@@ -520,7 +441,7 @@ export function LogosStylePanel({
                       <div className="px-4 py-3 border-b bg-card/80 shrink-0">
                         <div className="flex items-center gap-2.5">
                           <div className="p-1.5 rounded-lg bg-blue-500/10">
-                            <LayoutPanelTop className="h-3.5 w-3.5 text-blue-500" />
+                            <LayoutPanelTop className="h-4 w-4 text-muted-foreground/50" />
                           </div>
                           <div>
                             <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/70">Header Strip</p>
@@ -634,33 +555,25 @@ export function LogosStylePanel({
                 </DialogContent>
               </Dialog>
             </div>
-          ) : (
-            <div className="px-2.5 pb-2">
-              <p className="text-[10px] text-muted-foreground/50 italic">Enable to configure logo & footer</p>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* ── Colors ── */}
-        <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-          {/* Header row: icon + label + brand swatches + toggle */}
-          <div className="flex items-center justify-between px-2.5 py-2">
+        <div className={embedded ? "border-t border-border/20 overflow-hidden" : "rounded-xl border border-border/40 bg-card overflow-hidden"}>
+          {/* Header row: icon + label + brand toggle */}
+          <div className="flex items-center justify-between px-3 py-2.5">
             <div className="flex items-center gap-1.5">
-              <Palette className="h-3.5 w-3.5 text-pink-500" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Colors</span>
+              <Palette className="h-4 w-4 text-muted-foreground/50" />
+              <span className="text-xs font-semibold text-foreground/70">Colors</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="flex">
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: orgPrimary }} />
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1" style={{ backgroundColor: orgSecondary }} />
-              </div>
               <span className="text-[10px] text-muted-foreground">Brand</span>
               <Switch aria-label="Enable brand colors" checked={isBrandMode} onCheckedChange={handleBrandToggle} />
             </div>
           </div>
 
           {/* Brand ON: compact confirmed bar showing actual org colors */}
-          {isBrandMode && (
+          {isBrandMode && !embedded && (
             <div className="mx-2 mb-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/15">
               <Check className="h-3 w-3 text-primary shrink-0" />
               <div className="flex items-center gap-1">
@@ -672,36 +585,37 @@ export function LogosStylePanel({
             </div>
           )}
 
-          {/* Brand OFF: 3 compact color rows */}
-          {!isBrandMode && (
+          {/* Brand OFF: compact 3-column grid (hidden in embedded — shown in review) */}
+          {!isBrandMode && !embedded && (
             <div className="px-2 pb-2 space-y-1.5">
-              {([
-                { key: 'primary', label: 'Primary', input: primaryInput, setInput: setPrimaryInput, fallback: orgPrimary, placeholder: '#1a2744 or navy blue' },
-                { key: 'secondary', label: 'Secondary', input: secondaryInput, setInput: setSecondaryInput, fallback: orgSecondary, placeholder: '#FF6B35 or coral' },
-                { key: 'accent', label: 'Tertiary', input: tertiaryInput, setInput: setTertiaryInput, fallback: '#00A0B0', placeholder: '#00A0B0 or teal' },
-              ] as const).map(({ key, label, input, setInput, fallback, placeholder }) => (
-                <div key={key} className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-muted-foreground w-14 shrink-0">{label}</span>
-                  <ColorPickerCompact
-                    value={input.startsWith('#') && input.length >= 4 ? input : fallback}
-                    onChange={(hex) => {
-                      setInput(hex)
-                      handleCustomColorCommit(key, hex)
-                    }}
-                    className="!w-7 !h-7 !rounded-md shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onBlur={() => handleCustomColorCommit(key, input)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCustomColorCommit(key, input)}
-                    placeholder={placeholder}
-                    className="flex-1 h-7 px-2 rounded-md border border-border/50 bg-background text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all"
-                  />
-                </div>
-              ))}
-              <p className="text-[9px] text-muted-foreground/40 pt-0.5">Type hex code or color name · click swatch to pick</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: 'primary',   label: 'Primary',   input: primaryInput,   setInput: setPrimaryInput,   fallback: orgPrimary },
+                  { key: 'secondary', label: 'Secondary', input: secondaryInput, setInput: setSecondaryInput, fallback: orgSecondary },
+                  { key: 'accent',    label: 'Tertiary',  input: tertiaryInput,  setInput: setTertiaryInput,  fallback: '#00A0B0' },
+                ] as const).map(({ key, label, input, setInput, fallback }) => (
+                  <div key={key} className="space-y-0.5">
+                    <span className="block text-[9px] font-medium text-muted-foreground/60">{label}</span>
+                    <div className="flex items-center gap-1 rounded-md border border-border/50 bg-muted/20 px-1 py-1">
+                      <ColorPickerCompact
+                        value={input.startsWith('#') && input.length >= 4 ? input : fallback}
+                        onChange={(hex) => { setInput(hex); handleCustomColorCommit(key, hex) }}
+                        className="!w-5 !h-5 !rounded shrink-0"
+                      />
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onBlur={() => handleCustomColorCommit(key, input)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCustomColorCommit(key, input)}
+                        placeholder="#hex"
+                        className="min-w-0 flex-1 bg-transparent text-[10px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-muted-foreground/40">Click swatch to pick · or type hex / color name</p>
             </div>
           )}
         </div>
