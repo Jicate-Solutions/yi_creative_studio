@@ -1262,14 +1262,24 @@ export function CanvasCreatePage({
           </div>
         </div>
       ) : (
-        /* Single scrollable panel — same order as desktop */
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {/* Setup on top */}
-          <div>
-            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/40">
-              <Palette className="h-3.5 w-3.5 text-muted-foreground/50" />
-              <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Setup</p>
-            </div>
+        /* Review mode: summary card with all settings + event details */
+        panelMode === 'review' ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ReviewSummaryPanel
+              onBackToEdit={handleBackToEdit}
+              onGenerate={handleGenerateWithDateCheck}
+              isGenerating={isGenerating}
+              isFormValid={isFormValid}
+              selectedModel={selectedModel}
+              resolution={formData.designData?.resolution || '2K'}
+            />
+          </div>
+        ) : (
+        /* Edit mode: unified card form */
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+          <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+
+            {/* Setup + Visual Style + Model + Resolution + Logo Strip + Colors */}
             <LogosStylePanel
               embedded
               models={models}
@@ -1283,44 +1293,46 @@ export function CanvasCreatePage({
               useImageSearch={useImageSearch}
               onImageSearchChange={setUseImageSearch}
             />
-          </div>
 
-          {/* Your Visual Idea — high-priority free-text direction (Designer Pipeline) */}
-          <div className="border-t border-border/40">
-            <div className="flex items-center gap-2 px-3.5 py-2.5">
-              <Sparkles className="h-3.5 w-3.5 text-violet-500/60" />
-              <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Your Visual Idea</p>
-              <span className="ml-auto text-[10px] text-muted-foreground/50">optional</span>
+            {/* Your Visual Idea */}
+            <div className="border-t border-border/20">
+              <div className="flex items-center gap-2 px-3 py-2.5">
+                <Sparkles className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                <p className="text-xs font-semibold text-foreground/70">Your Visual Idea</p>
+                <span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground/60">optional</span>
+              </div>
+              <div className="px-3 pb-3 pt-0">
+                <textarea
+                  value={previewIdea}
+                  onChange={(e) => updateFormData({ userVisualIdea: e.target.value })}
+                  rows={2}
+                  placeholder="Describe the scene you picture — the AI uses this as its primary direction."
+                  className="w-full resize-none rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-sm text-foreground/90 placeholder:text-muted-foreground/40 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
+                />
+              </div>
             </div>
-            <div className="px-3.5 pb-3.5 pt-1">
-              <textarea
-                value={previewIdea}
-                onChange={(e) => updateFormData({ userVisualIdea: e.target.value })}
-                rows={2}
-                placeholder="e.g. Show JKKN nursing students helping riders wear helmets near a zebra crossing"
-                className="w-full resize-none rounded-lg border border-border/60 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-violet-400/60 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+
+            {/* Event Details */}
+            <div className="border-t border-border/20">
+              <div className="flex items-center gap-2 px-3 py-2.5">
+                <FileText className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                <p className="text-xs font-semibold text-foreground/70">Event Details</p>
+              </div>
+              <DetailsPanel
+                embedded
+                suggestionsLoading={suggestionsLoading}
+                onRequestSuggestions={requestSuggestions}
+                onAcceptSuggestion={acceptSuggestion}
+                onDismissSuggestion={dismissSuggestion}
+                getSuggestion={getSuggestion}
+                onValidationChange={handleValidationChange}
+                organizationId={currentOrganization?.id}
               />
             </div>
-          </div>
 
-          {/* Event Details below */}
-          <div className="border-t border-border/40">
-            <div className="flex items-center gap-2 px-3.5 py-2.5">
-              <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
-              <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/50">Event Details</p>
-            </div>
-            <DetailsPanel
-              embedded
-              suggestionsLoading={suggestionsLoading}
-              onRequestSuggestions={requestSuggestions}
-              onAcceptSuggestion={acceptSuggestion}
-              onDismissSuggestion={dismissSuggestion}
-              getSuggestion={getSuggestion}
-              onValidationChange={handleValidationChange}
-              organizationId={currentOrganization?.id}
-            />
           </div>
         </div>
+        )
       )}
 
       {/* Pinned footer — Review → Generate gate (same as desktop) */}
@@ -1360,16 +1372,8 @@ export function CanvasCreatePage({
             </Button>
           </div>
         ) : panelMode === 'review' ? (
-          <Button
-            onClick={handleGenerateWithDateCheck}
-            disabled={isGenerating}
-            className="w-full h-12 gap-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/40 active:scale-[0.98] transition-all duration-200 text-sm font-semibold rounded-xl"
-          >
-            {isGenerating
-              ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Creating…</span></>
-              : <><Sparkles className="h-4 w-4" /><span>Generate Now</span></>
-            }
-          </Button>
+          // Generate button is inside ReviewSummaryPanel — hide footer in review mode
+          null
         ) : (
           <div className="space-y-1.5">
             <Button

@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
   LayoutDashboard,
-  Sparkles,
+  PenTool,
   Images,
   Palette,
   Image as ImageIcon,
@@ -42,7 +42,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: ROUTES.dashboard, icon: LayoutDashboard },
-  { title: 'Create', href: ROUTES.create, icon: Sparkles },
+  { title: 'Designer', href: ROUTES.designer, icon: PenTool },
   { title: 'Gallery', href: ROUTES.gallery, icon: Images },
   { title: 'Templates', href: ROUTES.templates, icon: Library },
 ]

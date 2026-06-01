@@ -1,7 +1,7 @@
 import { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
-  Sparkles,
+  PenTool,
   Images,
   Library,
   Palette,
@@ -53,14 +53,14 @@ export function getMobileNavConfig(
       ],
     },
     {
-      id: 'create',
-      groupLabel: 'Create',
-      icon: Sparkles,
+      id: 'designer',
+      groupLabel: 'Designer',
+      icon: PenTool,
       menus: [
         {
-          href: ROUTES.create,
-          label: 'Create',
-          icon: Sparkles,
+          href: ROUTES.designer,
+          label: 'Designer',
+          icon: PenTool,
         },
       ],
     },
@@ -172,7 +172,7 @@ export function getMobileNavConfig(
  */
 export const GROUP_ICONS: Record<string, LucideIcon> = {
   'Home': LayoutDashboard,
-  'Create': Sparkles,
+  'Designer': PenTool,
   'Gallery': Images,
   'Templates': Library,
   'Events': CalendarDays,

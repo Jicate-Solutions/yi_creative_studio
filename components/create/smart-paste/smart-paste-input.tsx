@@ -15,18 +15,14 @@ interface SmartPasteInputProps {
   compact?: boolean
 }
 
-const PLACEHOLDER_TEXT = `Paste your event details here...
+const PLACEHOLDER_TEXT = `Paste or type your event details here…
+
+Include: event name, date, time, venue, and speaker names.
 
 Example:
-Alumni Insight Session - Journey of Our Alumni
-
-Resource Persons:
-- Mr. V. Velavan - V Teach Project Solutions, Erode
-- Ms. A. Anandhavalli - Trainee, R&D, Royal Enfield, Chennai
-
-Date: 28.01.2026
-Time: 10.00 AM - 12.00 PM
-Venue: E-Yantra Lab`
+Tech Summit 2026 · Date: 15 Mar · 10 AM
+Venue: Main Auditorium
+Speaker: Dr. A. Kumar, IIT Madras`
 
 export function SmartPasteInput({
   onExtract,
@@ -42,27 +38,24 @@ export function SmartPasteInput({
   const isTooLong = rawText.length > EXTRACTION_CONFIG.maxTextLength
   const hasContent = rawText.trim().length > 0
 
-  // Step 1: user clicks Approve — this triggers AI extraction
   const handleApprove = () => {
     if (!isValidLength || isTooLong || isExtracting) return
     setIsApproved(true)
     onExtract(rawText)
   }
 
-  // Handle paste button click
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      setIsApproved(false) // Reset approval when new text pasted
+      setIsApproved(false)
       setRawText(text)
     } catch {
-      // Clipboard access denied - user will need to paste manually
+      // Clipboard access denied — user can paste manually
     }
   }
 
-  // Handle direct paste into textarea (Ctrl+V)
   const handleTextareaPaste = () => {
-    setIsApproved(false) // Reset approval when text changes
+    setIsApproved(false)
   }
 
   const handleClear = () => {
@@ -82,15 +75,19 @@ export function SmartPasteInput({
           isExtracting && !compact && "opacity-75 pointer-events-none"
         )}
       >
-        {/* Textarea Header */}
+        {/* Textarea Header
+            Compact: only action buttons (outer section already shows "Event Details" label)
+            Full:    icon + label + action buttons */}
         <div className={cn(
-          "flex items-center justify-between bg-muted/20 border-b rounded-t-xl",
-          compact ? "px-3 py-2" : "px-4 py-2.5"
+          "flex items-center bg-muted/20 border-b border-border/30 rounded-t-xl",
+          compact ? "justify-end gap-1 px-2 py-1.5" : "justify-between px-4 py-2.5"
         )}>
-          <div className={cn("flex items-center gap-1.5 text-muted-foreground/70", compact ? "text-[11px]" : "text-sm")}>
-            <FileText className={compact ? "h-3 w-3" : "h-4 w-4"} />
-            <span className="font-medium">Event Details</span>
-          </div>
+          {!compact && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground/70">
+              <FileText className="h-4 w-4" />
+              <span className="font-medium">Event Details</span>
+            </div>
+          )}
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -98,7 +95,10 @@ export function SmartPasteInput({
               size="sm"
               onClick={handlePaste}
               disabled={isExtracting}
-              className={cn("gap-1 hover:bg-primary/10 hover:text-primary", compact ? "h-6 px-2 text-[11px]" : "h-8 px-3 text-xs gap-1.5")}
+              className={cn(
+                "gap-1 hover:bg-primary/10 hover:text-primary",
+                compact ? "h-6 px-2 text-[11px]" : "h-8 px-3 text-xs gap-1.5"
+              )}
             >
               <ClipboardPaste className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
               Paste
@@ -110,7 +110,10 @@ export function SmartPasteInput({
                 size="sm"
                 onClick={handleClear}
                 disabled={isExtracting}
-                className={cn("text-muted-foreground hover:text-destructive hover:bg-destructive/10", compact ? "h-6 px-1.5" : "h-8 px-2 text-xs")}
+                className={cn(
+                  "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                  compact ? "h-6 px-1.5" : "h-8 px-2 text-xs"
+                )}
               >
                 <Trash2 className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
               </Button>
@@ -130,7 +133,7 @@ export function SmartPasteInput({
           className={cn(
             "border-0 rounded-t-none rounded-b-xl text-sm leading-relaxed",
             "bg-background focus-visible:ring-0 focus-visible:ring-offset-0",
-            "placeholder:text-muted-foreground/50 placeholder:text-[13px]",
+            "placeholder:text-muted-foreground/40 placeholder:text-[13px]",
             compact ? "resize-none min-h-[120px] text-[13px]" : "resize-y min-h-[220px]",
             isTooLong && 'text-destructive'
           )}
@@ -156,7 +159,6 @@ export function SmartPasteInput({
         )}
       </div>
 
-
       {/* Error message */}
       {error && (
         <div className={cn(
@@ -171,9 +173,8 @@ export function SmartPasteInput({
         </div>
       )}
 
-      {/* Footer: Character count and status */}
+      {/* Footer: Progress bar + character count */}
       <div className="flex items-center gap-2">
-        {/* Progress bar */}
         <div className="relative flex-1 h-1 bg-muted rounded-full overflow-hidden">
           <div
             className={cn(
@@ -183,15 +184,23 @@ export function SmartPasteInput({
             style={{ width: `${Math.min((rawText.length / EXTRACTION_CONFIG.maxTextLength) * 100, 100)}%` }}
           />
         </div>
-        <span className={cn("tabular-nums shrink-0", compact ? "text-[10px]" : "text-xs", isTooLong ? "text-destructive font-medium" : "text-muted-foreground")}>
+        <span className={cn(
+          "tabular-nums shrink-0",
+          compact ? "text-[10px]" : "text-xs",
+          isTooLong ? "text-destructive font-medium" : "text-muted-foreground"
+        )}>
           {rawText.length}/{EXTRACTION_CONFIG.maxTextLength.toLocaleString()}
         </span>
         {hasContent && !isValidLength && (
-          <span className={cn("shrink-0 text-amber-600 bg-amber-500/10 rounded-full", compact ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5")}>
+          <span className={cn(
+            "shrink-0 text-amber-600 bg-amber-500/10 rounded-full",
+            compact ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5"
+          )}>
             +{EXTRACTION_CONFIG.minTextLength - rawText.length}
           </span>
         )}
       </div>
+
       {isValidLength && !isTooLong && (
         <Button
           type="button"

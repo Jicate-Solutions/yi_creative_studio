@@ -343,24 +343,30 @@ export function DetailsPanel({
       }
     }
 
+    // Textareas stay stacked; everything else goes inline (label left, input right)
+    const isInline = field.type !== 'textarea'
+
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
+      <div className={isInline ? "flex items-center gap-3" : "space-y-1.5"}>
+        {/* Label */}
+        <div className={isInline ? "w-[88px] shrink-0" : "flex items-center justify-between"}>
           <Label htmlFor={field.id} className={cn(
-            "text-sm font-semibold leading-none tracking-wide",
-            showError ? "text-destructive" : "text-foreground/80"
+            isInline
+              ? "text-[11px] font-semibold text-muted-foreground/60 leading-tight"
+              : "text-[11px] font-semibold text-muted-foreground/60",
+            showError && "text-destructive"
           )}>
-            <span className="flex items-center gap-1">
-              {showError && <AlertCircle className="h-3 w-3" />}
+            <span className="flex items-center gap-1 flex-wrap">
+              {showError && <AlertCircle className="h-3 w-3 shrink-0" />}
               {field.label}
               {field.required && !['eventDate', 'eventTime', 'venue'].includes(field.id) && (
-                <span className="text-destructive ml-0.5">*</span>
+                <span className="text-destructive">*</span>
               )}
             </span>
           </Label>
 
-          {/* AI Suggestion Button - Only for description/tagline */}
-          {isSuggestable && !suggestion && (
+          {/* AI suggestion button — stacked mode only, inline uses icon */}
+          {!isInline && isSuggestable && !suggestion && (
             <Button
               type="button"
               variant="ghost"
@@ -373,108 +379,106 @@ export function DetailsPanel({
               {suggestionsLoading ? 'Loading...' : 'Get AI Suggestion'}
             </Button>
           )}
-
-          {/* Suggestion confidence indicator */}
-          {isSuggestable && suggestion && (
+          {!isInline && isSuggestable && suggestion && (
             <div className="flex items-center gap-1 text-xs">
               <Sparkles className="h-3 w-3 text-purple-500" />
               <span className={cn(
                 suggestion.confidence >= 0.7 ? 'text-green-600' :
-                suggestion.confidence >= 0.5 ? 'text-yellow-600' :
-                'text-gray-400'
+                suggestion.confidence >= 0.5 ? 'text-yellow-600' : 'text-gray-400'
               )}>
-                {Math.round(suggestion.confidence * 100)}% confident
+                {Math.round(suggestion.confidence * 100)}%
               </span>
             </div>
           )}
         </div>
 
-        {field.type === 'textarea' ? (
-          <Textarea
-            id={field.id}
-            value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
-            placeholder={field.placeholder}
-            rows={field.rows || 3}
-            maxLength={field.maxLength}
-            className={cn(
-              "resize-none text-sm min-h-[80px] bg-muted/30 border-border/60",
-              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
-            )}
-          />
-        ) : field.type === 'date' ? (
-          <Input
-            id={field.id}
-            type="date"
-            value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
-            className={cn(
-              "h-10 text-sm bg-muted/30 border-border/60",
-              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
-            )}
-          />
-        ) : field.type === 'time' ? (
-          <Input
-            id={field.id}
-            type="time"
-            value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
-            className={cn(
-              "h-10 text-sm bg-muted/30 border-border/60",
-              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
-            )}
-          />
-        ) : field.type === 'select' && field.options ? (
-          <select
-            id={field.id}
-            value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
-            className={cn(
-              "w-full h-10 px-3 rounded-lg border border-border/60 bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
-              showError && "border-destructive bg-destructive/5"
-            )}
-          >
-            <option value="">{field.placeholder || 'Select...'}</option>
-            {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <Input
-            id={field.id}
-            type="text"
-            value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
-            onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
-            placeholder={field.placeholder}
-            maxLength={field.maxLength}
-            className={cn(
-              "h-10 text-sm bg-muted/30 border-border/60",
-              showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
-            )}
-          />
-        )}
+        {/* Input — flex-1 wrapper for inline layout */}
+        <div className={isInline ? "flex-1 min-w-0" : ""}>
+          {field.type === 'textarea' ? (
+            <Textarea
+              id={field.id}
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
+              placeholder={field.placeholder}
+              rows={field.rows || 3}
+              maxLength={field.maxLength}
+              className={cn(
+                "resize-none text-sm min-h-[80px] bg-muted/30 border-border/60",
+                showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
+              )}
+            />
+          ) : field.type === 'date' ? (
+            <Input
+              id={field.id}
+              type="date"
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
+              className={cn(
+                "h-8 text-sm bg-muted/30 border-border/60",
+                showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
+              )}
+            />
+          ) : field.type === 'time' ? (
+            <Input
+              id={field.id}
+              type="time"
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
+              className={cn(
+                "h-8 text-sm bg-muted/30 border-border/60",
+                showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
+              )}
+            />
+          ) : field.type === 'select' && field.options ? (
+            <select
+              id={field.id}
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
+              className={cn(
+                "w-full h-8 px-2 rounded-md border border-border/60 bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
+                showError && "border-destructive bg-destructive/5"
+              )}
+            >
+              <option value="">{field.placeholder || 'Select...'}</option>
+              {field.options.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          ) : (
+            <Input
+              id={field.id}
+              type="text"
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              onBlur={() => setTouchedFields(prev => new Set(prev).add(field.id))}
+              placeholder={field.placeholder}
+              maxLength={field.maxLength}
+              className={cn(
+                "h-8 text-sm bg-muted/30 border-border/60",
+                showError && "border-destructive focus-visible:ring-destructive bg-destructive/5"
+              )}
+            />
+          )}
 
-        {/* Validation error message */}
-        {showError && (
-          <p className="text-xs text-destructive flex items-center gap-1 mt-1">
-            <AlertCircle className="h-3 w-3" />
-            This field is required
-          </p>
-        )}
+          {/* Validation error */}
+          {showError && (
+            <p className="text-[10px] text-destructive flex items-center gap-1 mt-0.5">
+              <AlertCircle className="h-3 w-3" />
+              Required
+            </p>
+          )}
 
-        {/* Character counter */}
-        {field.maxLength && value.length > 0 && !showError && (
-          <p className="text-[11px] text-muted-foreground text-right tabular-nums">
-            {value.length}/{field.maxLength}
-          </p>
-        )}
+          {/* Character counter — compact */}
+          {field.maxLength && value.length > 0 && !showError && (
+            <p className="text-[10px] text-muted-foreground/50 text-right tabular-nums mt-0.5">
+              {value.length}/{field.maxLength}
+            </p>
+          )}
+        </div>
 
         {/* AI Suggestion Display */}
         {isSuggestable && suggestion && !value && (
@@ -566,7 +570,7 @@ export function DetailsPanel({
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="divide-y divide-border/40">
                   {visibleFields.map((field) => (
-                    <div key={field.id} className="px-3.5 py-3">
+                    <div key={field.id} className="px-3.5 py-2">
                       {renderField(field)}
                     </div>
                   ))}
@@ -649,10 +653,8 @@ function InlineSpeakerSection({ speakers, onAddSpeaker, onRemoveSpeaker, onUpdat
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md bg-muted/60">
-            <User className="h-3.5 w-3.5 text-foreground/60" />
-          </div>
-          <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/60">Speaker</p>
+          <User className="h-4 w-4 text-muted-foreground/50" />
+          <p className="text-xs font-semibold text-foreground/70">Speaker</p>
           {speakers.length > 0 && (
             <span className="bg-violet-500/10 text-violet-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
               {speakers.length}

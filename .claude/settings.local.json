@@ -329,7 +329,9 @@
       "Bash(Get-ChildItem *)",
       "WebFetch(domain:www.mangidik.com)",
       "Bash(Get-Item -Path \"app/\\(dashboard\\)/lab\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -Property FullName)"
+      "Bash(Select-Object -Property FullName)",
+      "mcp__stitch__create_project",
+      "mcp__stitch__create_design_system"
     ],
     "deny": [],
     "ask": [],

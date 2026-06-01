@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   LayoutDashboard,
-  Sparkles,
   Images,
   Palette,
   Image as ImageIcon,
@@ -44,8 +43,6 @@ import {
   Coins,
   CalendarDays,
   Link2,
-  FlaskConical,
-  Hammer,
   PenTool,
 } from 'lucide-react'
 import { ROUTES } from '@/lib/config/constants'
@@ -69,21 +66,6 @@ const mainNavItems: NavItem[] = [
     title: 'Events',
     href: ROUTES.events,
     icon: CalendarDays,
-  },
-  {
-    title: 'Create',
-    href: ROUTES.create,
-    icon: Sparkles,
-  },
-  {
-    title: 'Lab',
-    href: ROUTES.lab,
-    icon: FlaskConical,
-  },
-  {
-    title: 'Forge',
-    href: ROUTES.forge,
-    icon: Hammer,
   },
   {
     title: 'Designer',
