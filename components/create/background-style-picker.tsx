@@ -6,10 +6,9 @@ import { cn } from '@/lib/utils'
 import { getGroupedBackgroundStyles } from '@/lib/config/background-styles'
 
 /**
- * Collapsible, category-grouped background-style picker. Shared by the create / lab /
- * forge canvas panels so the grouping logic lives in one place. Presentation-only —
- * the selected id is passed straight back via onSelect. The category containing the
- * current value opens by default; clicking a header toggles its section.
+ * Category-grouped background-style picker shared by create / lab / forge canvas panels.
+ * All categories are expanded by default so every style is visible immediately.
+ * Clicking a category header collapses/expands it. Presentation-only — calls onSelect.
  */
 export function BackgroundStylePicker({
   value,
@@ -19,24 +18,32 @@ export function BackgroundStylePicker({
   onSelect: (id: string) => void
 }) {
   const groups = useMemo(() => getGroupedBackgroundStyles(), [])
-  const activeGroupLabel = useMemo(
-    () => groups.find((g) => g.styles.some((s) => s.id === value))?.label ?? groups[0]?.label ?? null,
-    [groups, value]
+  // All categories open by default so every style is visible immediately.
+  // Users can collapse individual categories they don't need.
+  const [openLabels, setOpenLabels] = useState<Set<string>>(
+    () => new Set(groups.map((g) => g.label))
   )
-  const [openLabel, setOpenLabel] = useState<string | null>(activeGroupLabel)
+
+  const toggleLabel = (label: string) =>
+    setOpenLabels((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
 
   return (
     <div className="space-y-1">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">Background Style</p>
       <div className="space-y-1">
         {groups.map((group) => {
-          const isOpen = openLabel === group.label
+          const isOpen = openLabels.has(group.label)
           const hasActive = group.styles.some((s) => s.id === value)
           return (
             <div key={group.label} className="rounded-lg border border-border/40 overflow-hidden">
               <button
                 type="button"
-                onClick={() => setOpenLabel(isOpen ? null : group.label)}
+                onClick={() => toggleLabel(group.label)}
                 className={cn(
                   'flex w-full items-center justify-between px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors',
                   hasActive ? 'text-primary' : 'text-muted-foreground/70',
