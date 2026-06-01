@@ -933,19 +933,6 @@ export function CanvasCreatePage({
 
             {/* Pinned footer — Review → Generate flow */}
             <div className="shrink-0 p-3.5 border-t border-border/40 bg-card/80 backdrop-blur-sm">
-              {/* Pre-generation "AI understood this" — confirm before spending a generation */}
-              {!generatedImage && (previewSummary || previewStructured || previewLoading) && (
-                <div className="mb-3">
-                  <AiUnderstoodPanel
-                    variant="inline"
-                    loading={previewLoading}
-                    summary={previewSummary || ''}
-                    structured={previewStructured}
-                    styleBlendPlan={styleBlendPlan}
-                    dismissible={false}
-                  />
-                </div>
-              )}
               {generatedImage ? (
                 /* Post-generation: Download + Edit + Regen + Gallery */
                 <div className="flex items-center gap-2">
@@ -1328,18 +1315,6 @@ export function CanvasCreatePage({
 
       {/* Pinned footer — Review → Generate gate (same as desktop) */}
       <div className="shrink-0 p-3 border-t border-border/40 bg-card/90 backdrop-blur-sm">
-        {!generatedImage && (previewSummary || previewStructured || previewLoading) && (
-          <div className="mb-2.5">
-            <AiUnderstoodPanel
-              variant="inline"
-              loading={previewLoading}
-              summary={previewSummary || ''}
-              structured={previewStructured}
-              styleBlendPlan={styleBlendPlan}
-              dismissible={false}
-            />
-          </div>
-        )}
         {generatedImage ? (
           <div className="flex items-center gap-2">
             <Button
