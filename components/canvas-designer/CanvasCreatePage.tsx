@@ -899,26 +899,6 @@ export function CanvasCreatePage({
                     />
                   </div>
 
-                  {/* Your Visual Idea — high-priority free-text direction (Designer Pipeline) */}
-                  <div className="border-t border-border/60">
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-muted/20">
-                      <Sparkles className="h-3.5 w-3.5 text-violet-500/70" />
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground/70">Your Visual Idea</p>
-                      <span className="ml-auto text-[10px] text-muted-foreground/60">optional</span>
-                    </div>
-                    <div className="px-3.5 pb-3.5 pt-1">
-                      <textarea
-                        value={previewIdea}
-                        onChange={(e) => updateFormData({ userVisualIdea: e.target.value })}
-                        rows={2}
-                        placeholder="e.g. Show JKKN nursing students helping riders wear helmets near a zebra crossing"
-                        className="w-full resize-none rounded-lg border border-border/60 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-violet-400/60 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
-                      />
-                      <p className="mt-1 text-[10px] text-muted-foreground/60">
-                        Describe the scene you picture. The AI treats this as the primary direction.
-                      </p>
-                    </div>
-                  </div>
 
                   {/* Event Details — below setup */}
                   <div className="border-t border-border/60">
@@ -1294,23 +1274,6 @@ export function CanvasCreatePage({
               onImageSearchChange={setUseImageSearch}
             />
 
-            {/* Your Visual Idea */}
-            <div className="border-t border-border/20">
-              <div className="flex items-center gap-2 px-3 py-2.5">
-                <Sparkles className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-                <p className="text-xs font-semibold text-foreground/70">Your Visual Idea</p>
-                <span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground/60">optional</span>
-              </div>
-              <div className="px-3 pb-3 pt-0">
-                <textarea
-                  value={previewIdea}
-                  onChange={(e) => updateFormData({ userVisualIdea: e.target.value })}
-                  rows={2}
-                  placeholder="Describe the scene you picture — the AI uses this as its primary direction."
-                  className="w-full resize-none rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-sm text-foreground/90 placeholder:text-muted-foreground/40 focus:border-primary/40 focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
-                />
-              </div>
-            </div>
 
             {/* Event Details */}
             <div className="border-t border-border/20">

@@ -78,6 +78,21 @@ const FONT_PERSONA: Array<{ re: RegExp; desc: string; short: string }> = [
     desc: 'humanist readable sans — neutral and highly legible, ideal for small secondary detail text',
     short: 'humanist readable sans',
   },
+  {
+    re: /^(dancing script|pacifico|satisfy|great vibes|sacramento|alex brush|lobster|amatic)$/i,
+    desc: 'flowing script lettering — fluid connected strokes with natural pen-pressure variation, expressive and personal, suited for warm or celebratory contexts',
+    short: 'expressive script lettering',
+  },
+  {
+    re: /^(rockwell|clarendon|zilla slab|roboto slab|arvo|crete round|quattrocento)$/i,
+    desc: 'slab-serif display lettering — uniform-weight rectangular serifs, sturdy and mechanical, strong at large sizes with a vintage poster authority',
+    short: 'slab-serif display title',
+  },
+  {
+    re: /^(quicksand|varela|comfortaa|rounded mplus|nunito)$/i,
+    desc: 'rounded geometric sans — circular terminals, friendly consistent weight, warm and approachable, suggests an accessible professional context',
+    short: 'rounded geometric sans',
+  },
 ]
 
 /** Describe a font by its visual personality (used in fontDirection). */
@@ -114,12 +129,16 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Theatrical movie-poster title treatment: a large custom display title in bold condensed or cinematic block/serif lettering, dimensional with a controlled highlight and a subtle metallic or glow edge, commanding the frame with strong dramatic scale.',
     fontDirection:
-      'A bold condensed cinematic display face (Oswald / Bebas / Anton energy) — tall, compact, high-impact uppercase letterforms with strong vertical weight.',
+      'Render the headline letters as MONOLITHIC VERTICAL COLUMNS — each character is tall and narrow (height ≈ 3–4× its width), with uniform-weight strokes and razor-sharp angular terminals, zero decorative elements. The letterforms are architectural and weight-forward, like a championship marquee or military inscription engraved in stone.',
     fontShort: 'bold cinematic display title',
     hierarchy:
       'Title is the dominant focal element (often the largest object after the hero); tagline sits tight beneath it; details are clearly tertiary.',
     letterSpacing: 'Tight, deliberate tracking on the title; slightly open on the tagline for drama.',
-    textEffects: ['dimensional depth', 'controlled rim/edge highlight', 'subtle cinematic glow or metallic sheen'],
+    textEffects: [
+      'Each letter appears to physically protrude from the surface, with a directional drop shadow offset 3–5% of letter height, matching the scene\'s primary light source',
+      'A bright thin light catches the upper-left edge of each letter as if a spotlight is positioned above-left — a luminous rim on the raised letter edge',
+      'A subtle metallic sheen runs across the face of the letterforms — not reflective chrome, but a cinematic title-card burnished finish',
+    ],
     supportingTextStyle:
       'Supporting text in a clean condensed sans, smaller and quieter, with cinematic spacing — never competing with the title.',
     avoid: ['flat office sans-serif title', 'evenly-lit pasted-on text'],
@@ -130,12 +149,16 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Premium luxury display lettering: an elegant high-contrast serif or refined display sans with gold-foil / champagne highlights or a subtle bevel, generous tracking, and clean breathing space that signals premium quality.',
     fontDirection:
-      'An elegant high-contrast serif or refined display sans (Playfair / Cormorant / Didot energy) — graceful thick-to-thin strokes with couture poise.',
+      'Each headline letter has HIGH-CONTRAST COUTURE architecture: ultra-thin hairline crossbars and serifs that flare into dramatic thick downstrokes — as if written with a broad calligraphy nib pressed to its widest angle. Stroke tension between thin and thick is extreme; the letterforms feel expensive and deliberate, with generous air between each character.',
     fontShort: 'elegant high-contrast display',
     hierarchy:
       'Title leads with quiet authority and ample negative space; supporting lines are delicate and well-spaced; nothing crowds the lockup.',
     letterSpacing: 'Generous, luxurious tracking; airy line spacing; refined kerning.',
-    textEffects: ['gold-foil / champagne highlight', 'subtle bevel or soft emboss', 'fine premium sheen'],
+    textEffects: [
+      'The letter strokes have a foil-stamped finish: a smooth gradient from pale champagne at the highlight through warm gold to deep amber in the deepest shadow',
+      'Each letter has a soft raised profile: lighter along the top edge, darker along the bottom, as if the letter is a shallow relief pressed into expensive card stock',
+      'A fine premium sheen catches across the thick strokes — the quiet gleam of polished metal, not the blaze of chrome',
+    ],
     supportingTextStyle:
       'Supporting text in a light, refined sans with wide tracking — understated and elegant.',
     avoid: ['cheap neon glow', 'heavy clutter', 'basic Arial-like text'],
@@ -146,12 +169,15 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Magazine-cover title lockup: a tall condensed bold display face with strong left/grid alignment, premium spacing, and a crisp masthead-style title lockup.',
     fontDirection:
-      'A tall condensed bold display face with editorial discipline (Archivo / Oswald / League Gothic energy) — structured, grid-aligned, premium.',
+      'The title letters are TALL PRECISION BLADES — condensed to roughly half their natural width, with flat-cut terminals and strict geometric construction. Every character aligns to an invisible vertical grid with the discipline of a newspaper masthead or magazine cover logotype. No unnecessary curves; only the essential geometry of each letter.',
     fontShort: 'tall condensed editorial display',
     hierarchy:
       'Title anchored to a strong alignment line; subheads and details follow a clear editorial grid; confident size jumps between levels.',
     letterSpacing: 'Tight condensed tracking on the title; structured, even spacing throughout.',
-    textEffects: ['crisp clean edges', 'optional thin accent rule under the title'],
+    textEffects: [
+      'The letterforms have perfectly sharp edges with zero anti-aliasing blur — like letterpress printing or precision laser engraving on metal',
+      'A single hairline horizontal rule (1–2px) sits beneath the title, extending to the width of the longest word — a refined editorial separator that grounds the lockup',
+    ],
     supportingTextStyle: 'Supporting text in a clean sans set on the same grid — small caps or tracked labels for kickers.',
     avoid: ['generic centered paragraph text', 'soft fuzzy edges'],
   },
@@ -161,12 +187,16 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Celebratory festival title: big, joyful premium display lettering with a warm glow, confetti-aware spacing, and high readability — festive energy that still feels designed and premium, not cheap.',
     fontDirection:
-      'A big festive display face — rounded or bold display letterforms with celebratory weight and warmth, still crisp and readable.',
+      'The headline letters are BIG CELEBRATORY SHAPES — wide, rounded, and visually warm. Each letter has generous ink weight with smooth curves (no sharp corners), as if stamped or pressed with a thick rubber die. The overall impression is cheerful, high-energy, and immediately readable even across the room.',
     fontShort: 'big festive display title',
     hierarchy:
       'Title is large and central-stage, radiating energy; tagline supports the celebration; details stay clean and legible amid the festivity.',
     letterSpacing: 'Comfortable, slightly open tracking so the title breathes among festive elements.',
-    textEffects: ['warm celebratory glow', 'dimensional highlight', 'sparkle/foil accent (subtle, controlled)'],
+    textEffects: [
+      'A warm orange-gold halo radiates softly from behind and around each letter, as if the text is lit from within by candlelight or the glow of fireworks',
+      'Each letter appears to gently protrude from the surface with a soft directional highlight on the upper face — celebratory dimensional warmth, not harsh shadow',
+      'Tiny sparkle or foil accents appear at letter intersections or stroke ends — very subtle, like reflected light catching the tips of the letters',
+    ],
     supportingTextStyle: 'Supporting text in a friendly clean sans, high-contrast against the festive scene for legibility.',
     avoid: ['plain document heading style', 'muddy low-contrast text on busy backgrounds'],
   },
@@ -176,12 +206,16 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Energetic youth title: bold rounded display or varsity-style lettering with playful scale variation and strong colour accents — fun, dynamic, and confident.',
     fontDirection:
-      'A bold rounded display or varsity/collegiate face (Poppins-bold / varsity-block energy) — punchy, friendly, high-energy letterforms.',
+      'The letters are BOLD ROUNDED BUBBLES — each character has a friendly, slightly inflated quality with smooth rounded terminals, consistent thick strokes, and a playful scale difference between words (the key word is 20–30% larger). Think varsity block letters or a bold printed sticker — every character feels physically present and confident.',
     fontShort: 'bold rounded / varsity display',
     hierarchy:
       'Title is big and lively with playful scale shifts between words; supporting text is upbeat and clear; accents pop on key words.',
     letterSpacing: 'Punchy, slightly tight tracking; expressive size contrast between words allowed.',
-    textEffects: ['strong colour accents', 'bold outline or sticker edge', 'subtle drop shadow'],
+    textEffects: [
+      'Key letters or words have a vivid fill colour (the accent from the palette) while others stay in the dominant colour — deliberate colour-blocking, not random',
+      'Each letter is surrounded by a solid 3–5% stroke in the darkest palette colour, making the letterform read like a sticker or bold screenprinted label',
+      'A clean offset drop shadow sits 4–6% below and right of each letter in a darker version of the background — pops the text off the surface',
+    ],
     supportingTextStyle: 'Supporting text in a rounded geometric sans — friendly and readable.',
     avoid: ['formal corporate text', 'stiff thin lettering'],
   },
@@ -191,12 +225,15 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Clean-but-designed institutional title: a strong geometric sans or editorial serif with structured hierarchy, premium spacing, and brand-safe polish — authoritative, never boring.',
     fontDirection:
-      'A strong geometric sans or restrained editorial serif (Gotham / Futura / Montserrat-bold or a refined serif) — structured, premium, brand-safe.',
+      'The letterforms are STRUCTURED GEOMETRIC BLOCKS — even-stroke-weight sans-serif capitals with open apertures and measured proportions, or a refined editorial serif with clear classical structure. Every letter sits with authority on a disciplined baseline. There is no frivolity in the form; only confident, precise geometry that communicates institutional credibility.',
     fontShort: 'strong geometric sans / editorial serif',
     hierarchy:
       'Title leads with structured authority; clear, disciplined levels; generous, deliberate spacing signalling premium institution.',
     letterSpacing: 'Measured, even tracking; disciplined alignment; confident size hierarchy.',
-    textEffects: ['clean crisp edges', 'optional thin brand-accent rule', 'subtle depth only'],
+    textEffects: [
+      'The letterforms have perfectly sharp edges — clean and precise, as if produced by a high-quality offset press or institutional signage',
+      'A single thin brand-accent rule (1–2px in the accent colour) sits beneath or beside the title — a restrained institutional flourish',
+    ],
     supportingTextStyle: 'Supporting text in a clean geometric sans — structured, legible, premium.',
     avoid: ['boring default document font', 'cluttered or playful styling'],
   },
@@ -206,12 +243,15 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Restrained modern title: an elegant sans or serif with high spacing discipline and quiet confidence — refined, spacious, and effect-light.',
     fontDirection:
-      'An elegant minimal sans or serif (DM Sans / Inter-tight / refined serif) — clean letterforms, lots of air, quiet authority.',
+      'The letters are REFINED AND WEIGHTLESS — thin to medium strokes with high x-height, abundant negative space both within and around each character, and precise optical spacing. The letterforms recede elegantly, drawing attention through restraint rather than mass. Every letter is a study in considered reduction.',
     fontShort: 'elegant minimal sans/serif',
     hierarchy:
       'Title leads through scale and spacing alone; very few levels; abundant negative space is the design.',
     letterSpacing: 'Generous, disciplined tracking; large line spacing; precise kerning.',
-    textEffects: ['no heavy effects — rely on weight, scale and space', 'at most a hairline accent'],
+    textEffects: [
+      'No glow, no bevel, no shadow — the typography communicates purely through letterform weight, generous scale, and disciplined negative space',
+      'At most: a single hairline accent in the palette accent colour — one thin line only, nothing more',
+    ],
     supportingTextStyle: 'Supporting text whisper-quiet — light weight, wide tracking, plenty of room.',
     avoid: ['plain default-font appearance', 'busy effects', 'crowded layout'],
   },
@@ -221,12 +261,15 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Handcrafted cultural title: decorative-yet-readable lettering with a warm traditional rhythm and festival energy — culturally inspired ornament that never sacrifices legibility.',
     fontDirection:
-      'A culturally-inspired display voice — warm, crafted letterforms (traditional/festival character) kept clean and readable, not over-ornamented.',
+      'The letters have HANDMADE WARMTH — subtle variations in stroke pressure, slightly irregular edges as if drawn with a broad brush or a traditional reed pen, and a rhythm that feels hand-placed rather than machine-set. The letterforms reference Indian festival lettering or hand-painted signage from temple towns: warm, crafted, and unmistakably human in character.',
     fontShort: 'crafted cultural display',
     hierarchy:
       'Title carries crafted character and leads warmly; supporting text stays simple and clear so ornament never blocks reading.',
     letterSpacing: 'Rhythmic, comfortable tracking that suits the crafted forms; clear spacing on details.',
-    textEffects: ['warm gold/earthen highlight', 'subtle traditional ornament framing (restrained)'],
+    textEffects: [
+      'A warm earthy gold gradient runs diagonally across the letter strokes, as if gilded with natural pigment or turmeric-tinged gold — rich but not garish',
+      'The title lockup is flanked by a single pair of traditional ornament elements (a thin divider rule, a small floral motif, or a decorative bracket) — one pair only, never overwhelming the text',
+    ],
     supportingTextStyle: 'Supporting text in a clean, simple sans/serif — the calm counterpoint to the crafted title.',
     avoid: ['over-ornamental unreadable text', 'sterile corporate styling'],
   },
@@ -236,12 +279,15 @@ const TYPOGRAPHY_RECIPES: Record<HeadlinePersonality, TypographyRecipe> = {
     titleTreatment:
       'Futuristic tech title: sharp geometric lettering with subtle chrome or precise glow and digital precision — clean, advanced, and confident.',
     fontDirection:
-      'A sharp geometric / technical display face — precise edges, even geometry, a forward-looking digital character.',
+      'Each letter is a PRECISION GEOMETRIC FORM — constructed with exact angles, minimal curves (only where structurally necessary), and ultra-clean terminals as if machined from aerospace-grade metal. The overall impression is a technical blueprint or circuit schematic: clinical, forward-looking, zero organic variation. Every character is engineered, not drawn.',
     fontShort: 'sharp geometric tech display',
     hierarchy:
       'Title leads with precise geometry; tight, exact alignment; clear, machined levels of hierarchy.',
     letterSpacing: 'Precise, slightly wide tracking; exact, grid-locked alignment.',
-    textEffects: ['subtle chrome / metallic edge', 'precise thin glow or scanline accent (controlled)'],
+    textEffects: [
+      'Each letter has a sharp metallic rim: a thin specular highlight line along the top-left edge, as if the character is fabricated from brushed aluminium — no soft glow, only a precision edge',
+      'A crisp 1–2px luminous edge traces the letter outline, suggesting a neon tube or laser-cut indicator light — precision only, no soft diffuse glow spreading beyond the letter',
+    ],
     supportingTextStyle: 'Supporting text in a clean technical sans — exact and legible.',
     avoid: ['random sci-fi clutter', 'noisy glitch overload'],
   },
@@ -576,19 +622,23 @@ export function buildTypographyDirectionBlock(
   const supporting = supportingLines.filter(Boolean).join(' · ')
   return [
     '<TYPOGRAPHY_DIRECTION>',
-    '(DESIGN DIRECTIVE — apply this to the title & text STYLING only; do NOT render these notes as literal text in the poster.)',
-    'Design the poster typography as CUSTOM POSTER LETTERING, not normal document text.',
+    '[TYPOGRAPHY MANDATE — highest priority visual requirement]',
+    'Render ALL text in this poster as CUSTOM DESIGNED LETTERING, not generic system fonts. The headline must be the visual anchor of the entire composition.',
+    '(DESIGN DIRECTIVE — apply to title & text STYLING only; do NOT render these notes as literal text in the poster.)',
+    'Visual scale: The main title must be the SINGLE LARGEST typographic element on the canvas — it should span 45–70% of the canvas width. No other text element may exceed 40% of the title\'s visual weight.',
     mainTitle ? `Main title text to render: "${mainTitle}"` : '',
-    `Title treatment: ${plan.titleTreatment}`,
     `Font personality: ${plan.fontDirection}`,
+    `Title treatment: ${plan.titleTreatment}`,
     `Hierarchy: ${plan.hierarchy}`,
     `Letter spacing: ${plan.letterSpacing}`,
-    plan.textEffects.length ? `Text effects (controlled): ${plan.textEffects.join('; ')}.` : '',
+    plan.textEffects.length ? `REQUIRED VISUAL EFFECTS (render these on the lettering): ${plan.textEffects.join('; ')}.` : '',
     `Supporting text: ${plan.supportingTextStyle}`,
-    supporting ? `Detail lockup (${supporting}): compact premium detail typography, NOT a generic UI card.` : 'Date/venue: compact premium detail lockup, NOT a generic UI card.',
+    supporting
+      ? `Detail lockup (${supporting}): compact premium detail typography, legible but clearly secondary, NOT a generic UI card.`
+      : 'Date/venue/details: compact premium detail lockup — small, legible, clearly subordinate to the title; NOT a generic UI card.',
     `Colour: ${plan.colorTreatment}`,
     `Scene integration: ${plan.layoutRelationship}`,
-    `Avoid: ${plan.avoid.join(', ')}.`,
+    `Avoid: ${plan.avoid.join(', ')}. CRITICAL FAILURE MODE TO AVOID: Do NOT render the title as plain horizontal text floating on top of the image like a watermark or photo caption — the lettering must look DESIGNED and INTEGRATED, as if it belongs to the artwork itself.`,
     '</TYPOGRAPHY_DIRECTION>',
   ]
     .filter(Boolean)

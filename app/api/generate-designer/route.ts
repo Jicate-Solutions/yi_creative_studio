@@ -2696,7 +2696,11 @@ export async function POST(request: NextRequest) {
         // Applies whether the Director path produced the prompt or it fell back to XML.
         if (designerTypographyPlan && designerTypographyPlan.typographyMode !== 'engine-exact') {
           const tp = designerTypographyPlan
-          const typoBlock = buildTypographyDirectionBlock(tp, compiledData.eventName ?? '', [])
+          const typoBlock = buildTypographyDirectionBlock(tp, compiledData.eventName ?? '', [
+            compiledData.tagline,
+            formatEventDate(compiledData.date) || undefined,
+            compiledData.venue,
+          ].filter((s): s is string => !!s))
           finalXmlPrompt = `${finalXmlPrompt}\n\n${typoBlock}`
           console.log(
             `[v1.3 Typography] ${tp.personalityBlend.join(' + ')} | mode=${tp.typographyMode}` +
