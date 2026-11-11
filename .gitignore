@@ -43,3 +43,6 @@ next-env.d.ts
 # font extraction - NOW COMMITTED for Vercel runtime availability
 # .fonts/
 # lib/config/font-paths.json
+
+# Local credential files: never commit (security clean-up 2026-11-11)
+.mcp.json
